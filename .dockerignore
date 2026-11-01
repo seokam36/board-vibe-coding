@@ -1,0 +1,13 @@
+.git
+.gradle
+.idea
+.claude
+build
+docs
+scripts
+HELP.md
+*.md
+.env
+.env.*
+Dockerfile
+.dockerignore
