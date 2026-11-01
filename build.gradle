@@ -26,6 +26,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	// PostgreSQL JDBC 드라이버 (실행 시에만 필요)
 	runtimeOnly 'org.postgresql:postgresql'
+	// 보일러플레이트(getter, 생성자) 자동 생성. 컴파일 시에만 필요하고 버전은 Boot BOM이 관리
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	// 테스트에서 실제 PostgreSQL 컨테이너를 띄우고 @ServiceConnection으로 자동 연결
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'

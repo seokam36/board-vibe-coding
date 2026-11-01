@@ -12,15 +12,14 @@ import com.example.demo.post.dto.PostCreateRequest;
 import com.example.demo.post.dto.PostResponse;
 import com.example.demo.post.repository.PostRepository;
 
+import lombok.RequiredArgsConstructor;
+
 // 게시글 비즈니스 로직. open-in-view=false이므로 엔티티→DTO 변환을 여기서 끝낸다.
 @Service
+@RequiredArgsConstructor // final 필드 생성자 주입 자동 생성
 public class PostService {
 
     private final PostRepository postRepository;
-
-    public PostService(PostRepository postRepository) {
-        this.postRepository = postRepository;
-    }
 
     // 게시글을 저장하고 저장된 결과(id, createdAt 포함)를 돌려준다
     @Transactional

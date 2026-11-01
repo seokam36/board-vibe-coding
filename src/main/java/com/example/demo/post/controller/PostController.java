@@ -16,17 +16,15 @@ import com.example.demo.post.dto.PostResponse;
 import com.example.demo.post.service.PostService;
 
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 // 게시글 HTTP 요청을 받는 진입점 (/posts)
 @RestController
 @RequestMapping("/posts")
+@RequiredArgsConstructor // final 필드 생성자 주입 자동 생성
 public class PostController {
 
     private final PostService postService;
-
-    public PostController(PostService postService) {
-        this.postService = postService;
-    }
 
     // 작성: 201 Created + Location 헤더로 새 글 주소를 알려준다
     @PostMapping

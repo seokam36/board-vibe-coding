@@ -10,10 +10,15 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 // 게시글 한 건을 나타내는 엔티티 (posts 테이블)
 @Entity
 @Table(name = "posts")
+@Getter // getter 자동 생성
+@NoArgsConstructor(access = AccessLevel.PROTECTED) // JPA용 protected 기본 생성자 자동 생성 (외부에서는 쓰지 않음)
 public class Post {
 
     @Id
@@ -30,10 +35,6 @@ public class Post {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    // JPA가 쓰는 기본 생성자 (외부에서는 쓰지 않음)
-    protected Post() {
-    }
-
     // 새 게시글은 제목과 본문으로만 만든다 (id, createdAt은 저장 시 채워짐)
     public Post(String title, String content) {
         this.title = title;
@@ -45,21 +46,5 @@ public class Post {
     void onCreate() {
         // Instant(UTC)로 시간대 혼선을 없애고, DB(마이크로초)와 같은 정밀도로 잘라 POST/GET 응답 시각을 일치시킨다
         this.createdAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
     }
 }
