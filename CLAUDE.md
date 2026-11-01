@@ -31,4 +31,4 @@ planner → (필요시 research) → build → tester → review → recorder �
 - docs/backlog.md = 기능 목록, docs/changelog.md = 변경 기록(recorder만 작성)
 
 ## 학습용
-- 단계가 끝나면 무엇을, 왜 했는지 짧게 설명한다. 사용자에게는 존댓말로 답한다.
+- 단계가 끝나면 무엇을, 왜 했는지 짧게 설명한다.
