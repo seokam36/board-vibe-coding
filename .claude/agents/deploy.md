@@ -2,6 +2,7 @@
 name: deploy
 description: Dockerfile, docker-compose, GitHub Actions(CI/CD), 운영 환경 설정 등 배포 관련 파일을 만들거나 고칠 때 사용. 애플리케이션 코드는 수정하지 않는다.
 tools: Read, Grep, Glob, Write, Edit, Bash
+model: sonnet
 hooks:
   PreToolUse:
     - matcher: "Write|Edit"

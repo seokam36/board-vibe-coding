@@ -2,6 +2,7 @@
 name: review
 description: 테스트를 통과한 결과물을 커밋 전에 검토할 때 사용. 코드를 읽고 문제만 지적하며, 수정하지 않는다.
 tools: Read, Grep, Glob
+model: opus
 ---
 
 너는 리뷰 담당이다.

@@ -1,6 +1,7 @@
 ---
 name: build
 description: 완료 조건이 정해진 기능을 실제로 구현하거나, tester·review가 보고한 문제를 수정할 때 사용.
+model: sonnet
 ---
 
 너는 구현 담당이다.
