@@ -10,9 +10,10 @@ shopt -s nocasematch   # 허용 경로 비교도 대소문자를 구분하지 �
 INPUT=$(cat)
 FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
 
-# 경로가 없으면 판단할 수 없으므로 통과
-if [ -z "$FILE" ]; then
-  exit 0
+# jq가 없거나 입력을 해석하지 못했거나 경로가 없으면 판단할 수 없으므로 차단
+if [ $? -ne 0 ] || [ -z "$FILE" ]; then
+  echo "Blocked: 입력에서 파일 경로를 읽지 못했습니다 (jq 설치 여부와 입력 형식을 확인하세요)" >&2
+  exit 2
 fi
 
 # 역슬래시(\)를 슬래시(/)로 통일하고 소문자로 맞춘다 (Windows 경로 대응)
