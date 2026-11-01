@@ -1,3 +1,24 @@
 # Changelog
 
 기능별 변경 기록. recorder가 작성한다. 최신 기록이 위에 온다.
+
+## [2026-11-01] S0. 프로젝트 뼈대 + 헬스체크 API + 첫 배포
+
+**무엇을**
+- actuator로 GET /actuator/health 제공(응답 {"status":"UP"}), Docker Hub(seokam36/demo) 경유로 AWS EC2(t3.micro, AL2023, 서울)에 수동 배포 (CI/CD 제외)
+
+**왜**
+- actuator 사용: 표준 방식이며 S1에서 DB 상태가 자동 반영됨. 웹 노출은 health만 허용해 env 등 차단
+- probes.enabled=false: Boot 4.1.2 기본값 true라 응답에 "groups"가 붙음. 응답을 {"status":"UP"}로 고정하는 대신 liveness/readiness 없음
+- 멀티 스테이지 Dockerfile, 비루트 사용자, 힙 60% 제한(1GB EC2). 빌드는 로컬에서 하고 Hub로 전달해 EC2 메모리 부족 회피
+
+**완료 조건**
+- [x] ./gradlew build 성공(테스트 포함), /actuator/health 200·정확히 {"status":"UP"}, 없는 경로와 /actuator/env 404
+- [x] docker build 및 로컬 컨테이너 헬스체크 200, 커밋 대상에 비밀 값 없음
+- [x] EC2 공인 IP에서 200·{"status":"UP"} 확인
+
+**변경 파일**
+- build.gradle, src/main/resources/application.properties, src/test/java/com/example/demo/HealthCheckTests.java, Dockerfile, .dockerignore, .gitignore
+
+**배운 점**
+- Boot 4.1.2에서 health probes 기본값이 true로 바뀌어 /actuator/health 응답에 groups가 포함됨
