@@ -2,6 +2,50 @@
 
 기능별 변경 기록. recorder가 작성한다. 최신 기록이 위에 온다.
 
+## [2026-11-01] S1-c-2. 게시판 화면 (React + TypeScript)
+
+**무엇을**
+- frontend/에 Vite react-ts 프로젝트. 화면: 목록 /, 작성 /posts/new, 상세 /posts/:id, 없는 경로 *. react-router(화면 이동), axios(인스턴스 하나, src/api.ts — baseURL = VITE_API_BASE_URL || http://localhost:8080). 로컬 실행까지, 배포는 S1-d
+- 리뷰: 필수 1건 수정 — 상세 id를 그대로 경로에 넣어 /posts/%3F가 목록 API(GET /posts/?)를 호출 → encodeURIComponent. 권장 반영: 성공 시 에러 초기화, 입력 label, role="alert", tsconfig strict 명시, README에 VITE_API_BASE_URL 빌드 시 고정 안내
+- 나중에 챙길 것: S1-d 배포 빌드 때 VITE_API_BASE_URL 필수(빠뜨리면 사용자 PC에서 localhost:8080 호출). 상세→상세 이동(이전/다음 글)이 생기면 loading/error/post 초기화 추가
+
+**왜**
+- 백엔드 주소·axios 설정은 api.ts 한 곳, 시각 변환은 formatDate 한 곳(ko-KR, Asia/Seoul): 바꿀 때 한 곳만
+- 상태는 useState/useEffect만(사용자 경험 범위), Redux·React Query·UI 라이브러리 없음. useEffect에 ignore 플래그로 늦게 온 응답 무시
+- 에러 구분: 응답 없음 → "서버에 연결할 수 없습니다", 400 → 입력 확인 문구(입력값 유지), 404/400(상세) → "글을 찾을 수 없습니다"
+- 프론트 빈 값 검사는 하지 않고 제목 maxLength=100만(서버 400을 확인하려고). 작성 후 응답 body id로 상세 이동
+- || 사용: .env의 빈 값도 기본 주소로
+
+**완료 조건**
+- [x] npm run build(tsc 포함), npm run lint(oxlint) 통과
+- [x] 주소는 api.ts에만, 라우트 3개 + BrowserRouter, 의존성은 react-router·axios만, 템플릿 정리, 시각 변환 단일화
+- [x] 브라우저 수동 확인: 목록·작성·상세·공백 제목·없는 글·서버 꺼짐·특수문자 주소, CORS 에러 없음
+
+**변경 파일**
+- frontend/ (src/main.tsx, App.tsx, api.ts, types.ts, formatDate.ts, errorMessage.ts, pages/*, index.html, README.md, .env.example 등)
+
+**배운 점**
+- 사용자 입력을 URL에 넣을 땐 encodeURIComponent / Vite 환경변수는 빌드 시점에 번들에 박힌다
+
+## [2026-11-01] R1. 롬복 도입 (리팩터링, 기능 변화 없음)
+
+**무엇을**
+- build.gradle에 lombok(compileOnly + annotationProcessor, 버전은 Boot BOM). Post의 getter 4개·protected 기본 생성자 → @Getter, @NoArgsConstructor(access = PROTECTED). PostService·PostController 생성자 → @RequiredArgsConstructor
+- 리뷰: 필수·권장 없음
+
+**왜**
+- 반복 코드 감소. 사용 규칙(사용자 합의): @Getter, @NoArgsConstructor(PROTECTED), @RequiredArgsConstructor만. @Setter·@Data·@ToString·@EqualsAndHashCode·@AllArgsConstructor·@Builder 금지(엔티티 보호, 연관관계 무한 참조 예방)
+- DTO는 record라 불필요. CorsConfig는 @Value 필드 주입 유지(롬복 생성자는 @Value를 복사하지 않아 실패)
+
+**완료 조건**
+- [x] 기존 테스트 31개 그대로 통과 (동작 변화 없음)
+
+**변경 파일**
+- build.gradle, Post.java, PostService.java, PostController.java
+
+**배운 점**
+- 롬복은 컴파일 때 코드를 만들어 주고 빠지는 도구(compileOnly) / 엔티티에는 필요한 것만 골라 쓴다
+
 ## [2026-11-01] S1-c-1. 백엔드 CORS 전역 설정
 
 **무엇을**
