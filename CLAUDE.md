@@ -29,6 +29,7 @@ planner → (필요시 research) → build → tester → review → recorder �
 - review에는 변경 파일 목록을 넘긴다. [필수 수정]은 build가 고친 뒤 tester를 다시 돌린다.
 - 커밋·push·배포는 사용자 승인 없이 하지 않는다. 커밋 형식: feat/fix/test/chore: 내용
 - docs/backlog.md = 기능 목록, docs/changelog.md = 변경 기록(recorder만 작성)
+- docs/api.md = API 명세. API를 추가·변경하면 build가 코드와 함께 고친다. review는 명세와 코드가 일치하는지 확인한다.
 
 ## 학습용
 - 단계가 끝나면 무엇을, 왜 했는지 짧게 설명한다.
