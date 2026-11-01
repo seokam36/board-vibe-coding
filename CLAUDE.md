@@ -6,7 +6,7 @@
 - Java 21, Spring Boot 4.1.2, Gradle
 - Spring Data JPA, PostgreSQL (로컬은 docker compose)
 - 테스트: JUnit 5, @DataJpaTest, @SpringBootTest + MockMvc
-- 배포 대상: (정해지면 적는다)
+- 배포 대상: AWS EC2 (Docker)
 
 ## 명령어
 - 빌드 `./gradlew build` / 테스트 `./gradlew test` / 실행 `./gradlew bootRun` / DB `docker compose up -d`
