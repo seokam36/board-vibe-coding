@@ -2,6 +2,29 @@
 
 기능별 변경 기록. recorder가 작성한다. 최신 기록이 위에 온다.
 
+## [2026-11-01] S1-b. 게시글 작성 + 조회 API
+
+**무엇을**
+- POST /posts(201 + Location), GET /posts/{id}, GET /posts(최신순, 페이징 없음). controller→service→repository, 응답은 PostResponse DTO
+- API 명세 docs/api.md 신설(build가 코드와 함께 갱신). 리뷰: 필수 1건(POST/GET createdAt 정밀도 불일치) 수정, 권장 5건 반영
+
+**왜**
+- 검증은 요청 DTO에 @NotBlank, @Size(max=100), NUL 금지 @Pattern → 잘못된 입력 400(Spring 기본 처리). 없는 글은 ResponseStatusException 404(공통 에러 처리는 나중)
+- createdAt은 Instant(UTC) + 마이크로초 절삭: KST/UTC 혼동 제거, POST 응답과 DB 저장값 일치. open-in-view=false로 응답 끝까지 DB 연결을 잡지 않고 서비스 안에서 DTO 변환(풀 3인 작은 서버)
+- 의존성 추가: spring-boot-starter-validation(입력 검증)
+
+**완료 조건**
+- [x] 작성 201 + 필드 + Location, 단건 200, 목록 최신순
+- [x] 없는 id 404, 숫자 아닌 id 400, 빈값·공백·누락·101자·NUL·깨진 JSON 400 + 저장 안 됨
+- [x] ./gradlew test 전체 통과 (21개)
+- [x] EC2에서 작성 후 조회 200 확인
+
+**변경 파일**
+- build.gradle, application.properties, post/{controller,service,repository,domain,dto}/*.java, docs/api.md, src/test/.../post/PostApiTests.java, TestcontainersConfiguration.java(public)
+
+**배운 점**
+- 테스트는 검사한 것만 보장한다 — 리뷰가 찾은 시각 불일치를 테스트로 추가해 재발을 막았다. 시각은 Instant(UTC)로 저장하고 보여줄 때 변환한다
+
 ## [2026-11-01] S1-a. DB 연결 (PostgreSQL)
 
 **무엇을**
