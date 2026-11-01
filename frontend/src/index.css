@@ -1,0 +1,7 @@
+/* 최소 스타일 */
+body {
+  font-family: system-ui, 'Segoe UI', sans-serif;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+}
