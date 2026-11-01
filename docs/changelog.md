@@ -2,6 +2,28 @@
 
 기능별 변경 기록. recorder가 작성한다. 최신 기록이 위에 온다.
 
+## [2026-11-01] S1-a. DB 연결 (PostgreSQL)
+
+**무엇을**
+- Spring Data JPA + PostgreSQL 17 연결. 접속 정보는 환경변수(DB_URL/DB_USERNAME/DB_PASSWORD), ddl-auto=update
+- 로컬은 docker compose(postgres만), EC2는 같은 compose의 prod 프로필로 앱+DB 함께 실행. 테스트는 Testcontainers로 테스트마다 임시 PostgreSQL 사용
+
+**왜**
+- 같은 EC2에 DB 컨테이너(추가 비용 없음). 1GB라 app 512m / postgres 256m 상한, shared_buffers 64MB, max_connections 20, Hikari 풀 3 (실측 합계 약 257MB)
+- 접속 값에 빈 기본값 없음(${DB_URL}): 누락 시 에러에 변수명이 보임(테스트 확인). 로컬 DB 포트는 127.0.0.1만, 비밀번호는 .env(gitignore)
+
+**완료 조건**
+- [x] docker compose up -d → 로컬 PostgreSQL 기동, 앱이 DB 연결 오류 없이 시작
+- [x] DB 접속 정보가 설정 파일에 값으로 없고 환경변수로 들어옴
+- [x] ./gradlew test 전체 통과 (4/4, Testcontainers)
+- [x] EC2에서 앱+DB 실행 후 /actuator/health 200 {"status":"UP"} (외부에서 DB 포트 닫힘 확인)
+
+**변경 파일**
+- build.gradle, application.properties, docker-compose.yml, .env.example, .gitignore, src/test/.../TestcontainersConfiguration.java, DemoApplicationTests.java, HealthCheckTests.java
+
+**배운 점**
+- Boot 4 + Testcontainers 2.x는 artifact(testcontainers-postgresql)와 패키지(org.testcontainers.postgresql)가 1.x 예제와 다름 / Amazon Linux 2023의 docker 패키지에는 compose 플러그인이 없어 따로 설치 필요
+
 ## [2026-11-01] S0. 프로젝트 뼈대 + 헬스체크 API + 첫 배포
 
 **무엇을**
