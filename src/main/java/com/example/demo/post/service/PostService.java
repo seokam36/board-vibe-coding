@@ -1,0 +1,47 @@
+package com.example.demo.post.service;
+
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import com.example.demo.post.domain.Post;
+import com.example.demo.post.dto.PostCreateRequest;
+import com.example.demo.post.dto.PostResponse;
+import com.example.demo.post.repository.PostRepository;
+
+// 게시글 비즈니스 로직. open-in-view=false이므로 엔티티→DTO 변환을 여기서 끝낸다.
+@Service
+public class PostService {
+
+    private final PostRepository postRepository;
+
+    public PostService(PostRepository postRepository) {
+        this.postRepository = postRepository;
+    }
+
+    // 게시글을 저장하고 저장된 결과(id, createdAt 포함)를 돌려준다
+    @Transactional
+    public PostResponse create(PostCreateRequest request) {
+        Post saved = postRepository.save(new Post(request.title(), request.content()));
+        return PostResponse.from(saved);
+    }
+
+    // 게시글 한 건 조회. 없으면 404
+    @Transactional(readOnly = true)
+    public PostResponse get(Long id) {
+        Post post = postRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "게시글을 찾을 수 없습니다."));
+        return PostResponse.from(post);
+    }
+
+    // 전체 목록을 최신순으로 조회 (페이징 없음)
+    @Transactional(readOnly = true)
+    public List<PostResponse> getAll() {
+        return postRepository.findAllByOrderByIdDesc().stream()
+                .map(PostResponse::from)
+                .toList();
+    }
+}
