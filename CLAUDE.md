@@ -22,6 +22,7 @@
 
 ## 작업 흐름 (메인 대화용)
 planner → (필요시 research) → build → tester → review → recorder → (필요시 deploy)
+- 사용자가 새 기능을 요청하면 planner 전에 메인 대화가 docs/backlog.md에 항목(다음 S번호)을 추가하고 사용자에게 보여준다. 사용자가 말하지 않은 기능은 추가하지 않는다.
 - 서브에이전트는 이전 대화를 모른다. 완료 조건·변경 파일·실패 내용을 요약해서 넘긴다.
 - planner 결과가 나오면 멈추고 사용자 승인을 받는다.
 - tester 실패 → build 수정 (2회 넘게 실패하면 멈추고 보고).
