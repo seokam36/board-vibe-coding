@@ -6,4 +6,7 @@
 - [x] S0. 프로젝트 뼈대 + 헬스체크 API + 첫 배포 (deploy 위주)
 - [x] S1-a. DB 연결 (PostgreSQL, 로컬 compose, 테스트 DB, EC2)
 - [x] S1-b. 게시글 작성 + 조회 API
+- [ ] S1-c-1. 백엔드 CORS 전역 설정
+- [ ] S1-c-2. 게시판 화면 (React + TypeScript: 목록, 상세, 작성) — 로컬 실행까지
+- [ ] S1-d. 프론트엔드 배포
 - [ ] S2. 게시글 수정 + 삭제
