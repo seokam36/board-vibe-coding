@@ -20,7 +20,14 @@ repositories {
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	// JPA로 DB를 다루기 위한 스타터 (Hibernate + 커넥션 풀 포함)
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	// PostgreSQL JDBC 드라이버 (실행 시에만 필요)
+	runtimeOnly 'org.postgresql:postgresql'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	// 테스트에서 실제 PostgreSQL 컨테이너를 띄우고 @ServiceConnection으로 자동 연결
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation 'org.testcontainers:testcontainers-postgresql'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 

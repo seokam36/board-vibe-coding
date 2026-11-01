@@ -1,0 +1,26 @@
+# 로컬 개발용 DB. 앱은 ./gradlew bootRun으로 따로 실행한다.
+services:
+  postgres:
+    # 17 버전 고정: latest는 갑자기 바뀌어 데이터 호환 문제가 생길 수 있음
+    image: postgres:17
+    container_name: board-postgres
+    environment:
+      # .env에서 값을 읽는다 (비밀번호를 파일에 쓰지 않기 위함). 값이 없으면 시작 시 오류
+      POSTGRES_DB: ${POSTGRES_DB:?.env에 POSTGRES_DB를 설정하세요}
+      POSTGRES_USER: ${POSTGRES_USER:?.env에 POSTGRES_USER를 설정하세요}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?.env에 POSTGRES_PASSWORD를 설정하세요}
+    ports:
+      # 내 PC(127.0.0.1)에서만 5432로 접속 가능. 같은 와이파이의 다른 기기는 접근 불가
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # 컨테이너를 지워도 데이터가 남도록 named volume 사용
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      # DB가 접속 가능한 상태인지 확인 (healthy가 되면 사용 가능)
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:
