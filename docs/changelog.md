@@ -2,6 +2,34 @@
 
 기능별 변경 기록. recorder가 작성한다. 최신 기록이 위에 온다.
 
+## [2026-11-01] S1-c-1. 백엔드 CORS 전역 설정
+
+**무엇을**
+- WebMvcConfigurer(config/CorsConfig)로 /**에 허용 origin 적용. app.cors.allowed-origins=${CORS_ALLOWED_ORIGINS:http://localhost:5173} (쉼표 구분)
+- 다음 기능(React, localhost:5173)이 axios로 API(8080)를 부르기 위함. docs/api.md에 CORS 안내, .dockerignore에 frontend 추가
+
+**왜**
+- 컨트롤러별 @CrossOrigin 대신 전역 한 곳: 컨트롤러가 늘어도 빠뜨리지 않음. Vite 프록시 대신 백엔드 CORS: 프론트를 따로 배포하면 어차피 필요
+- 허용 origin은 환경변수로 받아 배포 시 코드 수정 없이 바꿈. origin은 비밀이 아니라 로컬 기본값만 파일에 둠(DB 접속 정보와 다름)
+- 허용 메서드는 기본값(GET, HEAD, POST), credentials·exposedHeaders 없음
+
+**완료 조건**
+- [x] 허용 origin의 preflight·GET·POST와 에러 응답(400/404)에 Allow-Origin 포함
+- [x] 허용 안 된 origin은 403, Allow-Origin 없음
+- [x] 프로퍼티 변경 시 허용 origin이 바뀜(쉼표 뒤 공백 처리)
+- [x] 기존 테스트 포함 전체 통과 (31/31)
+
+**변경 파일**
+- config/CorsConfig.java, application.properties, docs/api.md, .dockerignore, src/test/.../CorsTests.java, CorsPropertyTests.java
+
+**나중에 챙길 것**
+- S1-d: compose에서 CORS_ALLOWED_ORIGINS를 빈 값으로 넘기면 허용 origin 0개 → 모든 교차 출처 요청 403. 필수값으로 강제
+- S2: PUT/DELETE 추가 시 allowedMethods를 명시하면 기본값이 덮어써지므로 GET/HEAD/POST도 함께 적기
+- 테스트 컨텍스트마다 PostgreSQL 컨테이너가 떠서(현재 3개) 늘어나면 싱글턴 컨테이너로
+
+**배운 점**
+- CORS는 브라우저의 보안 규칙이라 curl은 막지 않는다 / 에러 응답에도 Allow-Origin이 있어야 프론트가 상태코드를 읽을 수 있다
+
 ## [2026-11-01] S1-b. 게시글 작성 + 조회 API
 
 **무엇을**
