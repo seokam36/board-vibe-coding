@@ -2,6 +2,32 @@
 
 기능별 변경 기록. recorder가 작성한다. 최신 기록이 위에 온다.
 
+## [2026-11-02] S2-b. 게시글 수정 + 삭제 화면 (프론트)
+
+**무엇을**
+- 상세: 글을 불러온 경우에만 [수정] 링크·[삭제] 버튼. 삭제는 window.confirm → DELETE → navigate('/', {replace: true}). 삭제 에러는 불러오기 에러와 별도 state
+- 수정 화면(/posts/:id/edit): 글을 불러와 채우고, 불러오기 실패 시 폼 숨김 + "목록으로". PUT 저장(저장 중 disabled), 성공 시 상세로 replace 이동. 400/404/연결 실패 문구, 입력값 유지, [취소]
+- App.tsx 라우트 추가, types.ts에 PostUpdateRequest. 통신은 기존 api.ts 그대로
+
+**왜**
+- 작성/수정 폼 분리: 잘 동작하는 작성 화면을 건드리지 않고(자동 테스트 없음), 수정만의 불러오기·404 처리를 넣기 위함. 입력창 약 25줄 중복은 감수
+- window.confirm: 한 줄, 라이브러리 불필요, 접근성 기본 지원
+- 삭제·수정 후 replace: 뒤로가기로 지워진 글이나 이미 저장한 수정 폼으로 돌아가지 않게. 배포는 S2-c로 분리(S2-a 백엔드도 미배포, 완료 조건을 작게 유지)
+
+**완료 조건**
+- [x] npm run build·lint 통과, 백엔드 테스트 통과
+- [x] 브라우저 수동 체크리스트 8개 전부 확인 (버튼 표시/없는 글, 수정 화면 채움, 저장·새로고침 유지, 400 문구·입력 유지, 없는 글 edit 주소, 삭제 확인·취소·목록 이동, 서버 꺼짐·다른 탭 선삭제)
+- 수정 후 replace는 build·lint로만 확인(뒤로가기 재확인 안 함)
+
+**변경 파일**
+- frontend/src/App.tsx, frontend/src/pages/PostDetailPage.tsx, frontend/src/pages/PostEditPage.tsx(신규), frontend/src/types.ts, docs/backlog.md
+
+**남은 일**
+- 상세의 encodeURIComponent 3회 반복(스타일), 삭제 중 [수정] 클릭 시 드물게 목록으로 이동, 저장 중 [취소]해도 요청 계속(작성 화면과 동일). 동작 영향 미미. 배포·커밋 전
+
+**배운 점**
+- navigate(..., {replace: true})는 현재 기록을 바꿔서, 뒤로가기로 지워진 글이나 저장 전 폼이 되돌아오지 않게 한다
+
 ## [2026-11-02] S2-a. 게시글 수정 + 삭제 API (백엔드)
 
 **무엇을**
