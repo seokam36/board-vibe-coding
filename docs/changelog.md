@@ -2,6 +2,36 @@
 
 기능별 변경 기록. recorder가 작성한다. 최신 기록이 위에 온다.
 
+## [2026-11-02] S2-a. 게시글 수정 + 삭제 API (백엔드)
+
+**무엇을**
+- PUT /posts/{id}: 제목·본문 전체 수정, 200 + 수정된 글. 검증은 작성과 동일(PostUpdateRequest). createdAt 불변. DELETE /posts/{id}: DB에서 실제 삭제, 204 빈 본문. 없는 id 404, 숫자 아닌 id 400
+- CorsConfig allowedMethods에 GET, HEAD, POST, PUT, DELETE 지정. Post에 update(title, content), PostService에 update/delete(@Transactional, 수정은 dirty checking)
+- docs/api.md에 4. 수정, 5. 삭제 명세 추가. docs/backlog.md의 S2를 S2-a(백엔드)/S2-b(프론트)로 분리
+
+**왜**
+- PATCH 대신 PUT: 바꿀 필드가 2개뿐이고 작성과 같은 검증 규칙을 그대로 쓸 수 있음
+- 삭제는 204: 지운 뒤 돌려줄 내용이 없음. S2를 쪼갬: S1처럼 API(자동 테스트)와 화면(직접 확인)을 나눠 완료 조건을 작게 유지
+- 기본 CORS 메서드에 PUT/DELETE가 없어 브라우저가 막음. 메서드를 명시하면 기본값이 덮어써져서 GET/HEAD/POST도 함께 적음
+- setter 대신 update(title, content)로 의도를 드러냄
+
+**완료 조건**
+- [x] PUT 수정 200·createdAt 불변(수정 후 GET으로도 확인), 없는 id 404, 잘못된 입력·숫자 아닌 id 400
+- [x] DELETE 204 빈 본문 후 조회 불가, 없는 id 404, 숫자 아닌 id 400
+- [x] CorsConfig PUT/DELETE preflight 2개(Allow-Origin 확인 포함)
+- [x] 신규 PostUpdateDeleteApiTests 17개 포함 전체 50개 통과
+
+**변경 파일**
+- config/CorsConfig.java, post/controller/PostController.java, post/domain/Post.java, post/service/PostService.java, post/dto/PostUpdateRequest.java, docs/api.md, docs/backlog.md, src/test/.../CorsTests.java, src/test/.../post/PostUpdateDeleteApiTests.java
+
+**남은 일**
+- 수정 중 동시 삭제 시 500 가능(드묾, 보류). Post.java:44 주석 표현 부정확. api.md 표의 실패 코드 순서 불일치 (동작 영향 없음)
+- 권한 체크, updatedAt, 소프트 삭제는 하지 않음. 배포·커밋 전
+
+**배운 점**
+- 엔티티 상태 변경은 setter 대신 의도가 드러나는 메서드로, 트랜잭션 안에서 바꾸면 dirty checking이 UPDATE를 만든다
+- allowedMethods를 명시하면 기본값이 대체된다(추가가 아님)
+
 ## [2026-11-02] S1-d. 프론트엔드 배포
 
 **무엇을**
