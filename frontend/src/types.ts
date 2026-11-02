@@ -11,3 +11,9 @@ export interface PostCreateRequest {
   title: string
   content: string
 }
+
+// 글 수정할 때 서버에 보내는 값 (작성과 같은 모양이지만 용도가 달라 따로 둔다)
+export interface PostUpdateRequest {
+  title: string
+  content: string
+}
