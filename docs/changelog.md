@@ -2,6 +2,26 @@
 
 기능별 변경 기록. recorder가 작성한다. 최신 기록이 위에 온다.
 
+## [2026-11-02] S1-d. 프론트엔드 배포 (로컬 검증까지, EC2 배포 전)
+
+**무엇을**
+- frontend를 nginx 컨테이너로 서빙(Dockerfile 2단계 빌드). /api 요청은 nginx가 app:8080으로 넘기고, compose prod에 web 추가, app 8080 외부 공개 제거
+
+**왜**
+- 프론트는 API 주소를 빌드 때 번들에 박고, 화면 경로와 API 경로가 /posts/1로 겹침 → API만 /api 아래로 분리. nginx를 고른 이유: 백엔드 코드 변경 0, 같은 주소라 CORS 불필요, 메모리 약 21MiB
+- nginx는 호스트명을 시작 때 한 번만 IP로 바꿔 app 재생성 시 502가 날 수 있음 → Docker DNS(127.0.0.11)로 요청마다 조회. postgres에 restart 추가는 EC2를 껐다 켰을 때 postgres만 Exited로 남는 것을 확인해서
+
+**완료 조건**
+- [x] 로컬 검증: 화면·새로고침 200, /api 작성 201·조회 200·404·400, app 재생성 후 web 재시작 없이 200, 8080 외부 차단
+- [x] ./gradlew test --rerun-tasks 통과 (백엔드 코드 변경 없음)
+- [ ] EC2 실제 배포와 배포 후 브라우저 확인 (남은 일: 부팅 중 잠깐 502, 퍼블릭 IP 변경)
+
+**변경 파일**
+- frontend/Dockerfile, frontend/nginx.conf, frontend/.dockerignore, frontend/README.md, docker-compose.yml, docs/api.md
+
+**배운 점**
+- nginx는 고정 호스트명을 시작 때 한 번만 풀어서, 컨테이너 IP가 바뀌면 resolver와 변수 proxy_pass로 요청마다 다시 찾아야 한다
+
 ## [2026-11-01] S1-c-2. 게시판 화면 (React + TypeScript)
 
 **무엇을**
