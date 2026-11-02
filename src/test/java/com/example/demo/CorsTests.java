@@ -99,4 +99,29 @@ class CorsTests {
 				.andExpect(status().isForbidden())
 				.andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
 	}
+
+	// S2-a 조건 7: PUT preflight가 허용되고 Allow-Methods에 PUT이 포함된다
+	@Test
+	void 허용된_origin의_PUT_preflight는_200과_PUT_허용을_반환한다() throws Exception {
+		mockMvc.perform(options("/posts/1")
+						.header("Origin", ALLOWED)
+						.header("Access-Control-Request-Method", "PUT")
+						.header("Access-Control-Request-Headers", "Content-Type"))
+				.andExpect(status().isOk())
+				// Allow-Origin이 없으면 브라우저가 실제 요청을 막는다
+				.andExpect(header().string("Access-Control-Allow-Origin", ALLOWED))
+				.andExpect(header().string("Access-Control-Allow-Methods", containsString("PUT")));
+	}
+
+	// S2-a 조건 7: DELETE preflight가 허용되고 Allow-Methods에 DELETE가 포함된다
+	@Test
+	void 허용된_origin의_DELETE_preflight는_200과_DELETE_허용을_반환한다() throws Exception {
+		mockMvc.perform(options("/posts/1")
+						.header("Origin", ALLOWED)
+						.header("Access-Control-Request-Method", "DELETE"))
+				.andExpect(status().isOk())
+				// Allow-Origin이 없으면 브라우저가 실제 요청을 막는다
+				.andExpect(header().string("Access-Control-Allow-Origin", ALLOWED))
+				.andExpect(header().string("Access-Control-Allow-Methods", containsString("DELETE")));
+	}
 }

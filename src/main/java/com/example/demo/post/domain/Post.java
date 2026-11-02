@@ -41,6 +41,12 @@ public class Post {
         this.content = content;
     }
 
+    // 제목과 본문만 바꾼다 (setter 대신 의도가 드러나는 메서드. createdAt은 updatable=false라 그대로 유지됨)
+    public void update(String title, String content) {
+        this.title = title;
+        this.content = content;
+    }
+
     // 저장 직전에 작성 시각을 자동 기록 (별도 라이브러리 없이 JPA 표준만 사용)
     @PrePersist
     void onCreate() {

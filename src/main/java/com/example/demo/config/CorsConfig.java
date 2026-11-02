@@ -15,9 +15,9 @@ public class CorsConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        // 허용 메서드는 따로 지정하지 않는다: 기본값(GET, HEAD, POST)이 현재 API(GET, POST)와 맞고 더 단순하다.
-        // PUT/DELETE는 수정·삭제 기능을 만들 때 추가한다.
+        // 기본 허용 메서드(GET, HEAD, POST)에는 수정(PUT)·삭제(DELETE)가 없어서 직접 지정한다.
         registry.addMapping("/**")
-                .allowedOrigins(allowedOrigins);
+                .allowedOrigins(allowedOrigins)
+                .allowedMethods("GET", "HEAD", "POST", "PUT", "DELETE");
     }
 }
