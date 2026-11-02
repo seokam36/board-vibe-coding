@@ -33,3 +33,4 @@ planner → (필요시 research) → build → tester → review → recorder �
 
 ## 학습용
 - 단계가 끝나면 무엇을, 왜 했는지 짧게 설명한다.
+- 답변은 무조건 한국어로 한다. 영어로 답하지 않는다.
