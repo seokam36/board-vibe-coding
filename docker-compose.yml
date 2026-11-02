@@ -1,10 +1,12 @@
 # 로컬: `docker compose up -d` -> postgres만 실행 (앱은 ./gradlew bootRun)
-# EC2 : `docker compose --profile prod up -d` -> app + postgres 실행
+# EC2 : `docker compose --profile prod up -d` -> web(nginx) + app + postgres 실행
 services:
   postgres:
     # 17 버전 고정: latest는 갑자기 바뀌어 데이터 호환 문제가 생길 수 있음
     image: postgres:17
     container_name: board-postgres
+    # EC2를 껐다 켜도 다시 시작 (없으면 postgres만 Exited로 남아 app이 계속 재시작 반복함)
+    restart: unless-stopped
     # 메모리 1GB EC2 대비: 상한을 두고 postgres 내부 메모리/연결 수도 같이 낮춤
     mem_limit: 256m
     command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=20"]
@@ -35,9 +37,7 @@ services:
     container_name: board-app
     restart: unless-stopped
     mem_limit: 512m
-    ports:
-      # 브라우저 80 -> 앱 8080
-      - "80:8080"
+    # ports 없음: 외부에서 직접 접근 불가. web(nginx)이 compose 내부망으로 app:8080에 전달한다
     environment:
       # 같은 compose 안에서는 서비스명(postgres)이 호스트 이름이 됨
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?.env에 POSTGRES_DB를 설정하세요}
@@ -49,6 +49,21 @@ services:
       postgres:
         # DB가 healthy가 된 뒤에 앱 시작
         condition: service_healthy
+
+  web:
+    # prod 프로필을 줄 때만 실행됨
+    profiles: ["prod"]
+    # 화면 파일 + nginx(리버스 프록시) 이미지. Docker Hub에서 받아 사용
+    image: seokam36/demo-web:latest
+    container_name: board-web
+    restart: unless-stopped
+    mem_limit: 64m
+    ports:
+      # 브라우저 80 -> nginx 80 (유일한 외부 입구. /api 요청은 nginx가 app으로 전달)
+      - "80:80"
+    # IP 변경은 nginx.conf의 resolver가 처리, 여기서는 시작 순서만
+    depends_on:
+      - app
 
 volumes:
   postgres-data:

@@ -1,0 +1,12 @@
+# 이미지 빌드 컨텍스트에서 제외: 컨테이너 안에서 npm ci / npm run build로 새로 만들기 때문
+node_modules
+dist
+# 개인 PC용 환경변수 파일 (이미지에 들어가면 안 됨)
+.env.local
+*.local
+npm-debug.log*
+.vscode
+.idea
+.DS_Store
+Dockerfile
+.dockerignore
