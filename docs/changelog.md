@@ -2,22 +2,24 @@
 
 기능별 변경 기록. recorder가 작성한다. 최신 기록이 위에 온다.
 
-## [2026-11-02] S1-d. 프론트엔드 배포 (로컬 검증까지, EC2 배포 전)
+## [2026-11-02] S1-d. 프론트엔드 배포
 
 **무엇을**
-- frontend를 nginx 컨테이너로 서빙(Dockerfile 2단계 빌드). /api 요청은 nginx가 app:8080으로 넘기고, compose prod에 web 추가, app 8080 외부 공개 제거
+- frontend를 nginx 컨테이너로 서빙(Dockerfile 2단계 빌드). /api 요청은 nginx가 app:8080으로 넘기고, compose prod에 web 추가, app 8080 외부 공개 제거. EC2 배포 완료: 배포 전 재시작 후 postgres Exited·app Restarting 반복이던 것이 이번 배포(restart 정책 포함)로 정상화
 
 **왜**
 - 프론트는 API 주소를 빌드 때 번들에 박고, 화면 경로와 API 경로가 /posts/1로 겹침 → API만 /api 아래로 분리. nginx를 고른 이유: 백엔드 코드 변경 0, 같은 주소라 CORS 불필요, 메모리 약 21MiB
 - nginx는 호스트명을 시작 때 한 번만 IP로 바꿔 app 재생성 시 502가 날 수 있음 → Docker DNS(127.0.0.11)로 요청마다 조회. postgres에 restart 추가는 EC2를 껐다 켰을 때 postgres만 Exited로 남는 것을 확인해서
+- 배포는 git pull 대신 scp로 compose 파일만 복사: EC2에는 git 저장소·git이 없고 ~/board에 docker-compose.yml·.env만 있음(EC2는 이미지만 받아 실행). 배포 전 옛 파일은 docker-compose.yml.bak-20261102로 백업. 되돌리기는 백업 복원 후 `up -d --remove-orphans`(옛 파일에 없는 board-web이 80번을 붙잡지 않게), latest 태그라 이미지는 새것 그대로
 
 **완료 조건**
 - [x] 로컬 검증: 화면·새로고침 200, /api 작성 201·조회 200·404·400, app 재생성 후 web 재시작 없이 200, 8080 외부 차단
 - [x] ./gradlew test --rerun-tasks 통과 (백엔드 코드 변경 없음)
-- [ ] EC2 실제 배포와 배포 후 브라우저 확인 (남은 일: 부팅 중 잠깐 502, 퍼블릭 IP 변경)
+- [x] EC2 실제 배포와 배포 후 브라우저 확인: EC2에서 컨테이너 3개(board-web 0.0.0.0:80, board-app 내부 8080만, board-postgres healthy), 외부에서 / 200, /posts/1 새로고침 200, /api/posts 200(기존 글 유지), /api/posts/999999 404, /actuator/health UP, /api/actuator 404, :8080 연결 실패, 사용자가 브라우저에서 한글 글 작성·새로고침 확인
+- 남은 일: 부팅 중 잠깐 502, 퍼블릭 IP가 시작마다 바뀜(탄력적 IP 없음), 이미지 버전 태그 없음(latest)
 
 **변경 파일**
-- frontend/Dockerfile, frontend/nginx.conf, frontend/.dockerignore, frontend/README.md, docker-compose.yml, docs/api.md
+- frontend/Dockerfile, frontend/nginx.conf, frontend/.dockerignore, frontend/README.md(배포 절차를 scp 방식으로 재작성), docker-compose.yml, docs/api.md
 
 **배운 점**
 - nginx는 고정 호스트명을 시작 때 한 번만 풀어서, 컨테이너 IP가 바뀌면 resolver와 변수 proxy_pass로 요청마다 다시 찾아야 한다
@@ -87,7 +89,7 @@
 - config/CorsConfig.java, application.properties, docs/api.md, .dockerignore, src/test/.../CorsTests.java, CorsPropertyTests.java
 
 **나중에 챙길 것**
-- S1-d: compose에서 CORS_ALLOWED_ORIGINS를 빈 값으로 넘기면 허용 origin 0개 → 모든 교차 출처 요청 403. 필수값으로 강제
+- S1-d: compose에서 CORS_ALLOWED_ORIGINS를 빈 값으로 넘기면 허용 origin 0개 → 모든 교차 출처 요청 403. 필수값으로 강제 → S1-d에서 해당 없음: nginx 같은 주소 방식이라 CORS 불필요, compose가 값을 넘기지 않음
 - S2: PUT/DELETE 추가 시 allowedMethods를 명시하면 기본값이 덮어써지므로 GET/HEAD/POST도 함께 적기
 - 테스트 컨텍스트마다 PostgreSQL 컨테이너가 떠서(현재 3개) 늘어나면 싱글턴 컨테이너로
 
