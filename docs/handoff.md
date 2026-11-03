@@ -21,8 +21,9 @@
 - `./gradlew bootRun`은 `.env`를 자동으로 읽지 않는다. PowerShell에서 환경변수로 불러온 뒤 실행한다.
 - Docker 명령이 daemon 연결 에러를 내면 Docker Desktop을 켠다.
 - EC2는 탄력적 IP가 없어 켤 때마다 퍼블릭 IP가 바뀐다. 다 쓰면 "중지"(종료 아님).
-- 배포 방법이 바뀌었다: EC2 켜기 → Actions에서 main CI 초록 확인 → Actions → Deploy → Run workflow. 손 배포는 frontend/README.md의 "비상용(수동)".
-- docker-compose.yml을 바꾸면 Deploy 버튼만으로는 EC2에 반영되지 않는다. 먼저 README 비상용 단계대로 scp로 복사한다.
+- 배포 방법이 바뀌었다: EC2 켜기 → Actions에서 main CI 초록 확인 → Actions → Deploy → Run workflow. 손 배포는 docs/deploy.md의 "비상용(수동)".
+- 기록 파일 정리(2026-11-03): changelog를 없애고 backlog "끝난 일" 표로 합쳤다(옛 기록은 docs/archive/). recorder 에이전트 없음. 배포 문서는 docs/deploy.md.
+- docker-compose.yml을 바꾸면 Deploy 버튼만으로는 EC2에 반영되지 않는다. 먼저 docs/deploy.md 비상용 단계대로 scp로 복사한다.
 - GitHub Secrets(DOCKERHUB_USERNAME/TOKEN, AWS_ACCESS_KEY_ID/SECRET_ACCESS_KEY, EC2_SSH_KEY)와 Variables(AWS_REGION, EC2_INSTANCE_ID, EC2_SECURITY_GROUP_ID)는 등록 완료. Variables에는 안내 문구나 예시가 아니라 콘솔에서 복사한 실제 값을 넣는다.
 - 배포용 SSH 개인키(`~/.ssh/deploy-actions`)는 집 PC에만 있다. GitHub에 이미 등록돼 있어 노트북에는 필요 없다.
 - main에 push할 때마다(문서만 바꿔도) Docker Hub에 커밋 SHA 태그가 하나씩 쌓인다. 옛 백업 태그 `s1-d`는 이제 SHA 태그가 대신하니 정리해도 된다.

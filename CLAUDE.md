@@ -21,14 +21,15 @@
 - build.gradle에 의존성을 추가하면 보고에 "추가한 의존성과 이유"를 포함한다.
 
 ## 작업 흐름 (메인 대화용)
-planner → (필요시 research) → build → tester → review → recorder → (필요시 deploy)
+planner → (필요시 research) → build → tester → review → (필요시 deploy)
 - 사용자가 새 기능을 요청하면 planner 전에 메인 대화가 docs/backlog.md에 항목(다음 S번호)을 추가하고 사용자에게 보여준다.
 - 서브에이전트는 이전 대화를 모른다. 완료 조건·변경 파일·실패 내용을 요약해서 넘긴다.
 - planner 결과와 review [필수 수정]이 나오면 멈추고 사용자 승인을 받는다(실패·커밋 때 멈추는 규칙은 아래). 그 밖에는 build → tester → review를 이어서 돌리고, 끝나면 단계별로 무엇을 왜 했는지 한 번에 정리해 보여준다.
 - tester 실패 → build 수정 (2회 넘게 실패하면 멈추고 보고).
 - review에는 변경 파일 목록을 넘긴다. [필수 수정]은 build가 고친 뒤 tester를 다시 돌린다.
 - 커밋·push·배포는 사용자 승인 없이 하지 않는다. 커밋 형식: feat/fix/test/chore: 내용
-- docs/backlog.md = 기능 목록, docs/changelog.md = 변경 기록(recorder만 작성)
+- docs/backlog.md = 할 일 + 끝난 일 표. 단계가 끝나면 메인 대화가 "끝난 일"에 한 줄(날짜 | 단계 | 한 줄 요약 | 커밋)을 추가해 기능 커밋에 같이 넣는다. 자세한 기록은 Notion에 남긴다.
+- docs/deploy.md = 배포 방법(자동 버튼 + 비상용 수동). 배포 절차가 바뀌면 deploy가 같이 고친다.
 - docs/api.md = API 명세. API를 추가·변경하면 build가 코드와 함께 고친다. review는 명세와 코드가 일치하는지 확인한다.
 
 ## 학습용
