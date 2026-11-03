@@ -2,6 +2,33 @@
 
 기능별 변경 기록. recorder가 작성한다. 최신 기록이 위에 온다.
 
+## [2026-11-03] S2-c. 수정 + 삭제 배포 (백엔드 S2-a + 프론트 S2-b)
+
+**무엇을**
+- 코드·설정 변경 없이 배포만 함(docker-compose.yml, nginx.conf, Dockerfile 2개의 마지막 변경이 S1-d 커밋임을 확인). 배포 전 ./gradlew test, npm run build 통과
+- 옛 이미지 latest(S1-d)에 s1-d 태그를 붙여 push → 새 이미지 push(백엔드 먼저, 그다음 web) → EC2에서 compose --profile prod pull / up -d. postgres는 그대로라 기존 글 유지
+
+**왜**
+- 설정 변경 불필요: nginx /api/에 메서드 제한이 없고, try_files로 /posts/:id/edit 직접 진입 가능, 같은 출처라 CORS 무관, 컬럼 변경 없음(ddl-auto=update). 그래서 deploy 단계 생략
+- s1-d 백업: latest는 push하면 덮어써져 되돌릴 이미지가 사라짐. 백엔드 먼저: 화면만 새 버전이면 수정·삭제가 405로 실패
+- 서버 확인은 배포에서만 생기는 문제만(nginx 메서드 전달, SPA 경로, 8080 차단). 실패 케이스는 S2-b 로컬에서 끝냄
+
+**완료 조건**
+- [x] ./gradlew test, npm run build 통과
+- [x] docker ps 3개 Up, /actuator/health UP, 기존 글 유지, 새 글 작성
+- [x] 수정 화면 채움·저장·새로고침 유지, 공백 제목 400 문구·입력 유지, /posts/{id}/edit 새로고침
+- [x] 삭제 취소/확인 → 목록에서 사라짐(테스트용 새 글), curl -X DELETE /api/posts/999999 → 404, :8080 직접 접속 불가
+
+**변경 파일**
+- 없음(코드·설정). docs/changelog.md, docs/backlog.md(S2-c 체크)
+
+**남은 일**
+- 이미지 태그는 latest + s1-d만 사용(기능별 버전 태그 체계는 나중에). s1-d 백업은 문제없으면 정리 가능. S2-b 리뷰 참고 사항 그대로
+
+**배운 점**
+- latest는 "가장 최근에 그 이름으로 push한 것"일 뿐이라 덮어쓰기 전에 다른 태그로 백업한다
+- Docker 명령이 daemon 연결 에러를 내면 Docker Desktop이 꺼져 있는 것
+
 ## [2026-11-02] S2-b. 게시글 수정 + 삭제 화면 (프론트)
 
 **무엇을**
