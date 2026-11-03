@@ -1,0 +1,72 @@
+# CI: 코드를 올릴 때마다 자동으로 테스트·빌드를 돌려서 망가졌는지 알려준다.
+name: CI
+
+on:
+  push:            # 모든 브랜치에 push할 때 (태그 push는 제외)
+    branches: ['**']
+  pull_request:    # main으로 가는 PR일 때
+    branches: [main]
+
+# 같은 브랜치에 새로 push하면 아직 돌고 있는 이전 실행은 취소한다(시간 낭비 방지).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# 코드를 읽기만 하면 되니까 권한을 최소로 둔다. (Secrets는 쓰지 않는다)
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15   # 멈춰도 기본 6시간 대신 15분 만에 끊는다
+    steps:
+      # 저장소 코드를 러너로 내려받는다.
+      - uses: actions/checkout@v7
+
+      # Java 21 설치 + Gradle 캐시(다음 실행이 빨라진다).
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      # 테스트 DB는 Testcontainers가 러너의 Docker로 직접 띄우므로 서비스 컨테이너는 필요 없다.
+      - name: 백엔드 테스트
+        run: ./gradlew test
+
+      # 테스트가 실패했을 때만 리포트를 올려서 원인을 볼 수 있게 한다.
+      - name: 실패 시 테스트 리포트 업로드
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: build/reports/tests
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10   # 멈춰도 10분 만에 끊는다
+    defaults:
+      run:
+        working-directory: frontend   # 프론트 명령은 frontend 폴더에서 실행
+    steps:
+      - uses: actions/checkout@v7
+
+      # Node 24 (frontend/Dockerfile과 같은 버전) + npm 캐시.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # package-lock.json 그대로 정확히 설치한다.
+      - name: 의존성 설치
+        run: npm ci
+
+      # 코드 스타일·문제를 검사한다.
+      - name: 린트
+        run: npm run lint
+
+      # 타입 검사 + 프로덕션 빌드가 되는지 확인한다.
+      - name: 빌드
+        run: npm run build
