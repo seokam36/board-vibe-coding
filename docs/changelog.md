@@ -2,6 +2,27 @@
 
 기능별 변경 기록. recorder가 작성한다. 최신 기록이 위에 온다.
 
+## [2026-11-03] S3-b. CD 1: main push 때 이미지 빌드 + Docker Hub push
+
+**무엇을**
+- .github/workflows/ci.yml에 images job 추가. needs [backend, frontend], main push일 때만 실행. seokam36/demo(컨텍스트 .), seokam36/demo-web(컨텍스트 frontend)을 latest + 커밋 SHA 태그로 push
+- gha 캐시 scope backend/frontend 분리, timeout 20분. EC2 변화·배포 없음
+
+**왜**
+- 테스트를 통과한 커밋만 이미지가 되게 하고, 손으로 하던 build·push와 s1-d 백업을 자동화. SHA 태그가 버전별 백업. 계정명 seokam36은 비밀이 아니라 고정(secret이면 로그에서 가려져 불편), 토큰은 GitHub 전용 Read & Write로 새로 발급. EC2가 t3.micro amd64라 platform 미지정
+- main에서 concurrency cancel-in-progress를 끔(push 도중 취소로 이미지가 반쪽 갱신되지 않게). 남은 과제 S3-c: backend 성공 뒤 frontend 실패 시 한쪽만 latest가 바뀔 수 있고, 옛 실행 Re-run 시 옛 이미지가 latest로 올라갈 수 있음 → EC2가 SHA 태그로 두 이미지를 같이 받는 방식 검토
+
+**완료 조건**
+- [x] tester 로컬 통과: 조건식 3경우 판정, 태그 4개, 토큰 grep 0건, 로컬 docker build 두 이미지 성공
+- [x] review 필수 0, 권장 2건(concurrency 주석 정확화, 한쪽만 갱신될 수 있다는 주석) 반영. GitHub main 실행 backend·frontend·images success, Docker Hub 두 이미지에 latest와 c6ad16b 태그 확인
+- [x] 임시 브랜치(빈 커밋) push 시 images skipped 확인 후 브랜치 삭제
+
+**변경 파일**
+- .github/workflows/ci.yml
+
+**배운 점**
+- job에 if 조건을 걸면 해당 조건이 아닌 push에서는 그 job이 실행되지 않고 skipped로 표시된다
+
 ## [2026-11-03] S3-a. CI: push/PR 때 백엔드 테스트 + 프론트 lint·빌드
 
 **무엇을**
