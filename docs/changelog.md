@@ -2,6 +2,25 @@
 
 기능별 변경 기록. recorder가 작성한다. 최신 기록이 위에 온다.
 
+## [2026-11-03] S3-a. CI: push/PR 때 백엔드 테스트 + 프론트 lint·빌드
+
+**무엇을**
+- .github/workflows/ci.yml 추가. 모든 브랜치 push(태그 제외)와 main행 PR에서 backend(./gradlew test, 실패 시 test-reports artifact 업로드)·frontend(npm ci → lint → build) 실행
+- gradlew 실행 권한 100644→100755 (Windows 커밋으로 빠져 있었음). backlog S3를 S3-a/b/c로 나눔
+
+**왜**
+- push 순간 테스트 누락·깨진 코드를 자동으로 잡기 위함. CD(S3-b, S3-c)의 토대. 테스트 DB는 Testcontainers가 러너 Docker로 띄워 서비스 컨테이너 없음
+
+**완료 조건**
+- [x] 로컬 ./gradlew test 50개, npm ci·lint·build 통과
+- [x] main 실행 backend·frontend 성공, 깨뜨린 임시 브랜치 2개(테스트 실패 → backend 실패 + artifact, 타입 오류 → frontend 실패) 확인 후 로컬·원격 삭제, 머지 안 함
+
+**변경 파일**
+- .github/workflows/ci.yml, gradlew, docs/backlog.md, docs/changelog.md
+
+**배운 점**
+- Windows에서 만든 파일은 git에 실행 권한이 안 실릴 수 있어 리눅스 러너에서 Permission denied가 난다 → git 파일 모드를 100755로 고쳐 커밋
+
 ## [2026-11-03] S2-c. 수정 + 삭제 배포 (백엔드 S2-a + 프론트 S2-b)
 
 **무엇을**
