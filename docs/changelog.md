@@ -2,6 +2,27 @@
 
 기능별 변경 기록. recorder가 작성한다. 최신 기록이 위에 온다.
 
+## [2026-11-03] S3-c. CD 2: EC2 배포 (수동 실행)
+
+**무엇을**
+- .github/workflows/deploy.yml 추가(workflow_dispatch만). AWS 상태 조회 → 러너 IP를 보안그룹 22번에 임시 허용 → SSH로 compose pull·up -d·image prune → /actuator/health 18회 재시도 → always()로 규칙 revoke
+- 조회 결과를 먼저 변수에 받아 set -e로 멈춤(이번 커밋: 조회 실패가 "실행 중 아님"으로 잘못 보이던 문제 수정). frontend/README.md 배포 절차를 자동 기준으로 재작성
+
+**왜**
+- 탄력적 IP 없이(비용) IP가 바뀌는 EC2와 내 PC IP로만 열린 22번 문제를 AWS API 조회 + 러너 IP 몇 분 허용으로 해결. EC2가 평소 꺼져 있어 자동 트리거 대신 수동 버튼. IAM은 DescribeInstances + 해당 보안그룹 Authorize/Revoke만
+
+**완료 조건**
+- [x] tester 로컬 통과(bash -n, 값 노출 grep 0, 가짜 aws/curl로 판정 시뮬레이션), review 필수 0·권장 반영
+- [x] Deploy #1 실패(Variables에 안내 문구 → InvalidInstanceID.Malformed) → 값 수정 후 Deploy #2 성공(39초), 규칙 원상복구, 브라우저 글 유지·작성 확인
+- [x] S3 전체 배포까지 끝: 이 S3-c의 배포가 Deploy #2(b322a6b 이미지)
+- [ ] 미확인: EC2 중지 상태 실행 시 실패·규칙 잔존 여부(로컬 시뮬레이션만). 남은 과제: SHA 태그 배포, OIDC, Environments 검토
+
+**변경 파일**
+- .github/workflows/deploy.yml, frontend/README.md
+
+**배운 점**
+- 자리표시자(예시 값)는 실제 값으로 바꿔야 하고, 에러 메시지가 원인을 가리면 조회 실패를 따로 분리해 본다
+
 ## [2026-11-03] S3-b. CD 1: main push 때 이미지 빌드 + Docker Hub push
 
 **무엇을**

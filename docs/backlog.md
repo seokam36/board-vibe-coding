@@ -13,7 +13,7 @@
 - [x] S2-a. 게시글 수정 + 삭제 API (백엔드)
 - [x] S2-b. 게시글 수정 + 삭제 화면 (프론트)
 - [x] S2-c. 수정 + 삭제 배포 (백엔드 S2-a + 프론트 S2-b)
-- [ ] S3. GitHub Actions 자동 배포 (CI/CD)
+- [x] S3. GitHub Actions 자동 배포 (CI/CD)
   - [x] S3-a. CI: push/PR 때 백엔드 테스트 + 프론트 lint·빌드
   - [x] S3-b. CD 1: main push 때 이미지 빌드 + Docker Hub push (latest + SHA 태그)
-  - [ ] S3-c. CD 2: EC2 배포 (수동 실행, AWS CLI로 IP 조회 + 러너 IP 임시 허용)
+  - [x] S3-c. CD 2: EC2 배포 (수동 실행, AWS CLI로 IP 조회 + 러너 IP 임시 허용)
