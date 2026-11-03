@@ -20,6 +20,63 @@ React + TypeScript (Vite) 화면입니다.
 `/api/...` 는 `/api`를 떼고 백엔드(`app:8080`)로, `/actuator/health` 는 그대로 넘깁니다.
 화면과 API 주소가 같아서 CORS 설정이 필요 없습니다 (EC2 `.env`에 `CORS_ALLOWED_ORIGINS`는 넣지 않아도 됩니다).
 
+### 자동 배포 (GitHub Actions 버튼)
+이미지는 main에 push하면 CI가 Docker Hub에 올려 둡니다(`latest`). 배포는 아래처럼 버튼으로 합니다.
+1. (AWS 콘솔) EC2 인스턴스를 켭니다(시작). 이 워크플로는 EC2를 켜거나 끄지 않습니다. 켜져 있지 않으면 실패합니다.
+2. (GitHub) 버튼을 누르기 전에 Actions 탭에서 배포할 커밋의 CI(images 포함)가 초록색인지 확인합니다.
+   자동 배포는 EC2의 `docker-compose.yml`을 바꾸지 않습니다. compose 파일을 바꿨다면 먼저 아래 비상용의 4~5단계(백업·scp)로 EC2에 복사한 뒤 버튼을 누릅니다.
+   그다음 Actions 탭 -> 왼쪽 Deploy -> Run workflow -> main 선택 후 실행.
+3. 워크플로가 하는 일: 켜진 EC2의 퍼블릭 IP 조회 -> 보안 그룹에 이 러너 IP의 SSH(22) 허용을 잠깐 추가
+   -> SSH로 `docker compose pull`/`up -d` -> `/actuator/health`가 UP일 때까지 최대 약 3~4분 확인 -> (성공/실패 상관없이) SSH 허용 규칙 삭제.
+4. 초록색이면 끝입니다. 확인용 주소는 `http://<퍼블릭IP>/`. 다 쓰고 나면 EC2를 콘솔에서 중지합니다.
+
+만약 실행이 중간에 강제로 끊겨 `github-actions-deploy` 설명이 붙은 22번 규칙이 보안 그룹에 남았다면 콘솔에서 직접 지웁니다.
+
+#### 처음 한 번 준비할 것
+**1) IAM 사용자 + 액세스 키** (AWS 콘솔 -> IAM)
+- 배포 전용 사용자를 만들고(콘솔 로그인 불필요) 아래 정책을 붙입니다. `<...>` 자리는 본인 값으로 바꿉니다. 실제 값은 이 파일에 적지 마세요.
+- `DescribeInstances`는 AWS 규칙상 대상을 제한할 수 없어 `"*"`입니다. 보안 그룹 규칙 추가/삭제는 해당 보안 그룹 하나로만 제한합니다.
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "ec2:DescribeInstances",
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:AuthorizeSecurityGroupIngress",
+        "ec2:RevokeSecurityGroupIngress"
+      ],
+      "Resource": "arn:aws:ec2:<리전>:<계정ID>:security-group/<보안그룹ID>"
+    }
+  ]
+}
+```
+- 그 사용자의 "보안 자격 증명" 탭에서 액세스 키를 만들고, Access key ID와 Secret access key를 따로 복사해 둡니다(비밀키는 다시 볼 수 없음).
+
+**2) 배포 전용 SSH 키 쌍** (개인 PC 터미널)
+- `ssh-keygen -t ed25519 -f ~/.ssh/deploy-actions -C github-actions-deploy -N ""`
+- 공개키(`~/.ssh/deploy-actions.pub`) 한 줄을 EC2의 `~/.ssh/authorized_keys` 맨 아래에 추가합니다(기존 줄은 지우지 않음).
+  예: 기존 키로 접속해 `echo '<공개키 한 줄>' >> ~/.ssh/authorized_keys`
+- 개인키(`~/.ssh/deploy-actions`) 파일 내용 전체(`-----BEGIN` 줄부터 `END` 줄까지)를 아래 Secret `EC2_SSH_KEY`에 넣습니다. 개인키는 다른 곳에 붙여넣거나 커밋하지 않습니다.
+
+**3) GitHub 저장소 설정** (Settings -> Secrets and variables -> Actions)
+- Secrets 탭 (비밀)
+  - `AWS_ACCESS_KEY_ID`: 1)에서 만든 Access key ID
+  - `AWS_SECRET_ACCESS_KEY`: 1)에서 만든 Secret access key
+  - `EC2_SSH_KEY`: 2)의 개인키 파일 내용 전체
+- Variables 탭 (비밀 아님)
+  - `AWS_REGION`: EC2가 있는 리전 코드
+  - `EC2_INSTANCE_ID`: 인스턴스 ID (`i-`로 시작)
+  - `EC2_SECURITY_GROUP_ID`: EC2에 붙은 보안 그룹 ID (`sg-`로 시작)
+
+### 비상용 (수동)
+Actions를 쓸 수 없을 때 개발 PC에서 손으로 하는 방법입니다.
+
 EC2는 이미지를 받아 실행만 합니다. 저장소를 clone할 필요 없이, EC2에는 `docker-compose.yml` 하나만 복사해 두면 됩니다.
 
 전제:
