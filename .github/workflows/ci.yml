@@ -1,4 +1,5 @@
 # CI: 코드를 올릴 때마다 자동으로 테스트·빌드를 돌려서 망가졌는지 알려준다.
+# CD 1: main에 push되고 테스트가 모두 통과하면 Docker 이미지를 빌드해 Docker Hub에 올린다. (EC2 배포는 아직 안 함)
 name: CI
 
 on:
@@ -8,11 +9,14 @@ on:
     branches: [main]
 
 # 같은 브랜치에 새로 push하면 아직 돌고 있는 이전 실행은 취소한다(시간 낭비 방지).
+# 단, main은 도는 실행을 취소하지 않는다: 이미지 push 도중 끊기면 backend 이미지만 새것인 반쪽 상태가 될 수 있다.
+# (main은 도는 실행을 끝까지 두고, 기다리는 실행은 가장 최신 1개만 남긴다. 중간 커밋은 건너뛸 수 있다)
+# 참고: 취소가 아니어도 backend push 뒤 frontend가 실패하면 한쪽만 갱신될 수 있다.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
-# 코드를 읽기만 하면 되니까 권한을 최소로 둔다. (Secrets는 쓰지 않는다)
+# 코드를 읽기만 하면 되니까 권한을 최소로 둔다. (Docker Hub 로그인은 Secrets로 따로 한다)
 permissions:
   contents: read
 
@@ -70,3 +74,49 @@ jobs:
       # 타입 검사 + 프로덕션 빌드가 되는지 확인한다.
       - name: 빌드
         run: npm run build
+
+  # backend, frontend가 둘 다 성공하고, main 브랜치 push일 때만 실행된다.
+  # (다른 브랜치 push, PR에서는 건너뜀)
+  images:
+    needs: [backend, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20   # 멈춰도 20분 만에 끊는다
+    steps:
+      - uses: actions/checkout@v7
+
+      # Docker Hub 로그인. 아이디·토큰은 저장소 Secrets에서만 읽는다.
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 이미지 빌드 도구(buildx). 빌드 캐시를 쓰려면 필요하다.
+      # 러너(ubuntu-latest)와 EC2(t3.micro)가 둘 다 amd64라서 --platform 지정이나 QEMU는 필요 없다.
+      - uses: docker/setup-buildx-action@v4
+
+      # 백엔드 이미지: 저장소 루트의 Dockerfile, 빌드 컨텍스트는 루트(.)
+      # 계정명(seokam36)은 비밀이 아니고 docker-compose.yml에도 적혀 있어 그대로 고정한다.
+      - name: 백엔드 이미지 빌드·push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: |
+            seokam36/demo:latest
+            seokam36/demo:${{ github.sha }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+      # 프론트 이미지: frontend/Dockerfile, 빌드 컨텍스트는 frontend/
+      # 빌드 인자 VITE_API_BASE_URL은 Dockerfile 기본값(/api)을 그대로 쓴다.
+      - name: 프론트 이미지 빌드·push
+        uses: docker/build-push-action@v7
+        with:
+          context: frontend
+          push: true
+          tags: |
+            seokam36/demo-web:latest
+            seokam36/demo-web:${{ github.sha }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
