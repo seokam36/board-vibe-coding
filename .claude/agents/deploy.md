@@ -21,7 +21,7 @@ hooks:
 - src/main/resources/application-prod.yml
 
 ## 규칙
-- 비밀번호, DB 접속 정보, 키는 파일에 쓰지 않는다.
+- 비밀 값(비밀번호, DB 접속 정보, 키)을 두는 곳:
   - 로컬: docker-compose의 환경변수 또는 .env (단, .env는 .gitignore에 있어야 한다)
   - CI/CD: GitHub Secrets
   - 운영: 서버 환경변수
