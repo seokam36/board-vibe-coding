@@ -23,7 +23,7 @@ export default function App() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/login" element={<LoginPage />} />
         {/* "/posts/new"와 "/posts/:id"가 겹쳐 보이지만, React Router는 더 구체적인 경로를 우선한다 */}
-        {/* 글쓰기·수정 화면은 로그인한 사람만: 비로그인이면 RequireLogin이 /login 으로 보낸다 */}
+        {/* 글쓰기·수정 화면은 로그인한 사람만: 비로그인이면 RequireLogin이 /login 으로 보낸다 (단, 로그인이 풀린 그 화면은 예외) */}
         <Route
           path="/posts/new"
           element={

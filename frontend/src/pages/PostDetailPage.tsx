@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import api from '../api'
 import { NETWORK_ERROR_MESSAGE, getStatus, isNetworkError } from '../errorMessage'
+import ReloginNotice from '../components/ReloginNotice'
 import { formatDate } from '../formatDate'
 import type { Post } from '../types'
 
@@ -14,6 +15,8 @@ export default function PostDetailPage() {
   // 삭제 요청 중인지, 삭제 실패 메시지 (불러오기 에러와 따로 둬서 글은 계속 보이게 한다)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  // 삭제 중 401(재발급까지 실패): "삭제하지 못했습니다"와 구분해 로그인 안내를 보여 준다
+  const [needLogin, setNeedLogin] = useState(false)
   const navigate = useNavigate()
 
   // id가 바뀔 때마다 다시 불러온다 (의존성 배열 [id])
@@ -52,12 +55,14 @@ export default function PostDetailPage() {
     if (!window.confirm('이 글을 삭제할까요?')) return
     setDeleting(true)
     setDeleteError(null)
+    setNeedLogin(false)
     try {
       await api.delete(`/posts/${encodeURIComponent(id ?? '')}`)
       // replace: 삭제된 글의 상세 화면이 뒤로가기 기록에 남지 않게 한다
       navigate('/', { replace: true })
     } catch (err: unknown) {
       if (isNetworkError(err)) setDeleteError(NETWORK_ERROR_MESSAGE)
+      else if (getStatus(err) === 401) setNeedLogin(true)
       else if (getStatus(err) === 404) setDeleteError('이미 삭제된 글입니다')
       else setDeleteError('삭제하지 못했습니다')
       setDeleting(false) // 실패했을 때만 버튼을 되살린다 (성공하면 페이지가 바뀐다)
@@ -84,6 +89,7 @@ export default function PostDetailPage() {
             {deleting ? '삭제 중...' : '삭제'}
           </button>
           {deleteError && <p role="alert">{deleteError}</p>}
+          {needLogin && <ReloginNotice />}
         </div>
       )}
       <Link to="/">목록으로</Link>

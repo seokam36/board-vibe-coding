@@ -12,3 +12,6 @@ export function getStatus(error: unknown): number | undefined {
 export function isNetworkError(error: unknown): boolean {
   return axios.isAxiosError(error) && !error.response
 }
+
+// 쓰기 요청이 401을 받았을 때(자동 재발급까지 실패해 로그인이 풀린 경우) 보여 주는 안내. 옆에 로그인 링크를 같이 둔다
+export const RELOGIN_MESSAGE = '다시 로그인해 주세요'

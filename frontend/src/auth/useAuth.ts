@@ -9,6 +9,7 @@ export interface AuthUser {
 export interface AuthContextValue {
   user: AuthUser | null // null이면 비로그인
   loading: boolean // 시작할 때 /csrf 와 /auth/me 확인이 끝났는지
+  expiredPath: string | null // 로그인이 풀린 그 순간 있던 화면의 경로 (그 화면에서만 /login 으로 튕기지 않으려고 쓴다)
   login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
 }

@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import api from '../api'
 import { NETWORK_ERROR_MESSAGE, getStatus, isNetworkError } from '../errorMessage'
+import ReloginNotice from '../components/ReloginNotice'
 import type { Post, PostUpdateRequest } from '../types'
 
 export default function PostEditPage() {
@@ -16,6 +17,8 @@ export default function PostEditPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  // 저장 중 401(재발급까지 실패): "저장하지 못했습니다"와 구분해 로그인 안내를 보여 준다
+  const [needLogin, setNeedLogin] = useState(false)
   const navigate = useNavigate()
 
   // 들어오면 원래 글을 불러와 폼에 채운다
@@ -49,6 +52,7 @@ export default function PostEditPage() {
     e.preventDefault() // 폼 기본 동작(페이지 새로고침) 막기
     setSaving(true)
     setError(null)
+    setNeedLogin(false)
     const body: PostUpdateRequest = { title, content }
     try {
       // 빈 값 검사는 작성 화면처럼 서버의 400 응답에 맡긴다
@@ -58,6 +62,8 @@ export default function PostEditPage() {
     } catch (err: unknown) {
       if (isNetworkError(err)) {
         setError(NETWORK_ERROR_MESSAGE)
+      } else if (getStatus(err) === 401) {
+        setNeedLogin(true)
       } else if (getStatus(err) === 400) {
         setError('제목과 내용을 확인해 주세요 (제목은 최대 100자)')
       } else if (getStatus(err) === 404) {
@@ -102,6 +108,7 @@ export default function PostEditPage() {
             </label>
           </div>
           {error && <p role="alert">{error}</p>}
+          {needLogin && <ReloginNotice />}
           <button type="submit" disabled={saving}>
             {saving ? '저장 중...' : '저장'}
           </button>{' '}
