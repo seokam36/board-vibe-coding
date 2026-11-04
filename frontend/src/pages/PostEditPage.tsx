@@ -64,6 +64,10 @@ export default function PostEditPage() {
         setError(NETWORK_ERROR_MESSAGE)
       } else if (getStatus(err) === 401) {
         setNeedLogin(true)
+      } else if (getStatus(err) === 403) {
+        // 남의 글. 이 화면은 주소로 직접 들어와도 열리지만 저장은 서버가 막는다
+        // (CSRF 토큰 오류도 403이라 구분이 안 된다 — 이번에는 처리하지 않음)
+        setError('본인 글만 수정할 수 있습니다')
       } else if (getStatus(err) === 400) {
         setError('제목과 내용을 확인해 주세요 (제목은 최대 100자)')
       } else if (getStatus(err) === 404) {

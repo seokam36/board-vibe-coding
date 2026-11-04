@@ -47,7 +47,8 @@ export default function PostListPage() {
         {posts.map((post) => (
           // key: 목록의 각 항목을 구분하는 고유값 (React 필수)
           <li key={post.id}>
-            <Link to={`/posts/${post.id}`}>{post.title}</Link> <small>{formatDate(post.createdAt)}</small>
+            <Link to={`/posts/${post.id}`}>{post.title}</Link> <small>{post.author?.username ?? '(작성자 없음)'}</small>{' '}
+            <small>{formatDate(post.createdAt)}</small>
           </li>
         ))}
       </ul>
