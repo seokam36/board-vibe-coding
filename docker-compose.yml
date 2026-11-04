@@ -43,6 +43,10 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?.env에 POSTGRES_DB를 설정하세요}
       DB_USERNAME: ${POSTGRES_USER:?.env에 POSTGRES_USER를 설정하세요}
       DB_PASSWORD: ${POSTGRES_PASSWORD:?.env에 POSTGRES_PASSWORD를 설정하세요}
+      # 로그인 토큰(JWT) 서명 비밀키. .env에서 읽고, 없으면 시작 시 오류
+      JWT_SECRET: ${JWT_SECRET:?.env에 JWT_SECRET를 설정하세요}
+      # access_token 쿠키 Secure 속성 (HTTPS를 붙이기 전까지는 false)
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       # DB 연결 풀 기본값(10)은 작은 서버에 과함 -> 3으로 축소 (설정 파일 없이 환경변수로 처리)
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
     depends_on:

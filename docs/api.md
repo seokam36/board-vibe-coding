@@ -192,7 +192,7 @@ DB에서 글을 완전히 지운다 (복구 불가).
 
 ### 7. 회원가입 `POST /auth/signup`
 
-로그인 없이 호출 가능하지만 CSRF 헤더(`X-XSRF-TOKEN`)는 필요하다. 가입만 하고 로그인은 되지 않는다(로그인은 다음 단계).
+로그인 없이 호출 가능하지만 CSRF 헤더(`X-XSRF-TOKEN`)는 필요하다. 가입만 하고 로그인은 되지 않는다(로그인은 `POST /auth/login`).
 비밀번호는 `{bcrypt}` 접두어가 붙은 해시로만 저장되며 응답에 포함되지 않는다.
 
 요청 본문
@@ -227,3 +227,60 @@ DB에서 글을 완전히 지운다 (복구 불가).
 | 400 | username/password가 비었거나 규칙 위반, JSON 형식이 잘못됨 |
 | 403 | `X-XSRF-TOKEN` 헤더가 없거나 틀림 |
 | 409 | 이미 있는 username (동시에 같은 아이디로 가입해도 한 명만 성공) |
+
+### 8. 로그인 `POST /auth/login`
+
+로그인 없이 호출 가능하지만 CSRF 헤더(`X-XSRF-TOKEN`)는 필요하다.
+성공하면 액세스 토큰(JWT, HS256)을 `access_token` 쿠키로 내려준다. 쿠키: `HttpOnly; Path=/; SameSite=Lax; Max-Age=900` (HTTPS 환경에서는 `Secure`도 붙음). 세션(JSESSIONID)은 만들지 않는다.
+토큰 클레임: `sub`=사용자 id, `username`, `iat`, `exp`(발급 15분 후).
+만료되거나 변조된 `access_token` 쿠키가 붙어 와도 이 API는 정상 동작한다.
+
+요청 본문: `{ "username": "user01", "password": "password123" }` (둘 다 필수, 빈 값 불가. 형식 검사는 가입에서만 한다)
+
+성공 응답 `200 OK` + `Set-Cookie: access_token=...`
+
+```json
+{
+  "id": 1,
+  "username": "user01"
+}
+```
+
+실패
+
+| 상태코드 | 언제 |
+|----------|------|
+| 400 | username/password가 비었거나 JSON 형식이 잘못됨 |
+| 401 | 아이디 또는 비밀번호가 틀림 (없는 아이디와 틀린 비밀번호 모두 같은 401 응답이라 본문으로 구분할 수 없음) |
+| 403 | `X-XSRF-TOKEN` 헤더가 없거나 틀림 |
+
+### 9. 로그아웃 `POST /auth/logout`
+
+CSRF 헤더 필요. `access_token` 쿠키를 지운다(`Max-Age=0`). 로그인하지 않았거나 토큰이 만료돼도 항상 성공한다.
+
+성공 응답 `204 No Content` + `Set-Cookie: access_token=; Max-Age=0; ...`
+
+실패
+
+| 상태코드 | 언제 |
+|----------|------|
+| 403 | `X-XSRF-TOKEN` 헤더가 없거나 틀림 |
+
+### 10. 내 정보 `GET /auth/me`
+
+`access_token` 쿠키가 필요하다 (Authorization 헤더는 사용하지 않음).
+
+성공 응답 `200 OK`
+
+```json
+{
+  "id": 1,
+  "username": "user01"
+}
+```
+
+실패
+
+| 상태코드 | 언제 |
+|----------|------|
+| 401 | 쿠키가 없음, 토큰이 만료됨, 서명이 변조됨 (리다이렉트(302)는 하지 않음) |
