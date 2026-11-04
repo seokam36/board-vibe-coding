@@ -28,6 +28,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import com.example.demo.TestcontainersConfiguration;
+import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.repository.UserRepository;
 
 import jakarta.servlet.http.Cookie;
@@ -43,12 +44,16 @@ class LoginSmokeTests {
 	@Autowired
 	UserRepository userRepository;
 	@Autowired
+	PostRepository postRepository;
+	@Autowired
 	JwtDecoder jwtDecoder;
 	@Autowired
 	JwtEncoder jwtEncoder;
 
 	@AfterEach
 	void 정리() {
+		// 글이 사용자를 참조(외래키)하므로 글부터 지운다
+		postRepository.deleteAll();
 		userRepository.deleteAll();
 	}
 

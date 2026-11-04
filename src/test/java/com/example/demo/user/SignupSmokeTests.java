@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import com.example.demo.TestcontainersConfiguration;
+import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.repository.UserRepository;
 
 // S4-a 스모크 테스트: 회원가입 핵심 동작만 빠르게 확인한다 (자세한 케이스는 tester가 추가)
@@ -32,12 +33,16 @@ class SignupSmokeTests {
 
 	@Autowired
 	UserRepository userRepository;
+	@Autowired
+	PostRepository postRepository;
 
 	@Autowired
 	PasswordEncoder passwordEncoder;
 
 	@AfterEach
 	void 정리() {
+		// 글이 사용자를 참조(외래키)하므로 글부터 지운다
+		postRepository.deleteAll();
 		userRepository.deleteAll();
 	}
 

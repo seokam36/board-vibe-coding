@@ -38,6 +38,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.example.demo.TestcontainersConfiguration;
 import com.example.demo.auth.service.RefreshTokenService;
+import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.repository.UserRepository;
 
 import jakarta.servlet.http.Cookie;
@@ -55,6 +56,8 @@ class RefreshTokenTests {
 	@Autowired
 	UserRepository userRepository;
 	@Autowired
+	PostRepository postRepository;
+	@Autowired
 	StringRedisTemplate redis;
 	@Autowired
 	RefreshTokenService refreshTokenService;
@@ -67,6 +70,8 @@ class RefreshTokenTests {
 	@BeforeEach
 	@AfterEach
 	void 정리() {
+		// 글이 사용자를 참조(외래키)하므로 글부터 지운다
+		postRepository.deleteAll();
 		userRepository.deleteAll();
 		Set<String> keys = redis.keys("refresh:*");
 		if (keys != null && !keys.isEmpty()) {
@@ -285,6 +290,8 @@ class RefreshTokenTests {
 	void DB에서_사용자가_삭제된_뒤_재발급은_401() throws Exception {
 		가입("user01");
 		String token = 쿠키값(로그인("user01"), "refresh_token");
+		// 글이 사용자를 참조(외래키)하므로 글부터 지운다
+		postRepository.deleteAll();
 		userRepository.deleteAll();
 		assertThat(재발급(token).getStatus()).isEqualTo(401);
 	}

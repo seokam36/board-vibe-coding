@@ -31,6 +31,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import com.example.demo.TestcontainersConfiguration;
+import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.repository.UserRepository;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -48,12 +49,16 @@ class LoginDetailTests {
 	@Autowired
 	UserRepository userRepository;
 	@Autowired
+	PostRepository postRepository;
+	@Autowired
 	JwtEncoder jwtEncoder;
 
 	private final ObjectMapper om = new ObjectMapper();
 
 	@AfterEach
 	void 정리() {
+		// 글이 사용자를 참조(외래키)하므로 글부터 지운다
+		postRepository.deleteAll();
 		userRepository.deleteAll();
 	}
 

@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,9 +18,13 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import com.example.demo.TestLogin;
 import com.example.demo.TestcontainersConfiguration;
+import com.example.demo.auth.service.TokenService;
 import com.example.demo.post.repository.PostRepository;
+import com.example.demo.user.repository.UserRepository;
 
+import jakarta.servlet.http.Cookie;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -36,11 +41,29 @@ class PostUpdateDeleteApiTests {
 	PostRepository postRepository;
 
 	@Autowired
+	UserRepository userRepository;
+
+	@Autowired
+	TokenService tokenService;
+
+	// 글쓰기에 쓰는 로그인 쿠키 (글쓴이 = "writer")
+	Cookie 쿠키;
+
+	@Autowired
 	ObjectMapper objectMapper;
 
+	// 글쓴이로 쓸 사용자를 만들고 로그인 쿠키를 준비한다
 	@BeforeEach
+	void 준비() {
+		정리();
+		쿠키 = TestLogin.쿠키(tokenService, TestLogin.사용자(userRepository, "writer"));
+	}
+
+	@AfterEach
 	void 정리() {
+		// 글이 사용자를 참조(외래키)하므로 글부터 지운다
 		postRepository.deleteAll();
+		userRepository.deleteAll();
 	}
 
 	private JsonNode 본문(MvcResult r) throws Exception {
@@ -48,12 +71,12 @@ class PostUpdateDeleteApiTests {
 	}
 
 	private JsonNode 작성() throws Exception {
-		return 본문(mockMvc.perform(post("/posts").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+		return 본문(mockMvc.perform(post("/posts").with(csrf()).cookie(쿠키).contentType(MediaType.APPLICATION_JSON)
 				.content("{\"title\":\"원래제목\",\"content\":\"원래본문\"}")).andReturn());
 	}
 
 	private MvcResult 수정(Object id, String json) throws Exception {
-		return mockMvc.perform(put("/posts/" + id).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json)).andReturn();
+		return mockMvc.perform(put("/posts/" + id).with(csrf()).cookie(쿠키).contentType(MediaType.APPLICATION_JSON).content(json)).andReturn();
 	}
 
 	// 조건 1: 수정 응답이 200이고 id·createdAt은 유지, 제목·본문만 바뀐다
@@ -151,7 +174,7 @@ class PostUpdateDeleteApiTests {
 	@Test
 	void 삭제시_204와_빈_본문을_반환하고_이후_조회는_404다() throws Exception {
 		long id = 작성().get("id").asLong();
-		MvcResult r = mockMvc.perform(delete("/posts/" + id).with(csrf())).andReturn();
+		MvcResult r = mockMvc.perform(delete("/posts/" + id).with(csrf()).cookie(쿠키)).andReturn();
 		assertThat(r.getResponse().getStatus()).isEqualTo(204);
 		assertThat(r.getResponse().getContentAsString()).isEmpty();
 		assertThat(mockMvc.perform(get("/posts/" + id)).andReturn().getResponse().getStatus()).isEqualTo(404);
@@ -160,7 +183,7 @@ class PostUpdateDeleteApiTests {
 	// 조건 6
 	@Test
 	void 없는_게시글_삭제시_404를_반환한다() throws Exception {
-		assertThat(mockMvc.perform(delete("/posts/999999").with(csrf())).andReturn().getResponse().getStatus()).isEqualTo(404);
+		assertThat(mockMvc.perform(delete("/posts/999999").with(csrf()).cookie(쿠키)).andReturn().getResponse().getStatus()).isEqualTo(404);
 	}
 
 	@Test
@@ -170,6 +193,6 @@ class PostUpdateDeleteApiTests {
 
 	@Test
 	void 숫자가_아닌_id로_삭제하면_400을_반환한다() throws Exception {
-		assertThat(mockMvc.perform(delete("/posts/abc").with(csrf())).andReturn().getResponse().getStatus()).isEqualTo(400);
+		assertThat(mockMvc.perform(delete("/posts/abc").with(csrf()).cookie(쿠키)).andReturn().getResponse().getStatus()).isEqualTo(400);
 	}
 }

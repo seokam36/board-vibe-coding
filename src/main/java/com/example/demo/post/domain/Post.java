@@ -3,11 +3,16 @@ package com.example.demo.post.domain;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
+import com.example.demo.user.domain.User;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
@@ -35,16 +40,29 @@ public class Post {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    // 새 게시글은 제목과 본문으로만 만든다 (id, createdAt은 저장 시 채워짐)
-    public Post(String title, String content) {
+    // 글쓴이. S4-d 이전에 쓴 글은 작성자가 없어서 nullable(null 허용)이다.
+    // LAZY: 글만 읽을 때는 사용자 테이블을 같이 읽지 않는다. (목록·상세는 리포지토리에서 한 번에 가져온다)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "author_id")
+    private User author;
+
+    // 새 게시글은 제목·본문·작성자로 만든다 (id, createdAt은 저장 시 채워짐)
+    public Post(String title, String content, User author) {
         this.title = title;
         this.content = content;
+        this.author = author;
     }
 
     // 제목과 본문만 바꾼다 (setter 대신 의도가 드러나는 메서드. createdAt은 updatable=false라 그대로 유지됨)
     public void update(String title, String content) {
         this.title = title;
         this.content = content;
+    }
+
+    // 이 글을 userId가 쓴 게 맞는지 확인한다. 작성자가 없는 옛 글은 누구의 글도 아니므로 false.
+    // author.getId()는 프록시여도 DB를 다시 읽지 않는다.
+    public boolean isWrittenBy(Long userId) {
+        return author != null && author.getId().equals(userId);
     }
 
     // 저장 직전에 작성 시각을 자동 기록 (별도 라이브러리 없이 JPA 표준만 사용)

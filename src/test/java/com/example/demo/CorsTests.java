@@ -1,7 +1,11 @@
 package com.example.demo;
 
+import com.example.demo.auth.service.TokenService;
 import com.example.demo.post.repository.PostRepository;
+import com.example.demo.user.repository.UserRepository;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -32,10 +36,27 @@ class CorsTests {
 	@Autowired
 	PostRepository postRepository;
 
-	// POST 테스트로 생긴 데이터를 정리한다
+	@Autowired
+	UserRepository userRepository;
+
+	@Autowired
+	TokenService tokenService;
+
+	// 글쓰기(POST)에 쓰는 로그인 쿠키
+	Cookie 쿠키;
+
+	// 글쓴이로 쓸 사용자를 만들고 로그인 쿠키를 준비한다
+	@BeforeEach
+	void 준비() {
+		정리();
+		쿠키 = TestLogin.쿠키(tokenService, TestLogin.사용자(userRepository, "writer"));
+	}
+
+	// POST 테스트로 생긴 데이터를 정리한다 (글이 사용자를 참조하므로 글부터)
 	@AfterEach
 	void 정리() {
 		postRepository.deleteAll();
+		userRepository.deleteAll();
 	}
 
 	@Test
@@ -58,7 +79,7 @@ class CorsTests {
 
 	@Test
 	void 허용된_origin의_POST는_201과_Allow_Origin을_반환한다() throws Exception {
-		mockMvc.perform(post("/posts").with(csrf())
+		mockMvc.perform(post("/posts").with(csrf()).cookie(쿠키)
 						.header("Origin", ALLOWED)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"title\":\"t\",\"content\":\"c\"}"))
@@ -69,7 +90,7 @@ class CorsTests {
 	// 에러 응답에도 CORS 헤더가 붙어야 프론트가 상태코드를 읽을 수 있다
 	@Test
 	void 허용된_origin의_빈_title_POST는_400과_Allow_Origin을_반환한다() throws Exception {
-		mockMvc.perform(post("/posts").with(csrf())
+		mockMvc.perform(post("/posts").with(csrf()).cookie(쿠키)
 						.header("Origin", ALLOWED)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"title\":\"\",\"content\":\"c\"}"))

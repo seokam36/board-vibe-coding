@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import com.example.demo.TestcontainersConfiguration;
+import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.repository.UserRepository;
 
 // S4-a 보강 테스트: 입력 검증 경계값, 응답 형태, 거부 시 DB 불변, 보안 접근 규칙을 확인한다
@@ -33,9 +34,13 @@ class SignupValidationTests {
 
 	@Autowired
 	UserRepository userRepository;
+	@Autowired
+	PostRepository postRepository;
 
 	@AfterEach
 	void 정리() {
+		// 글이 사용자를 참조(외래키)하므로 글부터 지운다
+		postRepository.deleteAll();
 		userRepository.deleteAll();
 	}
 

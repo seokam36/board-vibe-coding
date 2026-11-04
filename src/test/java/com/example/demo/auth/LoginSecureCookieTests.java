@@ -17,6 +17,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.example.demo.TestcontainersConfiguration;
+import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.repository.UserRepository;
 
 // app.cookie.secure=true(운영의 COOKIE_SECURE=true)이면 로그인 쿠키에 Secure 속성이 붙는지 확인한다.
@@ -30,9 +31,13 @@ class LoginSecureCookieTests {
 	MockMvc mockMvc;
 	@Autowired
 	UserRepository userRepository;
+	@Autowired
+	PostRepository postRepository;
 
 	@AfterEach
 	void 정리() {
+		// 글이 사용자를 참조(외래키)하므로 글부터 지운다
+		postRepository.deleteAll();
 		userRepository.deleteAll();
 	}
 

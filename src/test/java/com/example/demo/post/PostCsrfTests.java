@@ -46,7 +46,7 @@ class PostCsrfTests {
 
 	@Test
 	void 토큰_없는_PUT은_403이고_글이_바뀌지_않는다() throws Exception {
-		Long id = postRepository.save(new Post("원래제목", "원래본문")).getId();
+		Long id = postRepository.save(new Post("원래제목", "원래본문", null)).getId();
 		mockMvc.perform(put("/posts/" + id).contentType(MediaType.APPLICATION_JSON)
 				.content("{\"title\":\"바뀐제목\",\"content\":\"바뀐본문\"}"))
 				.andExpect(status().isForbidden());
@@ -57,7 +57,7 @@ class PostCsrfTests {
 
 	@Test
 	void 토큰_없는_DELETE는_403이고_글이_남아_있다() throws Exception {
-		Long id = postRepository.save(new Post("원래제목", "원래본문")).getId();
+		Long id = postRepository.save(new Post("원래제목", "원래본문", null)).getId();
 		mockMvc.perform(delete("/posts/" + id)).andExpect(status().isForbidden());
 		assertThat(postRepository.existsById(id)).isTrue();
 	}

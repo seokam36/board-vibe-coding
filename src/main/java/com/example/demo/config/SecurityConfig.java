@@ -44,7 +44,9 @@ public class SecurityConfig {
                 m.matcher(HttpMethod.POST, "/auth/login"),
                 m.matcher(HttpMethod.POST, "/auth/logout"),
                 m.matcher(HttpMethod.POST, "/auth/refresh"),
-                m.matcher("/posts/**"), // 글 권한은 S4-d에서 좁힌다
+                // 글은 읽기(목록·상세)만 공개. 작성·수정·삭제는 로그인이 필요해서 여기 넣지 않는다.
+                m.matcher(HttpMethod.GET, "/posts"),
+                m.matcher(HttpMethod.GET, "/posts/{id}"),
                 m.matcher("/actuator/health"),
                 m.matcher("/error"));
     }

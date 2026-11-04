@@ -17,6 +17,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 
 import com.example.demo.TestcontainersConfiguration;
+import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.repository.UserRepository;
 
 // 진짜 서버(실제 포트)에서 Set-Cookie 속성과 401 응답 헤더를 확인한다. MockMvc는 이를 실제처럼 재현하지 못한다.
@@ -28,11 +29,15 @@ class LoginRealServerTests {
 	int port;
 	@Autowired
 	UserRepository userRepository;
+	@Autowired
+	PostRepository postRepository;
 
 	private final HttpClient client = HttpClient.newHttpClient();
 
 	@AfterEach
 	void 정리() {
+		// 글이 사용자를 참조(외래키)하므로 글부터 지운다
+		postRepository.deleteAll();
 		userRepository.deleteAll();
 	}
 

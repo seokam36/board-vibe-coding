@@ -18,6 +18,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.example.demo.TestcontainersConfiguration;
+import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.repository.UserRepository;
 
 // 동시 가입 상황 재현: existsByUsername 확인을 통과해도 DB unique 제약이 막아 409가 되는지 검사한다
@@ -32,9 +33,13 @@ class SignupRaceTests {
 	// 실제 리포지토리를 감싼 스파이: existsByUsername만 거짓말(false)을 하게 만든다
 	@MockitoSpyBean
 	UserRepository userRepository;
+	@Autowired
+	PostRepository postRepository;
 
 	@AfterEach
 	void 정리() {
+		// 글이 사용자를 참조(외래키)하므로 글부터 지운다
+		postRepository.deleteAll();
 		userRepository.deleteAll();
 	}
 
