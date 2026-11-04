@@ -5,7 +5,7 @@
 
 ## 할 일
 - [ ] S4. 회원가입 + 로그인 (JWT 액세스 토큰 15분 + 리프레시 토큰 7일·Redis, 둘 다 HttpOnly 쿠키, CSRF 켬)
-  - [ ] S4-a. Spring Security + 회원가입 API
+  - [x] S4-a. Spring Security + 회원가입 API
   - [ ] S4-b. 로그인(액세스 토큰 쿠키) / 로그아웃 / 내 정보
   - [ ] S4-c. Redis 도입 + 리프레시 토큰 발급·재발급·로그아웃 시 삭제
   - [ ] S4-d. 글과 작성자 연결 + 권한 (글쓰기 로그인, 수정·삭제 본인만, 기존 글 작성자 없음)
@@ -28,3 +28,4 @@
 | 2026-11-03 | S3-a | CI: push/PR 때 백엔드 테스트 + 프론트 lint·빌드 | 8208f81 |
 | 2026-11-03 | S3-b | main push 때 이미지 빌드 + Docker Hub push (latest + SHA) | c6ad16b |
 | 2026-11-03 | S3-c | 버튼으로 EC2 배포 (IP 조회 + 러너 IP만 SSH 임시 허용) | b322a6b |
+| 2026-11-04 | S4-a | Spring Security 도입 + 회원가입 API (BCrypt, CSRF, STATELESS) | 8955924 |
