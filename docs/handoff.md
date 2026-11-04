@@ -45,3 +45,25 @@
 - Boot 4는 Jackson 3라 import가 `tools.jackson.databind`다(`com.fasterxml` 아님).
 - 사용자 선호: 단계 보고는 짧게, 자세한 설명은 S4가 끝날 때 한 번에 쉽게 정리. Notion 기록도 S4 끝에 S4-b부터 이어서 쓴다(S4-a는 작성 완료).
 - 아직 실제로 안 해 본 것: EC2가 꺼진 상태에서 Deploy를 눌렀을 때 첫 단계에서 실패하고 보안그룹이 그대로인지.
+
+## 집 PC 포맷 (2026-11-04, 해킹 의심)
+집 PC가 해킹당한 것 같아 초기화했다. 그 PC에 있던 키·비밀번호는 털렸다고 보고 **전부 새로 만들어 바꾼다.** 옛날 파일은 백업하지 않았다(복구하지 말 것).
+
+### 이미 한 것
+- 이메일·GitHub·AWS 루트 2단계 인증 확인/설정. GitHub 복구 코드는 구글 드라이브에 저장.
+- GitHub 세션 정리(모르는 세션 Revoke).
+- AWS IAM `github-actions-deploy`의 액세스 키 **비활성화**(삭제는 안 함). 그래서 지금은 **Deploy 버튼이 동작하지 않는다.**
+- 위 "주의할 점"의 `deploy-actions` 개인키는 집 PC와 함께 사라졌다.
+
+### 새 PC 세팅
+- Git, Java 21, Docker Desktop, Node.js, IntelliJ, jq, Claude 앱 설치. `git config user.name/user.email` 설정, GitHub 로그인.
+- 프로젝트는 OneDrive 폴더 말고 다른 곳에 `git clone`으로 새로 받는다(OneDrive가 옛 PC 파일을 다시 내려받을 수 있음).
+- `.env`는 `.env.example`로 새로 만들고 **새 값**을 넣는다. 로컬 DB는 빈 상태로 다시 생긴다(연습 데이터라 괜찮음).
+
+### 키 교체 (S4-f 배포 전에 끝내야 함)
+1. **EC2 접속 키** (`demo-key.pem` 대체): 새 키를 만들어 EC2 Instance Connect(콘솔 브라우저 접속)로 서버 `~/.ssh/authorized_keys`에 넣고, **옛 `demo-key` 줄은 지운다.** AWS 콘솔에서 키 페어를 지워도 서버 안의 줄은 남으니 직접 지워야 한다. Instance Connect가 막히면 보안그룹 SSH 규칙을 잠깐 열어야 할 수 있다.
+2. **배포 SSH 키** (`EC2_SSH_KEY`): docs/deploy.md 2)대로 새 `deploy-actions` 키를 만들고, 서버에 새 공개키를 넣고, **옛 `github-actions-deploy` 줄을 지운 뒤**, GitHub Secret `EC2_SSH_KEY`를 바꾼다.
+3. **AWS 액세스 키**: IAM에서 새 키를 발급하고 Secret `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`를 바꾼 뒤, 비활성화해 둔 옛 키를 **삭제**한다.
+4. **Docker Hub 토큰**: 새 토큰을 발급하고 Secret `DOCKERHUB_TOKEN`을 바꾼 뒤 옛 토큰을 삭제한다.
+5. **EC2 DB 비밀번호**: 서버 `.env`의 `POSTGRES_PASSWORD`만 바꾸면 이미 만들어진 DB에는 적용되지 않는다. 컨테이너 안에서 `ALTER USER ... PASSWORD '...'`로 같이 바꾼다.
+6. 끝나면 IAM 액세스 키의 "마지막 사용"과 GitHub Sessions·SSH keys를 한 번 더 확인한다. 키를 바꾸기 전에 마지막 사용 시각이 갱신돼 있으면 누가 쓴 것이다.
