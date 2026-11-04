@@ -6,7 +6,7 @@
 허용되지 않은 주소에서 브라우저로 요청하면 403이 반환된다 (curl 등 브라우저가 아닌 요청은 CORS 대상이 아님).
 
 배포 환경(EC2)에서는 nginx를 거치므로 API가 `/api` 아래에 있다 (예: `/api/posts`, `/api/posts/1`). nginx가 `/api`를 떼고 백엔드에 전달하므로 이 문서의 URL 자체는 그대로다.
-헬스체크는 `/actuator/health` 그대로 쓴다 (`/api` 없음). 로컬 개발은 기존대로 `http://localhost:8080`에 직접 요청한다.
+헬스체크는 `/actuator/health` 그대로 쓴다 (`/api` 없음). 로컬 개발은 기존대로 `http://localhost:8080`에 직접 요청한다. 단 브라우저는 Vite 프록시(`/api`)를 거쳐야 `refresh_token` 쿠키(Path=`/api/auth`)가 붙는다.
 글 작성 응답의 `Location` 헤더는 백엔드 기준(`/posts/{id}`)이며 nginx가 바꾸지 않는다. 배포 환경에서 API로 따라가려면 앞에 `/api`를 붙인다 (현재 프론트는 `Location`을 사용하지 않음).
 
 ## CSRF 보호 (모든 POST/PUT/DELETE 공통)
@@ -232,12 +232,13 @@ DB에서 글을 완전히 지운다 (복구 불가).
 
 로그인 없이 호출 가능하지만 CSRF 헤더(`X-XSRF-TOKEN`)는 필요하다.
 성공하면 액세스 토큰(JWT, HS256)을 `access_token` 쿠키로 내려준다. 쿠키: `HttpOnly; Path=/; SameSite=Lax; Max-Age=900` (HTTPS 환경에서는 `Secure`도 붙음). 세션(JSESSIONID)은 만들지 않는다.
+리프레시 토큰도 `refresh_token` 쿠키로 함께 내려준다. 값은 랜덤 문자열(서버 Redis에는 해시만 저장), 쿠키: `HttpOnly; Path=/api/auth; SameSite=Lax; Max-Age=604800`(7일, HTTPS 환경에서는 `Secure`도 붙음). 경로는 브라우저 기준이며 설정 `app.cookie.refresh-path`로 바꾼다. 여러 기기에서 동시에 로그인할 수 있다(로그인마다 별도 토큰).
 토큰 클레임: `sub`=사용자 id, `username`, `iat`, `exp`(발급 15분 후).
 만료되거나 변조된 `access_token` 쿠키가 붙어 와도 이 API는 정상 동작한다.
 
 요청 본문: `{ "username": "user01", "password": "password123" }` (둘 다 필수, 빈 값 불가. 형식 검사는 가입에서만 한다)
 
-성공 응답 `200 OK` + `Set-Cookie: access_token=...`
+성공 응답 `200 OK` + `Set-Cookie: access_token=...` + `Set-Cookie: refresh_token=...`
 
 ```json
 {
@@ -256,9 +257,9 @@ DB에서 글을 완전히 지운다 (복구 불가).
 
 ### 9. 로그아웃 `POST /auth/logout`
 
-CSRF 헤더 필요. `access_token` 쿠키를 지운다(`Max-Age=0`). 로그인하지 않았거나 토큰이 만료돼도 항상 성공한다.
+CSRF 헤더 필요. `refresh_token` 쿠키가 있으면 서버(Redis)의 리프레시 토큰을 삭제하고, `access_token`·`refresh_token` 쿠키를 둘 다 지운다(`Max-Age=0`). 로그인하지 않았거나 토큰이 만료돼도 항상 성공한다.
 
-성공 응답 `204 No Content` + `Set-Cookie: access_token=; Max-Age=0; ...`
+성공 응답 `204 No Content` + `Set-Cookie: access_token=; Max-Age=0; ...` + `Set-Cookie: refresh_token=; Max-Age=0; Path=/api/auth; ...`
 
 실패
 
@@ -284,3 +285,27 @@ CSRF 헤더 필요. `access_token` 쿠키를 지운다(`Max-Age=0`). 로그인�
 | 상태코드 | 언제 |
 |----------|------|
 | 401 | 쿠키가 없음, 토큰이 만료됨, 서명이 변조됨 (리다이렉트(302)는 하지 않음) |
+
+### 11. 토큰 재발급 `POST /auth/refresh`
+
+로그인 없이 호출 가능하지만 CSRF 헤더(`X-XSRF-TOKEN`)는 필요하다. 요청 본문은 없다.
+`refresh_token` 쿠키(브라우저가 Path=`/api/auth` 요청에 자동으로 붙임)로 새 액세스 토큰과 새 리프레시 토큰을 받는다.
+리프레시 토큰은 한 번만 쓸 수 있다(회전): 쓰면 옛 토큰은 바로 지워지고, 같은 토큰을 다시 쓰면 401이다.
+만료되거나 변조된 `access_token` 쿠키가 붙어 와도 이 API는 정상 동작한다.
+주의: 실패(401) 응답이 두 쿠키를 지우므로, 클라이언트는 재발급 요청을 동시에 하나만 보내야 한다(여러 요청이 동시에 401을 받아도 재발급은 한 번만, S4-e 화면에서 처리).
+
+성공 응답 `200 OK` + `Set-Cookie: access_token=...` + `Set-Cookie: refresh_token=...` (쿠키 속성은 로그인과 같음)
+
+```json
+{
+  "id": 1,
+  "username": "user01"
+}
+```
+
+실패
+
+| 상태코드 | 언제 |
+|----------|------|
+| 401 | 쿠키가 없음, 모르는 토큰, 이미 사용한 토큰, 만료됨, 사용자가 삭제됨 (이유는 구분해서 알려주지 않음). 응답에 두 쿠키 삭제 `Set-Cookie`(`Max-Age=0`)가 붙음 |
+| 403 | `X-XSRF-TOKEN` 헤더가 없거나 틀림 |

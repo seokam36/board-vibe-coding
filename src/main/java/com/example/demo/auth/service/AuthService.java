@@ -1,5 +1,7 @@
 package com.example.demo.auth.service;
 
+import java.util.Optional;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -12,11 +14,12 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.auth.dto.LoginRequest;
 import com.example.demo.user.dto.UserResponse;
+import com.example.demo.user.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-// 로그인 처리: 아이디·비밀번호를 검증하고 액세스 토큰을 발급한다.
+// 인증 처리: 로그인(액세스·리프레시 토큰 발급), 리프레시 토큰 재발급, 로그아웃(리프레시 토큰 폐기).
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -24,9 +27,17 @@ public class AuthService {
 
     private final AuthenticationManager authenticationManager;
     private final TokenService tokenService;
+    private final RefreshTokenService refreshTokenService;
+    private final UserRepository userRepository;
 
-    // 로그인 결과: 응답 본문에 담을 사용자 + 쿠키에 담을 토큰
-    public record LoginResult(UserResponse user, String accessToken) {
+    // 로그인·재발급 결과: 응답 본문에 담을 사용자 + 쿠키에 담을 두 토큰
+    public record LoginResult(UserResponse user, String accessToken, String refreshToken) {
+
+        // 기본 toString은 토큰 원문을 찍으므로 가린다 (로그에 남지 않게)
+        @Override
+        public String toString() {
+            return "LoginResult[user=" + user + ", accessToken=***, refreshToken=***]";
+        }
     }
 
     public LoginResult login(LoginRequest request) {
@@ -48,6 +59,25 @@ public class AuthService {
         }
         AuthUserDetails principal = (AuthUserDetails) authentication.getPrincipal();
         String token = tokenService.issueAccessToken(principal.id(), principal.username());
-        return new LoginResult(new UserResponse(principal.id(), principal.username()), token);
+        String refreshToken = refreshTokenService.issue(principal.id());
+        return new LoginResult(new UserResponse(principal.id(), principal.username()), token, refreshToken);
+    }
+
+    // 로그아웃: 리프레시 토큰이 있으면 Redis에서 지운다.
+    public void logout(String refreshToken) {
+        refreshTokenService.revoke(refreshToken);
+    }
+
+    // 재발급: 옛 리프레시 토큰을 꺼내며 지우고(회전) 새 리프레시 + 새 액세스 토큰을 발급한다.
+    // 토큰이 없거나 모르거나 이미 썼거나 만료됐거나 사용자가 삭제됐으면 모두 빈 값(이유 구분 없음).
+    // 사용자 조회에 실패해도 옛 토큰은 이미 지워진 상태다(어차피 쓸 수 없는 토큰이라 문제 없음).
+    // 트랜잭션을 걸지 않는다: Redis 호출 동안 DB 연결(풀 3개)을 붙잡지 않기 위함. findById는 자체 트랜잭션으로 충분.
+    public Optional<LoginResult> refresh(String refreshToken) {
+        return refreshTokenService.consume(refreshToken)
+                .flatMap(userRepository::findById)
+                .map(user -> new LoginResult(
+                        new UserResponse(user.getId(), user.getUsername()),
+                        tokenService.issueAccessToken(user.getId(), user.getUsername()),
+                        refreshTokenService.issue(user.getId())));
     }
 }

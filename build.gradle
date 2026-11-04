@@ -28,6 +28,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	// JWT(액세스 토큰) 발급·검증과 쿠키 토큰 인증 필터를 위한 스타터 (내부적으로 Nimbus JOSE 사용)
 	implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server'
+	// 리프레시 토큰을 저장할 Redis 연결 (기본 클라이언트 Lettuce 포함)
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	// PostgreSQL JDBC 드라이버 (실행 시에만 필요)
 	runtimeOnly 'org.postgresql:postgresql'
 	// 보일러플레이트(getter, 생성자) 자동 생성. 컴파일 시에만 필요하고 버전은 Boot BOM이 관리

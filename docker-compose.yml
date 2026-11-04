@@ -1,5 +1,5 @@
-# 로컬: `docker compose up -d` -> postgres만 실행 (앱은 ./gradlew bootRun)
-# EC2 : `docker compose --profile prod up -d` -> web(nginx) + app + postgres 실행
+# 로컬: `docker compose up -d` -> postgres + redis만 실행 (앱은 ./gradlew bootRun)
+# EC2 : `docker compose --profile prod up -d` -> web(nginx) + app + postgres + redis 실행
 services:
   postgres:
     # 17 버전 고정: latest는 갑자기 바뀌어 데이터 호환 문제가 생길 수 있음
@@ -29,6 +29,35 @@ services:
       timeout: 3s
       retries: 10
 
+  redis:
+    # 리프레시 토큰 저장소. 로컬 기본 실행에도 같이 뜬다 (profile 없음)
+    image: redis:8.10.3-alpine
+    container_name: board-redis
+    restart: unless-stopped
+    # 메모리 1GB EC2 대비: 컨테이너 64m 상한 + redis 자체 상한 32mb (넘으면 TTL 있는 키부터 지움)
+    mem_limit: 64m
+    # root가 아닌 redis 사용자로 실행 (침입당했을 때 피해를 줄이기 위함)
+    user: redis
+    # 비밀번호가 프로세스 인자(ps, docker inspect의 Cmd)에 보이지 않도록 설정을 컨테이너 안 파일(/tmp, 권한 600)에 쓰고,
+    # exec로 redis-server가 PID 1이 되게 한다 (docker stop 신호를 바로 받아 빨리 종료).
+    # $$는 compose가 $로 바꾸지 않게 한 이스케이프. 디스크 저장 끔(--save "", --appendonly no): 재시작하면 로그인이 풀려도 괜찮다.
+    command:
+      - sh
+      - -c
+      - 'umask 077 && printf "requirepass %s\n" "$$REDIS_PASSWORD" > /tmp/redis.conf && exec redis-server /tmp/redis.conf --save "" --appendonly no --maxmemory 32mb --maxmemory-policy volatile-lru'
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?.env에 REDIS_PASSWORD를 설정하세요}
+      # healthcheck의 redis-cli가 비밀번호를 환경변수로 읽는다 (명령줄 인자에 안 남김)
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?.env에 REDIS_PASSWORD를 설정하세요}
+    ports:
+      # 서버 자기 자신(127.0.0.1)에서만 접속 가능. 외부에는 노출하지 않는다
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   app:
     # prod 프로필을 줄 때만 실행됨 (로컬 기본 실행에서는 제외)
     profiles: ["prod"]
@@ -45,13 +74,18 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:?.env에 POSTGRES_PASSWORD를 설정하세요}
       # 로그인 토큰(JWT) 서명 비밀키. .env에서 읽고, 없으면 시작 시 오류
       JWT_SECRET: ${JWT_SECRET:?.env에 JWT_SECRET를 설정하세요}
-      # access_token 쿠키 Secure 속성 (HTTPS를 붙이기 전까지는 false)
+      # access_token·refresh_token 쿠키 Secure 속성 (HTTPS를 붙이기 전까지는 false)
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       # DB 연결 풀 기본값(10)은 작은 서버에 과함 -> 3으로 축소 (설정 파일 없이 환경변수로 처리)
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
+      # 리프레시 토큰 저장소(Redis) 접속 정보. 같은 compose 안이라 서비스명(redis)이 호스트
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?.env에 REDIS_PASSWORD를 설정하세요}
     depends_on:
       postgres:
         # DB가 healthy가 된 뒤에 앱 시작
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   web:

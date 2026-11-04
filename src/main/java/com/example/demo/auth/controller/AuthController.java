@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -41,20 +42,39 @@ public class AuthController {
         return userService.signup(request);
     }
 
-    // 로그인: 200 {id, username} + access_token 쿠키. 아이디/비밀번호가 틀리면 401.
+    // 로그인: 200 {id, username} + access_token·refresh_token 쿠키. 아이디/비밀번호가 틀리면 401.
     @PostMapping("/login")
     public ResponseEntity<UserResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthService.LoginResult result = authService.login(request);
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookieFactory.create(result.accessToken()).toString())
+                .header(HttpHeaders.SET_COOKIE, cookieFactory.createRefresh(result.refreshToken()).toString())
                 .body(result.user());
     }
 
-    // 로그아웃: 쿠키를 지운다. 로그인 안 한 상태여도 204 (지울 게 없어도 결과가 같다).
+    // 재발급: refresh_token 쿠키로 새 토큰 한 쌍을 받는다. 실패하면 이유 구분 없이 401 + 두 쿠키 삭제.
+    @PostMapping("/refresh")
+    public ResponseEntity<UserResponse> refresh(
+            @CookieValue(name = AuthCookieFactory.REFRESH_TOKEN_COOKIE, required = false) String refreshToken) {
+        return authService.refresh(refreshToken)
+                .map(result -> ResponseEntity.ok()
+                        .header(HttpHeaders.SET_COOKIE, cookieFactory.create(result.accessToken()).toString())
+                        .header(HttpHeaders.SET_COOKIE, cookieFactory.createRefresh(result.refreshToken()).toString())
+                        .body(result.user()))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .header(HttpHeaders.SET_COOKIE, cookieFactory.delete().toString())
+                        .header(HttpHeaders.SET_COOKIE, cookieFactory.deleteRefresh().toString())
+                        .build());
+    }
+
+    // 로그아웃: Redis의 리프레시 토큰을 지우고 두 쿠키를 지운다. 로그인 안 한 상태여도 204 (지울 게 없어도 결과가 같다).
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout() {
+    public ResponseEntity<Void> logout(
+            @CookieValue(name = AuthCookieFactory.REFRESH_TOKEN_COOKIE, required = false) String refreshToken) {
+        authService.logout(refreshToken);
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, cookieFactory.delete().toString())
+                .header(HttpHeaders.SET_COOKIE, cookieFactory.deleteRefresh().toString())
                 .build();
     }
 
