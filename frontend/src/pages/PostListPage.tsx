@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
+import { useAuth } from '../auth/useAuth'
 import api from '../api'
 import { NETWORK_ERROR_MESSAGE, isNetworkError } from '../errorMessage'
 import { formatDate } from '../formatDate'
@@ -10,6 +11,8 @@ export default function PostListPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { user } = useAuth()
+  const navigate = useNavigate()
 
   // useEffect(함수, []): 화면이 처음 나타날 때 한 번 실행된다 (목록 불러오기)
   useEffect(() => {
@@ -35,7 +38,8 @@ export default function PostListPage() {
   return (
     <div>
       <h1>게시판</h1>
-      <Link to="/posts/new">글쓰기</Link>
+      {/* 글쓰기 버튼은 항상 보이되, 비로그인이면 로그인 화면으로 보낸다 */}
+      <button onClick={() => navigate(user ? '/posts/new' : '/login')}>글쓰기</button>
       {loading && <p>불러오는 중...</p>}
       {error && <p role="alert">{error}</p>}
       {!loading && !error && posts.length === 0 && <p>아직 글이 없습니다</p>}
