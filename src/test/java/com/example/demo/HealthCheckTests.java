@@ -27,15 +27,16 @@ class HealthCheckTests {
 				.andExpect(content().json("{\"status\":\"UP\"}", JsonCompareMode.STRICT));
 	}
 
+	// S4-a: 허용 목록 밖 경로는 "그 밖은 로그인 필요" 규칙 때문에 404가 아니라 401이 된다 (경로 존재 여부를 숨기는 효과도 있음)
 	@Test
-	void 없는_경로_조회시_404를_반환한다() throws Exception {
+	void 로그인_없이_없는_경로_조회시_401을_반환한다() throws Exception {
 		mockMvc.perform(get("/no-such-path"))
-				.andExpect(status().isNotFound());
+				.andExpect(status().isUnauthorized());
 	}
 
 	@Test
-	void 노출하지_않은_actuator_env_조회시_404를_반환한다() throws Exception {
+	void 로그인_없이_노출하지_않은_actuator_env_조회시_401을_반환한다() throws Exception {
 		mockMvc.perform(get("/actuator/env"))
-				.andExpect(status().isNotFound());
+				.andExpect(status().isUnauthorized());
 	}
 }

@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
@@ -57,7 +58,7 @@ class CorsTests {
 
 	@Test
 	void 허용된_origin의_POST는_201과_Allow_Origin을_반환한다() throws Exception {
-		mockMvc.perform(post("/posts")
+		mockMvc.perform(post("/posts").with(csrf())
 						.header("Origin", ALLOWED)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"title\":\"t\",\"content\":\"c\"}"))
@@ -68,7 +69,7 @@ class CorsTests {
 	// 에러 응답에도 CORS 헤더가 붙어야 프론트가 상태코드를 읽을 수 있다
 	@Test
 	void 허용된_origin의_빈_title_POST는_400과_Allow_Origin을_반환한다() throws Exception {
-		mockMvc.perform(post("/posts")
+		mockMvc.perform(post("/posts").with(csrf())
 						.header("Origin", ALLOWED)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"title\":\"\",\"content\":\"c\"}"))

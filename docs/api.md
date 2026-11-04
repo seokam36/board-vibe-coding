@@ -9,6 +9,15 @@
 헬스체크는 `/actuator/health` 그대로 쓴다 (`/api` 없음). 로컬 개발은 기존대로 `http://localhost:8080`에 직접 요청한다.
 글 작성 응답의 `Location` 헤더는 백엔드 기준(`/posts/{id}`)이며 nginx가 바꾸지 않는다. 배포 환경에서 API로 따라가려면 앞에 `/api`를 붙인다 (현재 프론트는 `Location`을 사용하지 않음).
 
+## CSRF 보호 (모든 POST/PUT/DELETE 공통)
+
+S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOKEN` 헤더가 없으면 `403`** 이다 (GET은 필요 없음).
+1. 앱 시작 시 `GET /csrf`를 한 번 호출하면 `XSRF-TOKEN` 쿠키가 설정된다.
+2. 이후 POST/PUT/DELETE마다 그 쿠키 값을 `X-XSRF-TOKEN` 헤더에 실어 보낸다 (axios는 같은 주소 요청에서 자동으로 해 준다).
+
+서버는 세션(`JSESSIONID`)을 만들지 않는다. 로그인이 필요한 경로는 인증 없이 부르면 `401`이다 (허용 목록 밖의 없는 경로도 404가 아니라 401).
+글 API(`/posts/**`)는 아직 로그인 없이 쓸 수 있다.
+
 ## 게시글 (Post)
 
 | 기능 | 메서드 | URL | 성공 | 실패 |
@@ -162,3 +171,59 @@ DB에서 글을 완전히 지운다 (복구 불가).
 |----------|------|
 | 404 | 없는 id (이미 삭제된 id 포함) |
 | 400 | id가 숫자가 아님 (예: `/posts/abc`) |
+
+## CSRF 토큰 (Csrf)
+
+### 6. CSRF 쿠키 발급 `GET /csrf`
+
+`XSRF-TOKEN` 쿠키를 설정한다. 로그인 없이 호출 가능.
+
+성공 응답 `200 OK` (헤더 `Set-Cookie: XSRF-TOKEN=...; Path=/`)
+
+```json
+{
+  "headerName": "X-XSRF-TOKEN"
+}
+```
+
+`headerName`은 토큰을 실어 보낼 헤더 이름이다. 헤더에는 **쿠키에 설정된 값 그대로**를 쓴다.
+
+## 회원 (Auth)
+
+### 7. 회원가입 `POST /auth/signup`
+
+로그인 없이 호출 가능하지만 CSRF 헤더(`X-XSRF-TOKEN`)는 필요하다. 가입만 하고 로그인은 되지 않는다(로그인은 다음 단계).
+비밀번호는 `{bcrypt}` 접두어가 붙은 해시로만 저장되며 응답에 포함되지 않는다.
+
+요청 본문
+
+| 필드 | 필수 | 규칙 |
+|------|------|------|
+| username | O | 영문 소문자·숫자·밑줄(`_`)만, 4~20자 (대문자·공백·한글 불가) |
+| password | O | 8~64자, 공백만 있으면 안 됨, UTF-8로 72바이트 이하 (한글은 글자당 3바이트라 24자까지) |
+
+요청 예시
+
+```json
+{
+  "username": "user01",
+  "password": "password123"
+}
+```
+
+성공 응답 `201 Created`
+
+```json
+{
+  "id": 1,
+  "username": "user01"
+}
+```
+
+실패
+
+| 상태코드 | 언제 |
+|----------|------|
+| 400 | username/password가 비었거나 규칙 위반, JSON 형식이 잘못됨 |
+| 403 | `X-XSRF-TOKEN` 헤더가 없거나 틀림 |
+| 409 | 이미 있는 username (동시에 같은 아이디로 가입해도 한 명만 성공) |

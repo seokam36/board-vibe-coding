@@ -1,5 +1,6 @@
 package com.example.demo.post;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -47,12 +48,12 @@ class PostUpdateDeleteApiTests {
 	}
 
 	private JsonNode 작성() throws Exception {
-		return 본문(mockMvc.perform(post("/posts").contentType(MediaType.APPLICATION_JSON)
+		return 본문(mockMvc.perform(post("/posts").with(csrf()).contentType(MediaType.APPLICATION_JSON)
 				.content("{\"title\":\"원래제목\",\"content\":\"원래본문\"}")).andReturn());
 	}
 
 	private MvcResult 수정(Object id, String json) throws Exception {
-		return mockMvc.perform(put("/posts/" + id).contentType(MediaType.APPLICATION_JSON).content(json)).andReturn();
+		return mockMvc.perform(put("/posts/" + id).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json)).andReturn();
 	}
 
 	// 조건 1: 수정 응답이 200이고 id·createdAt은 유지, 제목·본문만 바뀐다
@@ -150,7 +151,7 @@ class PostUpdateDeleteApiTests {
 	@Test
 	void 삭제시_204와_빈_본문을_반환하고_이후_조회는_404다() throws Exception {
 		long id = 작성().get("id").asLong();
-		MvcResult r = mockMvc.perform(delete("/posts/" + id)).andReturn();
+		MvcResult r = mockMvc.perform(delete("/posts/" + id).with(csrf())).andReturn();
 		assertThat(r.getResponse().getStatus()).isEqualTo(204);
 		assertThat(r.getResponse().getContentAsString()).isEmpty();
 		assertThat(mockMvc.perform(get("/posts/" + id)).andReturn().getResponse().getStatus()).isEqualTo(404);
@@ -159,7 +160,7 @@ class PostUpdateDeleteApiTests {
 	// 조건 6
 	@Test
 	void 없는_게시글_삭제시_404를_반환한다() throws Exception {
-		assertThat(mockMvc.perform(delete("/posts/999999")).andReturn().getResponse().getStatus()).isEqualTo(404);
+		assertThat(mockMvc.perform(delete("/posts/999999").with(csrf())).andReturn().getResponse().getStatus()).isEqualTo(404);
 	}
 
 	@Test
@@ -169,6 +170,6 @@ class PostUpdateDeleteApiTests {
 
 	@Test
 	void 숫자가_아닌_id로_삭제하면_400을_반환한다() throws Exception {
-		assertThat(mockMvc.perform(delete("/posts/abc")).andReturn().getResponse().getStatus()).isEqualTo(400);
+		assertThat(mockMvc.perform(delete("/posts/abc").with(csrf())).andReturn().getResponse().getStatus()).isEqualTo(400);
 	}
 }
