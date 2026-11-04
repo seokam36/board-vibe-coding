@@ -26,6 +26,18 @@ PROJECT_DIR="${PROJECT_DIR,,}"
 # 절대경로를 프로젝트 기준 상대경로로 바꾼다
 REL="${FILE#"$PROJECT_DIR"/}"
 
+# worktree(.claude/worktrees/<이름>/)에서 작업하면 경로 앞에 이 부분이 붙는다.
+# 떼어 내야 "src/test/" 같은 허용 경로와 똑같이 비교할 수 있다.
+if [[ "$REL" =~ ^\.claude/worktrees/[^/]+/(.*)$ ]]; then
+  REL="${BASH_REMATCH[1]}"
+fi
+
+# "../"로 허용 폴더 밖으로 빠져나가는 경로는 막는다
+if [[ "$REL" == *"../"* || "$REL" == *"/.." || "$REL" == ".." ]]; then
+  echo "Blocked: 상위 폴더(../)를 포함한 경로는 허용하지 않습니다 (시도한 경로: $REL)" >&2
+  exit 2
+fi
+
 for ALLOWED in "$@"; do
   if [[ "$ALLOWED" == */ ]]; then
     # 폴더 허용: 그 폴더로 시작하면 통과
