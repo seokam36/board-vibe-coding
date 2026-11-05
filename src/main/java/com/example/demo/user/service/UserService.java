@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.example.demo.auth.service.RefreshTokenService;
 import com.example.demo.user.domain.User;
+import com.example.demo.user.dto.PasswordChangeRequest;
 import com.example.demo.user.dto.SignupRequest;
 import com.example.demo.user.dto.UserResponse;
 import com.example.demo.user.repository.UserRepository;
@@ -20,6 +22,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenService refreshTokenService;
 
     // 회원가입. 아이디 또는 닉네임이 이미 있으면 409.
     // 메서드 전체에 @Transactional을 걸지 않는다: saveAndFlush()가 자기 트랜잭션에서 끝나야
@@ -46,7 +49,68 @@ public class UserService {
     public UserResponse getMe(Long id) {
         return userRepository.findById(id)
                 .map(UserResponse::from)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."));
+                .orElseThrow(UserService::unauthorized);
+    }
+
+    // 닉네임 변경. 다른 사람이 쓰는 닉네임이면 409, 자기 닉네임 그대로면 변경 없이 200.
+    // signup처럼 메서드 전체에 @Transactional을 걸지 않는다: UPDATE 쿼리가 자기 트랜잭션에서 끝나야
+    // 동시 변경 때 나는 unique 위반 예외를 여기서 잡아 409로 바꿀 수 있다.
+    public UserResponse updateNickname(Long id, String nickname) {
+        User user = findLoginUser(id);
+        if (user.getNickname().equals(nickname)) {
+            return UserResponse.from(user);
+        }
+        if (userRepository.existsByNickname(nickname)) {
+            throw nicknameTaken();
+        }
+        // 엔티티를 통째로 저장하지 않고 닉네임 컬럼만 UPDATE한다(동시에 바뀐 비밀번호를 옛 값으로 덮어쓰는 lost update 방지).
+        try {
+            if (userRepository.updateNickname(id, nickname) == 0) {
+                throw unauthorized(); // 읽은 뒤 회원이 삭제됨
+            }
+            return new UserResponse(user.getId(), user.getUsername(), nickname);
+        } catch (DataIntegrityViolationException e) {
+            // 확인과 저장 사이에 다른 사람이 먼저 같은 닉네임을 가져간 경우(DB unique가 막아 줌).
+            // 이 갱신에서 위반될 수 있는 제약은 nickname unique뿐이다.
+            throw nicknameTaken();
+        }
+    }
+
+    // 비밀번호 변경. 현재 비밀번호가 틀리거나 새 비밀번호가 현재와 같으면 400
+    // (401로 하면 프론트가 토큰 재발급을 돌리므로 400으로 한다).
+    // 순서: DB 변경(UPDATE 쿼리가 자기 트랜잭션으로 커밋) -> 그다음 Redis의 리프레시 토큰 전부 삭제.
+    // - DB 변경이 실패하면 revokeAll까지 가지 않으므로 "비밀번호는 그대로인데 로그아웃만 된" 상태가 생기지 않는다.
+    // - revokeAll이 실패하면(Redis 장애) 비밀번호는 이미 바뀌었고 500이 난다. 옛 리프레시 토큰이 남을 수 있어
+    //   실패를 숨기지 않고 500으로 드러낸다(알림·재시도는 운영에서 다룰 몫).
+    public void changePassword(Long id, PasswordChangeRequest request) {
+        User user = findLoginUser(id);
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "현재 비밀번호가 올바르지 않습니다.");
+        }
+        // 현재 비밀번호는 위에서 맞다고 확인됐으므로, 문자열이 같으면 새 비밀번호도 현재와 같은 것이다
+        if (request.currentPassword().equals(request.newPassword())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "새 비밀번호는 현재 비밀번호와 달라야 합니다.");
+        }
+        // 비밀번호 컬럼만 UPDATE(자체 트랜잭션으로 커밋). 통째 저장하면 동시에 바뀐 닉네임을 옛 값으로 덮어쓸 수 있다.
+        // bcrypt(encode)는 DB 연결을 잡지 않은 채 돌리고, UPDATE만 짧게 트랜잭션을 쓴다.
+        if (userRepository.updatePassword(id, passwordEncoder.encode(request.newPassword())) == 0) {
+            throw unauthorized(); // 읽은 뒤 회원이 삭제됨
+        }
+        refreshTokenService.revokeAll(id); // 모든 기기 로그아웃
+    }
+
+    // 토큰은 유효한데 회원이 DB에 없으면(삭제됨) 로그인 안 된 것과 같이 401
+    private User findLoginUser(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(UserService::unauthorized);
+    }
+
+    private static ResponseStatusException unauthorized() {
+        return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
+    }
+
+    private ResponseStatusException nicknameTaken() {
+        return new ResponseStatusException(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다.");
     }
 
     private ResponseStatusException duplicated() {

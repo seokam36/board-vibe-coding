@@ -3,6 +3,10 @@ package com.example.demo.user.repository;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.example.demo.user.domain.User;
 
@@ -16,4 +20,19 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // 로그인 때 아이디로 사용자를 찾는다
     Optional<User> findByUsername(String username);
+
+    // 닉네임 컬럼만 바꾼다. findById로 읽은 User를 통째로 저장(merge)하면 모든 컬럼을 UPDATE해서,
+    // 동시에 커밋된 다른 변경(예: 비밀번호)을 옛 값으로 되돌리는 lost update가 생기기 때문이다.
+    // 영속성 컨텍스트: open-in-view=false이고 호출마다 자기 트랜잭션이라 남는 엔티티가 없어 clearAutomatically는 필요 없다.
+    // 반환값 = 바뀐 행 수(0이면 그 사이 회원이 삭제됨)
+    @Modifying
+    @Transactional
+    @Query("update User u set u.nickname = :nickname where u.id = :id")
+    int updateNickname(@Param("id") Long id, @Param("nickname") String nickname);
+
+    // 비밀번호(해시) 컬럼만 바꾼다. 이유는 updateNickname과 같다.
+    @Modifying
+    @Transactional
+    @Query("update User u set u.password = :password where u.id = :id")
+    int updatePassword(@Param("id") Long id, @Param("password") String password);
 }
