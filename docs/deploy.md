@@ -13,14 +13,13 @@
    준비가 되면 Actions 탭 -> 왼쪽 Deploy -> Run workflow -> main 선택 후 실행.
 3. 워크플로가 하는 일: 켜진 EC2의 퍼블릭 IP 조회 -> 보안 그룹에 이 러너 IP의 SSH(22) 허용을 잠깐 추가
    -> **DB 자동 백업**(배포 직전에 서버 DB를 파일로 저장. 실패하면 여기서 중단, 자세한 내용은 아래 "배포 전 DB 백업") -> SSH로 `docker compose pull`/`up -d` -> `/actuator/health`가 UP일 때까지 최대 약 3~4분 확인 -> (성공/실패 상관없이) SSH 허용 규칙 삭제.
-   앱이 켜질 때 Flyway가 표 변경(V 파일)을 적용한다. 실패하면 아래 'Flyway(표 변경) 문제와 되돌리기' 참고.
+   앱이 켜질 때 Flyway가 표 변경(V 파일)을 적용합니다. 실패하면 아래 'Flyway(표 변경) 문제와 되돌리기'를 참고합니다.
 4. 초록색이면 끝입니다. 확인용 주소는 `http://<퍼블릭IP>/`. 다 쓰고 나면 EC2를 콘솔에서 중지합니다.
 
 만약 실행이 중간에 강제로 끊겨 `github-actions-deploy` 설명이 붙은 22번 규칙이 보안 그룹에 남았다면 콘솔에서 직접 지웁니다.
 
 ### 배포 전 DB 백업 (자동)
 Deploy 버튼을 누르면 워크플로가 배포 "직전에" 서버 DB를 알아서 백업합니다. 손으로 할 일은 없습니다.
-앱이 켜질 때 Flyway가 표 변경(V 파일)을 적용한다. 실패하면 아래 'Flyway(표 변경) 문제와 되돌리기' 참고.
 - 위치: EC2의 `~/board/backups/db-<날짜>-<시각>.sql` (UTC 기준, 예: `db-20260101-093000.sql`). 폴더는 나만(700), 파일도 나만(600) 읽을 수 있습니다.
 - 보관: 최신 10개만 남기고 오래된 것은 자동으로 지웁니다.
 - 안전장치: 파일이 비어 있거나, `posts` 표가 없거나, 끝까지 쓰이지 않았으면 백업 실패로 보고 **배포를 멈춥니다**(새 이미지를 받지 않음). 이때 Actions 로그의 빨간 오류 줄을 확인합니다. SSH 허용 규칙은 실패해도 닫힙니다.
@@ -40,6 +39,7 @@ Deploy 버튼을 누르면 워크플로가 배포 "직전에" 서버 DB를 알�
 2. `docker exec board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"'` — **경고: 지금 DB의 데이터와 표가 전부 삭제됩니다.** 백업을 만들었고 올바른 파일인지 확인한 뒤에만 실행하세요. (백업에는 "표 지우기" 명령이 없어서, 비우지 않으면 `CREATE TABLE`이 "이미 있음" 오류로 실패합니다.)
 3. `docker exec -i board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 --single-transaction' < backups/db-<날짜>-<시각>.sql` — 백업 파일을 DB에 넣습니다. `ON_ERROR_STOP`은 오류가 나면 바로 멈추고 실패(종료 코드 0이 아님)로 알려 주고, `--single-transaction`은 중간에 실패하면 반쯤 들어간 채로 두지 않고 전부 취소합니다.
 4. `docker compose --profile prod up -d` — 멈춰 둔 앱을 다시 띄웁니다. 이어서 `/actuator/health`가 UP인지 확인합니다.
+   (기록장이 없는 옛 백업이라면 4단계 대신 아래 (e)의 "일회성 baseline 절차"를 따릅니다.)
 
 **손으로 백업 (비상용)** Actions를 못 쓰는 비상 수동 배포 때만 씁니다. 워크플로와 같은 방식(컨테이너 안 pg_dump)입니다. EC2 `~/board`에서:
 - `umask 077 && mkdir -p backups && chmod 700 backups && docker exec board-postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"' > backups/db-<날짜>.sql && chmod 600 backups/db-<날짜>.sql`
@@ -158,8 +158,9 @@ Flyway는 DB 표 구조를 바꾸는 "V 파일"(예: `V2__...sql`)을 앱이 켜
 - **[서버]** `docker compose --profile prod logs --tail 100 app` — app 컨테이너의 최근 로그 100줄을 봅니다.
 
 대표 로그와 뜻 (Flyway 12.4.0 기준. 문구는 버전에 따라 조금 다를 수 있습니다):
-- `Creating Schema History table "public"."flyway_schema_history" with baseline ...` — 기록장이 없어서 새로 만들고, "지금 표 상태를 1번으로 친다"고 적는 중입니다. 기존 운영 DB에서 처음 켤 때 한 번 나옵니다.
-- `Successfully baselined schema with version: 1` — 위 작업이 끝났습니다(정상).
+- `Creating Schema History table "public"."flyway_schema_history" with baseline ...` — 기록장이 없어서 새로 만들고, "지금 표 상태를 1번으로 친다"고 적는 중입니다. S6-c 배포 때 한 번 나온 로그입니다. S6-c 후속부터는 baseline 설정을 꺼서 나오지 않습니다(옛 백업을 되살릴 때 아래 (e)의 일회성 절차로 켜면 다시 나옵니다).
+- `Successfully baselined schema with version: 1` — 위 작업이 끝났습니다(정상, 마찬가지로 S6-c 배포 때 한 번 나왔고 S6-c 후속부터는 나오지 않습니다).
+- `Found non-empty schema(s) "public" but no schema history table` — 표는 있는데 기록장이 없는 DB라서 Flyway가 거절한 것입니다(S6-c 후속부터 baseline 설정 꺼짐). 앱은 뜨지 않습니다. 옛 백업을 되살린 경우라면 아래 (e)의 일회성 baseline 절차를 따릅니다. 처음 세팅하는 완전히 빈 DB는 V1이 실행되므로 이 오류가 나지 않습니다.
 - `Current version of schema "public": 1` — DB가 지금 몇 번까지 적용됐는지 알려 줍니다.
 - `Schema "public" is up to date. No migration necessary.` — 새로 적용할 V 파일이 없습니다(정상).
 - `Successfully applied N migration(s)` — 새 V 파일 N개를 적용했습니다(정상).
@@ -201,5 +202,18 @@ Flyway는 적용한 V 파일의 지문(체크섬)을 기록해 두고, 다음 �
 - 바꾸고 싶은 내용은 **새 번호의 V 파일**(예: 다음 번호 `V3__...sql`)로 만듭니다. 한 번 적용된 V 파일은 절대 고치지 않는 것이 규칙입니다.
 
 ### (e) 백업과 기록장
-S6-c 이후 만들어진 백업에는 `flyway_schema_history`도 함께 들어 있으므로, 위 "되살리기" 절차를 그대로 쓰면 됩니다(되살린 DB와 기록장이 서로 맞습니다).
-그 이전 백업(기록장이 없는 백업)은 되살린 뒤 앱을 처음 켤 때 baseline(기준선 잡기)이 다시 자동으로 잡힙니다.
+기록장(`flyway_schema_history`)이 백업 안에 있는지가 중요합니다.
+- S6-c 두 번째 Deploy부터 만들어진 백업에는 기록장이 있습니다. 위 "되살리기" 1~4단계를 그대로 쓰면 됩니다(되살린 DB와 기록장이 서로 맞습니다).
+- S6-c 첫 Deploy 백업(`db-20261105-133326.sql`)과 그 이전 백업은 기록장이 없습니다(첫 Deploy 백업은 Flyway 앱이 뜨기 직전에 만들어졌기 때문입니다). 그냥 되살리면 앱이 시작되지 않습니다(Flyway가 `Found non-empty schema(s) ... but no schema history table`로 거절). 이때는 아래 일회성 baseline 절차를 씁니다.
+
+**일회성 baseline 절차 (기록장 없는 옛 백업을 되살릴 때만)**
+비유하면, 기록장이 없는 DB는 "이미 지어진 건물인데 공사 일지가 없는 상태"입니다. 일지 맨 앞에 "1번 공사까지 끝남"이라고 한 번만 적어 주면(baseline) Flyway가 거절하지 않습니다. 이 설정은 `docker-compose.override.yml`이라는 임시 파일로 켭니다(compose가 `docker-compose.yml`에 자동으로 합쳐서 읽으므로 `.env`와 `docker-compose.yml`은 건드리지 않습니다). baseline 버전은 기본값 1이라 V1과 맞습니다.
+1. **[서버]** 위 "되살리기"의 1~3단계(앱 멈춤 -> 스키마 비움 -> 백업 넣기)를 그대로 합니다. 4단계는 하지 않습니다.
+2. **[서버]** `cd ~/board && printf 'services:\n  app:\n    environment:\n      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"\n' > docker-compose.override.yml` — baseline을 켜는 임시 파일을 만듭니다.
+3. **[서버]** `docker compose --profile prod up -d app` — 앱을 띄웁니다. 이어서 `docker compose --profile prod logs --tail 100 app`에서 `Successfully baselined schema with version: 1`이 보이는지, `http://<퍼블릭IP>/actuator/health`가 UP인지 확인합니다.
+4. **[서버]** `rm docker-compose.override.yml && docker compose --profile prod up -d app` — 임시 파일을 지우고 앱을 다시 띄워 baseline을 끕니다. 기록장이 이미 생겼으므로 이제는 필요 없습니다.
+5. **[서버]** `docker compose --profile prod config | grep -c BASELINE` — 결과가 `0`이면 baseline이 꺼진 것입니다.
+
+주의:
+- override 파일을 지우지 않으면, Deploy 버튼은 compose 파일을 건드리지 않으므로 baseline이 계속 켜진 채로 남습니다. 4~5단계를 꼭 합니다.
+- 백업의 표 구조가 V1과 같을 때만 맞습니다. 즉 S5-f 배포 이후부터 S6-c 첫 Deploy까지의 백업만 해당합니다. 그 전 백업(`nickname` 칸이 없음)은 baseline 뒤 Hibernate 검사에서 `missing column`으로 막히므로 쓰면 안 됩니다. 이 경우에도 서버 DB를 직접 고치지 말고 위 조건에 맞는 다른 백업을 고릅니다.

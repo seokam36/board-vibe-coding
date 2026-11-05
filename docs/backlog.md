@@ -31,7 +31,7 @@
     - [x] S6-b-1. Flyway 의존성 + V1(운영 구조 기준) + ddl-auto=validate + 테스트가 Flyway로 표 만들기
     - [x] S6-b-2. 표가 이미 있는 DB를 기준선으로 인정 (로컬 리허설 + 자동 테스트)
   - [x] S6-c. EC2 배포
-  - [ ] S6-c 후속. 운영·로컬 baseline이 끝나면 spring.flyway.baseline-on-migrate·baseline-version 삭제 (기록장 없는 이상한 DB를 V1으로 잘못 인정하지 않게). FlywayBaselineTests와 baseline 테스트 데이터도 같이 수정(시작 실패 확인으로 전환 또는 삭제)
+  - [x] S6-c 후속. 운영·로컬 baseline이 끝나면 spring.flyway.baseline-on-migrate·baseline-version 삭제 (기록장 없는 이상한 DB를 V1으로 잘못 인정하지 않게). FlywayBaselineTests와 baseline 테스트 데이터도 같이 수정(시작 실패 확인으로 전환 또는 삭제)
 - [ ] (나중, 알려진 한계) 여러 탭이 동시에 재발급하면 같은 리프레시 토큰을 두 번 써서 모든 탭이 로그아웃될 수 있다. 탭 하나 안에서는 재발급을 하나로 모으지만 탭끼리는 못 모은다. 해결 후보: 백엔드에서 방금 회전한 토큰을 몇 초 봐주기, 또는 BroadcastChannel로 탭끼리 알리기 (Web Locks는 HTTPS 필요)
 
 ## 끝난 일
@@ -69,4 +69,5 @@
 | 2026-11-05 | S6-a | Deploy 전 서버 DB 자동 백업(pg_dump → ~/board/backups, 600/700, 3가지 검사·디스크 50MB 검사 실패 시 배포 중단, 10개 보관, 3분 제한) + deploy.md 되살리기 절차 완성 | bbc3dc5 |
 | 2026-11-05 | S6-b-1 | Flyway 도입(V1 = 운영 구조 그대로, 제약 이름까지 diff 0) + ddl-auto=validate + baseline-on-migrate. 테스트 267개 통과, 표 있는 DB에서 BASELINE 1행·데이터 유지 확인. CLAUDE.md에 V 파일 규칙 | 83b7a8a |
 | 2026-11-05 | S6-b-2 | 표가 이미 있는 DB 기준선 인정: 로컬 DB를 운영 구조로 갈아끼워 bootRun 리허설(BASELINE 1행, 재시작해도 1행, health UP) + 자동 테스트 3개(첫 시작·데이터 보존·두 번째 시작, V1 파일 직접 실행). 테스트 270개 | 16c2989 |
-| 2026-11-05 | S6-c | EC2 배포: Deploy 자동 백업 첫 실전(600 권한) → 운영 DB BASELINE 1행, 데이터 유지, 가입·글쓰기 확인. Deploy 재실행해도 백업만 1개 늘고 기록장 1행 그대로. deploy.md에 Flyway 문제·이전 이미지 되돌리기 절 추가 | (이 커밋) |
+| 2026-11-05 | S6-c | EC2 배포: Deploy 자동 백업 첫 실전(600 권한) → 운영 DB BASELINE 1행, 데이터 유지, 가입·글쓰기 확인. Deploy 재실행해도 백업만 1개 늘고 기록장 1행 그대로. deploy.md에 Flyway 문제·이전 이미지 되돌리기 절 추가 | 25bae86 |
+| 2026-11-05 | S6-c 후속 | baseline-on-migrate·baseline-version 삭제(기록장 없는 DB는 거절). 테스트: 기록장 없는 DB 거절 + 운영 상태(BASELINE 있음) 정상, 총 269개. 로컬 bootRun health UP. deploy.md에 옛 백업용 일회성 baseline 절차(override 파일) | (이 커밋) |
