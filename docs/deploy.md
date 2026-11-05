@@ -6,7 +6,8 @@
 ## 자동 배포 (GitHub Actions 버튼)
 이미지는 main에 push하면 CI가 Docker Hub에 올려 둡니다(`latest`). 배포는 아래처럼 버튼으로 합니다.
 1. (AWS 콘솔) EC2 인스턴스를 켭니다(시작). 이 워크플로는 EC2를 켜거나 끄지 않습니다. 켜져 있지 않으면 실패합니다.
-2. (GitHub) 버튼을 누르기 전에 Actions 탭에서 배포할 커밋의 CI(images 포함)가 초록색인지 확인합니다.
+2. (EC2) DB 구조가 바뀌는 배포(테이블·컬럼 추가 등)라면 버튼을 누르기 전에 DB를 백업합니다. 아래 "배포 전 DB 백업"을 참고하세요.
+   (GitHub) 버튼을 누르기 전에 Actions 탭에서 배포할 커밋의 CI(images 포함)가 초록색인지 확인합니다.
    자동 배포는 EC2의 `docker-compose.yml`을 바꾸지 않습니다. compose 파일을 바꿨다면 먼저 아래 비상용의 4~5단계(백업·scp)로 EC2에 복사한 뒤 버튼을 누릅니다.
    그다음 Actions 탭 -> 왼쪽 Deploy -> Run workflow -> main 선택 후 실행.
 3. 워크플로가 하는 일: 켜진 EC2의 퍼블릭 IP 조회 -> 보안 그룹에 이 러너 IP의 SSH(22) 허용을 잠깐 추가
@@ -14,6 +15,17 @@
 4. 초록색이면 끝입니다. 확인용 주소는 `http://<퍼블릭IP>/`. 다 쓰고 나면 EC2를 콘솔에서 중지합니다.
 
 만약 실행이 중간에 강제로 끊겨 `github-actions-deploy` 설명이 붙은 22번 규칙이 보안 그룹에 남았다면 콘솔에서 직접 지웁니다.
+
+### 배포 전 DB 백업
+앱이 시작될 때 `ddl-auto=update`로 테이블·컬럼이 자동으로 바뀝니다. 만약을 위해 바뀌기 전 상태를 파일로 남깁니다(`<날짜>`는 예: 20260101).
+1. (EC2, `~/board`에서) 백업 파일을 만들고 나만 읽을 수 있게 합니다.
+   - `set -a && . ./.env && set +a && docker exec board-postgres pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" > backup-<날짜>.sql; unset POSTGRES_PASSWORD JWT_SECRET REDIS_PASSWORD; chmod 600 backup-<날짜>.sql`
+   - 확인: `ls -l backup-<날짜>.sql`(0바이트가 아님), `grep -c "CREATE TABLE public.posts" backup-<날짜>.sql`(1)
+2. (개발 PC) 서버 디스크가 망가질 때를 대비해 PC에도 복사합니다. 저장소 폴더 밖에 두고 커밋하지 않습니다.
+   - `scp -i ~/.ssh/board-ec2 ec2-user@<퍼블릭IP>:~/board/backup-<날짜>.sql ~/board-backups/`
+3. 되살리기(필요할 때만): 앱을 멈추고 빈 DB에 넣습니다.
+   - `docker compose --profile prod stop app` 후 `docker exec -i board-postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < backup-<날짜>.sql`
+   - 같은 이름의 테이블이 이미 있으면 오류가 나므로, 실제로 되살릴 때는 DB를 비운 뒤 넣습니다.
 
 ### 처음 한 번 준비할 것
 **1) IAM 사용자 + 액세스 키** (AWS 콘솔 -> IAM)
@@ -67,6 +79,7 @@ EC2는 이미지를 받아 실행만 합니다. 저장소를 clone할 필요 없
   `.env`는 서버에만 두고, 복사하거나 커밋하지 않습니다.
 - S4(로그인)부터 같은 `.env`에 아래 값도 필요합니다.
   - `JWT_SECRET` (필수): 로그인 토큰 서명용 비밀키. Base64 문자열(디코딩 후 32바이트 이상)이며 서버에서 직접 만듭니다: `openssl rand -base64 32`. 없으면 서버가 시작되지 않습니다.
+  - `REDIS_PASSWORD` (필수): 리프레시 토큰 저장소(Redis) 비밀번호. 서버에서 직접 만듭니다: `openssl rand -hex 24`. 없으면 `docker compose`가 바로 실패합니다.
   - `COOKIE_SECURE` (선택): 로그인 쿠키의 Secure 속성. 기본 `false`이고, HTTPS를 도입하면 `true`로 바꿉니다.
 - DB 비밀번호를 바꿀 때: `.env`의 `POSTGRES_PASSWORD`만 바꾸면 이미 만들어진 DB에는 적용되지 않습니다(처음 만들 때만 읽음).
   EC2 `~/board`에서 DB 안의 비밀번호와 `.env`를 같은 값으로 함께 바꿉니다. 값은 서버에서 만들고 화면에 출력하지 않습니다.
@@ -99,12 +112,12 @@ EC2는 이미지를 받아 실행만 합니다. 저장소를 clone할 필요 없
 6. (EC2) 접속해서 새 이미지로 실행합니다.
    - `ssh -i ~/.ssh/board-ec2 ec2-user@<퍼블릭IP>`
    - `cd ~/board && docker compose --profile prod pull && docker compose --profile prod up -d`
-   - `docker ps`로 `board-web`, `board-app`, `board-postgres` 세 컨테이너가 떠 있는지 확인합니다.
+   - `docker ps`로 `board-web`, `board-app`, `board-postgres`, `board-redis` 네 컨테이너가 떠 있는지 확인합니다.
 7. 브라우저에서 아래를 확인합니다.
    - `http://<퍼블릭IP>/`: 목록 화면이 뜨는지
    - `http://<퍼블릭IP>/posts/1`: 새로고침해도 JSON이 아니라 화면이 뜨는지
    - `http://<퍼블릭IP>/api/posts`: JSON 배열이 오는지 (health는 app만 살아 있어도 UP이라 `/api` 전달까지는 확인하지 못합니다)
-   - `http://<퍼블릭IP>/actuator/health`: UP인지
+   - `http://<퍼블릭IP>/actuator/health`: UP인지 (DB와 Redis 상태도 포함됩니다. 둘 중 하나가 죽거나 `REDIS_PASSWORD`가 틀리면 503이 되고, 자동 배포도 실패로 끝납니다. 로그인이 실제로 안 되는 상태이므로 의도된 동작입니다)
    - `http://<퍼블릭IP>:8080`: 접속되지 않는지 (app은 외부에 열지 않습니다)
 
    `/api/posts`가 502이면 app이 부팅 중일 수 있으니 잠시 후 다시 시도하고,
