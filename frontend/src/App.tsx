@@ -7,6 +7,7 @@ import PostListPage from './pages/PostListPage'
 import PostCreatePage from './pages/PostCreatePage'
 import PostDetailPage from './pages/PostDetailPage'
 import PostEditPage from './pages/PostEditPage'
+import MyPage from './pages/MyPage'
 import SignupPage from './pages/SignupPage'
 
 // 주소별로 어떤 페이지를 보여줄지 정하는 곳
@@ -38,6 +39,15 @@ export default function App() {
           element={
             <RequireLogin>
               <PostEditPage />
+            </RequireLogin>
+          }
+        />
+        {/* 내 정보: 로그인한 사람만 */}
+        <Route
+          path="/me"
+          element={
+            <RequireLogin>
+              <MyPage />
             </RequireLogin>
           }
         />

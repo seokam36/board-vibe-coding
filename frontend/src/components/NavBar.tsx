@@ -23,7 +23,7 @@ export default function NavBar() {
       <span>
         {user ? (
           <>
-            {user.nickname} 님 <button onClick={handleLogout}>로그아웃</button>
+            {user.nickname} 님 <Link to="/me">내 정보</Link> <button onClick={handleLogout}>로그아웃</button>
           </>
         ) : (
           <>

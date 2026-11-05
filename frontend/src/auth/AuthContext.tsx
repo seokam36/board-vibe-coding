@@ -82,5 +82,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }
 
-  return <AuthContext.Provider value={{ user, loading, expiredPath, login, logout }}>{children}</AuthContext.Provider>
+  // 닉네임 변경 성공 때: 서버 응답 그대로 로그인 정보를 바꿔 상단바 등에 바로 반영한다
+  function updateUser(u: AuthUser) {
+    setUser(u)
+  }
+
+  // 비밀번호 변경·탈퇴 성공 때: 서버가 이미 쿠키를 지웠으므로 /auth/logout 을 또 부르지 않고 화면 상태만 비운다
+  // (부르면 쿠키가 없어 불필요한 요청만 생긴다)
+  function clearUser() {
+    setExpiredPath(null)
+    setUser(null)
+  }
+
+  return (
+    <AuthContext.Provider value={{ user, loading, expiredPath, login, logout, updateUser, clearUser }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }

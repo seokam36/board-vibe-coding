@@ -4,7 +4,7 @@ import { createContext, useContext } from 'react'
 export interface AuthUser {
   id: number
   username: string
-  nickname: string // 화면에 보여 주는 이름 (S5-a). 아이디(username)는 화면에 쓰지 않는다
+  nickname: string // 화면에 보여 주는 이름 (S5-a). 글쓴이·상단바에는 닉네임만, 아이디(username)는 내 정보 화면에서만 보여 준다
 }
 
 export interface AuthContextValue {
@@ -13,6 +13,8 @@ export interface AuthContextValue {
   expiredPath: string | null // 로그인이 풀린 그 순간 있던 화면의 경로 (그 화면에서만 /login 으로 튕기지 않으려고 쓴다)
   login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  updateUser: (user: AuthUser) => void // 서버가 돌려준 새 사용자 정보로 교체 (닉네임 변경 직후 상단바 갱신용)
+  clearUser: () => void // 서버 요청 없이 화면의 로그인 상태만 비움 (서버가 이미 쿠키를 지운 비밀번호 변경·탈퇴 뒤에 쓴다)
 }
 
 // Context: props를 일일이 넘기지 않고 앱 어디서든 로그인 정보를 꺼내 쓰게 해 주는 "공용 보관함"
