@@ -4,6 +4,7 @@ import { createContext, useContext } from 'react'
 export interface AuthUser {
   id: number
   username: string
+  nickname: string // 화면에 보여 주는 이름 (S5-a). 아이디(username)는 화면에 쓰지 않는다
 }
 
 export interface AuthContextValue {

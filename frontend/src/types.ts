@@ -3,7 +3,7 @@ export interface Post {
   id: number
   title: string
   content: string
-  author: { id: number; username: string } | null // 작성자. 옛 글은 null
+  author: { id: number; nickname: string } | null // 작성자. 옛 글은 null
   createdAt: string // ISO-8601 UTC 문자열. 화면에는 formatDate를 거쳐서만 보여준다
 }
 

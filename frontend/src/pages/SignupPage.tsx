@@ -6,6 +6,7 @@ import { NETWORK_ERROR_MESSAGE, getStatus, isNetworkError } from '../errorMessag
 
 export default function SignupPage() {
   const [username, setUsername] = useState('')
+  const [nickname, setNickname] = useState('')
   const [password, setPassword] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -17,7 +18,7 @@ export default function SignupPage() {
     setError(null)
     try {
       // 입력 형식 검사는 프론트에서 하지 않고 서버의 400 응답을 그대로 쓴다
-      await api.post('/auth/signup', { username, password })
+      await api.post('/auth/signup', { username, nickname, password })
       // 라우터 state로 "가입 완료" 문구를 로그인 화면에 넘긴다
       navigate('/login', { state: { message: '가입 완료! 로그인해 주세요' } })
     } catch (err: unknown) {
@@ -25,10 +26,10 @@ export default function SignupPage() {
       if (isNetworkError(err)) {
         setError(NETWORK_ERROR_MESSAGE)
       } else if (status === 409) {
-        setError('이미 사용 중인 아이디입니다')
+        setError('아이디 또는 닉네임이 이미 사용 중입니다') // 서버가 둘을 구분해 알려 주지 않는다
       } else if (status === 400) {
         // 프론트에서 형식 검사는 안 하니, 서버 규칙을 문구로 알려 준다
-        setError('아이디는 영문 소문자·숫자·_ 4~20자, 비밀번호는 8~64자로 입력해 주세요')
+        setError('아이디는 영문 소문자·숫자·_ 4~20자, 닉네임은 한글(완성형)·영문·숫자·_ 2~20자(공백·자음/모음만은 불가), 비밀번호는 8~64자로 입력해 주세요')
       } else if (status === 403) {
         // 보통 앱 시작 때 CSRF 쿠키(/csrf)를 못 받은 경우 (서버가 꺼져 있었다 등)
         setError('보안 토큰이 없습니다. 새로고침 후 다시 시도해 주세요')
@@ -56,6 +57,16 @@ export default function SignupPage() {
               spellCheck={false}
             />
           </label>
+        </div>
+        <div>
+          <label>
+            닉네임
+            {/* 글쓴이로 화면에 보이는 이름. 다른 칸처럼 형식·길이 검사는 서버(400)에 맡긴다
+                (maxLength로 자르면 붙여넣은 긴 글이 몰래 잘려 의도와 다른 닉네임으로 가입될 수 있다) */}
+            <input value={nickname} onChange={(e) => setNickname(e.target.value)} autoComplete="nickname" />
+          </label>
+          {/* 서버는 완성형 한글만 받으므로 "ㅋㅋ" 같은 자음·모음만은 안 된다고 미리 알려 준다 */}
+          <small>한글(완성형)·영문·숫자·_ 2~20자, 공백·자음/모음만은 불가</small>
         </div>
         <div>
           <label>
