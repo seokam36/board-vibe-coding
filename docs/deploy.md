@@ -6,26 +6,42 @@
 ## 자동 배포 (GitHub Actions 버튼)
 이미지는 main에 push하면 CI가 Docker Hub에 올려 둡니다(`latest`). 배포는 아래처럼 버튼으로 합니다.
 1. (AWS 콘솔) EC2 인스턴스를 켭니다(시작). 이 워크플로는 EC2를 켜거나 끄지 않습니다. 켜져 있지 않으면 실패합니다.
-2. (EC2) DB 구조가 바뀌는 배포(테이블·컬럼 추가 등)라면 버튼을 누르기 전에 DB를 백업합니다. 아래 "배포 전 DB 백업"을 참고하세요.
-   (GitHub) 버튼을 누르기 전에 Actions 탭에서 배포할 커밋의 CI(images 포함)가 초록색인지 확인합니다.
-   자동 배포는 EC2의 `docker-compose.yml`을 바꾸지 않습니다. compose 파일을 바꿨다면 먼저 아래 비상용의 4~5단계(백업·scp)로 EC2에 복사한 뒤 버튼을 누릅니다.
-   그다음 Actions 탭 -> 왼쪽 Deploy -> Run workflow -> main 선택 후 실행.
+2. 버튼을 누르기 전에 확인할 것 두 가지입니다.
+   - (GitHub) Actions 탭에서 배포할 커밋의 CI(images 포함)가 초록색인지 확인합니다.
+   - 자동 배포는 EC2의 `docker-compose.yml`을 바꾸지 않습니다. compose 파일을 바꿨다면 먼저 아래 비상용의 4~5단계(compose 백업·scp)로 EC2에 복사합니다.
+
+   준비가 되면 Actions 탭 -> 왼쪽 Deploy -> Run workflow -> main 선택 후 실행.
 3. 워크플로가 하는 일: 켜진 EC2의 퍼블릭 IP 조회 -> 보안 그룹에 이 러너 IP의 SSH(22) 허용을 잠깐 추가
-   -> SSH로 `docker compose pull`/`up -d` -> `/actuator/health`가 UP일 때까지 최대 약 3~4분 확인 -> (성공/실패 상관없이) SSH 허용 규칙 삭제.
+   -> **DB 자동 백업**(배포 직전에 서버 DB를 파일로 저장. 실패하면 여기서 중단, 자세한 내용은 아래 "배포 전 DB 백업") -> SSH로 `docker compose pull`/`up -d` -> `/actuator/health`가 UP일 때까지 최대 약 3~4분 확인 -> (성공/실패 상관없이) SSH 허용 규칙 삭제.
 4. 초록색이면 끝입니다. 확인용 주소는 `http://<퍼블릭IP>/`. 다 쓰고 나면 EC2를 콘솔에서 중지합니다.
 
 만약 실행이 중간에 강제로 끊겨 `github-actions-deploy` 설명이 붙은 22번 규칙이 보안 그룹에 남았다면 콘솔에서 직접 지웁니다.
 
-### 배포 전 DB 백업
-앱이 시작될 때 `ddl-auto=update`로 테이블·컬럼이 자동으로 바뀝니다. 만약을 위해 바뀌기 전 상태를 파일로 남깁니다(`<날짜>`는 예: 20260101).
-1. (EC2, `~/board`에서) 백업 파일을 만들고 나만 읽을 수 있게 합니다.
-   - `set -a && . ./.env && set +a && docker exec board-postgres pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" > backup-<날짜>.sql; unset POSTGRES_PASSWORD JWT_SECRET REDIS_PASSWORD; chmod 600 backup-<날짜>.sql`
-   - 확인: `ls -l backup-<날짜>.sql`(0바이트가 아님), `grep -c "CREATE TABLE public.posts" backup-<날짜>.sql`(1)
-2. (개발 PC) 서버 디스크가 망가질 때를 대비해 PC에도 복사합니다. 저장소 폴더 밖에 두고 커밋하지 않습니다.
-   - `scp -i ~/.ssh/board-ec2 ec2-user@<퍼블릭IP>:~/board/backup-<날짜>.sql ~/board-backups/`
-3. 되살리기(필요할 때만): 앱을 멈추고 빈 DB에 넣습니다.
-   - `docker compose --profile prod stop app` 후 `docker exec -i board-postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < backup-<날짜>.sql`
-   - 같은 이름의 테이블이 이미 있으면 오류가 나므로, 실제로 되살릴 때는 DB를 비운 뒤 넣습니다.
+### 배포 전 DB 백업 (자동)
+Deploy 버튼을 누르면 워크플로가 배포 "직전에" 서버 DB를 알아서 백업합니다. 손으로 할 일은 없습니다.
+- 위치: EC2의 `~/board/backups/db-<날짜>-<시각>.sql` (UTC 기준, 예: `db-20260101-093000.sql`). 폴더는 나만(700), 파일도 나만(600) 읽을 수 있습니다.
+- 보관: 최신 10개만 남기고 오래된 것은 자동으로 지웁니다.
+- 안전장치: 파일이 비어 있거나, `posts` 표가 없거나, 끝까지 쓰이지 않았으면 백업 실패로 보고 **배포를 멈춥니다**(새 이미지를 받지 않음). 이때 Actions 로그의 빨간 오류 줄을 확인합니다. SSH 허용 규칙은 실패해도 닫힙니다.
+- 디스크 부족: 서버 디스크 여유 공간이 50MB 미만이면 백업하지 않고 멈춥니다. EC2에서 `~/board/backups`의 오래된 백업을 지운 뒤(PC에 복사해 둔 것만) 다시 실행합니다.
+- 처음 세팅한 서버(컨테이너·`posts` 표가 아직 없음)는 백업 단계에서 막힙니다. 비상용 수동 절차로 한 번 띄운 뒤부터 버튼을 씁니다.
+- 한계: 백업도 같은 서버 디스크에 있어서 서버 디스크가 망가지면 같이 사라집니다. 중요한 배포 전에는 아래 선택 단계로 PC에도 복사해 두세요.
+- 확인(선택, EC2에서): `ls -l ~/board/backups`
+
+**PC로 복사 (선택)** 저장소 폴더 밖에 두고 커밋하지 않습니다. 받을 폴더를 먼저 만듭니다.
+- Git Bash/맥/리눅스: `mkdir -p ~/board-backups` 후 `scp -i ~/.ssh/board-ec2 ec2-user@<퍼블릭IP>:~/board/backups/db-<날짜>-<시각>.sql ~/board-backups/`
+- Windows PowerShell: `New-Item -ItemType Directory -Force "$HOME\board-backups"` 후 `& "C:\Windows\System32\OpenSSH\scp.exe" -i "$HOME\.ssh\board-ec2" ec2-user@<퍼블릭IP>:~/board/backups/db-<날짜>-<시각>.sql "$HOME\board-backups\"`
+
+**되살리기 (필요할 때만)** 앱을 멈추고, DB를 싹 비우고, 백업을 넣습니다. EC2 `~/board`에서 순서대로:
+- 반드시 컨테이너 안 psql(`docker exec`)로 합니다. 백업을 만든 pg_dump 17이 넣는 `\restrict` 줄을 PC에 깔린 옛 psql은 몰라서 오류가 납니다.
+- 비밀번호를 셸에 올리지 않습니다(컨테이너 안에서 `$POSTGRES_USER`/`$POSTGRES_DB`를 읽고, 컨테이너 안 접속은 비밀번호가 필요 없음). 그래서 `.env`를 source하거나 unset할 일이 없습니다.
+1. `docker compose --profile prod stop app` — 앱을 잠깐 멈춥니다(DB를 갈아엎는 동안 앱이 쓰지 못하게).
+2. `docker exec board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"'` — **경고: 지금 DB의 데이터와 표가 전부 삭제됩니다.** 백업을 만들었고 올바른 파일인지 확인한 뒤에만 실행하세요. (백업에는 "표 지우기" 명령이 없어서, 비우지 않으면 `CREATE TABLE`이 "이미 있음" 오류로 실패합니다.)
+3. `docker exec -i board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 --single-transaction' < backups/db-<날짜>-<시각>.sql` — 백업 파일을 DB에 넣습니다. `ON_ERROR_STOP`은 오류가 나면 바로 멈추고 실패(종료 코드 0이 아님)로 알려 주고, `--single-transaction`은 중간에 실패하면 반쯤 들어간 채로 두지 않고 전부 취소합니다.
+4. `docker compose --profile prod up -d` — 멈춰 둔 앱을 다시 띄웁니다. 이어서 `/actuator/health`가 UP인지 확인합니다.
+
+**손으로 백업 (비상용)** Actions를 못 쓰는 비상 수동 배포 때만 씁니다. 워크플로와 같은 방식(컨테이너 안 pg_dump)입니다. EC2 `~/board`에서:
+- `umask 077 && mkdir -p backups && chmod 700 backups && docker exec board-postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"' > backups/db-<날짜>.sql && chmod 600 backups/db-<날짜>.sql`
+- 확인: `ls -l backups/db-<날짜>.sql`(0바이트가 아님), `grep -c "CREATE TABLE public.posts" backups/db-<날짜>.sql`(1), `grep -c "PostgreSQL database dump complete" backups/db-<날짜>.sql`(1)
 
 ### 처음 한 번 준비할 것
 **1) IAM 사용자 + 액세스 키** (AWS 콘솔 -> IAM)
