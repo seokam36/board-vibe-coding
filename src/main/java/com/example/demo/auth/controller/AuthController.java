@@ -35,14 +35,14 @@ public class AuthController {
     private final AuthService authService;
     private final AuthCookieFactory cookieFactory;
 
-    // 회원가입: 201 Created + {id, username}
+    // 회원가입: 201 Created + {id, username, nickname}
     @PostMapping("/signup")
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse signup(@Valid @RequestBody SignupRequest request) {
         return userService.signup(request);
     }
 
-    // 로그인: 200 {id, username} + access_token·refresh_token 쿠키. 아이디/비밀번호가 틀리면 401.
+    // 로그인: 200 {id, username, nickname} + access_token·refresh_token 쿠키. 아이디/비밀번호가 틀리면 401.
     @PostMapping("/login")
     public ResponseEntity<UserResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthService.LoginResult result = authService.login(request);
@@ -79,9 +79,9 @@ public class AuthController {
     }
 
     // 내 정보: 토큰(쿠키)이 유효할 때만 도달한다. 아니면 Security가 401을 돌려준다.
+    // 토큰에는 닉네임이 없어서 DB에서 읽고, 회원이 DB에 없으면 서비스가 401을 던진다.
     @GetMapping("/me")
     public UserResponse me(@AuthenticationPrincipal Jwt jwt) {
-        LoginUser me = LoginUser.from(jwt);
-        return new UserResponse(me.id(), me.username());
+        return userService.getMe(LoginUser.from(jwt).id());
     }
 }

@@ -38,7 +38,7 @@ class LoginInternalErrorTests {
 		int status;
 		try {
 			status = mockMvc.perform(post("/auth/login").with(csrf()).contentType(MediaType.APPLICATION_JSON)
-					.content("{\"username\":\"user01\",\"password\":\"password123\"}")).andReturn().getResponse()
+					.content("{\"username\":\"user01\",\"nickname\":\"n_user01\",\"password\":\"password123\"}")).andReturn().getResponse()
 					.getStatus();
 		} catch (Exception e) {
 			// MockMvc는 처리 안 된 예외를 응답 대신 던진다. 실서버에서는 이것이 500이 되므로 "401로 숨겨지지 않음"으로 판정한다.

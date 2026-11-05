@@ -150,7 +150,7 @@ class PostAuthorizationTests {
 		assertThat(r.getResponse().getStatus()).isEqualTo(201);
 		JsonNode body = 본문(r);
 		assertThat(body.get("author").get("id").asLong()).isEqualTo(userA.getId());
-		assertThat(body.get("author").get("username").asString()).isEqualTo("userA");
+		assertThat(body.get("author").get("nickname").asString()).isEqualTo("userA");
 	}
 
 	@Test
@@ -317,13 +317,13 @@ class PostAuthorizationTests {
 
 			JsonNode a = 본문(r1).get("author");
 			assertThat(a.get("id").asLong()).isEqualTo(userA.getId());
-			assertThat(a.get("username").asString()).isEqualTo("userA");
+			assertThat(a.get("nickname").asString()).isEqualTo("userA");
 			assertThat(본문(r2).get("author").isNull()).isTrue();
 
 			// 목록에서도 같은 규칙
 			for (JsonNode item : 본문(lr)) {
 				if (item.get("id").asLong() == withAuthor.getId()) {
-					assertThat(item.get("author").get("username").asString()).isEqualTo("userA");
+					assertThat(item.get("author").get("nickname").asString()).isEqualTo("userA");
 				} else {
 					assertThat(item.get("author").isNull()).isTrue();
 				}
@@ -375,7 +375,7 @@ class PostAuthorizationTests {
 			stats.clear();
 			MvcResult r = mockMvc.perform(get("/posts/" + p.getId())).andReturn();
 			assertThat(r.getResponse().getStatus()).isEqualTo(200);
-			assertThat(본문(r).get("author").get("username").asString()).isEqualTo("userA");
+			assertThat(본문(r).get("author").get("nickname").asString()).isEqualTo("userA");
 			assertThat(stats.getPrepareStatementCount()).as("상세 조회 쿼리 수").isEqualTo(1);
 		} finally {
 			stats.setStatisticsEnabled(false);

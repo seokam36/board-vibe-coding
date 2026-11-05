@@ -45,13 +45,14 @@ class SignupRaceTests {
 
 	private org.springframework.test.web.servlet.ResultActions 가입(String password) throws Exception {
 		return mockMvc.perform(post("/auth/signup").with(csrf()).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"username\":\"user01\",\"password\":\"" + password + "\"}"));
+				.content("{\"username\":\"user01\",\"nickname\":\"n_user01\",\"password\":\"" + password + "\"}"));
 	}
 
 	@Test
 	void 사전_확인을_통과해도_DB_unique_위반이면_409이고_행이_늘지_않는다() throws Exception {
 		가입("password123").andExpect(status().isCreated());
 		doReturn(false).when(userRepository).existsByUsername(anyString());
+		doReturn(false).when(userRepository).existsByNickname(anyString());
 
 		가입("password456").andExpect(status().isConflict());
 

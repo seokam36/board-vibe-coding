@@ -72,7 +72,7 @@ class LoginRealServerTests {
 	}
 
 	private String json(String u, String p) {
-		return "{\"username\":\"" + u + "\",\"password\":\"" + p + "\"}";
+		return "{\"username\":\"" + u + "\",\"nickname\":\"n_" + u + "\",\"password\":\"" + p + "\"}";
 	}
 
 	@Test

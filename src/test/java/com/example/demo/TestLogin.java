@@ -13,9 +13,9 @@ public final class TestLogin {
 	private TestLogin() {
 	}
 
-	// 사용자를 저장하고 반환한다. 비밀번호는 로그인에 쓰지 않으므로 아무 값이나 넣는다.
+	// 사용자를 저장하고 반환한다. 닉네임은 아이디와 같게 둔다(서로 달라서 중복되지 않음). 비밀번호는 로그인에 쓰지 않으므로 아무 값이나 넣는다.
 	public static User 사용자(UserRepository userRepository, String username) {
-		return userRepository.save(new User(username, "{noop}unused-password"));
+		return userRepository.save(new User(username, username, "{noop}unused-password"));
 	}
 
 	// 그 사용자 이름으로 발급한 access_token 쿠키

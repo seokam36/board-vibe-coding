@@ -29,6 +29,10 @@ public class User {
     @Column(nullable = false, unique = true, length = 20)
     private String username;
 
+    // 화면에 보여 줄 이름(글 작성자 표시용). 로그인 아이디를 숨기려고 따로 둔다. unique로 중복 닉네임을 DB가 막는다.
+    @Column(nullable = false, unique = true, length = 20)
+    private String nickname;
+
     // 해시된 비밀번호({bcrypt} 접두어 포함). 원문은 절대 저장하지 않는다.
     @Column(nullable = false, length = 100)
     private String password;
@@ -36,8 +40,9 @@ public class User {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    public User(String username, String encodedPassword) {
+    public User(String username, String nickname, String encodedPassword) {
         this.username = username;
+        this.nickname = nickname;
         this.password = encodedPassword;
     }
 

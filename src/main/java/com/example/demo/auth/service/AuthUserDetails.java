@@ -8,7 +8,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 // Spring Security가 로그인 검증에 쓰는 사용자 정보. 토큰의 sub에 넣을 id를 함께 들고 있다.
 // (우리 엔티티 User와 이름이 겹치는 Security의 User 클래스를 쓰지 않으려고 직접 구현했다)
-public record AuthUserDetails(Long id, String username, String password) implements UserDetails {
+public record AuthUserDetails(Long id, String username, String nickname, String password) implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

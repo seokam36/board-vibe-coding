@@ -82,7 +82,7 @@ class RefreshTokenTests {
 	// ---------- 도우미 ----------
 
 	private String json(String u, String p) {
-		return "{\"username\":\"" + u + "\",\"password\":\"" + p + "\"}";
+		return "{\"username\":\"" + u + "\",\"nickname\":\"n_" + u + "\",\"password\":\"" + p + "\"}";
 	}
 
 	private void 가입(String u) throws Exception {

@@ -60,7 +60,7 @@ public class AuthService {
         AuthUserDetails principal = (AuthUserDetails) authentication.getPrincipal();
         String token = tokenService.issueAccessToken(principal.id(), principal.username());
         String refreshToken = refreshTokenService.issue(principal.id());
-        return new LoginResult(new UserResponse(principal.id(), principal.username()), token, refreshToken);
+        return new LoginResult(new UserResponse(principal.id(), principal.username(), principal.nickname()), token, refreshToken);
     }
 
     // 로그아웃: 리프레시 토큰이 있으면 Redis에서 지운다.
@@ -76,7 +76,7 @@ public class AuthService {
         return refreshTokenService.consume(refreshToken)
                 .flatMap(userRepository::findById)
                 .map(user -> new LoginResult(
-                        new UserResponse(user.getId(), user.getUsername()),
+                        UserResponse.from(user),
                         tokenService.issueAccessToken(user.getId(), user.getUsername()),
                         refreshTokenService.issue(user.getId())));
     }

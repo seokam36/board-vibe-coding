@@ -48,7 +48,7 @@ class SignupSmokeTests {
 
 	private ResultActions 가입(String username, String password) throws Exception {
 		return mockMvc.perform(post("/auth/signup").with(csrf()).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}"));
+				.content("{\"username\":\"" + username + "\",\"nickname\":\"n_" + username + "\",\"password\":\"" + password + "\"}"));
 	}
 
 	@Test
@@ -57,6 +57,7 @@ class SignupSmokeTests {
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.id").isNumber())
 				.andExpect(jsonPath("$.username").value("user01"))
+				.andExpect(jsonPath("$.nickname").value("n_user01"))
 				.andExpect(jsonPath("$.password").doesNotExist());
 		String saved = userRepository.findAll().get(0).getPassword();
 		assertThat(saved).isNotEqualTo("password123");
@@ -78,7 +79,7 @@ class SignupSmokeTests {
 	@Test
 	void CSRF_토큰_없이_가입하면_403() throws Exception {
 		mockMvc.perform(post("/auth/signup").contentType(MediaType.APPLICATION_JSON)
-				.content("{\"username\":\"user01\",\"password\":\"password123\"}"))
+				.content("{\"username\":\"user01\",\"nickname\":\"n_user01\",\"password\":\"password123\"}"))
 				.andExpect(status().isForbidden());
 	}
 

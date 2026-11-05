@@ -52,7 +52,7 @@ class LoginRegressionTests {
 	}
 
 	private String json(String username, String password) {
-		return "{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}";
+		return "{\"username\":\"" + username + "\",\"nickname\":\"n_" + username + "\",\"password\":\"" + password + "\"}";
 	}
 
 	private String 유효토큰() {

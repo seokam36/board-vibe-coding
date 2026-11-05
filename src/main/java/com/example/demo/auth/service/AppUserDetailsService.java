@@ -21,7 +21,7 @@ public class AppUserDetailsService implements UserDetailsService {
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         return userRepository.findByUsername(username)
-                .map(u -> new AuthUserDetails(u.getId(), u.getUsername(), u.getPassword()))
+                .map(u -> new AuthUserDetails(u.getId(), u.getUsername(), u.getNickname(), u.getPassword()))
                 .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
     }
 }

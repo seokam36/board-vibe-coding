@@ -59,13 +59,13 @@ class LoginSmokeTests {
 
 	private void 가입(String username, String password) throws Exception {
 		mockMvc.perform(post("/auth/signup").with(csrf()).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}"))
+				.content("{\"username\":\"" + username + "\",\"nickname\":\"n_" + username + "\",\"password\":\"" + password + "\"}"))
 				.andExpect(status().isCreated());
 	}
 
 	private MvcResult 로그인(String username, String password) throws Exception {
 		return mockMvc.perform(post("/auth/login").with(csrf()).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}")).andReturn();
+				.content("{\"username\":\"" + username + "\",\"nickname\":\"n_" + username + "\",\"password\":\"" + password + "\"}")).andReturn();
 	}
 
 	private String 토큰만들기(Instant iat, Instant exp) {
@@ -130,8 +130,8 @@ class LoginSmokeTests {
 		Cookie bad = new Cookie("access_token", 토큰만들기(past, past.plusSeconds(900)) + "x");
 		mockMvc.perform(get("/posts").cookie(bad)).andExpect(status().isOk());
 		mockMvc.perform(post("/auth/login").with(csrf()).cookie(bad).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"username\":\"x\",\"password\":\"y\"}")).andExpect(status().isUnauthorized());
+				.content("{\"username\":\"x\",\"nickname\":\"n_x\",\"password\":\"y\"}")).andExpect(status().isUnauthorized());
 		mockMvc.perform(post("/auth/signup").with(csrf()).cookie(bad).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"username\":\"user01\",\"password\":\"password123\"}")).andExpect(status().isCreated());
+				.content("{\"username\":\"user01\",\"nickname\":\"n_user01\",\"password\":\"password123\"}")).andExpect(status().isCreated());
 	}
 }

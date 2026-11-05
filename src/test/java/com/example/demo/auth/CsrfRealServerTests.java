@@ -54,7 +54,7 @@ class CsrfRealServerTests {
 				.header("Content-Type", "application/json")
 				.header("Cookie", "XSRF-TOKEN=" + token)
 				.header("X-XSRF-TOKEN", token)
-				.POST(BodyPublishers.ofString("{\"username\":\"X\",\"password\":\"password123\"}")));
+				.POST(BodyPublishers.ofString("{\"username\":\"X\",\"nickname\":\"n_X\",\"password\":\"password123\"}")));
 		assertThat(r.statusCode()).isEqualTo(400);
 	}
 
@@ -71,7 +71,7 @@ class CsrfRealServerTests {
 	void CSRF_없는_POST는_실제_서버에서도_403이다() throws Exception {
 		HttpResponse<String> r = send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/auth/signup"))
 				.header("Content-Type", "application/json")
-				.POST(BodyPublishers.ofString("{\"username\":\"user01\",\"password\":\"password123\"}")));
+				.POST(BodyPublishers.ofString("{\"username\":\"user01\",\"nickname\":\"n_user01\",\"password\":\"password123\"}")));
 		assertThat(r.statusCode()).isEqualTo(403);
 		assertThat(쿠키값(r, "JSESSIONID")).isNull();
 	}

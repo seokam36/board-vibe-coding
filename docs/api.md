@@ -39,7 +39,7 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
 | title | 문자열 | 제목 |
 | content | 문자열 | 본문 |
 | createdAt | 문자열 | 작성 시각 (예: `2026-11-01T01:30:00.123456Z`) |
-| author | 객체 또는 null | 글쓴이 `{ "id": 숫자, "username": 문자열 }`. 작성자가 없는 글(S4-d 이전에 쓴 글)은 `null`. 비밀번호 등은 포함되지 않음 |
+| author | 객체 또는 null | 글쓴이 `{ "id": 숫자, "nickname": 문자열 }`. 로그인 아이디(username)는 숨긴다. 작성자가 없는 글(S4-d 이전에 쓴 글)은 `null` |
 
 시간대: UTC(Z). 소수점 자릿수는 가변(최대 6자리). 화면에 보여줄 때 한국 시간으로 변환한다.
 
@@ -73,7 +73,7 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
   "createdAt": "2026-11-01T01:30:00.123456Z",
   "author": {
     "id": 1,
-    "username": "user01"
+    "nickname": "길동이"
   }
 }
 ```
@@ -100,7 +100,7 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
   "createdAt": "2026-11-01T01:30:00.123456Z",
   "author": {
     "id": 1,
-    "username": "user01"
+    "nickname": "길동이"
   }
 }
 ```
@@ -127,7 +127,7 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
     "createdAt": "2026-11-01T01:35:00Z",
     "author": {
       "id": 1,
-      "username": "user01"
+      "nickname": "길동이"
     }
   },
   {
@@ -170,7 +170,7 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
   "createdAt": "2026-11-01T01:30:00.123456Z",
   "author": {
     "id": 1,
-    "username": "user01"
+    "nickname": "길동이"
   }
 }
 ```
@@ -231,6 +231,7 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
 | 필드 | 필수 | 규칙 |
 |------|------|------|
 | username | O | 영문 소문자·숫자·밑줄(`_`)만, 4~20자 (대문자·공백·한글 불가) |
+| nickname | O | 한글(가-힣)·영문 대소문자·숫자·밑줄(`_`)만, 2~20자 (공백 불가, 대소문자 구분: `Kim`과 `kim`은 다른 닉네임) |
 | password | O | 8~64자, 공백만 있으면 안 됨, UTF-8로 72바이트 이하 (한글은 글자당 3바이트라 24자까지) |
 
 요청 예시
@@ -238,6 +239,7 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
 ```json
 {
   "username": "user01",
+  "nickname": "길동이",
   "password": "password123"
 }
 ```
@@ -247,7 +249,8 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
 ```json
 {
   "id": 1,
-  "username": "user01"
+  "username": "user01",
+  "nickname": "길동이"
 }
 ```
 
@@ -255,9 +258,9 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
 
 | 상태코드 | 언제 |
 |----------|------|
-| 400 | username/password가 비었거나 규칙 위반, JSON 형식이 잘못됨 |
+| 400 | username/nickname/password가 비었거나 규칙 위반, JSON 형식이 잘못됨 |
 | 403 | `X-XSRF-TOKEN` 헤더가 없거나 틀림 |
-| 409 | 이미 있는 username (동시에 같은 아이디로 가입해도 한 명만 성공) |
+| 409 | 이미 있는 username 또는 nickname (둘을 구분해 알려 주지 않음. 동시에 같은 아이디·닉네임으로 가입해도 한 명만 성공) |
 
 ### 8. 로그인 `POST /auth/login`
 
@@ -274,7 +277,8 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
 ```json
 {
   "id": 1,
-  "username": "user01"
+  "username": "user01",
+  "nickname": "길동이"
 }
 ```
 
@@ -300,14 +304,15 @@ CSRF 헤더 필요. `refresh_token` 쿠키가 있으면 서버(Redis)의 리프�
 
 ### 10. 내 정보 `GET /auth/me`
 
-`access_token` 쿠키가 필요하다 (Authorization 헤더는 사용하지 않음).
+`access_token` 쿠키가 필요하다 (Authorization 헤더는 사용하지 않음). 토큰에는 닉네임이 없어서 매번 DB에서 회원을 읽어 응답한다.
 
 성공 응답 `200 OK`
 
 ```json
 {
   "id": 1,
-  "username": "user01"
+  "username": "user01",
+  "nickname": "길동이"
 }
 ```
 
@@ -315,7 +320,7 @@ CSRF 헤더 필요. `refresh_token` 쿠키가 있으면 서버(Redis)의 리프�
 
 | 상태코드 | 언제 |
 |----------|------|
-| 401 | 쿠키가 없음, 토큰이 만료됨, 서명이 변조됨 (리다이렉트(302)는 하지 않음) |
+| 401 | 쿠키가 없음, 토큰이 만료됨, 서명이 변조됨, 토큰은 유효하지만 회원이 DB에 없음 (리다이렉트(302)는 하지 않음) |
 
 ### 11. 토큰 재발급 `POST /auth/refresh`
 
@@ -330,7 +335,8 @@ CSRF 헤더 필요. `refresh_token` 쿠키가 있으면 서버(Redis)의 리프�
 ```json
 {
   "id": 1,
-  "username": "user01"
+  "username": "user01",
+  "nickname": "길동이"
 }
 ```
 

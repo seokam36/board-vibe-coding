@@ -70,7 +70,7 @@ class LoginDetailTests {
 	}
 
 	private String json(String username, String password) {
-		return "{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}";
+		return "{\"username\":\"" + username + "\",\"nickname\":\"n_" + username + "\",\"password\":\"" + password + "\"}";
 	}
 
 	private MvcResult 로그인(String body) throws Exception {
@@ -130,7 +130,14 @@ class LoginDetailTests {
 		JwtEncoder other = NimbusJwtEncoder.withSecretKey(otherKey).build();
 		assertThat(me상태(토큰(other, now, now.plusSeconds(900)))).isEqualTo(401);
 		// 대조군: 같은 클레임을 서버 키로 서명하면 통과해야 한다
-		assertThat(me상태(토큰(jwtEncoder, now, now.plusSeconds(900)))).isEqualTo(200);
+		// /auth/me는 DB에서 회원을 읽으므로, 실제로 저장된 회원의 id로 토큰을 만든다
+		가입("user01", "password123");
+		Long id = userRepository.findAll().get(0).getId();
+		JwtClaimsSet claims = JwtClaimsSet.builder().subject(String.valueOf(id)).claim("username", "user01")
+				.issuedAt(now).expiresAt(now.plusSeconds(900)).build();
+		String valid = jwtEncoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
+				.getTokenValue();
+		assertThat(me상태(valid)).isEqualTo(200);
 	}
 
 	// ---------- 완료 조건 3: /auth/me ----------

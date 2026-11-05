@@ -46,17 +46,18 @@ class SignupValidationTests {
 
 	private ResultActions 가입(String username, String password) throws Exception {
 		return mockMvc.perform(post("/auth/signup").with(csrf()).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}"));
+				.content("{\"username\":\"" + username + "\",\"nickname\":\"nick01\",\"password\":\"" + password + "\"}"));
 	}
 
-	// 조건 1: 응답 필드가 id, username 두 개뿐이다
+	// 조건 1: 응답 필드가 id, username, nickname 세 개뿐이다
 	@Test
-	void 가입_응답은_id와_username_두_필드만_가진다() throws Exception {
+	void 가입_응답은_id와_username과_nickname_세_필드만_가진다() throws Exception {
 		가입("user01", "password123")
 				.andExpect(status().isCreated())
-				.andExpect(jsonPath("$.length()").value(2))
+				.andExpect(jsonPath("$.length()").value(3))
 				.andExpect(jsonPath("$.id").isNumber())
-				.andExpect(jsonPath("$.username").value("user01"));
+				.andExpect(jsonPath("$.username").value("user01"))
+				.andExpect(jsonPath("$.nickname").value("nick01"));
 	}
 
 	// 조건 4: 잘못된 아이디는 400이고 DB에 저장되지 않는다
@@ -119,7 +120,7 @@ class SignupValidationTests {
 	@Test
 	void CSRF_없는_가입은_403이고_행이_늘지_않는다() throws Exception {
 		mockMvc.perform(post("/auth/signup").contentType(MediaType.APPLICATION_JSON)
-				.content("{\"username\":\"user01\",\"password\":\"password123\"}"))
+				.content("{\"username\":\"user01\",\"nickname\":\"n_user01\",\"password\":\"password123\"}"))
 				.andExpect(status().isForbidden());
 		assertThat(userRepository.count()).isZero();
 	}

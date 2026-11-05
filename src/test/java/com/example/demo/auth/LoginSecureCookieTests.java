@@ -43,7 +43,7 @@ class LoginSecureCookieTests {
 
 	@Test
 	void secure_설정이_true면_로그인_쿠키에_Secure_속성이_있다() throws Exception {
-		String body = "{\"username\":\"user01\",\"password\":\"password123\"}";
+		String body = "{\"username\":\"user01\",\"nickname\":\"n_user01\",\"password\":\"password123\"}";
 		mockMvc.perform(post("/auth/signup").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(body))
 				.andReturn();
 		MockHttpServletResponse res = mockMvc
