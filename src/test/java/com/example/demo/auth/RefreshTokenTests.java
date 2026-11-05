@@ -73,9 +73,12 @@ class RefreshTokenTests {
 		// 글이 사용자를 참조(외래키)하므로 글부터 지운다
 		postRepository.deleteAll();
 		userRepository.deleteAll();
-		Set<String> keys = redis.keys("refresh:*");
-		if (keys != null && !keys.isEmpty()) {
-			redis.delete(keys);
+		// refresh:* 와 회원별 목록 user-refresh:* 를 모두 비운다(RefreshTokenRevokeAllTests와 같은 방식)
+		for (String pattern : new String[] { "refresh:*", "user-refresh:*" }) {
+			Set<String> keys = redis.keys(pattern);
+			if (keys != null && !keys.isEmpty()) {
+				redis.delete(keys);
+			}
 		}
 	}
 

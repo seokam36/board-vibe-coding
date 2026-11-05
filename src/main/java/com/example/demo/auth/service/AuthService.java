@@ -63,7 +63,7 @@ public class AuthService {
         return new LoginResult(new UserResponse(principal.id(), principal.username(), principal.nickname()), token, refreshToken);
     }
 
-    // 로그아웃: 리프레시 토큰이 있으면 Redis에서 지운다.
+    // 로그아웃: 리프레시 토큰이 있으면 Redis에서 지운다(회원별 토큰 목록(Set)에서도 빠진다).
     public void logout(String refreshToken) {
         refreshTokenService.revoke(refreshToken);
     }
