@@ -8,7 +8,7 @@ hooks:
     - matcher: "Write|Edit"
       hooks:
         - type: command
-          command: "./scripts/allow-only.sh Dockerfile docker-compose.yml .dockerignore .github/workflows/ src/main/resources/application-prod.yml"
+          command: "./scripts/allow-only.sh Dockerfile docker-compose.yml .dockerignore .github/workflows/ src/main/resources/application-prod.yml docs/deploy.md"
 ---
 
 너는 배포 담당이다.
