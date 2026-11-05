@@ -5,16 +5,22 @@
 마지막 갱신: 2026-11-05 (노트북)
 
 ## 지금 어디까지
-- **S0~S4 전부 완료.** S4(회원가입 + 로그인)는 S4-f(키 교체 + EC2 배포)까지 끝나 EC2에 올라가 있다. 백엔드 테스트 159개 통과, 프론트 lint·build 통과.
-- 서버에서 확인한 것: 헬스 UP(DB+Redis), 글 수 유지, 옛 글 작성자 없음, 로그인 없이 POST는 403, 외부에서 8080·6379·5432 닫힘, access_token 쿠키를 지워도 자동 재발급으로 로그인 유지.
-- Notion: S4-a~f 기록 완료(상위 페이지 진행 현황·Redis 아키텍처 그림 포함).
+- **S0~S4 완료, EC2에 S4까지 배포됨.**
+- **S5(닉네임 + 회원정보 수정 + 탈퇴) 백엔드 끝(S5-a~d 커밋).** 백엔드 테스트 266개 통과. 화면(S5-e)과 배포(S5-f)가 남았다.
+  - S5-a 닉네임(가입 필수, 2~20자 한글·영문·숫자·밑줄, 중복 409, 글 작성자는 {id, nickname}, /auth/me가 DB 확인)
+  - S5-b 회원별 리프레시 토큰 목록(Redis Set `user-refresh:{id}`) + revokeAll
+  - S5-c PUT /users/me/nickname, PUT /users/me/password(현재 비번 틀리면 400, 성공 시 204 + 쿠키 삭제 + 모든 기기 로그아웃)
+  - S5-d DELETE /users/me {password}(완전 삭제, 글은 author null, 회원 행 FOR UPDATE 잠금, 같은 아이디 재가입 가능)
+- Notion: S5 카드("닉네임 달고 내 정보 고치기") 안에 S5-a~d 기록 완료, 상위 페이지 진행 현황 갱신.
 - 작업 방식: 배포는 큰 기능(S번호) 끝날 때 한 번만. planner 결과·review [필수 수정]·실패 2회 초과·커밋/push/배포 전에만 멈춘다.
 
 ## 다음에 할 일
-- **다음 기능(S5) 정하기**: 사용자가 기능을 고르면 docs/backlog.md에 S5 항목 추가 → planner. 후보로 얘기만 나온 것: 비밀번호 변경·찾기, 회원 탈퇴, 아이디 중복 확인 버튼, backlog의 "여러 탭 동시 재발급" 한계.
+- **S5-e 화면 build 시작** (e-1 가입 닉네임 칸·닉네임 표시 / e-2 내 정보 페이지: 닉네임·비밀번호 변경, 탈퇴). 화면을 브라우저로 확인하기 전에 **로컬 DB의 기존 회원을 지워야 한다**(아래 주의할 점).
 
 ## 진행 중인 단계
-- 없음.
+- S5: a~d 끝, e·f 남음. 커밋 안 된 변경 없음.
+- S5에서 정한 것(planner 승인): 아이디 변경 불가, 닉네임 변경엔 비밀번호 확인 없음, 가입 409 문구는 "아이디 또는 닉네임이 이미 사용 중" 하나, 비밀번호 변경·탈퇴 성공 시 로그아웃 상태로 화면 이동, 탈퇴 전 확인 창.
+- S5-f 배포 순서(확정): DB 백업(서버+PC) → 서버 DB에서 기존 회원 글의 author_id를 null로 → 기존 회원 삭제 → Deploy. 회원 수를 먼저 확인하고, SQL은 메인이 준비해서 사람이 ssh로 실행.
 - 선택 정리(급하지 않음): EC2 콘솔 → 키 페어에서 옛 `demo-key` 삭제, IAM 사용자의 옛 키 태그 삭제, 노트북 `~/.ssh/deploy-actions` 개인키 삭제(이미 GitHub Secret에 들어감).
 - S4-f에서 생략한 확인(나중에 해도 됨): 서버 화면에서 가입·로그인·글쓰기·남의 글 버튼 숨김, IAM 새 키 "마지막 사용", GitHub Sessions·SSH keys 점검.
 
@@ -43,4 +49,7 @@
 - main에 push할 때마다 Docker Hub에 커밋 SHA 태그가 하나씩 쌓인다.
 - Windows에서 새 실행 스크립트를 커밋하면 실행 권한이 빠진다. 리눅스 러너에서 쓸 파일이면 `git update-index --chmod=+x <파일>`.
 - Boot 4는 Jackson 3라 import가 `tools.jackson.databind`다(`com.fasterxml` 아님).
+- **로컬 DB 회원 정리(S5)**: users에 닉네임 NOT NULL 칸이 생겨서, 기존 회원이 있는 로컬 DB로 `bootRun`하면 칸 추가가 경고만 남기고 실패해 가입이 깨진다. 띄우기 전에 로컬 postgres에서 `update posts set author_id = null;` → `delete from users;` 실행(Redis는 그대로 둬도 됨). 테스트(Testcontainers)는 빈 DB라 상관없다.
+- **Docker Hub 429**: 로그인 안 한 상태로 이미지를 많이 받으면 "Too Many Requests"로 막힌다(테스트의 Redis 컨테이너가 못 뜸). AWS 공식 미러에서 받아 이름을 붙이면 된다: `docker pull public.ecr.aws/docker/library/redis:8.10.3-alpine` → `docker tag public.ecr.aws/docker/library/redis:8.10.3-alpine redis:8.10.3-alpine`(postgres도 같은 방식). 다른 PC에서 처음 테스트할 때 겪을 수 있다.
+- IDE(VS Code 자바 확장)가 `getId() is undefined` 같은 빨간 줄을 띄우는 건 롬복을 못 읽어서 나는 가짜 경고다. `./gradlew test`가 기준.
 - 사용자 선호: 입문자라 새 도구·클래스는 비유 한 줄씩 몇 개만 소개. 백엔드에 관심이 많다. 보고는 짧게.
