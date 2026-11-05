@@ -43,7 +43,9 @@ public class Post {
     // 글쓴이. S4-d 이전에 쓴 글은 작성자가 없어서 nullable(null 허용)이다.
     // LAZY: 글만 읽을 때는 사용자 테이블을 같이 읽지 않는다. (목록·상세는 리포지토리에서 한 번에 가져온다)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "author_id")
+    // updatable = false: 작성자는 엔티티로 바꾸지 않는다. 글 수정 때 dirty checking UPDATE가 author_id를 옛 값으로 다시 쓰면,
+    // 수정 중 탈퇴(author_id가 null로 바뀜)와 겹칠 때 FK 위반(500)이 나기 때문이다. (탈퇴 때는 JPQL 일괄 UPDATE로 비운다)
+    @JoinColumn(name = "author_id", updatable = false)
     private User author;
 
     // 새 게시글은 제목·본문·작성자로 만든다 (id, createdAt은 저장 시 채워짐)

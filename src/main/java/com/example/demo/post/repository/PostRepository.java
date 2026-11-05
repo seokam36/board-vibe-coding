@@ -5,6 +5,11 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.example.demo.post.domain.Post;
 
@@ -19,4 +24,11 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Override
     @EntityGraph(attributePaths = "author")
     Optional<Post> findById(Long id);
+
+    // 회원 탈퇴 때 그 회원 글의 작성자를 비운다(글은 남기고 author_id만 null). 반환값 = 바뀐 글 수.
+    // 회원 행을 지우기 전에 해야 FK(posts.author_id -> users.id) 위반이 없다. 바깥 트랜잭션 없이 부르면 예외(MANDATORY).
+    @Modifying
+    @Transactional(propagation = Propagation.MANDATORY)
+    @Query("update Post p set p.author = null where p.author.id = :userId")
+    int clearAuthor(@Param("userId") Long userId);
 }

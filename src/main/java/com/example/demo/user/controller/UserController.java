@@ -4,6 +4,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,6 +15,7 @@ import com.example.demo.auth.service.AuthCookieFactory;
 import com.example.demo.user.dto.NicknameUpdateRequest;
 import com.example.demo.user.dto.PasswordChangeRequest;
 import com.example.demo.user.dto.UserResponse;
+import com.example.demo.user.dto.WithdrawRequest;
 import com.example.demo.user.service.UserService;
 
 import jakarta.validation.Valid;
@@ -38,6 +40,16 @@ public class UserController {
     @PutMapping("/password")
     public ResponseEntity<Void> changePassword(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody PasswordChangeRequest request) {
         userService.changePassword(LoginUser.from(jwt).id(), request);
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, cookieFactory.delete().toString())
+                .header(HttpHeaders.SET_COOKIE, cookieFactory.deleteRefresh().toString())
+                .build();
+    }
+
+    // 회원 탈퇴: 204 + 두 쿠키 삭제. 본문의 비밀번호로 본인 확인을 한다.
+    @DeleteMapping
+    public ResponseEntity<Void> withdraw(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody WithdrawRequest request) {
+        userService.withdraw(LoginUser.from(jwt).id(), request);
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, cookieFactory.delete().toString())
                 .header(HttpHeaders.SET_COOKIE, cookieFactory.deleteRefresh().toString())

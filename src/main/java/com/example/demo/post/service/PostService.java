@@ -2,6 +2,10 @@ package com.example.demo.post.service;
 
 import java.util.List;
 
+import java.sql.SQLException;
+
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,8 +37,18 @@ public class PostService {
         // 토큰은 유효한데 사용자가 DB에 없으면(탈퇴·삭제) 로그인 안 된 것과 같이 401
         User author = userRepository.findById(loginUser.id())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."));
-        Post saved = postRepository.save(new Post(request.title(), request.content(), author));
-        return PostResponse.from(saved);
+        try {
+            // id가 IDENTITY라 save() 안에서 바로 INSERT가 나가므로 FK 위반을 여기서 잡을 수 있다
+            Post saved = postRepository.save(new Post(request.title(), request.content(), author));
+            return PostResponse.from(saved);
+        } catch (DataIntegrityViolationException e) {
+            // 회원 조회 직후 탈퇴가 커밋되면 author_id FK가 위반된다(PostgreSQL SQLState 23503).
+            // FK 위반일 때만 "회원이 없음"과 같이 401로 바꾸고, 다른 제약 위반은 숨기지 않고 그대로 던진다.
+            if (!(NestedExceptionUtils.getMostSpecificCause(e) instanceof SQLException sql) || !"23503".equals(sql.getSQLState())) {
+                throw e;
+            }
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
+        }
     }
 
     // 게시글 한 건 조회. 없으면 404
