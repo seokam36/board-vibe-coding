@@ -28,9 +28,10 @@
 - [ ] S6. DB 변경을 안전하게 배포하기 (표 구조가 바뀌어도 Deploy 버튼 하나로)
   - [x] S6-a. Deploy 전 서버 DB 자동 백업 (pg_dump, 서버 ~/board/backups에 10개 보관, 실패하면 배포 중단)
   - [ ] S6-b. Flyway 도입
-    - [ ] S6-b-1. Flyway 의존성 + V1(운영 구조 기준) + ddl-auto=validate + 테스트가 Flyway로 표 만들기
+    - [x] S6-b-1. Flyway 의존성 + V1(운영 구조 기준) + ddl-auto=validate + 테스트가 Flyway로 표 만들기
     - [ ] S6-b-2. 표가 이미 있는 DB를 기준선으로 인정 (로컬 리허설 + 운영 구조와 V1 비교)
   - [ ] S6-c. EC2 배포
+  - [ ] S6-c 후속. 운영·로컬 baseline이 끝나면 spring.flyway.baseline-on-migrate·baseline-version 삭제 (기록장 없는 이상한 DB를 V1으로 잘못 인정하지 않게)
 - [ ] (나중, 알려진 한계) 여러 탭이 동시에 재발급하면 같은 리프레시 토큰을 두 번 써서 모든 탭이 로그아웃될 수 있다. 탭 하나 안에서는 재발급을 하나로 모으지만 탭끼리는 못 모은다. 해결 후보: 백엔드에서 방금 회전한 토큰을 몇 초 봐주기, 또는 BroadcastChannel로 탭끼리 알리기 (Web Locks는 HTTPS 필요)
 
 ## 끝난 일
@@ -65,4 +66,5 @@
 | 2026-11-05 | S5-e-1 | 화면: 가입에 닉네임 칸(형식·길이 검사는 서버 400, 자음·모음만 불가 안내) + 글 작성자·상단바를 닉네임으로 표시 | 52844c5 |
 | 2026-11-05 | S5-e-2 | 화면: 내 정보 페이지(/me) — 닉네임 변경(상단바 즉시 갱신), 비밀번호 변경·탈퇴(상태 비우기+이동을 한 transition으로 묶어 RequireLogin 끼어들기 방지, 500은 "이미 처리됐을 수 있음" 안내) | 8ce4770 |
 | 2026-11-05 | S5-f | EC2 배포: 집 PC 접속 키 추가(보안그룹 SSH laptop·home-pc) → DB 백업(서버+PC) → 기존 회원 1명 삭제(글 3개는 작성자 없음으로 유지) → Deploy 성공. 헬스 UP, 화면에서 가입·닉네임·비밀번호 변경·탈퇴 이동 확인 | 61ba22a |
-| 2026-11-05 | S6-a | Deploy 전 서버 DB 자동 백업(pg_dump → ~/board/backups, 600/700, 3가지 검사·디스크 50MB 검사 실패 시 배포 중단, 10개 보관, 3분 제한) + deploy.md 되살리기 절차 완성 | (이 커밋) |
+| 2026-11-05 | S6-a | Deploy 전 서버 DB 자동 백업(pg_dump → ~/board/backups, 600/700, 3가지 검사·디스크 50MB 검사 실패 시 배포 중단, 10개 보관, 3분 제한) + deploy.md 되살리기 절차 완성 | bbc3dc5 |
+| 2026-11-05 | S6-b-1 | Flyway 도입(V1 = 운영 구조 그대로, 제약 이름까지 diff 0) + ddl-auto=validate + baseline-on-migrate. 테스트 267개 통과, 표 있는 DB에서 BASELINE 1행·데이터 유지 확인. CLAUDE.md에 V 파일 규칙 | (이 커밋) |

@@ -5,6 +5,7 @@
 ## 스택
 - Java 21, Spring Boot 4.1.2, Gradle
 - Spring Data JPA, PostgreSQL (로컬은 docker compose)
+- Flyway (표 구조 변경 관리, src/main/resources/db/migration)
 - 테스트: JUnit 5, @DataJpaTest, @SpringBootTest + MockMvc
 - 배포 대상: AWS EC2 (Docker)
 
@@ -16,6 +17,9 @@
 - 엔티티를 응답으로 직접 반환하지 않는다. DTO를 쓴다.
 - 요청 DTO에 @Valid 검증. 없는 리소스는 404, 잘못된 입력은 400.
 - 조회 전용 서비스 메서드에 @Transactional(readOnly = true).
+- DB 표를 바꾸면 엔티티와 함께 새 V 파일(db/migration/V{다음 번호}__설명.sql)을 추가한다. 기존 데이터가 있을 때의 처리(채우기 등)도 같은 파일에 쓴다.
+- 커밋된 V 파일은 고치지 않는다(체크섬이 바뀌어 앱이 안 뜬다). 바꿀 게 있으면 새 V 파일로.
+- spring.jpa.hibernate.ddl-auto는 validate로 둔다(update·create 금지).
 - 한 번에 한 기능만. 요청받지 않은 기능은 추가하지 않는다.
 - 비밀 값은 코드·설정 파일에 쓰지 않는다. 환경변수로 받는다.
 - build.gradle에 의존성을 추가하면 보고에 "추가한 의존성과 이유"를 포함한다.
