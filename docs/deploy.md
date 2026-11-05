@@ -13,12 +13,14 @@
    준비가 되면 Actions 탭 -> 왼쪽 Deploy -> Run workflow -> main 선택 후 실행.
 3. 워크플로가 하는 일: 켜진 EC2의 퍼블릭 IP 조회 -> 보안 그룹에 이 러너 IP의 SSH(22) 허용을 잠깐 추가
    -> **DB 자동 백업**(배포 직전에 서버 DB를 파일로 저장. 실패하면 여기서 중단, 자세한 내용은 아래 "배포 전 DB 백업") -> SSH로 `docker compose pull`/`up -d` -> `/actuator/health`가 UP일 때까지 최대 약 3~4분 확인 -> (성공/실패 상관없이) SSH 허용 규칙 삭제.
+   앱이 켜질 때 Flyway가 표 변경(V 파일)을 적용한다. 실패하면 아래 'Flyway(표 변경) 문제와 되돌리기' 참고.
 4. 초록색이면 끝입니다. 확인용 주소는 `http://<퍼블릭IP>/`. 다 쓰고 나면 EC2를 콘솔에서 중지합니다.
 
 만약 실행이 중간에 강제로 끊겨 `github-actions-deploy` 설명이 붙은 22번 규칙이 보안 그룹에 남았다면 콘솔에서 직접 지웁니다.
 
 ### 배포 전 DB 백업 (자동)
 Deploy 버튼을 누르면 워크플로가 배포 "직전에" 서버 DB를 알아서 백업합니다. 손으로 할 일은 없습니다.
+앱이 켜질 때 Flyway가 표 변경(V 파일)을 적용한다. 실패하면 아래 'Flyway(표 변경) 문제와 되돌리기' 참고.
 - 위치: EC2의 `~/board/backups/db-<날짜>-<시각>.sql` (UTC 기준, 예: `db-20260101-093000.sql`). 폴더는 나만(700), 파일도 나만(600) 읽을 수 있습니다.
 - 보관: 최신 10개만 남기고 오래된 것은 자동으로 지웁니다.
 - 안전장치: 파일이 비어 있거나, `posts` 표가 없거나, 끝까지 쓰이지 않았으면 백업 실패로 보고 **배포를 멈춥니다**(새 이미지를 받지 않음). 이때 Actions 로그의 빨간 오류 줄을 확인합니다. SSH 허용 규칙은 실패해도 닫힙니다.
@@ -143,4 +145,61 @@ EC2는 이미지를 받아 실행만 합니다. 저장소를 clone할 필요 없
 - `cd ~/board && cp docker-compose.yml.bak-<날짜> docker-compose.yml && docker compose --profile prod up -d --remove-orphans`
 - `--remove-orphans`: 백업 파일에 없는 컨테이너(예: `board-web`)를 같이 내립니다. 없으면 남은 컨테이너가 80번 포트를 붙잡아 app이 시작하지 못할 수 있습니다.
 - 되돌리는 것은 compose 설정뿐입니다. 이미지는 `latest` 태그라 push할 때 Docker Hub의 옛 이미지가 덮어써지므로, 되돌려도 새 이미지가 그대로 쓰입니다.
-  (이미지까지 되돌리고 싶다면 push 전에 옛 이미지에 다른 태그를 붙여 두어야 합니다.)
+  이미지까지 되돌리고 싶다면 아래 "Flyway(표 변경) 문제와 되돌리기"의 (a) "이전 이미지로 되돌리기"를 따릅니다(CI가 커밋마다 40자리 SHA 태그를 남겨 두므로 미리 태그를 붙여 둘 필요가 없습니다).
+
+## Flyway(표 변경) 문제와 되돌리기
+Flyway는 DB 표 구조를 바꾸는 "V 파일"(예: `V2__...sql`)을 앱이 켜질 때 순서대로 적용하는 도구입니다. 적용한 기록은 DB 안의 `flyway_schema_history` 표(기록장)에 남습니다.
+앱 시작 순서는 Flyway(기록장 확인·적용) -> Hibernate 표 검사(`ddl-auto=validate`) -> 웹 서버 시작입니다. 앞 단계에서 실패하면 앱이 뜨지 못해 Deploy의 헬스체크가 약 3분 뒤 빨간불이 되고, app 컨테이너는 `restart: unless-stopped` 때문에 켜졌다 꺼지기를 반복합니다.
+
+표시: **[서버]** = EC2에 ssh로 접속한 화면(`ec2-user@...` 프롬프트), **[PC]** = 내 컴퓨터 PowerShell(`PS C:\...` 프롬프트).
+
+### (g) 로그 보기
+- **[서버]** `cd ~/board` — 작업 폴더로 이동합니다.
+- **[서버]** `docker compose --profile prod logs --tail 100 app` — app 컨테이너의 최근 로그 100줄을 봅니다.
+
+대표 로그와 뜻 (Flyway 12.4.0 기준. 문구는 버전에 따라 조금 다를 수 있습니다):
+- `Creating Schema History table "public"."flyway_schema_history" with baseline ...` — 기록장이 없어서 새로 만들고, "지금 표 상태를 1번으로 친다"고 적는 중입니다. 기존 운영 DB에서 처음 켤 때 한 번 나옵니다.
+- `Successfully baselined schema with version: 1` — 위 작업이 끝났습니다(정상).
+- `Current version of schema "public": 1` — DB가 지금 몇 번까지 적용됐는지 알려 줍니다.
+- `Schema "public" is up to date. No migration necessary.` — 새로 적용할 V 파일이 없습니다(정상).
+- `Successfully applied N migration(s)` — 새 V 파일 N개를 적용했습니다(정상).
+- `Validate failed` — 이미 적용된 V 파일의 내용이 바뀌었거나(체크섬 불일치) 실패한 기록이 남아 있습니다. 아래 (c), (d)를 봅니다. 앱은 뜨지 않습니다.
+- `Schema-validation: missing table` / `missing column` — Flyway는 통과했지만 코드(엔티티)가 기대하는 표·칸이 DB에 없습니다. Hibernate 검사 실패이고 앱은 뜨지 않습니다. 보통 필요한 V 파일을 빠뜨렸다는 뜻입니다.
+
+### (a) 이전 이미지로 되돌리기
+새 이미지가 Flyway 때문에 안 뜰 때, 서버가 옛 이미지를 쓰게 만드는 방법입니다. CI는 이미지에 `latest` 말고 커밋 40자리 SHA 태그(`seokam36/demo:<40자리 SHA>`)도 붙여 둡니다. 서버에서는 `latest`에 이미지 정리(prune)로 옛 것이 지워졌기 때문에, SHA 태그로 Docker Hub에서 다시 받아 옵니다.
+1. **[PC]** 브라우저로 GitHub 저장소의 Commits 목록에서 되돌아갈 커밋(예: Flyway 도입 직전, `e66aa02`로 시작하는 커밋)을 찾아 40자리 SHA 전체를 복사합니다. 그 커밋의 CI(images 포함)가 초록이었어야 태그가 있습니다.
+2. **[서버]** `cd ~/board` — 작업 폴더로 이동합니다.
+3. **[서버]** `cp docker-compose.yml docker-compose.yml.bak-latest` — 지금 설정을 복사해 둡니다(나중에 원복할 때 씁니다).
+4. **[서버]** `sed -i 's#image: seokam36/demo:latest#image: seokam36/demo:<SHA>#' docker-compose.yml` — app 이미지 줄만 `latest`에서 그 SHA로 바꿉니다. `<SHA>`는 1단계에서 복사한 40자리입니다. (web 이미지는 `demo-web`이라 영향 없습니다.)
+5. **[서버]** `grep 'image: seokam36' docker-compose.yml` — 두 줄이 보이고 app 쪽이 `seokam36/demo:<SHA>`로 바뀌었는지 확인합니다.
+6. **[서버]** `docker compose --profile prod pull app && docker compose --profile prod up -d app` — app 이미지만 받아서 다시 띄웁니다.
+7. **[서버]** `docker compose --profile prod logs --tail 100 app` — 앱이 정상으로 떴는지 로그를 봅니다. 이어서 브라우저에서 `http://<퍼블릭IP>/actuator/health`가 UP인지 확인합니다.
+
+> **주의 (꼭 읽기)**: Deploy 버튼은 서버의 `docker-compose.yml`을 바꾸지 않습니다. 위처럼 image 줄을 옛 SHA로 바꿔 두면 **다음 Deploy도 옛 SHA를 받아서**, 새 코드가 배포되지 않는데도 초록불이 뜰 수 있습니다.
+> 1. 원인을 고친 새 커밋을 push하고 CI가 새 `latest` 이미지를 Docker Hub에 올릴 때까지(Actions 초록불) 기다립니다.
+> 2. 그다음 **[서버]** `cd ~/board && cp docker-compose.yml.bak-latest docker-compose.yml` 로 원복하고, **[서버]** `grep 'image: seokam36' docker-compose.yml` 로 app 줄이 다시 `seokam36/demo:latest`인지 확인합니다.
+> 3. 그다음에 Deploy 버튼을 누릅니다.
+>
+> 새 `latest`가 올라오기 전에 원복하면 문제 있던 `latest`가 다시 뜹니다. 원복을 잊으면 Deploy가 계속 옛 SHA를 받습니다.
+
+### (b) 옛 이미지로 돌아가도 괜찮은가
+Flyway 도입 전의 옛 이미지(S6 이전, `ddl-auto=update`, Flyway 없음)는 `flyway_schema_history`를 읽지도 쓰지도 않습니다. 그래서 DB에 기록장이 남아 있어도 그대로 두면 되고 무해합니다.
+단, 새 V 파일이 이미 칸 삭제나 이름 변경을 적용했다면 옛 코드가 그 칸을 찾다가 깨질 수 있습니다. 이럴 땐 아래 (e)의 백업 되살리기를 고려합니다.
+
+### (c) V2 이상이 적용 중 실패했을 때
+PostgreSQL은 표 변경(DDL)도 트랜잭션이라, V 파일 하나가 중간에 실패하면 그 파일의 표 변경은 통째로 원상복구됩니다(반쯤 바뀐 채로 남지 않음). 먼저 기록장 상태를 확인합니다.
+- **[서버]** `cd ~/board` — 작업 폴더로 이동합니다.
+- **[서버]** `docker exec board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT version, success FROM flyway_schema_history ORDER BY installed_rank;"'` — 어떤 번호까지 적용됐는지 봅니다(비밀번호는 필요 없습니다).
+- `success`가 `f`(false)인 행이 **있을 때만** 아래를 합니다. 실패 기록 때문에 Flyway가 다음 시작을 거부하기 때문입니다. **[서버]** `docker exec board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "DELETE FROM flyway_schema_history WHERE success = false;"'` — 실패 기록 행만 지웁니다(성공한 기록은 건드리지 않습니다).
+- 그다음 원인을 고친 새 커밋을 push하고, CI가 초록이 되면 Deploy를 다시 실행합니다. (옛 이미지로 임시 복구 중이라면 위 (a)의 주의 박스 순서를 따릅니다.)
+
+### (d) 체크섬 불일치 (이미 적용된 V 파일을 고쳤을 때)
+Flyway는 적용한 V 파일의 지문(체크섬)을 기록해 두고, 다음 시작 때 파일이 바뀌었는지 비교합니다. 이미 적용된 V 파일을 수정하면 `Validate failed`로 앱이 뜨지 않습니다.
+- 대처: 그 V 파일을 **원래 내용으로 되돌린** 이미지를 배포합니다(코드를 되돌려 push하고 CI 초록을 확인한 뒤 Deploy).
+- **서버 DB는 고치지 않습니다.** 기록장을 손으로 고쳐 맞추려 하지 않습니다.
+- 바꾸고 싶은 내용은 **새 번호의 V 파일**(예: 다음 번호 `V3__...sql`)로 만듭니다. 한 번 적용된 V 파일은 절대 고치지 않는 것이 규칙입니다.
+
+### (e) 백업과 기록장
+S6-c 이후 만들어진 백업에는 `flyway_schema_history`도 함께 들어 있으므로, 위 "되살리기" 절차를 그대로 쓰면 됩니다(되살린 DB와 기록장이 서로 맞습니다).
+그 이전 백업(기록장이 없는 백업)은 되살린 뒤 앱을 처음 켤 때 baseline(기준선 잡기)이 다시 자동으로 잡힙니다.
