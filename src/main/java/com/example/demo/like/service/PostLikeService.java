@@ -1,8 +1,5 @@
 package com.example.demo.like.service;
 
-import java.sql.SQLException;
-
-import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -10,6 +7,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.auth.dto.LoginUser;
+import com.example.demo.common.ApiErrors;
+import com.example.demo.common.ConstraintViolations;
 import com.example.demo.like.domain.PostLike;
 import com.example.demo.like.dto.LikeResponse;
 import com.example.demo.like.dto.LikedResponse;
@@ -34,9 +33,9 @@ public class PostLikeService {
     public LikeResponse like(Long postId, LoginUser loginUser) {
         // 토큰은 유효한데 회원이 DB에 없으면(탈퇴) 401
         User user = userRepository.findById(loginUser.id())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."));
+                .orElseThrow(ApiErrors::loginRequired);
         if (!postRepository.existsById(postId)) {
-            throw postNotFound();
+            throw ApiErrors.postNotFound();
         }
         // 미리 확인해서 흔한 중복은 여기서 409로 거른다
         if (postLikeRepository.existsByPostIdAndUserId(postId, user.getId())) {
@@ -48,20 +47,15 @@ public class PostLikeService {
         } catch (DataIntegrityViolationException e) {
             // 동시 요청이 확인을 같이 통과하면 DB의 UNIQUE(23505)가 막는다 -> 409
             // 확인 직후 회원 탈퇴/글 삭제가 커밋되면 FK 위반(23503) -> 제약 이름으로 구분
-            if (NestedExceptionUtils.getMostSpecificCause(e) instanceof SQLException sql) {
-                String state = sql.getSQLState();
-                String message = String.valueOf(sql.getMessage());
-                if ("23505".equals(state)) {
-                    throw alreadyLiked();
-                }
-                if ("23503".equals(state)) {
-                    if (message.contains("fk_post_likes_user")) {
-                        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
-                    }
-                    if (message.contains("fk_post_likes_post")) {
-                        throw postNotFound();
-                    }
-                }
+            if (ConstraintViolations.isUnique(e)) {
+                throw alreadyLiked();
+            }
+            String constraint = ConstraintViolations.violatedConstraint(e).orElse("");
+            if (constraint.equals("fk_post_likes_user")) {
+                throw ApiErrors.loginRequired();
+            }
+            if (constraint.equals("fk_post_likes_post")) {
+                throw ApiErrors.postNotFound();
             }
             throw e; // 다른 제약 위반은 숨기지 않는다
         }
@@ -72,7 +66,7 @@ public class PostLikeService {
     @Transactional
     public LikeResponse unlike(Long postId, LoginUser loginUser) {
         if (!postRepository.existsById(postId)) {
-            throw postNotFound();
+            throw ApiErrors.postNotFound();
         }
         if (postLikeRepository.deleteByPostIdAndUserId(postId, loginUser.id()) == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "공감하지 않은 글입니다.");
@@ -84,13 +78,9 @@ public class PostLikeService {
     @Transactional(readOnly = true)
     public LikedResponse isLiked(Long postId, LoginUser loginUser) {
         if (!postRepository.existsById(postId)) {
-            throw postNotFound();
+            throw ApiErrors.postNotFound();
         }
         return new LikedResponse(postLikeRepository.existsByPostIdAndUserId(postId, loginUser.id()));
-    }
-
-    private static ResponseStatusException postNotFound() {
-        return new ResponseStatusException(HttpStatus.NOT_FOUND, "게시글을 찾을 수 없습니다.");
     }
 
     private static ResponseStatusException alreadyLiked() {

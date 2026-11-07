@@ -1,9 +1,7 @@
 package com.example.demo.comment.service;
 
-import java.sql.SQLException;
 import java.util.List;
 
-import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -16,6 +14,8 @@ import com.example.demo.comment.dto.CommentCreateRequest;
 import com.example.demo.comment.dto.CommentResponse;
 import com.example.demo.comment.dto.CommentUpdateRequest;
 import com.example.demo.comment.repository.CommentRepository;
+import com.example.demo.common.ApiErrors;
+import com.example.demo.common.ConstraintViolations;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.domain.User;
 import com.example.demo.user.repository.UserRepository;
@@ -35,7 +35,7 @@ public class CommentService {
     @Transactional(readOnly = true)
     public List<CommentResponse> getAll(Long postId) {
         if (!postRepository.existsById(postId)) {
-            throw postNotFound();
+            throw ApiErrors.postNotFound();
         }
         return commentRepository.findByPostIdOrderByIdAsc(postId).stream()
                 .map(CommentResponse::from)
@@ -47,9 +47,9 @@ public class CommentService {
     public CommentResponse create(Long postId, LoginUser loginUser, CommentCreateRequest request) {
         // 토큰은 유효한데 회원이 DB에 없으면(탈퇴) 401
         User author = userRepository.findById(loginUser.id())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."));
+                .orElseThrow(ApiErrors::loginRequired);
         if (!postRepository.existsById(postId)) {
-            throw postNotFound();
+            throw ApiErrors.postNotFound();
         }
         try {
             // 글은 id만 필요해서 프록시(getReferenceById)로 쓴다. IDENTITY라 save() 안에서 바로 INSERT가 나가 FK 위반을 여기서 잡는다.
@@ -58,15 +58,12 @@ public class CommentService {
             return CommentResponse.from(saved);
         } catch (DataIntegrityViolationException e) {
             // 확인 직후 회원 탈퇴/글 삭제가 커밋되면 FK 위반(SQLState 23503)이 난다. 어느 FK인지 이름으로 구분한다.
-            if (NestedExceptionUtils.getMostSpecificCause(e) instanceof SQLException sql
-                    && "23503".equals(sql.getSQLState())) {
-                String message = String.valueOf(sql.getMessage());
-                if (message.contains("fk_comments_author")) {
-                    throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
-                }
-                if (message.contains("fk_comments_post")) {
-                    throw postNotFound();
-                }
+            String constraint = ConstraintViolations.violatedConstraint(e).orElse("");
+            if (constraint.equals("fk_comments_author")) {
+                throw ApiErrors.loginRequired();
+            }
+            if (constraint.equals("fk_comments_post")) {
+                throw ApiErrors.postNotFound();
             }
             throw e; // 다른 제약 위반은 숨기지 않는다
         }
@@ -92,10 +89,6 @@ public class CommentService {
     private Comment findOrThrow(Long id) {
         return commentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "댓글을 찾을 수 없습니다."));
-    }
-
-    private static ResponseStatusException postNotFound() {
-        return new ResponseStatusException(HttpStatus.NOT_FOUND, "게시글을 찾을 수 없습니다.");
     }
 
     // 남의 댓글(작성자가 없는 댓글 포함)이면 403

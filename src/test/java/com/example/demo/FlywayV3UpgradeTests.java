@@ -88,4 +88,29 @@ class FlywayV3UpgradeTests {
 		assertThat(count("SELECT count(*) FROM comments")).isZero();
 		assertThat(count("SELECT count(*) FROM posts")).as("다른 글은 그대로").isEqualTo(3);
 	}
+
+	// post_likes의 ON DELETE CASCADE: 글을 지우면 그 글의 공감 행도 같이 사라진다
+	@Test
+	void 글을_지우면_그_글의_공감도_DB가_같이_지운다() throws SQLException {
+		run("INSERT INTO users (created_at, password, username, nickname) VALUES (now(), 'x', 'lk1', 'lk1')");
+		run("INSERT INTO posts (content, created_at, title) VALUES ('lc', now(), 'like-post')");
+		run("INSERT INTO post_likes (post_id, user_id, created_at) SELECT p.id, u.id, now() FROM posts p, users u WHERE p.title = 'like-post' AND u.username = 'lk1'");
+		assertThat(count("SELECT count(*) FROM post_likes")).isEqualTo(1);
+		run("DELETE FROM posts WHERE title = 'like-post'");
+		assertThat(count("SELECT count(*) FROM post_likes")).isZero();
+		assertThat(count("SELECT count(*) FROM users WHERE username = 'lk1'")).as("회원은 그대로").isEqualTo(1);
+	}
+
+	// post_likes.user_id의 ON DELETE CASCADE: 회원을 지우면 그 회원의 공감 행도 같이 사라진다
+	@Test
+	void 회원을_지우면_그_회원의_공감도_DB가_같이_지운다() throws SQLException {
+		run("INSERT INTO users (created_at, password, username, nickname) VALUES (now(), 'x', 'lk2', 'lk2')");
+		run("INSERT INTO posts (content, created_at, title) VALUES ('lc', now(), 'like-post2')");
+		run("INSERT INTO post_likes (post_id, user_id, created_at) SELECT p.id, u.id, now() FROM posts p, users u WHERE p.title = 'like-post2' AND u.username = 'lk2'");
+		assertThat(count("SELECT count(*) FROM post_likes WHERE user_id = (SELECT id FROM users WHERE username = 'lk2')")).isEqualTo(1);
+		run("DELETE FROM users WHERE username = 'lk2'");
+		assertThat(count("SELECT count(*) FROM post_likes")).as("공감 행").isZero();
+		assertThat(count("SELECT count(*) FROM posts WHERE title = 'like-post2'")).as("글은 그대로").isEqualTo(1);
+		run("DELETE FROM posts WHERE title = 'like-post2'"); // 다른 테스트의 "글 3개" 검사를 흐트러뜨리지 않게 치운다
+	}
 }

@@ -4,9 +4,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import java.sql.SQLException;
-
-import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -17,6 +14,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.auth.dto.LoginUser;
 import com.example.demo.comment.repository.CommentRepository;
+import com.example.demo.common.ApiErrors;
+import com.example.demo.common.ConstraintViolations;
 import com.example.demo.like.repository.PostLikeRepository;
 import com.example.demo.post.domain.Post;
 import com.example.demo.post.domain.PostCategory;
@@ -49,7 +48,7 @@ public class PostService {
     public PostResponse create(LoginUser loginUser, PostCreateRequest request) {
         // 토큰은 유효한데 사용자가 DB에 없으면(탈퇴·삭제) 로그인 안 된 것과 같이 401
         User author = userRepository.findById(loginUser.id())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."));
+                .orElseThrow(ApiErrors::loginRequired);
         // 없는 학교 id는 잘못된 입력이므로 400 (500이 되지 않게 미리 확인한다)
         School school = schoolRepository.findById(request.schoolId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "존재하지 않는 학교입니다."));
@@ -59,12 +58,14 @@ public class PostService {
                     new Post(request.title(), request.content(), author, school, request.category()));
             return PostResponse.from(saved);
         } catch (DataIntegrityViolationException e) {
-            // 회원 조회 직후 탈퇴가 커밋되면 author_id FK가 위반된다(PostgreSQL SQLState 23503).
-            // FK 위반일 때만 "회원이 없음"과 같이 401로 바꾸고, 다른 제약 위반은 숨기지 않고 그대로 던진다.
-            if (!(NestedExceptionUtils.getMostSpecificCause(e) instanceof SQLException sql) || !"23503".equals(sql.getSQLState())) {
+            // 회원 조회 직후 탈퇴가 커밋되면 author_id FK가 위반된다(SQLState 23503).
+            // author FK는 V1에서 자동 생성된 이름(fk6xvn0811tkyo3nfjk2xvqx6ns)이라 이름으로 구분하지 않고,
+            // FK 위반이면 "회원이 없음"과 같이 401로 바꾼다. (학교는 위에서 미리 확인했고 삭제 API도 없다)
+            // 다른 제약 위반은 숨기지 않고 그대로 던진다.
+            if (!ConstraintViolations.isForeignKey(e)) {
                 throw e;
             }
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
+            throw ApiErrors.loginRequired();
         }
     }
 
@@ -135,7 +136,7 @@ public class PostService {
 
     private Post findOrThrow(Long id) {
         return postRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "게시글을 찾을 수 없습니다."));
+                .orElseThrow(ApiErrors::postNotFound);
     }
 
     // 남의 글(작성자가 없는 옛 글 포함)이면 403

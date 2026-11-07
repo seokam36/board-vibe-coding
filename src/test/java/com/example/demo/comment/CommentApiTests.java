@@ -19,6 +19,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
 
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.transaction.PlatformTransactionManager;
+
+import com.example.demo.LockRaceSupport;
 import com.example.demo.TestLogin;
 import com.example.demo.TestcontainersConfiguration;
 import com.example.demo.auth.service.TokenService;
@@ -309,6 +313,67 @@ class CommentApiTests {
 		long id = 댓글만들기(다른쿠키, "x");
 		assertThat(삭제(null, id).getStatus()).isEqualTo(401);
 		assertThat(댓글수()).isEqualTo(1);
+	}
+
+	// ============ 명세 공백: CSRF ============
+
+	@Test
+	void CSRF_없이_댓글을_수정하면_403이고_내용은_그대로다() throws Exception {
+		long id = 댓글만들기(다른쿠키, "원래");
+		int st = mockMvc.perform(put("/comments/" + id).cookie(다른쿠키).contentType(MediaType.APPLICATION_JSON)
+				.content(json("바꿈"))).andReturn().getResponse().getStatus();
+		assertThat(st).isEqualTo(403);
+		assertThat(jdbc.queryForObject("select content from comments where id = ?", String.class, id)).isEqualTo("원래");
+	}
+
+	@Test
+	void CSRF_없이_댓글을_삭제하면_403이고_댓글은_남는다() throws Exception {
+		long id = 댓글만들기(다른쿠키, "남을 것");
+		int st = mockMvc.perform(delete("/comments/" + id).cookie(다른쿠키)).andReturn().getResponse().getStatus();
+		assertThat(st).isEqualTo(403);
+		assertThat(댓글수()).isEqualTo(1);
+	}
+
+	// ============ 유령 토큰 / 경쟁 조건 (FK 위반을 제약 이름으로 구분하는 분기) ============
+
+	@Autowired
+	JwtEncoder jwtEncoder;
+	@Autowired
+	PlatformTransactionManager txManager;
+
+	@Test
+	void 토큰은_유효하지만_회원_행이_없으면_댓글_작성은_401이고_저장되지_않는다() throws Exception {
+		assertThat(작성(TestLogin.행없는_회원_토큰(jwtEncoder), 글.getId(), json("x")).getStatus()).isEqualTo(401);
+		assertThat(댓글수()).isZero();
+	}
+
+	// 회원 행이 잠긴 채 댓글 INSERT가 대기하다가 회원이 삭제 커밋되면 fk_comments_author 위반 -> 401(500 아님)
+	@Test
+	void 탈퇴가_진행되는_동안_댓글을_쓰면_락에서_기다리다가_401이고_댓글이_안_생긴다() throws Exception {
+		Long uid = 다른회원.getId();
+		int status = LockRaceSupport.잠그고_요청하고_삭제커밋(txManager, jdbc,
+				() -> jdbc.queryForList("select id from users where id = ? for update", Long.class, uid),
+				() -> 작성(다른쿠키, 글.getId(), json("경쟁")).getStatus(),
+				() -> jdbc.update("delete from users where id = ?", uid));
+
+		assertThat(status).isEqualTo(401);
+		assertThat(댓글수()).isZero();
+		assertThat(jdbc.queryForObject("select count(*) from users where id = ?", Long.class, uid)).isZero();
+	}
+
+	// 글 행의 삭제가 커밋 전일 때 댓글 INSERT가 대기하다가 글이 사라지면 fk_comments_post 위반 -> 404(500 아님)
+	@Test
+	void 글_삭제가_진행되는_동안_댓글을_쓰면_락에서_기다리다가_404이고_댓글이_안_생긴다() throws Exception {
+		Long pid = 글.getId();
+		int status = LockRaceSupport.잠그고_요청하고_삭제커밋(txManager, jdbc,
+				() -> jdbc.update("delete from posts where id = ?", pid), // 커밋 전 삭제 = 글 행 잠금
+				() -> 작성(다른쿠키, pid, json("경쟁")).getStatus(),
+				() -> {
+				});
+
+		assertThat(status).isEqualTo(404);
+		assertThat(댓글수()).isZero();
+		assertThat(jdbc.queryForObject("select count(*) from posts where id = ?", Long.class, pid)).isZero();
 	}
 
 	// ============ 회원 탈퇴 ============

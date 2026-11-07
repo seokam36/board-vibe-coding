@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +28,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
 
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.transaction.PlatformTransactionManager;
+
+import com.example.demo.LockRaceSupport;
 import com.example.demo.TestLogin;
 import com.example.demo.TestcontainersConfiguration;
 import com.example.demo.auth.service.TokenService;
@@ -359,6 +364,65 @@ class PostLikeApiTests {
 		} finally {
 			stats.setStatisticsEnabled(false);
 		}
+	}
+
+	// ============ PUT /posts/{id} 응답의 카운트 ============
+
+	@Test
+	void 댓글_1개_공감_1개인_글을_수정하면_응답의_commentCount와_likeCount가_1과_1이다() throws Exception {
+		댓글달기(쿠키A, 글, "c1");
+		공감(쿠키A, 글.getId());
+
+		MockHttpServletResponse res = mockMvc.perform(put("/posts/" + 글.getId()).with(csrf()).cookie(글쓴이쿠키)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"title\":\"새 제목\",\"content\":\"새 내용\",\"category\":\"QUESTION\"}"))
+				.andReturn().getResponse();
+
+		assertThat(res.getStatus()).isEqualTo(200);
+		assertThat(본문(res).get("title").asString()).isEqualTo("새 제목");
+		assertThat(본문(res).get("commentCount").asLong()).isEqualTo(1);
+		assertThat(본문(res).get("likeCount").asLong()).isEqualTo(1);
+	}
+
+	// ============ 유령 토큰 / 경쟁 조건 (FK 위반을 제약 이름으로 구분하는 분기) ============
+
+	@Autowired
+	JwtEncoder jwtEncoder;
+	@Autowired
+	PlatformTransactionManager txManager;
+
+	@Test
+	void 토큰은_유효하지만_회원_행이_없으면_공감은_401이고_저장되지_않는다() throws Exception {
+		assertThat(공감(TestLogin.행없는_회원_토큰(jwtEncoder), 글.getId()).getStatus()).isEqualTo(401);
+		assertThat(공감행수()).isZero();
+	}
+
+	// 회원 행이 잠긴 채 공감 INSERT가 대기하다가 회원이 삭제 커밋되면 fk_post_likes_user 위반 -> 401(500 아님)
+	@Test
+	void 탈퇴가_진행되는_동안_공감하면_락에서_기다리다가_401이고_공감_행이_안_생긴다() throws Exception {
+		Long uid = 회원A.getId();
+		int status = LockRaceSupport.잠그고_요청하고_삭제커밋(txManager, jdbc,
+				() -> jdbc.queryForList("select id from users where id = ? for update", Long.class, uid),
+				() -> 공감(쿠키A, 글.getId()).getStatus(),
+				() -> jdbc.update("delete from users where id = ?", uid));
+
+		assertThat(status).isEqualTo(401);
+		assertThat(공감행수()).isZero();
+		assertThat(jdbc.queryForObject("select count(*) from users where id = ?", Long.class, uid)).isZero();
+	}
+
+	// 보너스: 글 삭제가 커밋 전일 때 공감 INSERT가 대기하다가 글이 사라지면 fk_post_likes_post 위반 -> 404
+	@Test
+	void 글_삭제가_진행되는_동안_공감하면_락에서_기다리다가_404이고_공감_행이_안_생긴다() throws Exception {
+		Long pid = 글.getId();
+		int status = LockRaceSupport.잠그고_요청하고_삭제커밋(txManager, jdbc,
+				() -> jdbc.update("delete from posts where id = ?", pid),
+				() -> 공감(쿠키A, pid).getStatus(),
+				() -> {
+				});
+
+		assertThat(status).isEqualTo(404);
+		assertThat(공감행수()).isZero();
 	}
 
 	// ============ 탈퇴·글 삭제 연쇄 ============

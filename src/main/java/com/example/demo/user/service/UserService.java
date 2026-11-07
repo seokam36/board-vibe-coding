@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.auth.service.RefreshTokenService;
 import com.example.demo.comment.repository.CommentRepository;
+import com.example.demo.common.ApiErrors;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.domain.User;
 import com.example.demo.user.dto.PasswordChangeRequest;
@@ -56,7 +57,7 @@ public class UserService {
     public UserResponse getMe(Long id) {
         return userRepository.findById(id)
                 .map(UserResponse::from)
-                .orElseThrow(UserService::unauthorized);
+                .orElseThrow(ApiErrors::loginRequired);
     }
 
     // 닉네임 변경. 다른 사람이 쓰는 닉네임이면 409, 자기 닉네임 그대로면 변경 없이 200.
@@ -73,7 +74,7 @@ public class UserService {
         // 엔티티를 통째로 저장하지 않고 닉네임 컬럼만 UPDATE한다(동시에 바뀐 비밀번호를 옛 값으로 덮어쓰는 lost update 방지).
         try {
             if (userRepository.updateNickname(id, nickname) == 0) {
-                throw unauthorized(); // 읽은 뒤 회원이 삭제됨
+                throw ApiErrors.loginRequired(); // 읽은 뒤 회원이 삭제됨
             }
             return new UserResponse(user.getId(), user.getUsername(), nickname);
         } catch (DataIntegrityViolationException e) {
@@ -101,7 +102,7 @@ public class UserService {
         // 비밀번호 컬럼만 UPDATE(자체 트랜잭션으로 커밋). 통째 저장하면 동시에 바뀐 닉네임을 옛 값으로 덮어쓸 수 있다.
         // bcrypt(encode)는 DB 연결을 잡지 않은 채 돌리고, UPDATE만 짧게 트랜잭션을 쓴다.
         if (userRepository.updatePassword(id, passwordEncoder.encode(request.newPassword())) == 0) {
-            throw unauthorized(); // 읽은 뒤 회원이 삭제됨
+            throw ApiErrors.loginRequired(); // 읽은 뒤 회원이 삭제됨
         }
         refreshTokenService.revokeAll(id); // 모든 기기 로그아웃
     }
@@ -123,7 +124,8 @@ public class UserService {
         Integer deleted = transactionTemplate.execute(status -> {
             // 1) 회원 행을 FOR UPDATE로 먼저 잠근다(READ COMMITTED에서 UPDATE와 DELETE 사이에 글·댓글 INSERT가 끼는 것을 막기 위해).
             //    - 이미 글·댓글 INSERT를 한 요청이 있으면: 그 커밋이 끝날 때까지 여기서 기다리고, 그 뒤 clearAuthor가 그것까지 비운다.
-            //    - 나중에 온 글·댓글 INSERT는: FK 검사가 이 잠금에 막혔다가 회원 삭제 후 FK 위반이 나고, PostService/CommentService.create가 401로 바꾼다.
+            //    - 나중에 온 글·댓글·공감 INSERT는: FK 검사가 이 잠금에 막혔다가 회원 삭제 후 FK 위반이 나고, PostService/CommentService.create·PostLikeService.like가 401로 바꾼다.
+    //    - 공감(post_likes)은 user_id FK가 ON DELETE CASCADE라 회원 삭제 때 DB가 같이 지운다(따로 비우지 않는다). 위 잠금이 공감 INSERT 경쟁도 막는다.
             if (userRepository.lockById(id).isEmpty()) {
                 return 0; // 이미 삭제됨 -> 바깥에서 401
             }
@@ -132,7 +134,7 @@ public class UserService {
             return userRepository.deleteUserById(id); // 3) 회원 삭제
         });
         if (deleted == null || deleted == 0) {
-            throw unauthorized(); // 읽은 뒤 다른 요청이 먼저 탈퇴시킴
+            throw ApiErrors.loginRequired(); // 읽은 뒤 다른 요청이 먼저 탈퇴시킴
         }
         refreshTokenService.revokeAll(id); // 모든 기기 로그아웃
     }
@@ -140,11 +142,7 @@ public class UserService {
     // 토큰은 유효한데 회원이 DB에 없으면(삭제됨) 로그인 안 된 것과 같이 401
     private User findLoginUser(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(UserService::unauthorized);
-    }
-
-    private static ResponseStatusException unauthorized() {
-        return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
+                .orElseThrow(ApiErrors::loginRequired);
     }
 
     private ResponseStatusException nicknameTaken() {

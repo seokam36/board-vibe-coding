@@ -10,7 +10,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -33,17 +32,14 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.security.oauth2.jwt.JwsHeader;
-import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.example.demo.LockRaceSupport;
 import com.example.demo.TestcontainersConfiguration;
 import com.example.demo.post.domain.Post;
 import com.example.demo.post.domain.PostCategory;
@@ -146,12 +142,7 @@ class UserWithdrawTests {
 	}
 
 	private Cookie 행없는_회원_토큰() {
-		Instant now = Instant.now();
-		JwtClaimsSet claims = JwtClaimsSet.builder().subject("999999999").claim("username", "ghost").issuedAt(now)
-				.expiresAt(now.plusSeconds(900)).build();
-		String token = jwtEncoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
-				.getTokenValue();
-		return new Cookie("access_token", token);
+		return com.example.demo.TestLogin.행없는_회원_토큰(jwtEncoder); // 공용 헬퍼 사용
 	}
 
 	// ============ 조건 1: 성공 응답 ============
@@ -300,7 +291,7 @@ class UserWithdrawTests {
 				jdbc.update("insert into posts(title, content, created_at, author_id, category) values ('잠금', '내용', now(), ?, 'CHAT')", uid);
 				Future<Integer> withdraw = pool.submit(() -> 탈퇴값(access, PW).andReturn().getResponse().getStatus());
 				try {
-					락대기_기다리기();
+					LockRaceSupport.락대기_기다리기(jdbc);
 					// 글 INSERT(회원 행에 KEY SHARE 잠금)가 안 끝났으니 탈퇴는 아직 못 끝났어야 한다
 					assertThat(withdraw.isDone()).isFalse();
 				} catch (InterruptedException e) {
@@ -335,7 +326,7 @@ class UserWithdrawTests {
 						.contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"t\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}"))
 						.andReturn().getResponse().getStatus());
 				try {
-					락대기_기다리기();
+					LockRaceSupport.락대기_기다리기(jdbc);
 					assertThat(holder[0].isDone()).isFalse(); // INSERT가 잠금 때문에 기다리는 중
 				} catch (InterruptedException e) {
 					throw new IllegalStateException(e);
@@ -352,19 +343,6 @@ class UserWithdrawTests {
 
 	// 다른 커넥션이 락 때문에 기다리는 중(pg_stat_activity wait_event_type='Lock')이 될 때까지 최대 5초 폴링한다.
 	// 고정 sleep보다 빠르고, 기다림이 실제로 생겼음을 DB가 직접 증명한다.
-	private void 락대기_기다리기() throws InterruptedException {
-		long deadline = System.currentTimeMillis() + 5000;
-		while (System.currentTimeMillis() < deadline) {
-			Long n = jdbc.queryForObject("select count(*) from pg_stat_activity where datname = current_database() "
-					+ "and wait_event_type = 'Lock' and pid <> pg_backend_pid()", Long.class);
-			if (n != null && n > 0) {
-				return;
-			}
-			Thread.sleep(20);
-		}
-		throw new AssertionError("5초 안에 락 대기가 생기지 않았다");
-	}
-
 	// 글 수정 중 탈퇴: 수정 UPDATE가 author_id를 되돌려 쓰려다 FK 위반(500)이 나던 문제(updatable=false로 해결)를 재현한다.
 	// 메인 트랜잭션이 글 행을 author null로 잠가 둔 채 수정 요청을 기다리게 하고, 회원을 지운 뒤 커밋한다.
 	@Test
@@ -384,7 +362,7 @@ class UserWithdrawTests {
 						.contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"새 제목\",\"content\":\"새 내용\",\"category\":\"QUESTION\"}"))
 						.andReturn().getResponse().getStatus());
 				try {
-					락대기_기다리기();
+					LockRaceSupport.락대기_기다리기(jdbc);
 					assertThat(holder[0].isDone()).isFalse();
 				} catch (InterruptedException e) {
 					throw new IllegalStateException(e);
