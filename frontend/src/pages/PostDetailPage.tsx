@@ -80,6 +80,9 @@ export default function PostDetailPage() {
       {post && (
         <article>
           <h1>{post.title}</h1>
+          {/* 말머리와 학교 (학교 없는 글은 "학교 미지정") */}
+          <small>[{post.category.name}]</small> <small>{post.school?.name ?? '학교 미지정'}</small>
+          <br />
           <small>{post.author?.nickname ?? '(작성자 없음)'}</small> <small>{formatDate(post.createdAt)}</small>
           {/* pre-wrap: 내용의 줄바꿈·공백을 그대로 보여준다. 텍스트로만 출력하므로 HTML이 실행되지 않는다 */}
           <p style={{ whiteSpace: 'pre-wrap' }}>{post.content}</p>
