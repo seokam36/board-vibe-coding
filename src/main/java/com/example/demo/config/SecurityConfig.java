@@ -47,6 +47,8 @@ public class SecurityConfig {
                 // 글은 읽기(목록·상세)만 공개. 작성·수정·삭제는 로그인이 필요해서 여기 넣지 않는다.
                 m.matcher(HttpMethod.GET, "/posts"),
                 m.matcher(HttpMethod.GET, "/posts/{id}"),
+                // 댓글 목록 읽기도 공개 (작성·수정·삭제는 로그인 필요)
+                m.matcher(HttpMethod.GET, "/posts/{postId}/comments"),
                 // 학교·말머리 목록도 읽기만 공개 (글쓰기 화면의 선택지)
                 m.matcher(HttpMethod.GET, "/schools"),
                 m.matcher(HttpMethod.GET, "/categories"),
