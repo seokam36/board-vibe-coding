@@ -13,6 +13,8 @@ import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -149,6 +151,16 @@ class SchoolCategoryApiTests {
 		assertThat(body.get("school").get("name").asString()).isEqualTo("연세대학교");
 		assertThat(body.get("category").get("code").asString()).isEqualTo("QUESTION");
 		assertThat(body.get("category").get("name").asString()).isEqualTo("질문");
+	}
+
+	// enum에 말머리를 추가하고 DB CHECK 변경(V 파일)을 빠뜨리면 500이 나는데, 그걸 잡는 테스트
+	@ParameterizedTest
+	@EnumSource(PostCategory.class)
+	void 모든_말머리로_글_작성이_201이고_응답_category_code가_그_값이다(PostCategory category) throws Exception {
+		long school = 학교id("연세대학교");
+		MvcResult r = 작성("{\"title\":\"t\",\"content\":\"c\",\"schoolId\":" + school + ",\"category\":\"" + category.name() + "\"}");
+		assertThat(r.getResponse().getStatus()).as(category.name()).isEqualTo(201);
+		assertThat(본문(r).get("category").get("code").asString()).isEqualTo(category.name());
 	}
 
 	// ---------- 완료 조건 5: 작성 실패는 400 + 저장 안 됨 ----------
