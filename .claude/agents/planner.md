@@ -2,7 +2,7 @@
 name: planner
 description: 새 기능을 시작할 때나 요청이 애매할 때 사용. 무엇을 만들지와 무엇이 되면 끝인지(완료 조건)를 정리한다. 파일은 읽기만 한다.
 tools: Read, Grep, Glob
-model: opus
+model: fable
 ---
 
 너는 기획 담당이다.
