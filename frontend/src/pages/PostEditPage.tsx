@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import api from '../api'
 import { NETWORK_ERROR_MESSAGE, getStatus, isNetworkError } from '../errorMessage'
 import ReloginNotice from '../components/ReloginNotice'
-import type { Post, PostUpdateRequest } from '../types'
+import type { Category, Post, PostUpdateRequest } from '../types'
 
 export default function PostEditPage() {
   const { id } = useParams()
@@ -12,6 +12,13 @@ export default function PostEditPage() {
   const safeId = encodeURIComponent(id ?? '')
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  // 학교는 바꿀 수 없어 글자로만 보여 준다 (학교 없는 옛 글은 null)
+  const [schoolName, setSchoolName] = useState<string | null>(null)
+  // category: 선택된 말머리 code. current: 글이 원래 가진 말머리 (목록을 못 받아도 잃지 않으려고 따로 보관)
+  const [category, setCategory] = useState('')
+  const [current, setCurrent] = useState<Category | null>(null)
+  const [categories, setCategories] = useState<Category[] | null>(null)
+  const [categoriesFailed, setCategoriesFailed] = useState(false)
   const [loading, setLoading] = useState(true)
   // loadError: 글을 못 불러온 경우(폼 숨김), error: 저장 실패(폼 유지)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -31,6 +38,9 @@ export default function PostEditPage() {
         if (ignore) return
         setTitle(res.data.title)
         setContent(res.data.content)
+        setSchoolName(res.data.school?.name ?? null)
+        setCategory(res.data.category.code)
+        setCurrent(res.data.category)
         setLoadError(null)
       })
       .catch((e: unknown) => {
@@ -48,12 +58,33 @@ export default function PostEditPage() {
     }
   }, [safeId])
 
+  // 말머리 목록도 불러온다. 실패해도 수정은 막지 않는다 (현재 말머리 하나로 저장할 수 있다)
+  useEffect(() => {
+    let ignore = false
+    api
+      .get<Category[]>('/categories')
+      .then((res) => {
+        if (!ignore) setCategories(res.data)
+      })
+      .catch(() => {
+        if (!ignore) setCategoriesFailed(true)
+      })
+    return () => {
+      ignore = true
+    }
+  }, [])
+
+  // 드롭다운에 보일 말머리: 받은 목록 + (목록에 없거나 못 받았으면) 글의 현재 말머리
+  const options = [...(categories ?? [])]
+  if (current && !options.some((c) => c.code === current.code)) options.unshift(current)
+
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault() // 폼 기본 동작(페이지 새로고침) 막기
     setSaving(true)
     setError(null)
     setNeedLogin(false)
-    const body: PostUpdateRequest = { title, content }
+    // 학교는 바꿀 수 없으니 schoolId는 일부러 보내지 않는다
+    const body: PostUpdateRequest = { title, content, category }
     try {
       // 빈 값 검사는 작성 화면처럼 서버의 400 응답에 맡긴다
       await api.put<Post>(`/posts/${safeId}`, body)
@@ -69,7 +100,7 @@ export default function PostEditPage() {
         // (CSRF 토큰 오류도 403이라 구분이 안 된다 — 이번에는 처리하지 않음)
         setError('본인 글만 수정할 수 있습니다')
       } else if (getStatus(err) === 400) {
-        setError('제목과 내용을 확인해 주세요 (제목은 최대 100자)')
+        setError('제목, 내용, 말머리를 확인해 주세요 (제목은 최대 100자)')
       } else if (getStatus(err) === 404) {
         setError('글을 찾을 수 없습니다')
       } else {
@@ -87,6 +118,18 @@ export default function PostEditPage() {
       {/* 글을 불러오는 데 성공했을 때만 폼을 보여준다 */}
       {!loading && !loadError && (
         <form onSubmit={handleSubmit}>
+          <div>
+            {/* 학교는 글자로만 보여 준다 (바꿀 수 없음) */}
+            <span>{schoolName ?? '학교 미지정'}</span>{' '}
+            <select aria-label="말머리" value={category} onChange={(e) => setCategory(e.target.value)}>
+              {options.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            {categoriesFailed && <p>말머리 목록을 불러오지 못했습니다. 지금 말머리로만 저장할 수 있습니다</p>}
+          </div>
           <div>
             <label>
               제목
