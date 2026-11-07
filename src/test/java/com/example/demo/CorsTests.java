@@ -82,7 +82,7 @@ class CorsTests {
 		mockMvc.perform(post("/posts").with(csrf()).cookie(쿠키)
 						.header("Origin", ALLOWED)
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"title\":\"t\",\"content\":\"c\"}"))
+						.content("{\"title\":\"t\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}"))
 				.andExpect(status().isCreated())
 				.andExpect(header().string("Access-Control-Allow-Origin", ALLOWED));
 	}
@@ -93,7 +93,7 @@ class CorsTests {
 		mockMvc.perform(post("/posts").with(csrf()).cookie(쿠키)
 						.header("Origin", ALLOWED)
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"title\":\"\",\"content\":\"c\"}"))
+						.content("{\"title\":\"\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}"))
 				.andExpect(status().isBadRequest())
 				.andExpect(header().string("Access-Control-Allow-Origin", ALLOWED));
 	}

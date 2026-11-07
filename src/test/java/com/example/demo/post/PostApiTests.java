@@ -73,7 +73,7 @@ class PostApiTests {
 
 	@Test
 	void 작성시_201과_필드_및_Location을_반환한다() throws Exception {
-		MvcResult r = 작성("{\"title\":\"t\",\"content\":\"c\"}");
+		MvcResult r = 작성("{\"title\":\"t\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}");
 		assertThat(r.getResponse().getStatus()).isEqualTo(201);
 		JsonNode body = 본문(r);
 		assertThat(body.hasNonNull("id")).isTrue();
@@ -85,7 +85,7 @@ class PostApiTests {
 
 	@Test
 	void 작성한_글을_단건_조회하면_200과_같은_내용을_반환한다() throws Exception {
-		long id = 본문(작성("{\"title\":\"제목\",\"content\":\"내용\"}")).get("id").asLong();
+		long id = 본문(작성("{\"title\":\"제목\",\"content\":\"내용\",\"schoolId\":1,\"category\":\"CHAT\"}")).get("id").asLong();
 		MvcResult r = mockMvc.perform(get("/posts/" + id)).andReturn();
 		assertThat(r.getResponse().getStatus()).isEqualTo(200);
 		JsonNode body = 본문(r);
@@ -97,7 +97,7 @@ class PostApiTests {
 	// 작성 응답의 createdAt과 단건 조회의 createdAt이 같고, UTC("Z") ISO-8601 형식이어야 한다
 	@Test
 	void 작성_응답과_단건_조회의_createdAt이_같고_UTC_형식이다() throws Exception {
-		JsonNode created = 본문(작성("{\"title\":\"t\",\"content\":\"c\"}"));
+		JsonNode created = 본문(작성("{\"title\":\"t\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}"));
 		String createdAt = created.get("createdAt").asString();
 		MvcResult r = mockMvc.perform(get("/posts/" + created.get("id").asLong())).andReturn();
 		assertThat(본문(r).get("createdAt").asString()).isEqualTo(createdAt);
@@ -107,8 +107,8 @@ class PostApiTests {
 
 	@Test
 	void 목록_조회는_200과_길이_2이고_최신순이다() throws Exception {
-		작성("{\"title\":\"first\",\"content\":\"c\"}");
-		작성("{\"title\":\"second\",\"content\":\"c\"}");
+		작성("{\"title\":\"first\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}");
+		작성("{\"title\":\"second\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}");
 		MvcResult r = mockMvc.perform(get("/posts")).andReturn();
 		assertThat(r.getResponse().getStatus()).isEqualTo(200);
 		JsonNode body = 본문(r);
@@ -139,22 +139,22 @@ class PostApiTests {
 
 	@Test
 	void title이_빈문자열이면_400이고_저장되지_않는다() throws Exception {
-		잘못된_입력은_400이고_저장되지_않는다("{\"title\":\"\",\"content\":\"c\"}");
+		잘못된_입력은_400이고_저장되지_않는다("{\"title\":\"\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}");
 	}
 
 	@Test
 	void title이_누락되면_400이고_저장되지_않는다() throws Exception {
-		잘못된_입력은_400이고_저장되지_않는다("{\"content\":\"c\"}");
+		잘못된_입력은_400이고_저장되지_않는다("{\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}");
 	}
 
 	@Test
 	void title이_공백뿐이면_400이고_저장되지_않는다() throws Exception {
-		잘못된_입력은_400이고_저장되지_않는다("{\"title\":\"   \",\"content\":\"c\"}");
+		잘못된_입력은_400이고_저장되지_않는다("{\"title\":\"   \",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}");
 	}
 
 	@Test
 	void content가_빈문자열이면_400이고_저장되지_않는다() throws Exception {
-		잘못된_입력은_400이고_저장되지_않는다("{\"title\":\"t\",\"content\":\"\"}");
+		잘못된_입력은_400이고_저장되지_않는다("{\"title\":\"t\",\"content\":\"\",\"schoolId\":1,\"category\":\"CHAT\"}");
 	}
 
 	@Test
@@ -164,17 +164,17 @@ class PostApiTests {
 
 	@Test
 	void content가_공백뿐이면_400이고_저장되지_않는다() throws Exception {
-		잘못된_입력은_400이고_저장되지_않는다("{\"title\":\"t\",\"content\":\"   \"}");
+		잘못된_입력은_400이고_저장되지_않는다("{\"title\":\"t\",\"content\":\"   \",\"schoolId\":1,\"category\":\"CHAT\"}");
 	}
 
 	@Test
 	void title이_101자면_400이고_저장되지_않는다() throws Exception {
-		잘못된_입력은_400이고_저장되지_않는다("{\"title\":\"" + "a".repeat(101) + "\",\"content\":\"c\"}");
+		잘못된_입력은_400이고_저장되지_않는다("{\"title\":\"" + "a".repeat(101) + "\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}");
 	}
 
 	@Test
 	void title이_100자면_201로_저장된다() throws Exception {
-		MvcResult r = 작성("{\"title\":\"" + "a".repeat(100) + "\",\"content\":\"c\"}");
+		MvcResult r = 작성("{\"title\":\"" + "a".repeat(100) + "\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}");
 		assertThat(r.getResponse().getStatus()).isEqualTo(201);
 		assertThat(postRepository.count()).isEqualTo(1);
 	}
@@ -188,11 +188,11 @@ class PostApiTests {
 	// NUL 문자(\u0000)는 title/content 모두 400
 	@Test
 	void title에_NUL_문자가_있으면_400이고_저장되지_않는다() throws Exception {
-		잘못된_입력은_400이고_저장되지_않는다("{\"title\":\"a\u0000b\",\"content\":\"c\"}");
+		잘못된_입력은_400이고_저장되지_않는다("{\"title\":\"a\u0000b\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}");
 	}
 
 	@Test
 	void content에_NUL_문자가_있으면_400이고_저장되지_않는다() throws Exception {
-		잘못된_입력은_400이고_저장되지_않는다("{\"title\":\"t\",\"content\":\"a\u0000b\"}");
+		잘못된_입력은_400이고_저장되지_않는다("{\"title\":\"t\",\"content\":\"a\u0000b\",\"schoolId\":1,\"category\":\"CHAT\"}");
 	}
 }

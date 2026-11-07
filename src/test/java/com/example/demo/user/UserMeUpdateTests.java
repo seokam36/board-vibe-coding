@@ -40,6 +40,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import com.example.demo.TestcontainersConfiguration;
 import com.example.demo.post.domain.Post;
+import com.example.demo.post.domain.PostCategory;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.repository.UserRepository;
 
@@ -149,7 +150,7 @@ class UserMeUpdateTests {
 		가입("user01", "옛닉네임");
 		MockHttpServletResponse login = 로그인("user01", PW);
 		Long uid = userRepository.findByUsername("user01").orElseThrow().getId();
-		Post post = postRepository.save(new Post("제목", "내용", userRepository.findById(uid).orElseThrow()));
+		Post post = postRepository.save(new Post("제목", "내용", userRepository.findById(uid).orElseThrow(), null, PostCategory.CHAT));
 
 		닉네임변경값(액세스(login), "새닉네임").andExpect(status().isOk())
 				.andExpect(jsonPath("$.id").value(uid))

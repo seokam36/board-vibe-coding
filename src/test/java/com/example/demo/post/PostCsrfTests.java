@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.example.demo.TestcontainersConfiguration;
 import com.example.demo.post.domain.Post;
+import com.example.demo.post.domain.PostCategory;
 import com.example.demo.post.repository.PostRepository;
 
 // 글 API는 CSRF 토큰 없이 쓰기(POST/PUT/DELETE) 요청을 보내면 403이고 데이터가 바뀌지 않아야 한다
@@ -39,16 +40,16 @@ class PostCsrfTests {
 	@Test
 	void 토큰_없는_POST는_403이고_글이_생기지_않는다() throws Exception {
 		mockMvc.perform(post("/posts").contentType(MediaType.APPLICATION_JSON)
-				.content("{\"title\":\"제목\",\"content\":\"본문\"}"))
+				.content("{\"title\":\"제목\",\"content\":\"본문\",\"schoolId\":1,\"category\":\"CHAT\"}"))
 				.andExpect(status().isForbidden());
 		assertThat(postRepository.count()).isZero();
 	}
 
 	@Test
 	void 토큰_없는_PUT은_403이고_글이_바뀌지_않는다() throws Exception {
-		Long id = postRepository.save(new Post("원래제목", "원래본문", null)).getId();
-		mockMvc.perform(put("/posts/" + id).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"title\":\"바뀐제목\",\"content\":\"바뀐본문\"}"))
+		Long id = postRepository.save(new Post("원래제목", "원래본문", null, null, PostCategory.CHAT)).getId();
+mockMvc.perform(put("/posts/" + id).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"title\":\"바뀐제목\",\"content\":\"바뀐본문\",\"category\":\"QUESTION\"}"))
 				.andExpect(status().isForbidden());
 		Post saved = postRepository.findById(id).orElseThrow();
 		assertThat(saved.getTitle()).isEqualTo("원래제목");
@@ -57,8 +58,8 @@ class PostCsrfTests {
 
 	@Test
 	void 토큰_없는_DELETE는_403이고_글이_남아_있다() throws Exception {
-		Long id = postRepository.save(new Post("원래제목", "원래본문", null)).getId();
-		mockMvc.perform(delete("/posts/" + id)).andExpect(status().isForbidden());
+		Long id = postRepository.save(new Post("원래제목", "원래본문", null, null, PostCategory.CHAT)).getId();
+mockMvc.perform(delete("/posts/" + id)).andExpect(status().isForbidden());
 		assertThat(postRepository.existsById(id)).isTrue();
 	}
 }

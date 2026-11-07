@@ -37,6 +37,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import com.example.demo.TestcontainersConfiguration;
 import com.example.demo.post.domain.Post;
+import com.example.demo.post.domain.PostCategory;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.domain.User;
 import com.example.demo.user.repository.UserRepository;
@@ -222,8 +223,8 @@ class NicknameTests {
 	@Test
 	void 조건7_글_단건과_목록의_author는_id_nickname뿐이고_username이_없으며_작성자_없는_글은_null() throws Exception {
 		User u = userRepository.save(new User("user01", "홍길동", "{noop}x"));
-		Post withAuthor = postRepository.save(new Post("제목", "내용", u));
-		Post noAuthor = postRepository.save(new Post("옛글", "내용", null));
+		Post withAuthor = postRepository.save(new Post("제목", "내용", u, null, PostCategory.CHAT));
+		Post noAuthor = postRepository.save(new Post("옛글", "내용", null, null, PostCategory.CHAT));
 
 		JsonNode one = om.readTree(mockMvc.perform(get("/posts/" + withAuthor.getId())).andExpect(status().isOk())
 				.andReturn().getResponse().getContentAsString());

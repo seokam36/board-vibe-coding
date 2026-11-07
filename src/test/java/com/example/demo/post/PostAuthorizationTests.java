@@ -36,6 +36,7 @@ import com.example.demo.TestLogin;
 import com.example.demo.TestcontainersConfiguration;
 import com.example.demo.auth.service.TokenService;
 import com.example.demo.post.domain.Post;
+import com.example.demo.post.domain.PostCategory;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.domain.User;
 import com.example.demo.user.repository.UserRepository;
@@ -52,7 +53,7 @@ import tools.jackson.databind.ObjectMapper;
 @AutoConfigureMockMvc
 class PostAuthorizationTests {
 
-	private static final String VALID = "{\"title\":\"새제목\",\"content\":\"새본문\"}";
+	private static final String VALID = "{\"title\":\"새제목\",\"content\":\"새본문\",\"schoolId\":1,\"category\":\"CHAT\"}";
 
 	@Autowired
 	MockMvc mockMvc;
@@ -97,7 +98,7 @@ class PostAuthorizationTests {
 	}
 
 	private Post 글저장(String title, String content, User author) {
-		return postRepository.save(new Post(title, content, author));
+		return postRepository.save(new Post(title, content, author, null, PostCategory.CHAT));
 	}
 
 	private Cookie 토큰쿠키(Long userId, Instant iat, Instant exp) {
@@ -155,7 +156,7 @@ class PostAuthorizationTests {
 
 	@Test
 	void 본문에_author를_넣어도_무시되고_로그인한_사용자로_저장된다() throws Exception {
-		String json = "{\"title\":\"t\",\"content\":\"c\",\"authorId\":" + userB.getId() + ",\"author\":{\"id\":"
+		String json = "{\"title\":\"t\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\",\"authorId\":" + userB.getId() + ",\"author\":{\"id\":"
 				+ userB.getId() + ",\"username\":\"userB\"}}";
 		MvcResult r = mockMvc.perform(post("/posts").with(csrf()).cookie(cookieA).contentType(MediaType.APPLICATION_JSON)
 				.content(json)).andReturn();
@@ -220,7 +221,7 @@ class PostAuthorizationTests {
 		assertThat(요청("PUT", "/posts/999999", VALID, null, true)).as("PUT 없는 id").isEqualTo(401);
 		assertThat(요청("PUT", "/posts/abc", VALID, null, true)).as("PUT 숫자 아닌 id").isEqualTo(401);
 		assertThat(요청("DELETE", "/posts/abc", null, null, true)).as("DELETE 숫자 아닌 id").isEqualTo(401);
-		assertThat(요청("POST", "/posts", "{\"title\":\"\",\"content\":\"c\"}", null, true)).as("POST 빈 title")
+		assertThat(요청("POST", "/posts", "{\"title\":\"\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}", null, true)).as("POST 빈 title")
 				.isEqualTo(401);
 	}
 
@@ -278,7 +279,7 @@ class PostAuthorizationTests {
 
 	@Test
 	void 빈_title의_글쓰기와_본인글_수정은_400이다() throws Exception {
-		String empty = "{\"title\":\"\",\"content\":\"c\"}";
+		String empty = "{\"title\":\"\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}";
 		Post p = 글저장("원래제목", "원래본문", userA);
 		assertThat(요청("POST", "/posts", empty, cookieA, true)).isEqualTo(400);
 		assertThat(요청("PUT", "/posts/" + p.getId(), empty, cookieA, true)).isEqualTo(400);
@@ -288,7 +289,7 @@ class PostAuthorizationTests {
 	@Test
 	void 남의_글에_빈_title로_수정하면_403이_아니라_400이다() throws Exception {
 		Post p = 글저장("원래제목", "원래본문", userA);
-		assertThat(요청("PUT", "/posts/" + p.getId(), "{\"title\":\"\",\"content\":\"c\"}", cookieB, true))
+		assertThat(요청("PUT", "/posts/" + p.getId(), "{\"title\":\"\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}", cookieB, true))
 				.isEqualTo(400);
 	}
 

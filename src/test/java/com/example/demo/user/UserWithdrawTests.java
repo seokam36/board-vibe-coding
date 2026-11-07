@@ -46,6 +46,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import com.example.demo.TestcontainersConfiguration;
 import com.example.demo.post.domain.Post;
+import com.example.demo.post.domain.PostCategory;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.repository.UserRepository;
 
@@ -137,7 +138,7 @@ class UserWithdrawTests {
 	}
 
 	private Post 글(String username, String title) {
-		return postRepository.save(new Post(title, "내용", userRepository.findByUsername(username).orElseThrow()));
+		return postRepository.save(new Post(title, "내용", userRepository.findByUsername(username).orElseThrow(), null, PostCategory.CHAT));
 	}
 
 	private Long 글_작성자_id(Long postId) {
@@ -234,7 +235,7 @@ class UserWithdrawTests {
 
 		mockMvc.perform(get("/auth/me").cookie(access)).andExpect(status().isUnauthorized());
 		mockMvc.perform(post("/posts").with(csrf()).cookie(access).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"title\":\"t\",\"content\":\"c\"}")).andExpect(status().isUnauthorized());
+				.content("{\"title\":\"t\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}")).andExpect(status().isUnauthorized());
 		탈퇴값(access, PW).andExpect(status().isUnauthorized());
 		assertThat(postRepository.count()).isZero();
 	}
@@ -258,7 +259,7 @@ class UserWithdrawTests {
 						ready.countDown();
 						go.await();
 						return mockMvc.perform(post("/posts").with(csrf()).cookie(access)
-								.contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"t\",\"content\":\"c\"}"))
+								.contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"t\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}"))
 								.andReturn().getResponse().getStatus();
 					}));
 				}
@@ -295,7 +296,8 @@ class UserWithdrawTests {
 		ExecutorService pool = Executors.newSingleThreadExecutor();
 		try {
 			new TransactionTemplate(txManager).executeWithoutResult(status -> {
-				jdbc.update("insert into posts(title, content, created_at, author_id) values ('잠금', '내용', now(), ?)", uid);
+				// V2 이후 posts.category는 NOT NULL이라 직접 넣는 SQL에도 말머리를 같이 넣는다
+				jdbc.update("insert into posts(title, content, created_at, author_id, category) values ('잠금', '내용', now(), ?, 'CHAT')", uid);
 				Future<Integer> withdraw = pool.submit(() -> 탈퇴값(access, PW).andReturn().getResponse().getStatus());
 				try {
 					락대기_기다리기();
@@ -330,7 +332,7 @@ class UserWithdrawTests {
 				// 탈퇴 트랜잭션이 하는 것처럼 회원 행을 FOR UPDATE로 잠근다
 				jdbc.queryForList("select id from users where id = ? for update", Long.class, uid);
 				holder[0] = pool.submit(() -> mockMvc.perform(post("/posts").with(csrf()).cookie(access)
-						.contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"t\",\"content\":\"c\"}"))
+						.contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"t\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}"))
 						.andReturn().getResponse().getStatus());
 				try {
 					락대기_기다리기();
@@ -379,7 +381,7 @@ class UserWithdrawTests {
 				// 탈퇴 트랜잭션이 하는 것처럼 글의 작성자를 비운다(이 글 행이 잠긴다)
 				jdbc.update("update posts set author_id = null where id = ?", p.getId());
 				holder[0] = pool.submit(() -> mockMvc.perform(put("/posts/" + p.getId()).with(csrf()).cookie(access)
-						.contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"새 제목\",\"content\":\"새 내용\"}"))
+						.contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"새 제목\",\"content\":\"새 내용\",\"category\":\"QUESTION\"}"))
 						.andReturn().getResponse().getStatus());
 				try {
 					락대기_기다리기();
@@ -408,7 +410,7 @@ class UserWithdrawTests {
 		Cookie access = 액세스(로그인("user01"));
 		Long uid = id("user01");
 		mockMvc.perform(put("/posts/" + p.getId()).with(csrf()).cookie(access).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"title\":\"새 제목\",\"content\":\"새 내용\"}")).andExpect(status().isOk())
+				.content("{\"title\":\"새 제목\",\"content\":\"새 내용\",\"category\":\"QUESTION\"}")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.title").value("새 제목")).andExpect(jsonPath("$.author.nickname").value("닉네임일"));
 		assertThat(글_작성자_id(p.getId())).isEqualTo(uid);
 	}
@@ -447,7 +449,7 @@ class UserWithdrawTests {
 		Cookie fresh = 액세스(로그인("user01"));
 
 		mockMvc.perform(put("/posts/" + old.getId()).with(csrf()).cookie(fresh).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"title\":\"새제목\",\"content\":\"새내용\"}")).andExpect(status().isForbidden());
+				.content("{\"title\":\"새제목\",\"content\":\"새내용\",\"category\":\"QUESTION\"}")).andExpect(status().isForbidden());
 		mockMvc.perform(delete("/posts/" + old.getId()).with(csrf()).cookie(fresh)).andExpect(status().isForbidden());
 		assertThat(postRepository.findById(old.getId()).orElseThrow().getTitle()).isEqualTo("옛 글");
 		assertThat(글_작성자_id(old.getId())).isNull();

@@ -17,6 +17,8 @@ import com.example.demo.post.dto.PostCreateRequest;
 import com.example.demo.post.dto.PostResponse;
 import com.example.demo.post.dto.PostUpdateRequest;
 import com.example.demo.post.repository.PostRepository;
+import com.example.demo.school.domain.School;
+import com.example.demo.school.repository.SchoolRepository;
 import com.example.demo.user.domain.User;
 import com.example.demo.user.repository.UserRepository;
 
@@ -29,6 +31,7 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private final SchoolRepository schoolRepository;
 
     // 게시글을 저장하고 저장된 결과(id, createdAt, 작성자 포함)를 돌려준다.
     // 작성자는 요청 본문이 아니라 로그인 정보(토큰)에서만 가져온다.
@@ -37,9 +40,13 @@ public class PostService {
         // 토큰은 유효한데 사용자가 DB에 없으면(탈퇴·삭제) 로그인 안 된 것과 같이 401
         User author = userRepository.findById(loginUser.id())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."));
+        // 없는 학교 id는 잘못된 입력이므로 400 (500이 되지 않게 미리 확인한다)
+        School school = schoolRepository.findById(request.schoolId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "존재하지 않는 학교입니다."));
         try {
             // id가 IDENTITY라 save() 안에서 바로 INSERT가 나가므로 FK 위반을 여기서 잡을 수 있다
-            Post saved = postRepository.save(new Post(request.title(), request.content(), author));
+            Post saved = postRepository.save(
+                    new Post(request.title(), request.content(), author, school, request.category()));
             return PostResponse.from(saved);
         } catch (DataIntegrityViolationException e) {
             // 회원 조회 직후 탈퇴가 커밋되면 author_id FK가 위반된다(PostgreSQL SQLState 23503).
@@ -62,7 +69,7 @@ public class PostService {
     public PostResponse update(Long id, LoginUser loginUser, PostUpdateRequest request) {
         Post post = findOrThrow(id);
         checkWriter(post, loginUser);
-        post.update(request.title(), request.content());
+        post.update(request.title(), request.content(), request.category());
         return PostResponse.from(post);
     }
 

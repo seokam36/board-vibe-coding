@@ -72,7 +72,7 @@ class PostUpdateDeleteApiTests {
 
 	private JsonNode 작성() throws Exception {
 		return 본문(mockMvc.perform(post("/posts").with(csrf()).cookie(쿠키).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"title\":\"원래제목\",\"content\":\"원래본문\"}")).andReturn());
+				.content("{\"title\":\"원래제목\",\"content\":\"원래본문\",\"schoolId\":1,\"category\":\"CHAT\"}")).andReturn());
 	}
 
 	private MvcResult 수정(Object id, String json) throws Exception {
@@ -83,7 +83,7 @@ class PostUpdateDeleteApiTests {
 	@Test
 	void 수정시_200과_바뀐_제목_본문을_반환하고_id와_createdAt은_유지된다() throws Exception {
 		JsonNode created = 작성();
-		MvcResult r = 수정(created.get("id").asLong(), "{\"title\":\"수정\",\"content\":\"수정본문\"}");
+		MvcResult r = 수정(created.get("id").asLong(), "{\"title\":\"수정\",\"content\":\"수정본문\",\"category\":\"QUESTION\"}");
 		assertThat(r.getResponse().getStatus()).isEqualTo(200);
 		JsonNode body = 본문(r);
 		assertThat(body.get("id").asLong()).isEqualTo(created.get("id").asLong());
@@ -97,7 +97,7 @@ class PostUpdateDeleteApiTests {
 	void 수정후_단건_조회하면_수정된_값이_보인다() throws Exception {
 		JsonNode created = 작성();
 		long id = created.get("id").asLong();
-		수정(id, "{\"title\":\"수정\",\"content\":\"수정본문\"}");
+		수정(id, "{\"title\":\"수정\",\"content\":\"수정본문\",\"category\":\"QUESTION\"}");
 		JsonNode body = 본문(mockMvc.perform(get("/posts/" + id)).andReturn());
 		assertThat(body.get("title").asString()).isEqualTo("수정");
 		assertThat(body.get("content").asString()).isEqualTo("수정본문");
@@ -108,7 +108,7 @@ class PostUpdateDeleteApiTests {
 	// 조건 3
 	@Test
 	void 없는_게시글_수정시_404를_반환한다() throws Exception {
-		assertThat(수정(999999, "{\"title\":\"수정\",\"content\":\"수정본문\"}").getResponse().getStatus()).isEqualTo(404);
+		assertThat(수정(999999, "{\"title\":\"수정\",\"content\":\"수정본문\",\"category\":\"QUESTION\"}").getResponse().getStatus()).isEqualTo(404);
 	}
 
 	// 조건 4: 잘못된 본문은 모두 400이고 원본 데이터가 변하지 않아야 한다
@@ -122,37 +122,37 @@ class PostUpdateDeleteApiTests {
 
 	@Test
 	void 빈_title_수정은_400이고_원본이_유지된다() throws Exception {
-		잘못된_수정은_400이고_원본_유지("{\"title\":\"\",\"content\":\"c\"}");
+		잘못된_수정은_400이고_원본_유지("{\"title\":\"\",\"content\":\"c\",\"category\":\"QUESTION\"}");
 	}
 
 	@Test
 	void 공백뿐인_title_수정은_400이고_원본이_유지된다() throws Exception {
-		잘못된_수정은_400이고_원본_유지("{\"title\":\"   \",\"content\":\"c\"}");
+		잘못된_수정은_400이고_원본_유지("{\"title\":\"   \",\"content\":\"c\",\"category\":\"QUESTION\"}");
 	}
 
 	@Test
 	void title_누락_수정은_400이고_원본이_유지된다() throws Exception {
-		잘못된_수정은_400이고_원본_유지("{\"content\":\"c\"}");
+		잘못된_수정은_400이고_원본_유지("{\"content\":\"c\",\"category\":\"QUESTION\"}");
 	}
 
 	@Test
 	void 길이_101자_title_수정은_400이고_원본이_유지된다() throws Exception {
-		잘못된_수정은_400이고_원본_유지("{\"title\":\"" + "a".repeat(101) + "\",\"content\":\"c\"}");
+		잘못된_수정은_400이고_원본_유지("{\"title\":\"" + "a".repeat(101) + "\",\"content\":\"c\",\"category\":\"QUESTION\"}");
 	}
 
 	@Test
 	void NUL_포함_title_수정은_400이고_원본이_유지된다() throws Exception {
-		잘못된_수정은_400이고_원본_유지("{\"title\":\"a\u0000b\",\"content\":\"c\"}");
+		잘못된_수정은_400이고_원본_유지("{\"title\":\"a\u0000b\",\"content\":\"c\",\"category\":\"QUESTION\"}");
 	}
 
 	@Test
 	void 빈_content_수정은_400이고_원본이_유지된다() throws Exception {
-		잘못된_수정은_400이고_원본_유지("{\"title\":\"t\",\"content\":\"\"}");
+		잘못된_수정은_400이고_원본_유지("{\"title\":\"t\",\"content\":\"\",\"category\":\"QUESTION\"}");
 	}
 
 	@Test
 	void 공백뿐인_content_수정은_400이고_원본이_유지된다() throws Exception {
-		잘못된_수정은_400이고_원본_유지("{\"title\":\"t\",\"content\":\"   \"}");
+		잘못된_수정은_400이고_원본_유지("{\"title\":\"t\",\"content\":\"   \",\"category\":\"QUESTION\"}");
 	}
 
 	@Test
@@ -162,7 +162,7 @@ class PostUpdateDeleteApiTests {
 
 	@Test
 	void NUL_포함_content_수정은_400이고_원본이_유지된다() throws Exception {
-		잘못된_수정은_400이고_원본_유지("{\"title\":\"t\",\"content\":\"a\u0000b\"}");
+		잘못된_수정은_400이고_원본_유지("{\"title\":\"t\",\"content\":\"a\u0000b\",\"category\":\"QUESTION\"}");
 	}
 
 	@Test
@@ -188,7 +188,7 @@ class PostUpdateDeleteApiTests {
 
 	@Test
 	void 숫자가_아닌_id로_수정하면_400을_반환한다() throws Exception {
-		assertThat(수정("abc", "{\"title\":\"t\",\"content\":\"c\"}").getResponse().getStatus()).isEqualTo(400);
+		assertThat(수정("abc", "{\"title\":\"t\",\"content\":\"c\",\"category\":\"QUESTION\"}").getResponse().getStatus()).isEqualTo(400);
 	}
 
 	@Test

@@ -3,10 +3,13 @@ package com.example.demo.post.domain;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
+import com.example.demo.school.domain.School;
 import com.example.demo.user.domain.User;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -48,17 +51,31 @@ public class Post {
     @JoinColumn(name = "author_id", updatable = false)
     private User author;
 
-    // 새 게시글은 제목·본문·작성자로 만든다 (id, createdAt은 저장 시 채워짐)
-    public Post(String title, String content, User author) {
+    // 글이 속한 학교. 옛 글은 학교가 없어서 nullable. 새 글은 서비스가 항상 채운다.
+    // updatable = false: 학교는 작성 후 바꿀 수 없다.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "school_id", updatable = false)
+    private School school;
+
+    // 말머리. enum 이름(CHAT 등)을 문자열로 저장한다(STRING). 순서 번호로 저장하면 enum 순서가 바뀔 때 데이터가 꼬인다.
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private PostCategory category;
+
+    // 새 게시글은 제목·본문·작성자·학교·말머리로 만든다 (id, createdAt은 저장 시 채워짐)
+    public Post(String title, String content, User author, School school, PostCategory category) {
         this.title = title;
         this.content = content;
         this.author = author;
+        this.school = school;
+        this.category = category;
     }
 
-    // 제목과 본문만 바꾼다 (setter 대신 의도가 드러나는 메서드. createdAt은 updatable=false라 그대로 유지됨)
-    public void update(String title, String content) {
+    // 제목·본문·말머리를 바꾼다 (setter 대신 의도가 드러나는 메서드. 학교·작성 시각은 바뀌지 않는다)
+    public void update(String title, String content, PostCategory category) {
         this.title = title;
         this.content = content;
+        this.category = category;
     }
 
     // 이 글을 userId가 쓴 게 맞는지 확인한다. 작성자가 없는 옛 글은 누구의 글도 아니므로 false.

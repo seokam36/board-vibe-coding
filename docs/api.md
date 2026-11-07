@@ -40,6 +40,10 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
 | content | 문자열 | 본문 |
 | createdAt | 문자열 | 작성 시각 (예: `2026-11-01T01:30:00.123456Z`) |
 | author | 객체 또는 null | 글쓴이 `{ "id": 숫자, "nickname": 문자열 }`. 로그인 아이디(username)는 숨긴다. 작성자가 없는 글(S4-d 이전에 쓴 글)은 `null` |
+| school | 객체 또는 null | 학교 `{ "id": 숫자, "name": 문자열 }`. 학교가 없는 글(S7-a 이전에 쓴 글)은 `null` |
+| category | 객체 | 말머리 `{ "code": 문자열, "name": 문자열 }` (예: `{ "code": "CHAT", "name": "잡담" }`). S7-a 이전에 쓴 글은 `CHAT` |
+
+말머리 코드는 `CHAT`(잡담), `QUESTION`(질문), `CAMPUS_LIFE`(학교생활) 세 가지다.
 
 시간대: UTC(Z). 소수점 자릿수는 가변(최대 6자리). 화면에 보여줄 때 한국 시간으로 변환한다.
 
@@ -53,13 +57,17 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
 |------|------|------|
 | title | O | 공백만 있으면 안 됨, 최대 100자, 제어 문자(NUL) 불가 |
 | content | O | 공백만 있으면 안 됨, 길이 제한 없음, 제어 문자(NUL) 불가 |
+| schoolId | O | `GET /schools`에 있는 학교 id. 없는 id면 400 |
+| category | O | `CHAT`, `QUESTION`, `CAMPUS_LIFE` 중 하나. 그 밖의 문자열이면 400 |
 
 요청 예시
 
 ```json
 {
   "title": "첫 글",
-  "content": "안녕하세요"
+  "content": "안녕하세요",
+  "schoolId": 1,
+  "category": "CHAT"
 }
 ```
 
@@ -74,6 +82,14 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
   "author": {
     "id": 1,
     "nickname": "길동이"
+  },
+  "school": {
+    "id": 1,
+    "name": "경희대학교"
+  },
+  "category": {
+    "code": "CHAT",
+    "name": "잡담"
   }
 }
 ```
@@ -82,7 +98,7 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
 
 | 상태코드 | 언제 |
 |----------|------|
-| 400 | title/content가 비었거나 공백만 있음, title이 100자 초과, NUL 문자 포함, JSON 형식이 잘못됨 |
+| 400 | title/content가 비었거나 공백만 있음, title이 100자 초과, NUL 문자 포함, schoolId·category가 없음, 없는 학교 id, 없는 말머리 코드, JSON 형식이 잘못됨 |
 | 401 | 로그인 안 됨 (쿠키 없음, 토큰 만료·변조, 토큰은 유효하지만 그 사용자가 DB에 없음) |
 | 403 | `X-XSRF-TOKEN` 헤더가 없거나 틀림 |
 
@@ -101,6 +117,14 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
   "author": {
     "id": 1,
     "nickname": "길동이"
+  },
+  "school": {
+    "id": 1,
+    "name": "경희대학교"
+  },
+  "category": {
+    "code": "CHAT",
+    "name": "잡담"
   }
 }
 ```
@@ -114,7 +138,7 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
 
 ### 3. 게시글 목록 조회 `GET /posts`
 
-최신순(id 내림차순)으로 전체를 돌려준다. 페이징 없음. 글이 없으면 빈 배열 `[]`. 로그인 없이 호출 가능. (아래 예시의 두 번째 글처럼 작성자가 없는 옛 글은 `author`가 `null`)
+최신순(id 내림차순)으로 전체를 돌려준다. 페이징 없음. 글이 없으면 빈 배열 `[]`. 로그인 없이 호출 가능. (아래 예시의 두 번째 글처럼 작성자·학교가 없는 옛 글은 `author`·`school`이 `null`이고 `category`는 `CHAT`) 학교·말머리로 거르는 기능은 아직 없다.
 
 성공 응답 `200 OK`
 
@@ -128,6 +152,14 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
     "author": {
       "id": 1,
       "nickname": "길동이"
+    },
+    "school": {
+      "id": 1,
+      "name": "경희대학교"
+    },
+    "category": {
+      "code": "QUESTION",
+      "name": "질문"
     }
   },
   {
@@ -135,28 +167,36 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
     "title": "첫 글",
     "content": "안녕하세요",
     "createdAt": "2026-11-01T01:30:00.123456Z",
-    "author": null
+    "author": null,
+    "school": null,
+    "category": {
+      "code": "CHAT",
+      "name": "잡담"
+    }
   }
 ]
 ```
 
 ### 4. 게시글 수정 `PUT /posts/{id}`
 
-로그인 필요, 본인이 쓴 글만 가능. 제목과 본문을 모두 새 값으로 바꾼다 (일부만 바꾸는 PATCH는 없음). `createdAt`은 바뀌지 않는다.
+로그인 필요, 본인이 쓴 글만 가능. 제목·본문·말머리를 모두 새 값으로 바꾼다 (일부만 바꾸는 PATCH는 없음). `createdAt`은 바뀌지 않는다.
+**학교는 바꿀 수 없다.** 요청 본문에 `schoolId`를 보내도 무시한다(에러 아님).
 
-요청 본문 (작성과 같은 규칙, 둘 다 필수)
+요청 본문 (title·content는 작성과 같은 규칙, 셋 다 필수)
 
 | 필드 | 필수 | 규칙 |
 |------|------|------|
 | title | O | 공백만 있으면 안 됨, 최대 100자, 제어 문자(NUL) 불가 |
 | content | O | 공백만 있으면 안 됨, 길이 제한 없음, 제어 문자(NUL) 불가 |
+| category | O | `CHAT`, `QUESTION`, `CAMPUS_LIFE` 중 하나. 그 밖의 문자열이면 400 |
 
 요청 예시: `PUT /posts/1`
 
 ```json
 {
   "title": "수정한 제목",
-  "content": "수정한 내용"
+  "content": "수정한 내용",
+  "category": "QUESTION"
 }
 ```
 
@@ -171,6 +211,14 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
   "author": {
     "id": 1,
     "nickname": "길동이"
+  },
+  "school": {
+    "id": 1,
+    "name": "경희대학교"
+  },
+  "category": {
+    "code": "QUESTION",
+    "name": "질문"
   }
 }
 ```
@@ -179,7 +227,7 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
 
 | 상태코드 | 언제 |
 |----------|------|
-| 400 | title/content가 비었거나 공백만 있음, title이 100자 초과, NUL 문자 포함, JSON 형식이 잘못됨, id가 숫자가 아님 (남의 글이어도 본문이 잘못되면 403이 아니라 400) |
+| 400 | title/content가 비었거나 공백만 있음, title이 100자 초과, NUL 문자 포함, category가 없거나 없는 말머리 코드, JSON 형식이 잘못됨, id가 숫자가 아님 (남의 글이어도 본문이 잘못되면 403이 아니라 400) |
 | 401 | 로그인 안 됨 (쿠키 없음, 토큰 만료·변조). 비로그인이면 없는 id·숫자 아닌 id도 401 |
 | 403 | `X-XSRF-TOKEN` 헤더가 없거나 틀림, 또는 본인이 쓴 글이 아님 (작성자가 없는 글 포함) |
 | 404 | 없는 id (예: `/posts/999`) |
@@ -202,6 +250,37 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
 | 401 | 로그인 안 됨 (쿠키 없음, 토큰 만료·변조). 비로그인이면 없는 id·숫자 아닌 id도 401 |
 | 403 | `X-XSRF-TOKEN` 헤더가 없거나 틀림, 또는 본인이 쓴 글이 아님 (작성자가 없는 글 포함) |
 | 404 | 없는 id (이미 삭제된 id 포함) |
+
+## 학교·말머리 (School, Category)
+
+글을 쓸 때 고를 선택지 목록. 둘 다 로그인 없이 호출 가능하고, 만료되거나 변조된 `access_token` 쿠키가 붙어 와도 200이다.
+
+### 5-1. 학교 목록 `GET /schools`
+
+학교를 이름순으로 돌려준다. 캠퍼스 구분은 없다. 학교는 DB 마이그레이션으로 넣어 두며(경희대·고려대·성균관대·연세대·한양대) 추가·수정 API는 없다.
+
+성공 응답 `200 OK`
+
+```json
+[
+  { "id": 1, "name": "경희대학교" },
+  { "id": 2, "name": "고려대학교" }
+]
+```
+
+### 5-2. 말머리 목록 `GET /categories`
+
+성공 응답 `200 OK`
+
+```json
+[
+  { "code": "CHAT", "name": "잡담" },
+  { "code": "QUESTION", "name": "질문" },
+  { "code": "CAMPUS_LIFE", "name": "학교생활" }
+]
+```
+
+`code`를 글 작성·수정 요청의 `category`에 보낸다.
 
 ## CSRF 토큰 (Csrf)
 

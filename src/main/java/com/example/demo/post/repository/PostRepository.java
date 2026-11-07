@@ -16,13 +16,13 @@ import com.example.demo.post.domain.Post;
 // 게시글 DB 접근 담당 (기본 CRUD는 JpaRepository가 제공)
 public interface PostRepository extends JpaRepository<Post, Long> {
 
-    // 최신순(id 내림차순) 전체 조회. 작성자를 join으로 같이 읽어 글마다 추가 쿼리가 나가는 N+1을 막는다.
-    @EntityGraph(attributePaths = "author")
+    // 최신순(id 내림차순) 전체 조회. 작성자·학교를 join으로 같이 읽어 글마다 추가 쿼리가 나가는 N+1을 막는다.
+    @EntityGraph(attributePaths = { "author", "school" })
     List<Post> findAllByOrderByIdDesc();
 
-    // 단건 조회도 작성자를 같이 읽는다 (기본 findById를 같은 이름으로 덮어써서 EntityGraph만 붙인다)
+    // 단건 조회도 작성자·학교를 같이 읽는다 (기본 findById를 같은 이름으로 덮어써서 EntityGraph만 붙인다)
     @Override
-    @EntityGraph(attributePaths = "author")
+    @EntityGraph(attributePaths = { "author", "school" })
     Optional<Post> findById(Long id);
 
     // 회원 탈퇴 때 그 회원 글의 작성자를 비운다(글은 남기고 author_id만 null). 반환값 = 바뀐 글 수.
