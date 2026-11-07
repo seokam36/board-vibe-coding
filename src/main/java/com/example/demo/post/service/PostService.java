@@ -1,6 +1,8 @@
 package com.example.demo.post.service;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import java.sql.SQLException;
 
@@ -14,8 +16,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.auth.dto.LoginUser;
+import com.example.demo.comment.repository.CommentRepository;
+import com.example.demo.like.repository.PostLikeRepository;
 import com.example.demo.post.domain.Post;
 import com.example.demo.post.domain.PostCategory;
+import com.example.demo.post.dto.PostCount;
 import com.example.demo.post.dto.PostCreateRequest;
 import com.example.demo.post.dto.PostResponse;
 import com.example.demo.post.dto.PostUpdateRequest;
@@ -35,6 +40,8 @@ public class PostService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final SchoolRepository schoolRepository;
+    private final CommentRepository commentRepository;
+    private final PostLikeRepository postLikeRepository;
 
     // 게시글을 저장하고 저장된 결과(id, createdAt, 작성자 포함)를 돌려준다.
     // 작성자는 요청 본문이 아니라 로그인 정보(토큰)에서만 가져온다.
@@ -64,7 +71,14 @@ public class PostService {
     // 게시글 한 건 조회. 없으면 404
     @Transactional(readOnly = true)
     public PostResponse get(Long id) {
-        return PostResponse.from(findOrThrow(id));
+        Post post = findOrThrow(id);
+        return toResponse(post);
+    }
+
+    // 글 한 건의 댓글 수·공감 수를 각각 세어 응답으로 만든다 (쿼리 2번)
+    private PostResponse toResponse(Post post) {
+        return PostResponse.from(post, commentRepository.countByPostId(post.getId()),
+                postLikeRepository.countByPostId(post.getId()));
     }
 
     // 게시글 수정. 없으면 404, 내 글이 아니면 403. 영속 상태 엔티티를 바꾸면 트랜잭션 종료 시 자동으로 UPDATE 된다(dirty checking)
@@ -73,7 +87,8 @@ public class PostService {
         Post post = findOrThrow(id);
         checkWriter(post, loginUser);
         post.update(request.title(), request.content(), request.category());
-        return PostResponse.from(post);
+        // 수정 응답에도 현재 댓글 수·공감 수를 담는다
+        return toResponse(post);
     }
 
     // 게시글 삭제(DB 행 제거). 없으면 404, 내 글이 아니면 403
@@ -99,9 +114,23 @@ public class PostService {
         if (category != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("category"), category));
         }
-        return postRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "id")).stream()
-                .map(PostResponse::from)
+        List<Post> posts = postRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "id"));
+        // 글이 없으면 집계 쿼리를 보내지 않는다 (in () 오류 방지)
+        if (posts.isEmpty()) {
+            return List.of();
+        }
+        // 댓글 수·공감 수를 글마다 세지 않고 group by로 한 번씩만 센다 (글 1 + 댓글 1 + 공감 1 = 쿼리 3번)
+        List<Long> ids = posts.stream().map(Post::getId).toList();
+        Map<Long, Long> commentCounts = toMap(commentRepository.countByPostIds(ids));
+        Map<Long, Long> likeCounts = toMap(postLikeRepository.countByPostIds(ids));
+        return posts.stream()
+                .map(p -> PostResponse.from(p, commentCounts.getOrDefault(p.getId(), 0L),
+                        likeCounts.getOrDefault(p.getId(), 0L)))
                 .toList();
+    }
+
+    private static Map<Long, Long> toMap(List<PostCount> counts) {
+        return counts.stream().collect(Collectors.toMap(PostCount::postId, PostCount::count));
     }
 
     private Post findOrThrow(Long id) {

@@ -42,8 +42,12 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
 | author | 객체 또는 null | 글쓴이 `{ "id": 숫자, "nickname": 문자열 }`. 로그인 아이디(username)는 숨긴다. 작성자가 없는 글(S4-d 이전에 쓴 글)은 `null` |
 | school | 객체 또는 null | 학교 `{ "id": 숫자, "name": 문자열 }`. 학교가 없는 글(S7-a 이전에 쓴 글)은 `null` |
 | category | 객체 | 말머리 `{ "code": 문자열, "name": 문자열 }` (예: `{ "code": "CHAT", "name": "잡담" }`). S7-a 이전에 쓴 글은 `CHAT` |
+| commentCount | 숫자 | 댓글 수. 조회할 때 센다 (S8-b). 없으면 0 |
+| likeCount | 숫자 | 공감 수. 조회할 때 센다 (S8-b). 없으면 0 |
 
 말머리 코드는 `CHAT`(잡담), `QUESTION`(질문), `CAMPUS_LIFE`(학교생활) 세 가지다.
+
+`commentCount`·`likeCount`는 표에 칸을 두지 않고 조회할 때 센다. 단건 조회는 쿼리 3번(글·댓글 수·공감 수), 목록은 글 수와 상관없이 3번 고정(글 1 + 댓글 수 group by 1 + 공감 수 group by 1). 작성(POST) 응답은 항상 `0`·`0`, 수정(PUT) 응답은 현재 값이다. 내가 공감했는지는 여기 담지 않고 로그인 전용 `GET /posts/{id}/likes/me`로 따로 확인한다.
 
 시간대: UTC(Z). 소수점 자릿수는 가변(최대 6자리). 화면에 보여줄 때 한국 시간으로 변환한다.
 
@@ -90,7 +94,9 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
   "category": {
     "code": "CHAT",
     "name": "잡담"
-  }
+  },
+  "commentCount": 0,
+  "likeCount": 0
 }
 ```
 
@@ -125,7 +131,9 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
   "category": {
     "code": "CHAT",
     "name": "잡담"
-  }
+  },
+  "commentCount": 0,
+  "likeCount": 0
 }
 ```
 
@@ -179,7 +187,9 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
     "category": {
       "code": "QUESTION",
       "name": "질문"
-    }
+    },
+    "commentCount": 0,
+    "likeCount": 0
   },
   {
     "id": 1,
@@ -191,7 +201,9 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
     "category": {
       "code": "CHAT",
       "name": "잡담"
-    }
+    },
+    "commentCount": 0,
+    "likeCount": 0
   }
 ]
 ```
@@ -238,7 +250,9 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
   "category": {
     "code": "QUESTION",
     "name": "질문"
-  }
+  },
+  "commentCount": 0,
+  "likeCount": 0
 }
 ```
 
@@ -350,6 +364,66 @@ DB에서 댓글을 완전히 지운다. 성공 시 `204 No Content`.
 | 401 | 로그인 안 됨 |
 | 403 | `X-XSRF-TOKEN` 헤더가 없거나 틀림, 또는 본인 댓글이 아님 (작성자가 없는 댓글 포함) |
 | 404 | 없는 댓글 (이미 삭제된 id 포함) |
+
+## 공감 (Like)
+
+글에만 누를 수 있다(댓글 공감 없음). 한 회원이 한 글에 한 번만, 취소할 수 있다. 개수는 글 응답의 `likeCount`로 공개되고(비로그인도 봄), 아래 3개는 모두 로그인이 필요하다(공개 경로 아님).
+쓰기 검사 순서: CSRF 403 -> 로그인 401 -> 없는 글 404 -> 상태 충돌 409.
+
+| 기능 | 메서드 | URL | 권한 | 성공 | 실패 |
+|------|--------|-----|------|------|------|
+| 공감 | POST | `/posts/{postId}/likes` | 로그인 | 201 | 400, 401, 403, 404, 409 |
+| 공감 취소 | DELETE | `/posts/{postId}/likes` | 로그인 | 200 | 400, 401, 403, 404 |
+| 내가 공감했는지 | GET | `/posts/{postId}/likes/me` | 로그인 | 200 | 400, 401, 404 |
+
+### 5-7. 공감 `POST /posts/{postId}/likes`
+
+요청 본문 없음. 성공 응답 `201 Created`: 처리 후 개수를 다시 센 값.
+
+```json
+{ "likeCount": 1, "liked": true }
+```
+
+| 상태코드 | 언제 |
+|----------|------|
+| 400 | postId가 숫자가 아님 |
+| 401 | 로그인 안 됨 (쿠키 없음, 토큰 만료·변조, 회원이 DB에 없음, 누르는 도중 탈퇴한 경우 포함) |
+| 403 | `X-XSRF-TOKEN` 헤더가 없거나 틀림 |
+| 404 | 없는 글 (누르는 도중 글이 삭제된 경우 포함) |
+| 409 | 이미 공감한 글. 같은 회원이 동시에 여러 번 눌러도 한 번만 성공하고 나머지는 409 |
+
+### 5-8. 공감 취소 `DELETE /posts/{postId}/likes`
+
+성공 응답 `200 OK`: 처리 후 개수.
+
+```json
+{ "likeCount": 0, "liked": false }
+```
+
+| 상태코드 | 언제 |
+|----------|------|
+| 400 | postId가 숫자가 아님 |
+| 401 | 로그인 안 됨 |
+| 403 | `X-XSRF-TOKEN` 헤더가 없거나 틀림 |
+| 404 | 없는 글, 또는 내가 공감하지 않은 글 (탈퇴한 회원의 토큰이면 공감이 이미 지워져 있어 404) |
+
+### 5-9. 내가 공감했는지 `GET /posts/{postId}/likes/me`
+
+성공 응답 `200 OK`
+
+```json
+{ "liked": true }
+```
+
+| 상태코드 | 언제 |
+|----------|------|
+| 400 | postId가 숫자가 아님 |
+| 401 | 로그인 안 됨 (공개 경로가 아니므로 쿠키가 없거나 만료·변조면 401) |
+| 404 | 없는 글 |
+
+탈퇴한 회원의 토큰이면 회원을 따로 확인하지 않고 `{ "liked": false }`를 돌려준다(공감이 탈퇴 때 지워지므로 결과는 같다).
+
+탈퇴하면 그 회원의 공감은 DB가 함께 지운다(`likeCount`가 1 줄어든다). 글을 지우면 그 글의 공감도 함께 지워진다.
 
 ## 학교·말머리 (School, Category)
 

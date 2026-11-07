@@ -1,5 +1,6 @@
 package com.example.demo.comment.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.demo.comment.domain.Comment;
+import com.example.demo.post.dto.PostCount;
 
 // 댓글 DB 접근 담당
 public interface CommentRepository extends JpaRepository<Comment, Long> {
@@ -24,6 +26,15 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     @Override
     @EntityGraph(attributePaths = "author")
     Optional<Comment> findById(Long id);
+
+    // 글의 댓글 수
+    long countByPostId(Long postId);
+
+    // 글 id 목록의 댓글 수를 한 번에 센다 (목록 N+1 방지). 댓글이 0개인 글은 결과에 없다.
+    // 빈 목록을 넘기면 in () 오류가 나므로 호출하는 쪽에서 막는다.
+    @Query("select new com.example.demo.post.dto.PostCount(c.post.id, count(c)) "
+            + "from Comment c where c.post.id in :postIds group by c.post.id")
+    List<PostCount> countByPostIds(@Param("postIds") Collection<Long> postIds);
 
     // 회원 탈퇴 때 그 회원 댓글의 작성자를 비운다(댓글은 남기고 author_id만 null). 반환값 = 바뀐 댓글 수.
     // 회원 행을 지우기 전에 해야 FK 위반이 없다. 바깥 트랜잭션 없이 부르면 예외(MANDATORY).

@@ -366,9 +366,10 @@ class PostAuthorizationTests {
 
 	// ---------- 조건 10: 목록·상세 N+1 없음 ----------
 
-	// PostRepository의 findById override(@EntityGraph)를 지우면 LAZY라 쿼리가 2번 나가는 걸 잡기 위함
+	// 기본은 3번(글 1 + 댓글 수 1 + 공감 수 1). PostRepository의 findById override(@EntityGraph)를 지우면
+	// LAZY라 작성자 조회가 한 번 더 나가 4번이 되는 걸 잡기 위함
 	@Test
-	void 작성자가_있는_글의_상세_조회는_쿼리가_1번만_나간다() throws Exception {
+	void 작성자가_있는_글의_상세_조회는_쿼리가_3번만_나간다_글1_댓글수1_공감수1() throws Exception {
 		Post p = 글저장("제목", "본문", userA);
 		Statistics stats = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
 		stats.setStatisticsEnabled(true);
@@ -377,7 +378,7 @@ class PostAuthorizationTests {
 			MvcResult r = mockMvc.perform(get("/posts/" + p.getId())).andReturn();
 			assertThat(r.getResponse().getStatus()).isEqualTo(200);
 			assertThat(본문(r).get("author").get("nickname").asString()).isEqualTo("userA");
-			assertThat(stats.getPrepareStatementCount()).as("상세 조회 쿼리 수").isEqualTo(1);
+			assertThat(stats.getPrepareStatementCount()).as("상세 조회 쿼리 수(글 1 + 댓글 수 1 + 공감 수 1, 작성자 N+1 아님)").isEqualTo(3);
 		} finally {
 			stats.setStatisticsEnabled(false);
 		}
