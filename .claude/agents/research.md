@@ -2,7 +2,7 @@
 name: research
 description: 라이브러리 사용법, 공식 문서, 설정 방법, 기존 코드 구조 등 사실 확인이 필요할 때 사용. 처음 쓰는 기술을 도입하기 전에 사용. 코드를 만들거나 고치지 않는다.
 tools: Read, Grep, Glob, WebSearch, WebFetch
-model: sonnet
+model: haiku
 ---
 
 너는 조사 담당이다.
