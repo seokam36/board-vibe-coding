@@ -19,7 +19,25 @@ export interface Post {
   school: School | null // 학교. 학교 없는 글은 null
   category: Category // 말머리
   createdAt: string // ISO-8601 UTC 문자열. 화면에는 formatDate를 거쳐서만 보여준다
+  commentCount: number // 댓글 수 (S8)
+  likeCount: number // 공감 수 (S8)
 }
+
+// 댓글 한 건 (GET /posts/{id}/comments). 작성자가 탈퇴했으면 author는 null
+export interface Comment {
+  id: number
+  postId: number
+  content: string
+  createdAt: string
+  author: { id: number; nickname: string } | null
+}
+
+// 공감·공감 취소 응답: 처리 후 공감 수와 내가 공감한 상태
+export interface LikeResult {
+  likeCount: number
+  liked: boolean
+}
+
 // 글 작성할 때 서버에 보내는 값 (id, createdAt은 서버가 만든다). 학교·말머리는 필수
 export interface PostCreateRequest {
   title: string

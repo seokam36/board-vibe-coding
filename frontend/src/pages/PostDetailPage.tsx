@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router'
 import api from '../api'
 import { NETWORK_ERROR_MESSAGE, getStatus, isNetworkError } from '../errorMessage'
 import { useAuth } from '../auth/useAuth'
+import CommentSection from '../components/CommentSection'
+import LikeButton from '../components/LikeButton'
 import ReloginNotice from '../components/ReloginNotice'
 import { formatDate } from '../formatDate'
 import type { Post } from '../types'
@@ -88,6 +90,8 @@ export default function PostDetailPage() {
           <p style={{ whiteSpace: 'pre-wrap' }}>{post.content}</p>
         </article>
       )}
+      {/* 공감 버튼과 댓글 영역 (글을 불러온 뒤에만) */}
+      {post && <LikeButton postId={id ?? ''} initialCount={post.likeCount} />}
       {/* 내 글일 때만 수정·삭제 버튼을 보여준다. 화면에서 숨기는 건 편의일 뿐, 진짜 보호는 서버의 403이다 */}
       {post && user && post.author?.id === user.id && (
         <div>
@@ -100,6 +104,7 @@ export default function PostDetailPage() {
       {/* 삭제 실패 안내는 버튼 영역 밖에 둔다(로그인이 풀려 버튼이 사라져도 안내가 남게) */}
       {deleteError && <p role="alert">{deleteError}</p>}
       {needLogin && <ReloginNotice />}
+      {post && <CommentSection postId={id ?? ''} />}
       <Link to="/">목록으로</Link>
     </div>
   )

@@ -144,7 +144,11 @@ export default function PostListPage() {
           <li key={post.id}>
             <small>[{post.category.name}]</small> <small>{post.school?.name ?? '학교 미지정'}</small>{' '}
             <Link to={`/posts/${post.id}`}>{post.title}</Link> <small>{post.author?.nickname ?? '(작성자 없음)'}</small>{' '}
-            <small>{formatDate(post.createdAt)}</small>
+            <small>{formatDate(post.createdAt)}</small>{' '}
+            {/* 댓글 수·공감 수 */}
+            <small>
+              댓글 {post.commentCount} · 공감 {post.likeCount}
+            </small>
           </li>
         ))}
       </ul>
