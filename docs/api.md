@@ -27,7 +27,7 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
 |------|--------|-----|------|------|
 | 작성 | POST | `/posts` | 201 | 400, 401, 403 |
 | 단건 조회 | GET | `/posts/{id}` | 200 | 404, 400 |
-| 목록 조회 | GET | `/posts` | 200 | - |
+| 목록 조회 | GET | `/posts` | 200 | 400, 404 |
 | 수정 | PUT | `/posts/{id}` | 200 | 400, 401, 403, 404 |
 | 삭제 | DELETE | `/posts/{id}` | 204 | 400, 401, 403, 404 |
 
@@ -138,7 +138,26 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
 
 ### 3. 게시글 목록 조회 `GET /posts`
 
-최신순(id 내림차순)으로 전체를 돌려준다. 페이징 없음. 글이 없으면 빈 배열 `[]`. 로그인 없이 호출 가능. (아래 예시의 두 번째 글처럼 작성자·학교가 없는 옛 글은 `author`·`school`이 `null`이고 `category`는 `CHAT`) 학교·말머리로 거르는 기능은 아직 없다.
+최신순(id 내림차순)으로 돌려준다. 페이징 없음. 글이 없으면 빈 배열 `[]`. 로그인 없이 호출 가능. (아래 예시의 두 번째 글처럼 작성자·학교가 없는 옛 글은 `author`·`school`이 `null`이고 `category`는 `CHAT`)
+
+쿼리 파라미터 (둘 다 선택, 같이 주면 두 조건을 모두 만족하는 글만)
+
+| 이름 | 설명 |
+|------|------|
+| `schoolId` | 그 학교 글만. 학교 없는 옛 글은 포함되지 않는다 |
+| `category` | 그 말머리 글만 (`CHAT`, `QUESTION`, `CAMPUS_LIFE`) |
+
+- 파라미터 없이 부르면 학교 없는 옛 글까지 전체를 돌려준다.
+- 값이 비어 있으면(`?schoolId=&category=`) 조건을 안 건 것과 같다.
+- 존재하는 학교인데 글이 없으면 `200`과 `[]`.
+- 예: `GET /posts?schoolId=1`, `GET /posts?category=QUESTION`, `GET /posts?schoolId=1&category=QUESTION`
+
+실패
+
+| 상태코드 | 언제 |
+|----------|------|
+| 404 | 없는 학교 id (예: `?schoolId=999`) |
+| 400 | `schoolId`가 숫자가 아님(예: `abc`) 또는 없는 말머리(예: `category=XXX`) |
 
 성공 응답 `200 OK`
 

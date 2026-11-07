@@ -6,6 +6,8 @@ import java.sql.SQLException;
 
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.auth.dto.LoginUser;
 import com.example.demo.post.domain.Post;
+import com.example.demo.post.domain.PostCategory;
 import com.example.demo.post.dto.PostCreateRequest;
 import com.example.demo.post.dto.PostResponse;
 import com.example.demo.post.dto.PostUpdateRequest;
@@ -81,10 +84,22 @@ public class PostService {
         postRepository.delete(post);
     }
 
-    // 전체 목록을 최신순으로 조회 (페이징 없음)
+    // 목록을 최신순으로 조회 (페이징 없음). schoolId·category는 선택이며, 넘긴 조건만 AND로 건다.
+    // 없는 학교면 404. 조건을 안 건 항목은 아예 WHERE에 넣지 않으므로 "school_id IS NULL"로 걸리거나
+    // null 파라미터 타입 오류가 나지 않고, 학교 없는 옛 글은 학교 조건이 없을 때만 나온다.
     @Transactional(readOnly = true)
-    public List<PostResponse> getAll() {
-        return postRepository.findAllByOrderByIdDesc().stream()
+    public List<PostResponse> getAll(Long schoolId, PostCategory category) {
+        if (schoolId != null && !schoolRepository.existsById(schoolId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "학교를 찾을 수 없습니다.");
+        }
+        Specification<Post> spec = Specification.unrestricted();
+        if (schoolId != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("school").get("id"), schoolId));
+        }
+        if (category != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("category"), category));
+        }
+        return postRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "id")).stream()
                 .map(PostResponse::from)
                 .toList();
     }

@@ -13,9 +13,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.demo.auth.dto.LoginUser;
+import com.example.demo.post.domain.PostCategory;
 import com.example.demo.post.dto.PostCreateRequest;
 import com.example.demo.post.dto.PostResponse;
 import com.example.demo.post.dto.PostUpdateRequest;
@@ -60,9 +62,10 @@ public class PostController {
         return ResponseEntity.noContent().build();
     }
 
-    // 목록 조회 (최신순)
+    // 목록 조회 (최신순). schoolId·category는 선택 필터. 숫자·말머리 형식이 틀리면 스프링이 400을 돌려준다.
     @GetMapping
-    public List<PostResponse> getAll() {
-        return postService.getAll();
+    public List<PostResponse> getAll(@RequestParam(required = false) Long schoolId,
+            @RequestParam(required = false) PostCategory category) {
+        return postService.getAll(schoolId, category);
     }
 }

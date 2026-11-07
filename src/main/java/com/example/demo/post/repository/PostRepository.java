@@ -3,8 +3,11 @@ package com.example.demo.post.repository;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,11 +17,14 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.demo.post.domain.Post;
 
 // 게시글 DB 접근 담당 (기본 CRUD는 JpaRepository가 제공)
-public interface PostRepository extends JpaRepository<Post, Long> {
+// JpaSpecificationExecutor: 학교·말머리 조건을 "있을 때만" 붙여 조합하려고 쓴다 (조합마다 메서드를 만들지 않기 위함)
+public interface PostRepository extends JpaRepository<Post, Long>, JpaSpecificationExecutor<Post> {
 
-    // 최신순(id 내림차순) 전체 조회. 작성자·학교를 join으로 같이 읽어 글마다 추가 쿼리가 나가는 N+1을 막는다.
+    // 조건(Specification) + 정렬 목록 조회. 작성자·학교를 join으로 같이 읽어 글마다 추가 쿼리가 나가는 N+1을 막는다
+    // (기본 메서드를 같은 이름으로 덮어써서 EntityGraph만 붙인다)
+    @Override
     @EntityGraph(attributePaths = { "author", "school" })
-    List<Post> findAllByOrderByIdDesc();
+    List<Post> findAll(Specification<Post> spec, Sort sort);
 
     // 단건 조회도 작성자·학교를 같이 읽는다 (기본 findById를 같은 이름으로 덮어써서 EntityGraph만 붙인다)
     @Override
