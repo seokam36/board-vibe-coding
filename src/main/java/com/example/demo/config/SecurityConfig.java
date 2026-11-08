@@ -2,6 +2,7 @@ package com.example.demo.config;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.context.annotation.Bean;
@@ -13,6 +14,7 @@ import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
@@ -89,7 +91,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(publicEndpoints).permitAll()
                         // 관리자 전용 경로: 비로그인 401, 로그인했지만 토큰 role이 ADMIN이 아니면 403 (DB 재확인은 서비스에서)
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/admin/**").hasRole(UserRole.ADMIN.name())
                         .anyRequest().authenticated());
         return http.build();
     }
@@ -111,11 +113,9 @@ public class SecurityConfig {
     private JwtAuthenticationConverter roleClaimConverter() {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(jwt -> {
-            String role = jwt.getClaimAsString(LoginUser.ROLE_CLAIM);
-            if (UserRole.ADMIN.name().equals(role) || UserRole.USER.name().equals(role)) {
-                return List.of(new SimpleGrantedAuthority("ROLE_" + role));
-            }
-            return List.of();
+            return UserRole.fromClaim(jwt.getClaimAsString(LoginUser.ROLE_CLAIM))
+                    .<Collection<GrantedAuthority>>map(r -> List.of(new SimpleGrantedAuthority("ROLE_" + r.name())))
+                    .orElse(List.of());
         });
         return converter;
     }

@@ -82,7 +82,11 @@ public class CommentService {
     public void delete(Long id, LoginUser loginUser) {
         Comment comment = findOrThrow(id);
         checkWriterOrAdmin(comment, loginUser);
-        commentRepository.delete(comment);
+        // 권한 확인 뒤 동시에 다른 쪽이 먼저 지웠으면 0행이므로 404 (예외 500 방지)
+        // 이 호출 뒤에는 위에서 읽은 엔티티를 쓰지 않는다(clearAutomatically로 영속성 컨텍스트가 비워짐)
+        if (commentRepository.deleteByIdReturningCount(id) == 0) {
+            throw ApiErrors.commentNotFound();
+        }
     }
 
     private Comment findOrThrow(Long id) {
@@ -93,7 +97,7 @@ public class CommentService {
     // 남의 댓글(작성자가 없는 댓글 포함)이면 403
     private void checkWriter(Comment comment, LoginUser loginUser) {
         if (!comment.isWrittenBy(loginUser.id())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인이 쓴 댓글만 수정·삭제할 수 있습니다.");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인이 쓴 댓글만 수정할 수 있습니다.");
         }
     }
 

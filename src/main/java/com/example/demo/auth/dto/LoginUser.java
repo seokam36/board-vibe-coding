@@ -14,19 +14,8 @@ public record LoginUser(Long id, String username, UserRole role) {
 
     // sub 클레임(문자열 id), username·role 클레임을 읽는다
     public static LoginUser from(Jwt jwt) {
+        // role 클레임이 없거나(S9 이전에 발급된 옛 토큰) 모르는 값이면 일반 회원으로 본다
         return new LoginUser(Long.valueOf(jwt.getSubject()), jwt.getClaimAsString(USERNAME_CLAIM),
-                parseRole(jwt.getClaimAsString(ROLE_CLAIM)));
-    }
-
-    // role 클레임이 없거나(S9 이전에 발급된 옛 토큰) 모르는 값이면 일반 회원으로 본다
-    private static UserRole parseRole(String value) {
-        if (value == null) {
-            return UserRole.USER;
-        }
-        try {
-            return UserRole.valueOf(value);
-        } catch (IllegalArgumentException e) {
-            return UserRole.USER;
-        }
+                UserRole.fromClaim(jwt.getClaimAsString(ROLE_CLAIM)).orElse(UserRole.USER));
     }
 }

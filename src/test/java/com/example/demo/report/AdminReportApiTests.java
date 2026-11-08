@@ -236,12 +236,6 @@ class AdminReportApiTests {
 		assertThat(svc401.getStatus()).isEqualTo(401);
 		assertThat(sec403.getStatus()).isEqualTo(403);
 		assertThat(svc403.getStatus()).isEqualTo(403);
-		for (var e : List.of(new Object[] { "보안401", sec401 }, new Object[] { "서비스401", svc401 },
-				new Object[] { "보안403", sec403 }, new Object[] { "서비스403", svc403 })) {
-			MockHttpServletResponse r = (MockHttpServletResponse) e[1];
-			System.out.println("[본문관찰] " + e[0] + " status=" + r.getStatus() + " contentType=" + r.getContentType()
-					+ " body=" + r.getContentAsString());
-		}
 	}
 
 	// ============ 조건 2: 목록 ============

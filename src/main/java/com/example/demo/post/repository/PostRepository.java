@@ -37,4 +37,12 @@ public interface PostRepository extends JpaRepository<Post, Long>, JpaSpecificat
     @Transactional(propagation = Propagation.MANDATORY)
     @Query("update Post p set p.author = null where p.author.id = :userId")
     int clearAuthor(@Param("userId") Long userId);
+
+    // 글을 한 문장으로 지우고 지운 행 수를 돌려준다(1이면 내가 지움, 0이면 이미 없음).
+    // 엔티티를 읽고 delete()하면 동시에 다른 쪽이 먼저 지웠을 때 flush에서 예외(500)가 나서, 행 수로 판단하게 한다.
+    // 댓글·공감·신고는 DB의 ON DELETE CASCADE가 같이 지운다. 바깥 트랜잭션 없이 부르면 예외(MANDATORY).
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional(propagation = Propagation.MANDATORY)
+    @Query("delete from Post p where p.id = :id")
+    int deleteByIdReturningCount(@Param("id") Long id);
 }

@@ -42,4 +42,12 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     @Transactional(propagation = Propagation.MANDATORY)
     @Query("update Comment c set c.author = null where c.author.id = :userId")
     int clearAuthor(@Param("userId") Long userId);
+
+    // 댓글을 한 문장으로 지우고 지운 행 수를 돌려준다(1이면 내가 지움, 0이면 이미 없음).
+    // 동시에 다른 쪽이 먼저 지워도 예외(500) 대신 0을 받아 404로 바꿀 수 있다. 공감 등은 DB의 ON DELETE CASCADE가 처리.
+    // 바깥 트랜잭션 없이 부르면 예외(MANDATORY).
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional(propagation = Propagation.MANDATORY)
+    @Query("delete from Comment c where c.id = :id")
+    int deleteByIdReturningCount(@Param("id") Long id);
 }

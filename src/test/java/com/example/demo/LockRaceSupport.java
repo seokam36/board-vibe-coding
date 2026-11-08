@@ -15,6 +15,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 // 경쟁 조건을 "운에 맡기지 않고" 결정적으로 재현하는 도우미.
 // 순서: (1) 별도 트랜잭션에서 DB 행을 잠근다 -> (2) 다른 스레드가 요청을 보낸다(잠금에서 대기)
 //       -> (3) 정말 대기 중인지 확인 -> (4) 잠근 쪽이 삭제하고 커밋 -> (5) 요청의 결과를 돌려준다.
+// 깨어난 요청은 FK 위반(INSERT) 또는 0행(DELETE/UPDATE)으로 끝난다. 잠금 단계에서 이미 지웠다면 `삭제` 람다는 비어 있어도 된다.
 public final class LockRaceSupport {
 
 	private LockRaceSupport() {
@@ -36,7 +37,7 @@ public final class LockRaceSupport {
 				}
 				// 진짜로 잠금에서 기다리는 중이어야 한다(이미 끝났다면 경쟁이 재현되지 않은 것)
 				assertThat(holder[0].isDone()).as("요청이 락에서 대기 중이어야 한다").isFalse();
-				삭제.run(); // 콜백이 끝나면 커밋된다 -> 기다리던 INSERT가 FK 위반으로 깨어난다
+				삭제.run(); // 콜백이 끝나면 커밋된다 -> 기다리던 요청이 깨어나 FK 위반(INSERT) 또는 0행(DELETE/UPDATE)으로 끝난다
 			});
 			// 예상과 달리 요청이 안 깨어나면 영원히 멈추지 않게 10초만 기다린다
 			return holder[0].get(10, TimeUnit.SECONDS);

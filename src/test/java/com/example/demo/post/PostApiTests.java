@@ -137,6 +137,12 @@ class PostApiTests {
 		assertThat(postRepository.count()).as(json).isEqualTo(before);
 	}
 
+	// 숫자 enum({"category":0})은 "몇 번째 값"으로 받지 않고 400으로 거절한다
+	@Test
+	void category에_숫자_0을_넣으면_400이고_저장되지_않는다() throws Exception {
+		잘못된_입력은_400이고_저장되지_않는다("{\"title\":\"t\",\"content\":\"c\",\"schoolId\":1,\"category\":0}");
+	}
+
 	@Test
 	void title이_빈문자열이면_400이고_저장되지_않는다() throws Exception {
 		잘못된_입력은_400이고_저장되지_않는다("{\"title\":\"\",\"content\":\"c\",\"schoolId\":1,\"category\":\"CHAT\"}");

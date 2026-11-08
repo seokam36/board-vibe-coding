@@ -55,7 +55,7 @@ public class PostController {
         return postService.update(id, LoginUser.from(jwt), request);
     }
 
-    // 삭제: 성공하면 본문 없이 204 No Content (내 글만 가능)
+    // 삭제: 성공하면 본문 없이 204 No Content (본인 또는 관리자)
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         postService.delete(id, LoginUser.from(jwt));

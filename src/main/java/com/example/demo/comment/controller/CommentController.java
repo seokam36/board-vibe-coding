@@ -51,7 +51,7 @@ public class CommentController {
         return commentService.update(id, LoginUser.from(jwt), request);
     }
 
-    // 삭제: 204 (내 댓글만)
+    // 삭제: 204 (본인 또는 관리자)
     @DeleteMapping("/comments/{id}")
     public ResponseEntity<Void> delete(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         commentService.delete(id, LoginUser.from(jwt));
