@@ -11,6 +11,7 @@ import Loading from './Loading'
 import Notice from './Notice'
 import ReloginNotice from './ReloginNotice'
 import ReportForm from './ReportForm'
+import { useConfirm } from './confirmContext'
 import type { Comment } from '../types'
 
 const CONTENT_ERROR = '내용을 입력해 주세요 (최대 1000자)'
@@ -18,6 +19,7 @@ const CONTENT_ERROR = '내용을 입력해 주세요 (최대 1000자)'
 // 상세 화면의 댓글 영역: 목록 + 작성 + (내 댓글) 수정·삭제
 export default function CommentSection({ postId }: { postId: string }) {
   const { user } = useAuth()
+  const confirm = useConfirm() // 삭제 전 확인 창
   const base = `/posts/${encodeURIComponent(postId)}/comments`
 
   // null이면 아직 못 불러온 상태
@@ -129,7 +131,7 @@ export default function CommentSection({ postId }: { postId: string }) {
 
   async function handleDelete(c: Comment) {
     // 되돌릴 수 없는 동작이라 먼저 확인한다
-    if (!window.confirm('이 댓글을 삭제할까요?')) return
+    if (!(await confirm({ message: '이 댓글을 삭제할까요?', confirmLabel: '삭제', danger: true }))) return
     resetNotices()
     setBusy(true)
     try {

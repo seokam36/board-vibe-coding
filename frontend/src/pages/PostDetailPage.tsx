@@ -10,6 +10,7 @@ import CommentSection from '../components/CommentSection'
 import LikeButton from '../components/LikeButton'
 import ReloginNotice from '../components/ReloginNotice'
 import ReportForm from '../components/ReportForm'
+import { useConfirm } from '../components/confirmContext'
 import { formatDate } from '../formatDate'
 import type { Post } from '../types'
 
@@ -26,6 +27,7 @@ export default function PostDetailPage() {
   const [needLogin, setNeedLogin] = useState(false)
   const navigate = useNavigate()
   const { user } = useAuth()
+  const confirm = useConfirm() // 삭제 전 확인 창
   const isMine = !!user && post?.author?.id === user.id // 내 글인지
 
   // id가 바뀔 때마다 다시 불러온다 (의존성 배열 [id])
@@ -58,7 +60,7 @@ export default function PostDetailPage() {
 
   async function handleDelete() {
     // 되돌릴 수 없는 동작이라 먼저 확인한다. 취소하면 아무것도 하지 않는다
-    if (!window.confirm('이 글을 삭제할까요?')) return
+    if (!(await confirm({ message: '이 글을 삭제할까요?', confirmLabel: '삭제', danger: true }))) return
     setDeleting(true)
     setDeleteError(null)
     setNeedLogin(false)

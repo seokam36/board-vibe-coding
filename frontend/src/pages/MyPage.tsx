@@ -7,6 +7,7 @@ import type { AuthUser } from '../auth/useAuth'
 import ReloginNotice from '../components/ReloginNotice'
 import { describeError } from '../errorMessage'
 import Notice from '../components/Notice'
+import { useConfirm } from '../components/confirmContext'
 
 // 보통 앱 시작 때 CSRF 쿠키(/csrf)를 못 받은 경우
 const CSRF_MESSAGE = '보안 토큰이 없습니다. 새로고침 후 다시 시도해 주세요'
@@ -187,6 +188,7 @@ function PasswordForm() {
 // 회원 탈퇴: 비밀번호 + 확인 창. 성공하면 로그인 상태를 비우고 글 목록으로 보낸다
 function WithdrawForm() {
   const { clearUser } = useAuth()
+  const confirm = useConfirm() // 탈퇴 전 확인 창
   const navigate = useNavigate()
   const [password, setPassword] = useState('')
   const [saving, setSaving] = useState(false)
@@ -196,7 +198,7 @@ function WithdrawForm() {
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     // 되돌릴 수 없는 작업이라 한 번 더 묻는다. 취소하면 요청을 보내지 않는다
-    if (!window.confirm("탈퇴하면 되돌릴 수 없습니다. 쓴 글은 남고 작성자는 '(작성자 없음)'으로 바뀝니다. 탈퇴할까요?")) return
+    if (!(await confirm({ message: "탈퇴하면 되돌릴 수 없습니다. 쓴 글은 남고 작성자는 '(작성자 없음)'으로 바뀝니다. 탈퇴할까요?", confirmLabel: '탈퇴', danger: true }))) return
     setSaving(true)
     setError(null)
     setNeedLogin(false)

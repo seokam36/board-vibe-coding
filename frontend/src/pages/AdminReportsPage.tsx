@@ -8,6 +8,7 @@ import { formatDate } from '../formatDate'
 import Loading from '../components/Loading'
 import Notice from '../components/Notice'
 import ReloginNotice from '../components/ReloginNotice'
+import { useConfirm } from '../components/confirmContext'
 import type { Report, ReportStatus } from '../types'
 
 const ADMIN_ONLY = '관리자만 볼 수 있습니다'
@@ -15,6 +16,7 @@ const ADMIN_ONLY = '관리자만 볼 수 있습니다'
 // 관리자 전용 신고 관리 화면: 미처리 / 기각 탭, 미처리 신고에는 "삭제"·"문제 없음" 버튼
 export default function AdminReportsPage() {
   const { user } = useAuth()
+  const confirm = useConfirm() // 삭제 전 확인 창
   // 탭은 주소의 ?status= 로 유지한다 (새로고침·뒤로가기에도 같은 탭). 모르는 값이면 미처리
   const [params, setParams] = useSearchParams()
   const status: ReportStatus = params.get('status') === 'DISMISSED' ? 'DISMISSED' : 'PENDING'
@@ -88,7 +90,7 @@ export default function AdminReportsPage() {
   async function handleDelete(r: Report) {
     const what = r.target.type === 'POST' ? '글' : '댓글'
     // 되돌릴 수 없는 동작이라 먼저 확인한다
-    if (!window.confirm(`신고된 ${what}을(를) 삭제할까요?`)) return
+    if (!(await confirm({ message: `신고된 ${what}을(를) 삭제할까요?`, confirmLabel: '삭제', danger: true }))) return
     startAction()
     try {
       await api.delete(r.target.type === 'POST' ? `/posts/${r.target.id}` : `/comments/${r.target.id}`)

@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './auth/AuthContext'
+import { ConfirmProvider } from './components/ConfirmDialog'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -11,7 +12,10 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       {/* AuthProvider: 앱 어디서든 로그인 정보를 쓸 수 있게 감싼다 (라우터 안쪽) */}
       <AuthProvider>
-        <App />
+        {/* ConfirmProvider: 삭제 같은 동작 전에 뜨는 확인 창을 앱 맨 위에서 한 번만 그린다 */}
+        <ConfirmProvider>
+          <App />
+        </ConfirmProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>,

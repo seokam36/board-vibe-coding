@@ -15,6 +15,7 @@
   --danger-strong: #a13a27; /* 위험 버튼을 누르고 있을 때 */
   --danger-soft: #3a2521; /* 에러 안내의 배경 */
   --info-soft: #222d2a; /* 일반 안내의 배경 */
+  --backdrop: rgb(0 0 0 / 60%); /* 확인 창 뒤를 어둡게 덮는 막 */
   /* 말머리 뱃지 (글자색 / 배경) */
   --badge-chat-ink: var(--muted);
   --badge-chat-bg: #262f2c;
@@ -485,4 +486,34 @@ label textarea {
   * {
     transition: none !important;
   }
+}
+
+/* ---------- 확인 창 (브라우저 기본 확인 창 대신) ---------- */
+.confirm-dialog {
+  width: calc(100% - 2 * var(--space-4));
+  max-width: 400px;
+  padding: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--paper);
+  color: var(--ink);
+}
+.confirm-dialog::backdrop {
+  /* 2024년 이전 브라우저는 ::backdrop에서 :root 변수를 못 읽어 투명해진다. 그때만 쓰는 대체값이라 :root 밖 색 규칙의 예외 */
+  background: var(--backdrop, rgb(0 0 0 / 60%));
+}
+.confirm-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-row);
+  font-weight: 700;
+}
+.confirm-message {
+  margin: 0 0 var(--space-5);
+  white-space: pre-wrap; /* 줄바꿈 있는 문구도 그대로 */
+  line-height: 1.65;
+}
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
