@@ -87,43 +87,58 @@ export default function PostDetailPage() {
       {loading && <Loading />}
       {error && <Notice kind="error">{error}</Notice>}
       {post && (
-        <article>
-          <h1>{post.title}</h1>
+        <article className="panel">
           {/* 말머리와 학교 (학교 없는 글은 "학교 미지정") */}
-          <small>[{post.category.name}]</small> <small>{post.school?.name ?? '학교 미지정'}</small>
-          <br />
-          <small>{post.author?.nickname ?? '(작성자 없음)'}</small> <small>{formatDate(post.createdAt)}</small>
+          <div className="badges">
+            <span className={`badge badge-${post.category.code}`}>{post.category.name}</span>
+            <span className="badge badge-school">{post.school?.name ?? '학교 미지정'}</span>
+          </div>
+          <h1 className="post-title">{post.title}</h1>
+          <p className="meta">
+            <span>{post.author?.nickname ?? '(작성자 없음)'}</span>
+            <span>{formatDate(post.createdAt)}</span>
+          </p>
           {/* pre-wrap: 내용의 줄바꿈·공백을 그대로 보여준다. 텍스트로만 출력하므로 HTML이 실행되지 않는다 */}
-          <p className="pre-wrap">{post.content}</p>
+          <p className="pre-wrap post-body">{post.content}</p>
         </article>
       )}
-      {/* 공감 버튼과 댓글 영역 (글을 불러온 뒤에만) */}
-      {post && <LikeButton postId={id ?? ''} initialCount={post.likeCount} />}
-      {/* 수정은 내 글만, 삭제는 내 글 또는 관리자. 화면에서 숨기는 건 편의일 뿐, 진짜 보호는 서버의 403이다 */}
-      {post && user && (isMine || isAdmin(user)) && (
-        <div>
-          {isMine && <Link to={`/posts/${encodeURIComponent(id ?? '')}/edit`}>수정</Link>}{' '}
-          <button type="button" onClick={handleDelete} disabled={deleting}>
-            {deleting ? '삭제 중...' : '삭제'}
-          </button>
+      {/* 작업 줄: 공감 / 수정·삭제 / 신고 */}
+      {post && (
+        <div className="actions">
+          <LikeButton postId={id ?? ''} initialCount={post.likeCount} />
+          {/* 수정은 내 글만, 삭제는 내 글 또는 관리자. 화면에서 숨기는 건 편의일 뿐, 진짜 보호는 서버의 403이다 */}
+          {user && isMine && (
+            <Link to={`/posts/${encodeURIComponent(id ?? '')}/edit`} className="btn btn-sm">
+              수정
+            </Link>
+          )}
+          {user && (isMine || isAdmin(user)) && (
+            <button type="button" className="btn btn-sm btn-danger" onClick={handleDelete} disabled={deleting}>
+              {deleting ? '삭제 중...' : '삭제'}
+            </button>
+          )}
+          {/* 신고는 로그인했고 내 글이 아닐 때만 (작성자 없는 옛 글은 신고 가능) */}
+          {user && !isMine && (
+            <ReportForm
+              url={`/posts/${encodeURIComponent(id ?? '')}/reports`}
+              label="글"
+              onNeedLogin={() => {
+                setDeleteError(null)
+                setNeedLogin(true) // 로그인 안내는 아래 user 조건 밖에서 보여 준다
+              }}
+            />
+          )}
         </div>
-      )}
-      {/* 신고는 로그인했고 내 글이 아닐 때만 (작성자 없는 옛 글은 신고 가능) */}
-      {post && user && !isMine && (
-        <ReportForm
-          url={`/posts/${encodeURIComponent(id ?? '')}/reports`}
-          label="글"
-          onNeedLogin={() => {
-            setDeleteError(null)
-            setNeedLogin(true) // 로그인 안내는 아래 user 조건 밖에서 보여 준다
-          }}
-        />
       )}
       {/* 삭제 실패 안내는 버튼 영역 밖에 둔다(로그인이 풀려 버튼이 사라져도 안내가 남게) */}
       {deleteError && <Notice kind="error">{deleteError}</Notice>}
       {needLogin && <ReloginNotice />}
       {post && <CommentSection postId={id ?? ''} />}
-      <Link to="/">목록으로</Link>
+      <p>
+        <Link to="/" className="btn">
+          목록으로
+        </Link>
+      </p>
     </div>
   )
 }

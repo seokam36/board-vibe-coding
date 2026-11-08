@@ -85,18 +85,19 @@ export default function ReportForm({
   }
 
   return (
-    <div>
+    <div className={open ? 'report-open' : undefined}>
       {!open && !done && (
-        <button type="button" onClick={handleOpen} aria-label={`${label} 신고`}>
+        <button type="button" className="btn btn-sm" onClick={handleOpen} aria-label={`${label} 신고`}>
           신고
         </button>
       )}
       {open && (
-        <form onSubmit={handleSubmit}>
+        <form className="report-box" onSubmit={handleSubmit}>
           {/* 사유 목록: 로딩 중 / 실패(다시 시도만) / 성공(셀렉트) */}
           {reasonsError ? (
             <Notice kind="error">
-              {reasonsError} <button type="button" onClick={loadReasons}>다시 시도</button>
+              {reasonsError}{' '}
+              <button type="button" className="btn btn-sm" onClick={loadReasons}>다시 시도</button>
             </Notice>
           ) : !reasons ? (
             <Loading prefix="사유" />
@@ -122,10 +123,10 @@ export default function ReportForm({
           <small>
             {detail.length}/{DETAIL_MAX}
           </small>{' '}
-          <button type="submit" disabled={sending || !reasons}>
+          <button type="submit" className="btn btn-sm" disabled={sending || !reasons}>
             {sending ? '보내는 중...' : '신고 보내기'}
           </button>{' '}
-          <button type="button" onClick={() => setOpen(false)} disabled={sending}>
+          <button type="button" className="btn btn-sm" onClick={() => setOpen(false)} disabled={sending}>
             취소
           </button>
         </form>

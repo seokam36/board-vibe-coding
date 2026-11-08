@@ -32,15 +32,17 @@ export default function MyPage() {
       <h1>내 정보</h1>
       {/* 아이디는 바꿀 수 없으므로 읽기 전용 글자로만 보여 준다. 로그인이 풀린 직후엔 user가 없을 수 있다 */}
       {user && (
-        <>
+        <div className="panel">
           <p>아이디: {user.username}</p>
           <p>닉네임: {user.nickname}</p>
-        </>
+        </div>
       )}
       <NicknameForm />
       <PasswordForm />
       <WithdrawForm />
-      <Link to="/">목록으로</Link>
+      <Link to="/" className="btn">
+        목록으로
+      </Link>
     </div>
   )
 }
@@ -83,19 +85,24 @@ function NicknameForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form className="panel" onSubmit={handleSubmit}>
       <h2>닉네임 변경</h2>
-      <div>
+      <div className="field">
         <label>
           새 닉네임
-          <input value={nickname} onChange={(e) => setNickname(e.target.value)} autoComplete="nickname" />
+          <input
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            autoComplete="nickname"
+            className="full-width"
+          />
         </label>
-        <small>한글(완성형)·영문·숫자·_ 2~20자, 공백·자음/모음만은 불가</small>
+        <small className="hint">한글(완성형)·영문·숫자·_ 2~20자, 공백·자음/모음만은 불가</small>
       </div>
       {needLogin && <ReloginNotice />}
       {error && <Notice kind="error">{error}</Notice>}
       {success && <Notice kind="success">{success}</Notice>}
-      <button type="submit" disabled={saving}>
+      <button type="submit" className="btn btn-primary" disabled={saving}>
         {saving ? '변경 중...' : '닉네임 변경'}
       </button>
     </form>
@@ -140,10 +147,10 @@ function PasswordForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form className="panel" onSubmit={handleSubmit}>
       <h2>비밀번호 변경</h2>
-      <p>HTTP라서 실제로 쓰는 비밀번호는 쓰지 마세요</p>
-      <div>
+      <Notice kind="info">HTTP라서 실제로 쓰는 비밀번호는 쓰지 마세요</Notice>
+      <div className="field">
         <label>
           현재 비밀번호
           <input
@@ -151,10 +158,11 @@ function PasswordForm() {
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
             autoComplete="current-password"
+            className="full-width"
           />
         </label>
       </div>
-      <div>
+      <div className="field">
         <label>
           새 비밀번호
           <input
@@ -162,13 +170,14 @@ function PasswordForm() {
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             autoComplete="new-password"
+            className="full-width"
           />
         </label>
-        <small>8~64자</small>
+        <small className="hint">8~64자</small>
       </div>
       {needLogin && <ReloginNotice />}
       {error && <Notice kind="error">{error}</Notice>}
-      <button type="submit" disabled={saving}>
+      <button type="submit" className="btn btn-primary" disabled={saving}>
         {saving ? '변경 중...' : '비밀번호 변경'}
       </button>
     </form>
@@ -216,9 +225,9 @@ function WithdrawForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form className="panel panel-danger" onSubmit={handleSubmit}>
       <h2>회원 탈퇴</h2>
-      <div>
+      <div className="field">
         <label>
           비밀번호
           <input
@@ -226,12 +235,13 @@ function WithdrawForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
+            className="full-width"
           />
         </label>
       </div>
       {needLogin && <ReloginNotice />}
       {error && <Notice kind="error">{error}</Notice>}
-      <button type="submit" disabled={saving}>
+      <button type="submit" className="btn btn-danger" disabled={saving}>
         {saving ? '처리 중...' : '회원 탈퇴'}
       </button>
     </form>

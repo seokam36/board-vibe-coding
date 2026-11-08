@@ -130,7 +130,7 @@ export default function AdminReportsPage() {
           disabled={busy}
         >
           미처리
-        </button>{' '}
+        </button>
         <button
           type="button"
           onClick={() => changeTab('DISMISSED')}
@@ -142,40 +142,65 @@ export default function AdminReportsPage() {
       </div>
       {loadError && (
         <Notice kind="error">
-          {loadError} {loadError !== ADMIN_ONLY && <button type="button" onClick={retry}>다시 시도</button>}
+          {loadError}{' '}
+          {loadError !== ADMIN_ONLY && (
+            <button type="button" className="btn btn-sm" onClick={retry}>
+              다시 시도
+            </button>
+          )}
         </Notice>
       )}
       {reports === null && !loadError && !needLogin && <Loading />}
-      {reports && reports.length === 0 && <p>신고가 없습니다</p>}
-      <ul>
-        {(reports ?? []).map((r) => (
-          <li key={r.id}>
-            <strong>[{r.target.type === 'POST' ? '글' : '댓글'}]</strong>{' '}
-            <Link to={`/posts/${r.target.postId}`}>글로 가기</Link>
-            {/* pre-wrap: 줄바꿈을 그대로. 텍스트로만 출력하므로 HTML이 실행되지 않는다 */}
-            <p className="pre-wrap-break">{r.target.preview}</p>
-            <small>대상 작성자: {r.target.author?.nickname ?? '탈퇴한 회원 또는 작성자 없음'}</small>
-            <br />
-            <small>사유: {r.reason.name}</small>
-            <br />
-            <small className="pre-wrap-break">상세: {r.detail || '-'}</small>
-            <br />
-            <small>
-              신고자: {r.reporter?.nickname ?? '탈퇴한 회원'} · {formatDate(r.createdAt)}
-            </small>
-            {status === 'PENDING' && (
-              <div>
-                <button type="button" onClick={() => handleDelete(r)} disabled={busy}>
-                  삭제
-                </button>{' '}
-                <button type="button" onClick={() => handleDismiss(r)} disabled={busy}>
-                  문제 없음
-                </button>
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
+      {/* 신고 한 건 = 판 안의 행 */}
+      {reports && (
+        <div className="panel panel-flush">
+          {reports.length === 0 && <p className="panel-state">신고가 없습니다</p>}
+          <ul className="rows">
+            {reports.map((r) => (
+              <li key={r.id} className="row">
+                <div className="row-title">
+                  <span className={`badge badge-${r.target.type}`}>{r.target.type === 'POST' ? '글' : '댓글'}</span>
+                  <Link to={`/posts/${r.target.postId}`}>글로 가기</Link>
+                </div>
+                {/* pre-wrap: 줄바꿈을 그대로. 텍스트로만 출력하므로 HTML이 실행되지 않는다 */}
+                <p className="pre-wrap-break">{r.target.preview}</p>
+                <dl className="report-meta">
+                  <div>
+                    <dt>대상 작성자</dt>
+                    <dd>{r.target.author?.nickname ?? '탈퇴한 회원 또는 작성자 없음'}</dd>
+                  </div>
+                  <div>
+                    <dt>사유</dt>
+                    <dd>{r.reason.name}</dd>
+                  </div>
+                  <div>
+                    <dt>상세</dt>
+                    <dd className="pre-wrap-break">{r.detail || '-'}</dd>
+                  </div>
+                  <div>
+                    <dt>신고자</dt>
+                    <dd>{r.reporter?.nickname ?? '탈퇴한 회원'}</dd>
+                  </div>
+                  <div>
+                    <dt>날짜</dt>
+                    <dd>{formatDate(r.createdAt)}</dd>
+                  </div>
+                </dl>
+                {status === 'PENDING' && (
+                  <div className="actions">
+                    <button type="button" className="btn btn-sm btn-danger" onClick={() => handleDelete(r)} disabled={busy}>
+                      삭제
+                    </button>
+                    <button type="button" className="btn btn-sm" onClick={() => handleDismiss(r)} disabled={busy}>
+                      문제 없음
+                    </button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {notice && <Notice kind="success">{notice}</Notice>}
       {actionError && <Notice kind="error">{actionError}</Notice>}
       {needLogin && <ReloginNotice />}

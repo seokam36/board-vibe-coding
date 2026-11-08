@@ -114,10 +114,10 @@ export default function PostEditPage() {
       {loadError && <Notice kind="error">{loadError}</Notice>}
       {/* 글을 불러오는 데 성공했을 때만 폼을 보여준다 */}
       {!loading && !loadError && (
-        <form onSubmit={handleSubmit}>
-          <div>
+        <form className="panel" onSubmit={handleSubmit}>
+          <div className="filters">
             {/* 학교는 글자로만 보여 준다 (바꿀 수 없음) */}
-            <span>{schoolName ?? '학교 미지정'}</span>{' '}
+            <span className="badge badge-school">{schoolName ?? '학교 미지정'}</span>
             <select aria-label="말머리" value={category} onChange={(e) => setCategory(e.target.value)}>
               {options.map((c) => (
                 <option key={c.code} value={c.code}>
@@ -125,9 +125,11 @@ export default function PostEditPage() {
                 </option>
               ))}
             </select>
-            {categoriesFailed && <p>말머리 목록을 불러오지 못했습니다. 지금 말머리로만 저장할 수 있습니다</p>}
           </div>
-          <div>
+          {categoriesFailed && (
+            <Notice kind="error">말머리 목록을 불러오지 못했습니다. 지금 말머리로만 저장할 수 있습니다</Notice>
+          )}
+          <div className="field">
             <label>
               제목
               <input
@@ -139,7 +141,7 @@ export default function PostEditPage() {
               />
             </label>
           </div>
-          <div>
+          <div className="field">
             <label>
               내용
               <textarea
@@ -153,14 +155,22 @@ export default function PostEditPage() {
           </div>
           {error && <Notice kind="error">{error}</Notice>}
           {needLogin && <ReloginNotice />}
-          <button type="submit" disabled={saving}>
-            {saving ? '저장 중...' : '저장'}
-          </button>{' '}
-          <Link to={`/posts/${safeId}`}>취소</Link>
+          <div className="actions">
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? '저장 중...' : '저장'}
+            </button>
+            <Link to={`/posts/${safeId}`} className="btn">
+              취소
+            </Link>
+          </div>
         </form>
       )}
       {/* 폼이 숨겨진 경우에도 돌아갈 길을 남긴다 */}
-      {loadError && <Link to="/">목록으로</Link>}
+      {loadError && (
+        <Link to="/" className="btn">
+          목록으로
+        </Link>
+      )}
     </div>
   )
 }

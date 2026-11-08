@@ -1,39 +1,488 @@
-/* 최소 스타일 */
-body {
-  font-family: system-ui, 'Segoe UI', sans-serif;
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 16px;
+/* 디자인 기준은 docs/design.md. 색(hex)은 이 :root 안에서만 정의하고 아래에서는 이름(var)으로만 쓴다 */
+:root {
+  /* 색: 항상 어두운 화면 (청자 계열의 깊은 녹회색 바탕) */
+  color-scheme: dark; /* 폼 컨트롤·스크롤바도 어둡게 */
+  --paper: #1c2421; /* 목록·글·폼이 놓이는 판 */
+  --canvas: #141a18; /* 판 바깥 바탕 */
+  --hover: #26302c; /* 버튼 위에 마우스를 올렸을 때 배경 */
+  --ink: #e4ebe8; /* 본문 글자 */
+  --muted: #9aa7a1; /* 작성자·날짜 같은 보조 글자 */
+  --line: #2f3a36; /* 행 사이 선, 입력칸 테두리 */
+  --celadon: #63bba8; /* 포인트: 링크, 선택된 탭, 주요 버튼 바탕, 포커스 윤곽 */
+  --celadon-soft: #1e3a33; /* 포인트의 어두운 배경 */
+  --celadon-ink: #8fd5c4; /* 청자 배경 위에 올리는 글자 (대비 4.5 이상) */
+  --danger: #f0907a; /* 삭제·탈퇴처럼 되돌릴 수 없는 동작 */
+  --danger-strong: #a13a27; /* 위험 버튼을 누르고 있을 때 */
+  --danger-soft: #3a2521; /* 에러 안내의 배경 */
+  --info-soft: #222d2a; /* 일반 안내의 배경 */
+  /* 말머리 뱃지 (글자색 / 배경) */
+  --badge-chat-ink: var(--muted);
+  --badge-chat-bg: #262f2c;
+  --badge-question-ink: #a9c2f0;
+  --badge-question-bg: #1f2b42;
+  /* 간격 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  /* 모서리 */
+  --radius-badge: 4px;
+  --radius-btn: 6px;
+  --radius-panel: 8px;
+  /* 글꼴 크기 */
+  --fs-small: 13px;
+  --fs-small2: 14px; /* 메뉴·작은 버튼·라벨·안내 */
+  --fs-body: 15px;
+  --fs-row: 17px;
+  --fs-title: 22px;
+  --fs-board: 30px;
+  /* 상단바가 쓰는 가로 여백: 화면이 720보다 넓으면 본문과 같은 폭에 맞춘다 */
+  /* 상단바 안쪽 여백: 본문(.page = 최대 720px + 좌우 16px 여백)의 글자 시작선과 맞춘다 */
+  --page-pad: max(16px, calc((100% - 720px) / 2 + 16px));
 }
 
-/* 레이아웃용 공용 클래스 (인라인 style 대신) */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans KR', system-ui, sans-serif;
+  font-size: var(--fs-body);
+  line-height: 1.65;
+  overflow-wrap: anywhere; /* 긴 낱말도 줄바꿈 */
+}
+
+a {
+  color: var(--celadon);
+}
+
+h1 {
+  margin: 0 0 var(--space-4);
+  font-size: var(--fs-title);
+  font-weight: 700;
+  line-height: 1.35;
+}
+h2 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-row);
+  font-weight: 700;
+}
+p {
+  margin: 0 0 var(--space-3);
+}
+small {
+  font-size: var(--fs-small);
+  color: var(--muted);
+}
+
+/* 페이지 틀: 최대 720px 가운데, 좌우 16px 이상 */
+.page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4);
+}
+
+/* 공용 레이아웃 클래스 */
 .full-width {
   width: 100%;
 }
-/* 줄바꿈·공백을 그대로 보여준다 */
 .pre-wrap {
   white-space: pre-wrap;
 }
-/* 위에 더해 긴 낱말도 줄바꿈 (관리자 신고 목록) */
 .pre-wrap-break {
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
-/* 상단바: 좁은 화면(모바일)에서 메뉴가 넘치지 않고 줄바꿈되게 한다 */
+
+/* ---------- 상단바 ---------- */
+.nav-wrap {
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+/* 좁은 화면(모바일)에서 메뉴가 넘치지 않고 줄바꿈되게 한다 */
 .nav-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--page-pad);
+}
+.nav-notice {
+  padding: 0 var(--page-pad) var(--space-3);
+}
+.nav-notice .notice {
+  margin: 0;
+}
+.nav-brand {
+  color: var(--celadon);
+  font-weight: 700;
+  font-size: var(--fs-row);
+  text-decoration: none;
 }
 .nav-menu {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--fs-small2);
 }
-/* 탭 버튼: 선택된 탭을 굵게+밑줄로 (disabled로 표현하지 않는다) */
-.tabs button[aria-pressed='true'] {
-  font-weight: bold;
+
+/* ---------- 버튼 ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-btn);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 500;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+.btn:hover:not(:disabled) {
+  background: var(--hover);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--celadon);
+  border-color: var(--celadon);
+  color: var(--canvas); /* 밝은 청자 바탕 위엔 어두운 글자 */
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--celadon);
+  filter: brightness(1.1);
+}
+/* 위험 버튼: 평소엔 빨간 글자·선만, 눌렀을 때만 진하게 */
+.btn-danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+}
+.btn-danger:active:not(:disabled) {
+  background: var(--danger-strong);
+  border-color: var(--danger-strong);
+  color: var(--ink);
+}
+.btn-sm {
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  font-size: var(--fs-small2);
+}
+/* 공감 버튼 등 눌린 상태 (hover해도 눌린 색 유지) */
+.btn[aria-pressed='true'],
+.btn[aria-pressed='true']:hover:not(:disabled) {
+  background: var(--celadon-soft);
+  border-color: var(--celadon);
+  color: var(--celadon-ink);
+}
+
+/* ---------- 입력칸 ---------- */
+input,
+select,
+textarea {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.4;
+}
+input,
+select {
+  min-height: 40px;
+}
+textarea {
+  display: block;
+  resize: vertical;
+}
+label {
+  display: block;
+  font-weight: 500;
+  font-size: var(--fs-small2);
+}
+label input,
+label textarea {
+  display: block;
+  margin-top: var(--space-1);
+  font-weight: 400;
+  font-size: var(--fs-body);
+}
+.field {
+  margin-bottom: var(--space-4);
+}
+.hint {
+  display: block;
+  margin-top: var(--space-1);
+}
+/* 키보드 포커스 윤곽 */
+:focus-visible {
+  outline: 2px solid var(--celadon);
+  outline-offset: 2px;
+}
+
+/* ---------- 안내 ---------- */
+.notice {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-panel);
+  font-size: var(--fs-small2);
+  line-height: 1.5;
+}
+.notice-error {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.notice-success {
+  background: var(--celadon-soft);
+  color: var(--celadon-ink);
+}
+.notice-info {
+  background: var(--info-soft);
+  color: var(--ink);
+}
+.loading {
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--muted);
+}
+
+/* ---------- 뱃지 ---------- */
+.badge {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: var(--radius-badge);
+  font-size: var(--fs-small);
+  font-weight: 500;
+  line-height: 1.6;
+  white-space: nowrap;
+  max-width: 100%; /* 긴 학교명이 좁은 화면에서 넘치지 않게 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.badge-CHAT,
+.badge-COMMENT {
+  color: var(--badge-chat-ink);
+  background: var(--badge-chat-bg);
+}
+.badge-QUESTION {
+  color: var(--badge-question-ink);
+  background: var(--badge-question-bg);
+}
+.badge-CAMPUS_LIFE,
+.badge-POST {
+  color: var(--celadon-ink);
+  background: var(--celadon-soft);
+}
+.badge-school {
+  color: var(--muted);
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+/* ---------- 판(흰 바탕 영역)과 행 ---------- */
+.panel {
+  margin-bottom: var(--space-4);
+  padding: var(--space-4);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+}
+/* 안에 행 목록을 바로 넣는 판 */
+.panel-flush {
+  padding: 0;
+}
+.panel-state {
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--muted);
+}
+.panel-danger h2 {
+  color: var(--danger);
+}
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.row {
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+}
+.row:first-child {
+  border-top: 0;
+}
+/* 행 안 마지막 요소의 아래 여백을 없애 위·아래 여백을 맞춘다 */
+.row > :last-child {
+  margin-bottom: 0;
+}
+.row-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.row-link {
+  min-width: 0;
+  color: var(--ink);
+  font-size: var(--fs-row);
+  font-weight: 500;
+  text-decoration: none;
+}
+.row-link:hover {
   text-decoration: underline;
+}
+/* 작성자·날짜·댓글·공감: 가운뎃점 대신 간격으로 나눈다 */
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-3);
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--muted);
+}
+
+/* 목록 머리말: 이 사이트에서 가장 크고 굵은 글자 */
+.board-title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-board);
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.toolbar .filters {
+  margin-bottom: 0;
+}
+
+/* 상세 */
+.post-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-title);
+}
+.post-body {
+  margin: var(--space-4) 0 0;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.report-open {
+  flex: 1 1 100%;
+}
+.report-box {
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+}
+.report-box select {
+  margin-bottom: var(--space-2);
+}
+.comments {
+  margin-top: var(--space-5);
+}
+.comment-form {
+  margin-top: var(--space-3);
+}
+.comment-form .btn {
+  margin-top: var(--space-2);
+}
+
+/* 로그인·가입 카드 */
+.auth-card {
+  max-width: 400px;
+  margin: var(--space-5) auto;
+}
+.stack {
+  display: grid;
+  gap: var(--space-2);
+}
+
+/* 관리자 신고 */
+.report-meta {
+  margin: var(--space-2) 0;
+  font-size: var(--fs-small);
+}
+.report-meta div {
+  display: flex;
+  gap: var(--space-2);
+}
+.report-meta dt {
+  flex: 0 0 72px;
+  color: var(--muted);
+}
+.report-meta dd {
+  margin: 0;
+  min-width: 0;
+}
+
+/* 탭 버튼: 선택된 탭은 청자색 밑줄 + 색 (disabled로 표현하지 않는다) */
+.tabs {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+.tabs button {
+  min-height: 40px;
+  padding: 0 var(--space-1);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+.tabs button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.tabs button[aria-pressed='true'] {
+  color: var(--celadon);
+  font-weight: 500; /* 굵기는 그대로 둬 폭이 흔들리지 않게 */
+  border-bottom-color: var(--celadon);
+}
+
+/* 움직임을 줄이도록 설정한 사람에게는 전환 효과를 끈다 */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
 }

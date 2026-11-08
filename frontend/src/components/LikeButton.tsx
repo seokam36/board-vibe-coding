@@ -81,6 +81,7 @@ export default function LikeButton({ postId, initialCount }: { postId: string; i
         type="button"
         onClick={handleClick}
         disabled={busy}
+        className="btn btn-sm"
         aria-pressed={liked}
         aria-label={liked ? `공감 취소 (현재 ${count}명)` : `공감 (현재 ${count}명)`}
       >

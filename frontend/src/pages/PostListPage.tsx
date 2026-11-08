@@ -6,7 +6,6 @@ import { errorText } from '../errorMessage'
 import Loading from '../components/Loading'
 import { LOADING_TEXT } from '../components/loadingText'
 import Notice from '../components/Notice'
-import { SITE_NAME } from '../siteName'
 import { formatDate } from '../formatDate'
 import type { Category, Post, School } from '../types'
 
@@ -107,55 +106,80 @@ export default function PostListPage() {
   const schoolsPending = schools === null && !optionsFailed
   const categoriesPending = categories === null && !optionsFailed
 
+  // 머리말: 고른 학교 이름, 학교를 안 골랐으면 "전체 게시판"
+  // 학교 목록을 기다리는 중이면 높이만 차지하는 빈 머리말(깜빡임 방지), 목록 실패·없는 학교면 "학교 게시판"
+  const boardTitle = !schoolId
+    ? '전체 게시판'
+    : (schools ?? []).find((s) => String(s.id) === schoolId)?.name ?? (schoolsPending ? ' ' : '학교 게시판')
+
   return (
     <div>
-      <h1>{SITE_NAME}</h1>
+      <h1 className="board-title">{boardTitle}</h1>
       {/* 회원 탈퇴 화면이 라우터 state로 넘긴 완료 문구 (없으면 안 보임) */}
       {notice && <Notice kind="info">{notice}</Notice>}
-      {/* 글쓰기 버튼은 항상 보이되, 비로그인이면 로그인 화면으로 보낸다 */}
-      <button onClick={() => navigate(user ? '/posts/new' : '/login')}>글쓰기</button>
-      <div>
-        <select aria-label="학교" value={schoolId} onChange={(e) => changeFilter('schoolId', e.target.value)}>
-          <option value="">전체 학교</option>
-          {schoolMissing && (
-            <option value={schoolId}>{schoolsPending ? LOADING_TEXT : `알 수 없는 학교 (${schoolId})`}</option>
-          )}
-          {(schools ?? []).map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>{' '}
-        <select aria-label="말머리" value={category} onChange={(e) => changeFilter('category', e.target.value)}>
-          <option value="">전체 말머리</option>
-          {categoryMissing && (
-            <option value={category}>{categoriesPending ? LOADING_TEXT : `알 수 없는 말머리 (${category})`}</option>
-          )}
-          {(categories ?? []).map((c) => (
-            <option key={c.code} value={c.code}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        {optionsFailed && <p>학교·말머리 목록을 불러오지 못했습니다</p>}
+      <div className="toolbar">
+        <div className="filters">
+          <select aria-label="학교" value={schoolId} onChange={(e) => changeFilter('schoolId', e.target.value)}>
+            <option value="">전체 학교</option>
+            {schoolMissing && (
+              <option value={schoolId}>{schoolsPending ? LOADING_TEXT : `알 수 없는 학교 (${schoolId})`}</option>
+            )}
+            {(schools ?? []).map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <select aria-label="말머리" value={category} onChange={(e) => changeFilter('category', e.target.value)}>
+            <option value="">전체 말머리</option>
+            {categoryMissing && (
+              <option value={category}>{categoriesPending ? LOADING_TEXT : `알 수 없는 말머리 (${category})`}</option>
+            )}
+            {(categories ?? []).map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {/* 글쓰기 버튼은 항상 보이되, 비로그인이면 로그인 화면으로 보낸다 */}
+        <button type="button" className="btn btn-primary" onClick={() => navigate(user ? '/posts/new' : '/login')}>
+          글쓰기
+        </button>
       </div>
-      {loading && <Loading />}
-      {error && <Notice kind="error">{error}</Notice>}
-      {!loading && !error && posts.length === 0 && <p>아직 글이 없습니다</p>}
-      <ul>
-        {posts.map((post) => (
-          // key: 목록의 각 항목을 구분하는 고유값 (React 필수)
-          <li key={post.id}>
-            <small>[{post.category.name}]</small> <small>{post.school?.name ?? '학교 미지정'}</small>{' '}
-            <Link to={`/posts/${post.id}`}>{post.title}</Link> <small>{post.author?.nickname ?? '(작성자 없음)'}</small>{' '}
-            <small>{formatDate(post.createdAt)}</small>{' '}
-            {/* 댓글 수·공감 수 */}
-            <small>
-              댓글 {post.commentCount} · 공감 {post.likeCount}
-            </small>
-          </li>
-        ))}
-      </ul>
+      {optionsFailed && <Notice kind="error">학교·말머리 목록을 불러오지 못했습니다</Notice>}
+      {/* 글 목록: 판 하나 안의 행들. 로딩·에러·빈 목록도 같은 판 안에 보여 준다 */}
+      <div className="panel panel-flush">
+        {loading && <Loading />}
+        {error && (
+          <div className="panel-state">
+            <Notice kind="error">{error}</Notice>
+          </div>
+        )}
+        {!loading && !error && posts.length === 0 && <p className="panel-state">아직 글이 없습니다</p>}
+        <ul className="rows">
+          {posts.map((post) => (
+            // key: 목록의 각 항목을 구분하는 고유값 (React 필수)
+            <li key={post.id} className="row">
+              <div className="row-title">
+                <span className={`badge badge-${post.category.code}`}>{post.category.name}</span>
+                {/* 학교로 거른 화면에서는 모두 같은 학교라 뱃지를 생략한다 */}
+                {!schoolId && <span className="badge badge-school">{post.school?.name ?? '학교 미지정'}</span>}
+                <Link to={`/posts/${post.id}`} className="row-link">
+                  {post.title}
+                </Link>
+              </div>
+              {/* 작성자·날짜·댓글 수·공감 수 */}
+              <p className="meta">
+                <span>{post.author?.nickname ?? '(작성자 없음)'}</span>
+                <span>{formatDate(post.createdAt)}</span>
+                <span>댓글 {post.commentCount}</span>
+                <span>공감 {post.likeCount}</span>
+              </p>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   )
 }

@@ -79,8 +79,8 @@ export default function PostCreatePage() {
   return (
     <div>
       <h1>글쓰기</h1>
-      <form onSubmit={handleSubmit}>
-        <div>
+      <form className="panel" onSubmit={handleSubmit}>
+        <div className="filters">
           {/* 처음엔 빈 option("학교 선택")이 골라져 있다 */}
           <select aria-label="학교" value={schoolId} onChange={(e) => setSchoolId(e.target.value)}>
             <option value="">학교 선택</option>
@@ -89,7 +89,7 @@ export default function PostCreatePage() {
                 {s.name}
               </option>
             ))}
-          </select>{' '}
+          </select>
           <select aria-label="말머리" value={category} onChange={(e) => setCategory(e.target.value)}>
             <option value="">말머리 선택</option>
             {(categories ?? []).map((c) => (
@@ -98,9 +98,9 @@ export default function PostCreatePage() {
               </option>
             ))}
           </select>
-          {optionsFailed && <Notice kind="error">학교·말머리 목록을 불러오지 못했습니다</Notice>}
         </div>
-        <div>
+        {optionsFailed && <Notice kind="error">학교·말머리 목록을 불러오지 못했습니다</Notice>}
+        <div className="field">
           {/* label로 감싸면 스크린리더가 입력창의 이름을 읽을 수 있다 */}
           <label>
             제목
@@ -113,7 +113,7 @@ export default function PostCreatePage() {
             />
           </label>
         </div>
-        <div>
+        <div className="field">
           <label>
             내용
             <textarea
@@ -127,10 +127,14 @@ export default function PostCreatePage() {
         </div>
         {error && <Notice kind="error">{error}</Notice>}
         {needLogin && <ReloginNotice />}
-        <button type="submit" disabled={saving}>
-          {saving ? '저장 중...' : '저장'}
-        </button>{' '}
-        <Link to="/">목록으로</Link>
+        <div className="actions">
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            {saving ? '저장 중...' : '저장'}
+          </button>
+          <Link to="/" className="btn">
+            목록으로
+          </Link>
+        </div>
       </form>
     </div>
   )

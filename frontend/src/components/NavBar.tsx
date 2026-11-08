@@ -21,28 +21,37 @@ export default function NavBar() {
   }
 
   return (
-    // nav-bar: 좁은 화면(모바일)에서 메뉴가 넘치지 않고 줄바꿈되게 하는 레이아웃 클래스 (index.css)
-    <nav className="nav-bar">
-      <Link to="/">{SITE_NAME}</Link>
-      <span className="nav-menu">
-        {user ? (
-          <>
-            {user.nickname} 님 <Link to="/me">내 정보</Link>{' '}
-            {/* 관리자에게만 보이는 메뉴 */}
-            {isAdmin(user) && (
-              <>
-                <Link to="/admin/reports">신고 관리</Link>{' '}
-              </>
-            )}
-            <button onClick={handleLogout}>로그아웃</button>
-          </>
-        ) : (
-          <>
-            <Link to="/login">로그인</Link> <Link to="/signup">회원가입</Link>
-          </>
-        )}
-      </span>
-      {error && <Notice kind="error">{error}</Notice>}
-    </nav>
+    <header className="nav-wrap">
+      {/* nav-bar: 좁은 화면(모바일)에서 메뉴가 넘치지 않고 줄바꿈되게 하는 레이아웃 클래스 (index.css) */}
+      <nav className="nav-bar">
+        <Link to="/" className="nav-brand">
+          {SITE_NAME}
+        </Link>
+        <span className="nav-menu">
+          {user ? (
+            <>
+              <span>{user.nickname} 님</span>
+              <Link to="/me">내 정보</Link>
+              {/* 관리자에게만 보이는 메뉴 */}
+              {isAdmin(user) && <Link to="/admin/reports">신고 관리</Link>}
+              <button type="button" className="btn btn-sm" onClick={handleLogout}>
+                로그아웃
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/login">로그인</Link>
+              <Link to="/signup">회원가입</Link>
+            </>
+          )}
+        </span>
+      </nav>
+      {/* 로그아웃 실패 안내는 메뉴 줄 밖에 둔다 */}
+      {error && (
+        <div className="nav-notice">
+          <Notice kind="error">{error}</Notice>
+        </div>
+      )}
+    </header>
   )
 }

@@ -154,77 +154,88 @@ export default function CommentSection({ postId }: { postId: string }) {
   }
 
   return (
-    <section>
+    <section className="comments">
       <h2>댓글{comments ? ` ${comments.length}` : ''}</h2>
       {loadError && (
         <Notice kind="error">
-          {loadError} <button type="button" onClick={retryLoad}>다시 시도</button>
+          {loadError}{' '}
+          <button type="button" className="btn btn-sm" onClick={retryLoad}>
+            다시 시도
+          </button>
         </Notice>
       )}
       {/* 아직 응답 전이면 비어 있는 게 아니라 불러오는 중이라고 알린다 */}
       {comments === null && !loadError && <Loading prefix="댓글" />}
-      {comments && comments.length === 0 && <p>아직 댓글이 없습니다</p>}
-      <ul>
-        {(comments ?? []).map((c) => (
-          <li key={c.id}>
-            <small>{c.author?.nickname ?? '(작성자 없음)'}</small> <small>{formatDate(c.createdAt)}</small>
-            {editingId === c.id ? (
-              // 인라인 편집: 내용이 textarea로 바뀌고 저장/취소가 나온다
-              <div>
-                <textarea
-                  aria-label="댓글 수정"
-                  value={editText}
-                  onChange={(e) => setEditText(e.target.value)}
-                  rows={3}
-                  className="full-width"
-                />
-                <button type="button" onClick={() => handleSave(c)} disabled={busy}>
-                  {busy ? '저장 중...' : '저장'}
-                </button>{' '}
-                <button type="button" onClick={() => setEditingId(null)} disabled={busy}>
-                  취소
-                </button>
-              </div>
-            ) : (
-              <>
-                {/* pre-wrap: 줄바꿈을 그대로 보여준다. 텍스트로만 출력하므로 HTML이 실행되지 않는다 */}
-                <p className="pre-wrap">{c.content}</p>
-                {/* 수정은 내 댓글만, 삭제는 내 댓글 또는 관리자. 화면에서 숨기는 건 편의일 뿐, 진짜 보호는 서버의 403이다 */}
-                {user && (c.author?.id === user.id || isAdmin(user)) && (
+      {/* 글 목록과 같은 판 스타일: 흰 판 하나 안의 행들 */}
+      {comments && (
+        <div className="panel panel-flush">
+          {comments.length === 0 && <p className="panel-state">아직 댓글이 없습니다</p>}
+          <ul className="rows">
+            {comments.map((c) => (
+              <li key={c.id} className="row">
+                <p className="meta">
+                  <span>{c.author?.nickname ?? '(작성자 없음)'}</span>
+                  <span>{formatDate(c.createdAt)}</span>
+                </p>
+                {editingId === c.id ? (
+                  // 인라인 편집: 내용이 textarea로 바뀌고 저장/취소가 나온다
                   <div>
-                    {c.author?.id === user.id && (
-                      <>
-                        <button type="button" onClick={() => startEdit(c)} disabled={busy}>
-                          수정
-                        </button>{' '}
-                      </>
-                    )}
-                    <button type="button" onClick={() => handleDelete(c)} disabled={busy}>
-                      삭제
-                    </button>
+                    <textarea
+                      aria-label="댓글 수정"
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      rows={3}
+                      className="full-width"
+                    />
+                    <div className="actions">
+                      <button type="button" className="btn btn-sm btn-primary" onClick={() => handleSave(c)} disabled={busy}>
+                        {busy ? '저장 중...' : '저장'}
+                      </button>
+                      <button type="button" className="btn btn-sm" onClick={() => setEditingId(null)} disabled={busy}>
+                        취소
+                      </button>
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    {/* pre-wrap: 줄바꿈을 그대로 보여준다. 텍스트로만 출력하므로 HTML이 실행되지 않는다 */}
+                    <p className="pre-wrap">{c.content}</p>
+                    <div className="actions">
+                      {/* 수정은 내 댓글만, 삭제는 내 댓글 또는 관리자. 화면에서 숨기는 건 편의일 뿐, 진짜 보호는 서버의 403이다 */}
+                      {user && c.author?.id === user.id && (
+                        <button type="button" className="btn btn-sm" onClick={() => startEdit(c)} disabled={busy}>
+                          수정
+                        </button>
+                      )}
+                      {user && (c.author?.id === user.id || isAdmin(user)) && (
+                        <button type="button" className="btn btn-sm btn-danger" onClick={() => handleDelete(c)} disabled={busy}>
+                          삭제
+                        </button>
+                      )}
+                      {/* 신고: 로그인했고 내 댓글이 아닐 때만 (작성자 없는 옛 댓글도 신고 가능) */}
+                      {user && c.author?.id !== user.id && (
+                        <ReportForm
+                          url={`/comments/${c.id}/reports`}
+                          label="댓글"
+                          onNeedLogin={() => {
+                            resetNotices()
+                            setNeedLogin(true) // 로그인 안내는 아래 user 조건 밖에서 보여 준다
+                          }}
+                        />
+                      )}
+                    </div>
+                  </>
                 )}
-                {/* 신고: 로그인했고 내 댓글이 아닐 때만 (작성자 없는 옛 댓글도 신고 가능) */}
-                {user && c.author?.id !== user.id && (
-                  <ReportForm
-                    url={`/comments/${c.id}/reports`}
-                    label="댓글"
-                    onNeedLogin={() => {
-                      resetNotices()
-                      setNeedLogin(true) // 로그인 안내는 아래 user 조건 밖에서 보여 준다
-                    }}
-                  />
-                )}
-              </>
-            )}
-          </li>
-        ))}
-      </ul>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {/* 실패 안내는 목록·입력칸 밖에 둔다(로그인이 풀려 버튼이 사라져도 안내가 남게) */}
       {actionError && <Notice kind="error">{actionError}</Notice>}
       {needLogin && <ReloginNotice />}
       {user ? (
-        <form onSubmit={handleCreate}>
+        <form className="comment-form" onSubmit={handleCreate}>
           <textarea
             aria-label="댓글 내용"
             value={newText}
@@ -233,7 +244,7 @@ export default function CommentSection({ postId }: { postId: string }) {
             placeholder="댓글을 입력하세요"
             className="full-width"
           />
-          <button type="submit" disabled={posting}>
+          <button type="submit" className="btn btn-primary" disabled={posting}>
             {posting ? '등록 중...' : '등록'}
           </button>
         </form>

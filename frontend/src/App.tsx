@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router'
+import { Link, Route, Routes } from 'react-router'
 import { useAuth } from './auth/useAuth'
 import Loading from './components/Loading'
 import NavBar from './components/NavBar'
@@ -16,48 +16,59 @@ import AdminReportsPage from './pages/AdminReportsPage'
 export default function App() {
   const { loading } = useAuth()
   // 시작 시 CSRF 쿠키 확보 + 로그인 확인이 끝나기 전에는 화면을 그리지 않는다 (첫 쓰기 요청보다 쿠키가 먼저여야 하므로)
-  if (loading) return <Loading />
+  if (loading) return <main className="page"><Loading /></main>
 
   return (
     <>
       <NavBar />
-      <Routes>
-        <Route path="/" element={<PostListPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        {/* "/posts/new"와 "/posts/:id"가 겹쳐 보이지만, React Router는 더 구체적인 경로를 우선한다 */}
-        {/* 글쓰기·수정 화면은 로그인한 사람만: 비로그인이면 RequireLogin이 /login 으로 보낸다 (단, 로그인이 풀린 그 화면은 예외) */}
-        <Route
-          path="/posts/new"
-          element={
-            <RequireLogin>
-              <PostCreatePage />
-            </RequireLogin>
-          }
-        />
-        <Route path="/posts/:id" element={<PostDetailPage />} />
-        <Route
-          path="/posts/:id/edit"
-          element={
-            <RequireLogin>
-              <PostEditPage />
-            </RequireLogin>
-          }
-        />
-        {/* 내 정보: 로그인한 사람만 */}
-        <Route
-          path="/me"
-          element={
-            <RequireLogin>
-              <MyPage />
-            </RequireLogin>
-          }
-        />
-        {/* 신고 관리: 관리자 여부는 페이지 안에서 확인한다 */}
-        <Route path="/admin/reports" element={<AdminReportsPage />} />
-        {/* 위 어디에도 안 맞는 주소 */}
-        <Route path="*" element={<p>페이지를 찾을 수 없습니다</p>} />
-      </Routes>
+      {/* page: 본문 틀(최대 720px 가운데) */}
+      <main className="page">
+        <Routes>
+          <Route path="/" element={<PostListPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          {/* "/posts/new"와 "/posts/:id"가 겹쳐 보이지만, React Router는 더 구체적인 경로를 우선한다 */}
+          {/* 글쓰기·수정 화면은 로그인한 사람만: 비로그인이면 RequireLogin이 /login 으로 보낸다 (단, 로그인이 풀린 그 화면은 예외) */}
+          <Route
+            path="/posts/new"
+            element={
+              <RequireLogin>
+                <PostCreatePage />
+              </RequireLogin>
+            }
+          />
+          <Route path="/posts/:id" element={<PostDetailPage />} />
+          <Route
+            path="/posts/:id/edit"
+            element={
+              <RequireLogin>
+                <PostEditPage />
+              </RequireLogin>
+            }
+          />
+          {/* 내 정보: 로그인한 사람만 */}
+          <Route
+            path="/me"
+            element={
+              <RequireLogin>
+                <MyPage />
+              </RequireLogin>
+            }
+          />
+          {/* 신고 관리: 관리자 여부는 페이지 안에서 확인한다 */}
+          <Route path="/admin/reports" element={<AdminReportsPage />} />
+          {/* 위 어디에도 안 맞는 주소 */}
+          <Route
+            path="*"
+            element={
+              <div className="panel">
+                <h1>페이지를 찾을 수 없습니다</h1>
+                <Link to="/">홈으로</Link>
+              </div>
+            }
+          />
+        </Routes>
+      </main>
     </>
   )
 }

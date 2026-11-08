@@ -41,25 +41,26 @@ export default function LoginPage() {
   }
 
   return (
-    <div>
+    <div className="panel auth-card">
       <h1>로그인</h1>
       {notice && <Notice kind="info">{notice}</Notice>}
-      <p>HTTP라서 실제로 쓰는 비밀번호는 쓰지 마세요</p>
+      <Notice kind="info">HTTP라서 실제로 쓰는 비밀번호는 쓰지 마세요</Notice>
       <form onSubmit={handleSubmit}>
-        <div>
+        <div className="field">
           <label>
             아이디
             {/* 휴대폰이 첫 글자를 대문자로 바꾸면 로그인이 실패하므로 자동 대문자·맞춤법 검사를 끈다 */}
             <input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              className="full-width"
               autoComplete="username"
               autoCapitalize="none"
               spellCheck={false}
             />
           </label>
         </div>
-        <div>
+        <div className="field">
           <label>
             비밀번호
             <input
@@ -67,14 +68,19 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
+              className="full-width"
             />
           </label>
         </div>
         {error && <Notice kind="error">{error}</Notice>}
-        <button type="submit" disabled={saving}>
-          {saving ? '로그인 중...' : '로그인'}
-        </button>{' '}
-        <Link to="/">목록으로</Link>
+        <div className="stack">
+          <button type="submit" className="btn btn-primary full-width" disabled={saving}>
+            {saving ? '로그인 중...' : '로그인'}
+          </button>
+          <Link to="/" className="btn full-width">
+            목록으로
+          </Link>
+        </div>
       </form>
     </div>
   )
