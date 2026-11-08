@@ -48,7 +48,7 @@
   - [x] S9-a. V4(users.role) + 토큰·응답에 role + 글·댓글 삭제 "본인 또는 관리자"(관리자 권한은 DB 재확인) + 공감 취소·조회 유령 토큰 401 통일
   - [x] S9-b. V5(reports 표) + 신고 API(글·댓글) + 사유 목록 API
   - [x] S9-c. 관리자 신고 API (목록·기각)
-  - [ ] S9-d. 화면 (신고 버튼, 관리자 삭제 버튼, 신고 관리 페이지)
+  - [x] S9-d. 화면 (신고 버튼, 관리자 삭제 버튼, 신고 관리 페이지)
   - [ ] S9-e. EC2 배포 (관리자 지정 SQL·V4/V5 되돌리기 메모를 deploy.md에)
 - [ ] S10. 학교 메일 인증 (표시는 "학교 인증 완료", 인증 전에는 읽기만 가능하고 학교 게시판 글쓰기·비자 후기는 인증 후 가능, 졸업 후에도 인증 유지. 여권번호·외국인등록번호는 받지 않는다. 유학생 여부 확인은 나중에 전문 업체 인증으로 확장 검토)
 - [ ] S11. 비자 후기와 학교별 통계 (공식 안내 링크와 작성일을 함께 표시, 신청 대행·개인별 법률 판단은 하지 않는다)
@@ -105,4 +105,5 @@
 | 2026-11-07 | S8 후속 | 전체 리뷰 반영: FK/UNIQUE 위반 해석을 common/ConstraintViolations 하나로(세 서비스 복붙 제거), ApiErrors(404·401 공장), 탈퇴·글 삭제 vs 댓글·공감 작성 경쟁 테스트 4개(LockRaceSupport) + 유령 토큰·CSRF·PUT 응답 숫자·post_likes CASCADE 테스트, api.md 절 순서·탈퇴 항목 정리, deploy.md에 DB 메시지 언어 전제. 테스트 357개 | (이 커밋) |
 | 2026-11-08 | S9-a | V4(users.role USER/ADMIN, 기존 회원 USER, 지정은 DB SQL로만) + 토큰 role 클레임(없거나 이상하면 USER) + 로그인·재발급·내 정보 응답에 role + 글·댓글 삭제 "본인 또는 관리자"(관리자는 AccessGuard가 DB 재확인: 없음 401·강등 403, 수정은 관리자도 403) + 공감 취소·조회 유령 토큰 401 + 회원 재확인 AccessGuard로 통일. 테스트 399개 | f027b3b |
 | 2026-11-08 | S9-b | V5(reports 표: 글·댓글 중 정확히 하나, 대상 삭제 시 CASCADE, 신고자 탈퇴 시 SET NULL, 같은 회원·같은 대상 UNIQUE) + 신고 API 2개(201, 사유 5개 + 상세 선택 300자, 자기 것 400, 중복 409는 동시 요청까지 방어, 저장 직전 삭제·탈퇴는 FK 이름으로 404/401) + GET /report-reasons 공개. ApiErrors.commentNotFound 공용화. 테스트 445개 | 3592d9e |
-| 2026-11-08 | S9-c | 관리자 신고 API: /admin/**는 토큰 role 클레임으로 hasRole("ADMIN") + AccessGuard.requireAdmin이 DB 재확인(없음 401·강등 403). GET /admin/reports?status(기본 PENDING, 대상 미리보기·작성자·신고자 포함, left join fetch로 신고 수와 무관하게 쿼리 고정) + PUT /admin/reports/{id}/dismiss(조건부 UPDATE로 동시 기각 시 하나만 200·나머지 409, 없으면 404). 테스트 475개 | (이 커밋) |
+| 2026-11-08 | S9-c | 관리자 신고 API: /admin/**는 토큰 role 클레임으로 hasRole("ADMIN") + AccessGuard.requireAdmin이 DB 재확인(없음 401·강등 403). GET /admin/reports?status(기본 PENDING, 대상 미리보기·작성자·신고자 포함, left join fetch로 신고 수와 무관하게 쿼리 고정) + PUT /admin/reports/{id}/dismiss(조건부 UPDATE로 동시 기각 시 하나만 200·나머지 409, 없으면 404). 테스트 475개 | c68d2fe |
+| 2026-11-08 | S9-d | 화면: 글·댓글 신고 양식(사유 목록·상세 300자, 201/409/404/400 안내, 로그인 풀리면 부모가 안내), 관리자는 남의 글·댓글 삭제 버튼, 상단바 "신고 관리"(관리자만), /admin/reports(미처리·기각 탭, 삭제·문제 없음, 처리 후 재조회까지 버튼 잠금). 본인 삭제 403은 새로고침 안내. 브라우저 확인 | (이 커밋) |

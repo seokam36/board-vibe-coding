@@ -6,6 +6,7 @@ import { useAuth } from '../auth/useAuth'
 import CommentSection from '../components/CommentSection'
 import LikeButton from '../components/LikeButton'
 import ReloginNotice from '../components/ReloginNotice'
+import ReportForm from '../components/ReportForm'
 import { formatDate } from '../formatDate'
 import type { Post } from '../types'
 
@@ -22,6 +23,7 @@ export default function PostDetailPage() {
   const [needLogin, setNeedLogin] = useState(false)
   const navigate = useNavigate()
   const { user } = useAuth()
+  const isMine = !!user && post?.author?.id === user.id // 내 글인지
 
   // id가 바뀔 때마다 다시 불러온다 (의존성 배열 [id])
   useEffect(() => {
@@ -67,8 +69,9 @@ export default function PostDetailPage() {
     } catch (err: unknown) {
       if (isNetworkError(err)) setDeleteError(NETWORK_ERROR_MESSAGE)
       else if (getStatus(err) === 401) setNeedLogin(true)
-      // 403: 남의 글. (CSRF 토큰 오류도 403이라 구분이 안 된다 — 이번에는 처리하지 않음)
-      else if (getStatus(err) === 403) setDeleteError('본인 글만 삭제할 수 있습니다')
+      // 403: 남의 글이거나, 본인 글인데 CSRF 토큰 오류. 본인이면 새로고침을 안내한다
+      else if (getStatus(err) === 403)
+        setDeleteError(isMine ? '삭제하지 못했습니다. 새로고침 후 다시 시도해 주세요' : '삭제할 권한이 없습니다')
       else if (getStatus(err) === 404) setDeleteError('이미 삭제된 글입니다')
       else setDeleteError('삭제하지 못했습니다')
       setDeleting(false) // 실패했을 때만 버튼을 되살린다 (성공하면 페이지가 바뀐다)
@@ -92,14 +95,25 @@ export default function PostDetailPage() {
       )}
       {/* 공감 버튼과 댓글 영역 (글을 불러온 뒤에만) */}
       {post && <LikeButton postId={id ?? ''} initialCount={post.likeCount} />}
-      {/* 내 글일 때만 수정·삭제 버튼을 보여준다. 화면에서 숨기는 건 편의일 뿐, 진짜 보호는 서버의 403이다 */}
-      {post && user && post.author?.id === user.id && (
+      {/* 수정은 내 글만, 삭제는 내 글 또는 관리자. 화면에서 숨기는 건 편의일 뿐, 진짜 보호는 서버의 403이다 */}
+      {post && user && (isMine || user.role === 'ADMIN') && (
         <div>
-          <Link to={`/posts/${encodeURIComponent(id ?? '')}/edit`}>수정</Link>{' '}
+          {isMine && <Link to={`/posts/${encodeURIComponent(id ?? '')}/edit`}>수정</Link>}{' '}
           <button type="button" onClick={handleDelete} disabled={deleting}>
             {deleting ? '삭제 중...' : '삭제'}
           </button>
         </div>
+      )}
+      {/* 신고는 로그인했고 내 글이 아닐 때만 (작성자 없는 옛 글은 신고 가능) */}
+      {post && user && !isMine && (
+        <ReportForm
+          url={`/posts/${encodeURIComponent(id ?? '')}/reports`}
+          label="글"
+          onNeedLogin={() => {
+            setDeleteError(null)
+            setNeedLogin(true) // 로그인 안내는 아래 user 조건 밖에서 보여 준다
+          }}
+        />
       )}
       {/* 삭제 실패 안내는 버튼 영역 밖에 둔다(로그인이 풀려 버튼이 사라져도 안내가 남게) */}
       {deleteError && <p role="alert">{deleteError}</p>}

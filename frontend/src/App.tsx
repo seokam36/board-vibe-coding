@@ -9,6 +9,7 @@ import PostDetailPage from './pages/PostDetailPage'
 import PostEditPage from './pages/PostEditPage'
 import MyPage from './pages/MyPage'
 import SignupPage from './pages/SignupPage'
+import AdminReportsPage from './pages/AdminReportsPage'
 
 // 주소별로 어떤 페이지를 보여줄지 정하는 곳
 export default function App() {
@@ -51,6 +52,8 @@ export default function App() {
             </RequireLogin>
           }
         />
+        {/* 신고 관리: 관리자 여부는 페이지 안에서 확인한다 */}
+        <Route path="/admin/reports" element={<AdminReportsPage />} />
         {/* 위 어디에도 안 맞는 주소 */}
         <Route path="*" element={<p>페이지를 찾을 수 없습니다</p>} />
       </Routes>

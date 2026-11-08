@@ -6,6 +6,7 @@ import { NETWORK_ERROR_MESSAGE, getStatus, isNetworkError } from '../errorMessag
 import { useAuth } from '../auth/useAuth'
 import { formatDate } from '../formatDate'
 import ReloginNotice from './ReloginNotice'
+import ReportForm from './ReportForm'
 import type { Comment } from '../types'
 
 const CONTENT_ERROR = '내용을 입력해 주세요 (최대 1000자)'
@@ -128,7 +129,14 @@ export default function CommentSection({ postId }: { postId: string }) {
       await api.delete(`/comments/${c.id}`)
       setComments((prev) => (prev ?? []).filter((x) => x.id !== c.id))
     } catch (err: unknown) {
-      showError(err, '삭제하지 못했습니다', '본인 댓글만 삭제할 수 있습니다', '이미 삭제된 댓글입니다')
+      // 403: 남의 댓글이면 권한 없음, 본인 댓글이면 CSRF 토큰 오류 가능성이라 새로고침을 안내한다
+      const mine = !!user && c.author?.id === user.id
+      showError(
+        err,
+        '삭제하지 못했습니다',
+        mine ? '삭제하지 못했습니다. 새로고침 후 다시 시도해 주세요' : '삭제할 권한이 없습니다',
+        '이미 삭제된 댓글입니다',
+      )
       if (getStatus(err) === 404) setComments((prev) => (prev ?? []).filter((x) => x.id !== c.id))
     } finally {
       setBusy(false)
@@ -171,16 +179,31 @@ export default function CommentSection({ postId }: { postId: string }) {
               <>
                 {/* pre-wrap: 줄바꿈을 그대로 보여준다. 텍스트로만 출력하므로 HTML이 실행되지 않는다 */}
                 <p style={{ whiteSpace: 'pre-wrap' }}>{c.content}</p>
-                {/* 내 댓글에만 버튼을 보인다. 화면에서 숨기는 건 편의일 뿐, 진짜 보호는 서버의 403이다 */}
-                {user && c.author?.id === user.id && (
+                {/* 수정은 내 댓글만, 삭제는 내 댓글 또는 관리자. 화면에서 숨기는 건 편의일 뿐, 진짜 보호는 서버의 403이다 */}
+                {user && (c.author?.id === user.id || user.role === 'ADMIN') && (
                   <div>
-                    <button type="button" onClick={() => startEdit(c)} disabled={busy}>
-                      수정
-                    </button>{' '}
+                    {c.author?.id === user.id && (
+                      <>
+                        <button type="button" onClick={() => startEdit(c)} disabled={busy}>
+                          수정
+                        </button>{' '}
+                      </>
+                    )}
                     <button type="button" onClick={() => handleDelete(c)} disabled={busy}>
                       삭제
                     </button>
                   </div>
+                )}
+                {/* 신고: 로그인했고 내 댓글이 아닐 때만 (작성자 없는 옛 댓글도 신고 가능) */}
+                {user && c.author?.id !== user.id && (
+                  <ReportForm
+                    url={`/comments/${c.id}/reports`}
+                    label="댓글"
+                    onNeedLogin={() => {
+                      resetNotices()
+                      setNeedLogin(true) // 로그인 안내는 아래 user 조건 밖에서 보여 준다
+                    }}
+                  />
                 )}
               </>
             )}

@@ -18,12 +18,20 @@ export default function NavBar() {
   }
 
   return (
-    <nav style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+    // flexWrap: 좁은 화면(모바일)에서 메뉴가 넘치지 않고 줄바꿈되게 한다
+    <nav style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', marginBottom: 16 }}>
       <Link to="/">게시판</Link>
-      <span>
+      <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 8 }}>
         {user ? (
           <>
-            {user.nickname} 님 <Link to="/me">내 정보</Link> <button onClick={handleLogout}>로그아웃</button>
+            {user.nickname} 님 <Link to="/me">내 정보</Link>{' '}
+            {/* 관리자에게만 보이는 메뉴 */}
+            {user.role === 'ADMIN' && (
+              <>
+                <Link to="/admin/reports">신고 관리</Link>{' '}
+              </>
+            )}
+            <button onClick={handleLogout}>로그아웃</button>
           </>
         ) : (
           <>

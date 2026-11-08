@@ -52,3 +52,29 @@ export interface PostUpdateRequest {
   content: string
   category: string // 말머리 code
 }
+
+// 신고 사유 한 종류 (GET /report-reasons). code는 요청에 보내는 값, name은 화면에 보여 줄 이름
+export interface ReportReason {
+  code: string
+  name: string
+}
+
+// 신고 처리 상태. 미처리(PENDING) / 기각=문제 없음(DISMISSED)
+export type ReportStatus = 'PENDING' | 'DISMISSED'
+
+// 관리자 신고 목록의 한 건 (GET /admin/reports). 작성자·신고자가 탈퇴했으면 null
+export interface Report {
+  id: number
+  target: {
+    type: 'POST' | 'COMMENT' // 글 신고인지 댓글 신고인지
+    id: number // 글 id 또는 댓글 id
+    postId: number // 어느 글로 가야 하는지 (댓글이어도 글 id)
+    preview: string // 내용 미리보기
+    author: { id: number; nickname: string } | null
+  }
+  reporter: { id: number; nickname: string } | null
+  reason: ReportReason
+  detail: string | null
+  status: ReportStatus
+  createdAt: string
+}
