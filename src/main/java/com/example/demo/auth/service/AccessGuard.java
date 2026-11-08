@@ -37,15 +37,22 @@ public class AccessGuard {
     //       (회원 없음 401, DB role이 USER면 403) -> 토큰 role이 USER면 403
     // 작성자가 없는 옛 글·댓글은 writtenByMe가 false라 관리자만 통과한다.
     public void checkOwnerOrAdmin(boolean writtenByMe, LoginUser loginUser, String forbiddenMessage) {
-        if (writtenByMe) {
+        if (writtenByMe || isAdmin(loginUser)) {
             return;
         }
-        if (loginUser.role() == UserRole.ADMIN) {
-            User user = requireUser(loginUser);
-            if (user.getRole() == UserRole.ADMIN) {
-                return;
-            }
-        }
         throw new ResponseStatusException(HttpStatus.FORBIDDEN, forbiddenMessage);
+    }
+
+    // 관리자 전용 기능의 권한 검사. 통과하면 조용히 끝나고, 아니면 예외.
+    // 토큰 role이 ADMIN이면 DB에서 회원 재확인(회원 없음 401, DB role이 USER면 403), 토큰 role이 USER면 403
+    public void requireAdmin(LoginUser loginUser) {
+        if (!isAdmin(loginUser)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자만 할 수 있습니다.");
+        }
+    }
+
+    // 토큰 role이 ADMIN이고 DB에서도 ADMIN이면 true. 토큰이 ADMIN인데 회원이 없으면 401 예외.
+    private boolean isAdmin(LoginUser loginUser) {
+        return loginUser.role() == UserRole.ADMIN && requireUser(loginUser).getRole() == UserRole.ADMIN;
     }
 }

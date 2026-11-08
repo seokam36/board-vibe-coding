@@ -19,6 +19,11 @@ public final class ApiErrors {
         return new ResponseStatusException(HttpStatus.NOT_FOUND, "댓글을 찾을 수 없습니다.");
     }
 
+    // 없는 신고 -> 404
+    public static ResponseStatusException reportNotFound() {
+        return new ResponseStatusException(HttpStatus.NOT_FOUND, "신고를 찾을 수 없습니다.");
+    }
+
     // 로그인 안 됨(토큰은 유효하지만 회원이 없는 경우 포함) -> 401
     public static ResponseStatusException loginRequired() {
         return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");

@@ -2,6 +2,8 @@ package com.example.demo.config;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -11,10 +13,12 @@ import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationProvider;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
@@ -26,7 +30,9 @@ import org.springframework.security.web.servlet.util.matcher.PathPatternRequestM
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
+import com.example.demo.auth.dto.LoginUser;
 import com.example.demo.auth.service.AuthCookieFactory;
+import com.example.demo.user.domain.UserRole;
 
 import jakarta.servlet.http.Cookie;
 
@@ -82,18 +88,36 @@ public class SecurityConfig {
                 // 접근 규칙: 위에서부터 먼저 맞는 규칙이 적용된다.
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(publicEndpoints).permitAll()
+                        // 관리자 전용 경로: 비로그인 401, 로그인했지만 토큰 role이 ADMIN이 아니면 403 (DB 재확인은 서비스에서)
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated());
         return http.build();
     }
 
     // 쿠키의 JWT를 검증하는 필터. 토큰이 잘못되면 이유를 노출하지 않고 항상 같은 401만 돌려준다.
     private BearerTokenAuthenticationFilter cookieJwtFilter(JwtDecoder jwtDecoder, RequestMatcher publicEndpoints) {
-        BearerTokenAuthenticationFilter filter = new BearerTokenAuthenticationFilter(
-                new ProviderManager(new JwtAuthenticationProvider(jwtDecoder)));
+        JwtAuthenticationProvider provider = new JwtAuthenticationProvider(jwtDecoder);
+        provider.setJwtAuthenticationConverter(roleClaimConverter());
+        BearerTokenAuthenticationFilter filter = new BearerTokenAuthenticationFilter(new ProviderManager(provider));
         filter.setBearerTokenResolver(cookieTokenResolver(publicEndpoints));
         filter.setAuthenticationFailureHandler(
                 new AuthenticationEntryPointFailureHandler(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)));
         return filter;
+    }
+
+    // 토큰의 role 클레임을 스프링 시큐리티 권한(ROLE_ADMIN / ROLE_USER)으로 바꾸는 변환기.
+    // 기본 변환기는 scope/scp 클레임만 권한으로 바꿔서, 이게 없으면 hasRole("ADMIN")이 항상 실패한다.
+    // 클레임이 없거나(옛 토큰) 모르는 값이면 권한을 주지 않는다 (= LoginUser.from과 같은 "일반 회원 취급").
+    private JwtAuthenticationConverter roleClaimConverter() {
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(jwt -> {
+            String role = jwt.getClaimAsString(LoginUser.ROLE_CLAIM);
+            if (UserRole.ADMIN.name().equals(role) || UserRole.USER.name().equals(role)) {
+                return List.of(new SimpleGrantedAuthority("ROLE_" + role));
+            }
+            return List.of();
+        });
+        return converter;
     }
 
     // 쿠키에서 토큰을 꺼낸다. 공개 경로에서는 null을 돌려줘 토큰을 아예 검사하지 않는다.
