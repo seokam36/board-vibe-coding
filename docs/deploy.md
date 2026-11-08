@@ -137,6 +137,7 @@ EC2는 이미지를 받아 실행만 합니다. 저장소를 clone할 필요 없
    - `http://<퍼블릭IP>/api/posts`: JSON 배열이 오는지 (health는 app만 살아 있어도 UP이라 `/api` 전달까지는 확인하지 못합니다)
    - `http://<퍼블릭IP>/actuator/health`: UP인지 (DB와 Redis 상태도 포함됩니다. 둘 중 하나가 죽거나 `REDIS_PASSWORD`가 틀리면 503이 되고, 자동 배포도 실패로 끝납니다. 로그인이 실제로 안 되는 상태이므로 의도된 동작입니다)
    - `http://<퍼블릭IP>:8080`: 접속되지 않는지 (app은 외부에 열지 않습니다)
+   - S9 배포 후: **[서버]** `docker exec board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT version, success FROM flyway_schema_history ORDER BY installed_rank;"'` 에서 4, 5가 `t`(success)인지, 같은 방식의 `SELECT role, count(*) FROM users GROUP BY role;` 에서 기존 회원이 모두 `USER`인지 봅니다. 브라우저에서는 글·댓글에 신고 버튼이 보이는지 확인하고, 위 "관리자 지정·해제"로 관리자를 지정한 뒤 다시 로그인해 관리자 페이지(신고 목록)가 열리는지 봅니다.
 
    `/api/posts`가 502이면 app이 부팅 중일 수 있으니 잠시 후 다시 시도하고,
    계속되면 `docker compose --profile prod ps`로 app 상태를 보고 `docker compose --profile prod logs app`으로 오류를 확인합니다.
@@ -149,6 +150,29 @@ EC2는 이미지를 받아 실행만 합니다. 저장소를 clone할 필요 없
 
 ## DB 설정에서 바꾸면 안 되는 것
 - **DB 메시지 언어는 영어(공식 이미지 기본값)로 둡니다.** 서버 코드(`ConstraintViolations`)가 PostgreSQL 오류 메시지의 `constraint "..."` 글자에서 제약 이름을 꺼내 404/401로 바꿉니다. `lc_messages`를 한국어로 바꾸면 그 글자가 없어 댓글·공감 작성 중 경쟁 상황에서 500이 납니다.
+
+## 관리자 지정·해제 (S9)
+관리자는 API로 만들 수 없습니다. 운영 DB에서 SQL로만 지정합니다(회원 `role` 칸을 `USER` -> `ADMIN`).
+아래 명령은 **EC2에 ssh로 접속한 화면([서버])에서** 실행합니다. PowerShell이 아닙니다(PC에서 치면 따옴표가 깨집니다).
+작은따옴표가 겹치지 않도록 SQL은 `<<'SQL'` ... `SQL` 사이에 따로 적습니다(여러 줄을 통째로 붙여넣으면 됩니다). `<아이디>`는 지정할 회원의 로그인 아이디로 바꿉니다.
+
+1. **[서버]** `cd ~/board` — 작업 폴더로 이동합니다.
+2. **[서버]** 지정하기:
+```sh
+docker exec -i board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1' <<'SQL'
+UPDATE users SET role = 'ADMIN' WHERE username = '<아이디>';
+SQL
+```
+   `UPDATE 1`이 나오면 성공입니다. `UPDATE 0`이면 아이디가 틀린 것입니다.
+3. **[서버]** 확인하기(관리자만 나옵니다):
+```sh
+docker exec -i board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+SELECT id, username, role FROM users WHERE role = 'ADMIN';
+SQL
+```
+4. **[브라우저]** 그 회원이 **로그아웃 -> 다시 로그인**합니다. 액세스 토큰에 role이 들어 있어서 최대 15분 묵기 때문입니다(다시 로그인하면 바로 반영, 토큰 재발급 때도 DB의 role로 갱신됩니다).
+5. **해제**: 2번의 SQL을 `SET role = 'USER'`로 바꿔 똑같이 실행합니다. 서버가 관리자 권한을 쓸 때마다 DB를 다시 확인하므로 해제는 로그아웃 없이 즉시 먹힙니다.
+- 이 값은 비밀이 아니지만, 실제 아이디를 이 파일에 적어 두지는 않습니다.
 
 ## Flyway(표 변경) 문제와 되돌리기
 Flyway는 DB 표 구조를 바꾸는 "V 파일"(예: `V2__...sql`)을 앱이 켜질 때 순서대로 적용하는 도구입니다. 적용한 기록은 DB 안의 `flyway_schema_history` 표(기록장)에 남습니다.
@@ -205,6 +229,12 @@ Flyway 도입 전의 옛 이미지(S6 이전, `ddl-auto=update`, Flyway 없음)�
 
 **S7 이미지(V2까지 아는 코드)로 돌아갈 때 (V3 적용 후)**
 V3(S8-a)는 `comments`·`post_likes` 표를 **새로 만들기만** 하고 기존 표는 건드리지 않습니다. 옛 코드는 새 표를 모르니(validate는 엔티티가 있는 표만 검사) 그대로 뜨고, 글·회원 기능도 그대로입니다. 특별한 절차 없이 (a)대로 이미지만 바꾸면 됩니다. 단, 옛 코드로 글을 지우면 그 글의 댓글·공감도 DB가 같이 지웁니다(ON DELETE CASCADE). 기록장 행은 지우지 마세요(V2와 같은 이유).
+
+**S8 이미지(V3까지 아는 코드)로 돌아갈 때 (V4·V5 적용 후)**
+- V4(S9-a)는 `users`에 `role` 칸을 **더하기만** 합니다(`NOT NULL DEFAULT 'USER'`). 옛 코드의 엔티티에는 `role`이 없고 `ddl-auto=validate`는 엔티티에 없는 칸을 보지 않으므로 앱이 뜹니다. 옛 코드의 가입(INSERT)은 `role`을 안 적어도 DEFAULT로 `USER`가 들어갑니다. 옛 코드에는 관리자 기능이 없으니 관리자 화면·삭제만 안 보입니다.
+- V5(S9-b)는 `reports` 표를 **새로 만들기만** 합니다. 옛 코드는 새 표를 무시합니다(V3와 같은 이유). `reports`의 외래키(FK)는 모두 삭제 동작이 있어서(글·댓글은 `ON DELETE CASCADE`, 회원은 `ON DELETE SET NULL`) 옛 코드가 글·댓글·회원을 지워도 DB가 알아서 처리하고 오류가 나지 않습니다.
+- 로그에 `Schema "public" has a version (5) that is newer than the latest available migration (3) !` 경고가 나와도 정상입니다(V2·V3 때와 같음, 앱은 뜹니다).
+- 특별한 절차 없이 (a)대로 이미지만 바꾸면 됩니다. 기록장 행은 지우지 마세요.
 
 ### (c) V2 이상이 적용 중 실패했을 때
 PostgreSQL은 표 변경(DDL)도 트랜잭션이라, V 파일 하나가 중간에 실패하면 그 파일의 표 변경은 통째로 원상복구됩니다(반쯤 바뀐 채로 남지 않음). 먼저 기록장 상태를 확인합니다.
