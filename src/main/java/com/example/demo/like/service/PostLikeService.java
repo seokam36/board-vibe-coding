@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.auth.dto.LoginUser;
+import com.example.demo.auth.service.AccessGuard;
 import com.example.demo.common.ApiErrors;
 import com.example.demo.common.ConstraintViolations;
 import com.example.demo.like.domain.PostLike;
@@ -15,7 +16,6 @@ import com.example.demo.like.dto.LikedResponse;
 import com.example.demo.like.repository.PostLikeRepository;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.domain.User;
-import com.example.demo.user.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -26,14 +26,13 @@ public class PostLikeService {
 
     private final PostLikeRepository postLikeRepository;
     private final PostRepository postRepository;
-    private final UserRepository userRepository;
+    private final AccessGuard accessGuard;
 
     // 공감 누르기. 없는 글 404, 이미 눌렀으면 409
     @Transactional
     public LikeResponse like(Long postId, LoginUser loginUser) {
         // 토큰은 유효한데 회원이 DB에 없으면(탈퇴) 401
-        User user = userRepository.findById(loginUser.id())
-                .orElseThrow(ApiErrors::loginRequired);
+        User user = accessGuard.requireUser(loginUser);
         if (!postRepository.existsById(postId)) {
             throw ApiErrors.postNotFound();
         }
@@ -62,9 +61,10 @@ public class PostLikeService {
         return new LikeResponse(postLikeRepository.countByPostId(postId), true);
     }
 
-    // 공감 취소. 없는 글 404, 공감한 적 없으면 404
+    // 공감 취소. 회원이 DB에 없으면(유령 토큰) 401, 없는 글 404, 공감한 적 없으면 404
     @Transactional
     public LikeResponse unlike(Long postId, LoginUser loginUser) {
+        accessGuard.requireUser(loginUser); // 탈퇴한 회원의 옛 토큰이면 401
         if (!postRepository.existsById(postId)) {
             throw ApiErrors.postNotFound();
         }
@@ -74,9 +74,10 @@ public class PostLikeService {
         return new LikeResponse(postLikeRepository.countByPostId(postId), false);
     }
 
-    // 내가 이 글에 공감했는지. 없는 글이면 404
+    // 내가 이 글에 공감했는지. 회원이 DB에 없으면(유령 토큰) 401, 없는 글이면 404
     @Transactional(readOnly = true)
     public LikedResponse isLiked(Long postId, LoginUser loginUser) {
+        accessGuard.requireUser(loginUser); // 탈퇴한 회원의 옛 토큰이면 401
         if (!postRepository.existsById(postId)) {
             throw ApiErrors.postNotFound();
         }

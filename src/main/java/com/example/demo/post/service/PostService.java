@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.auth.dto.LoginUser;
+import com.example.demo.auth.service.AccessGuard;
 import com.example.demo.comment.repository.CommentRepository;
 import com.example.demo.common.ApiErrors;
 import com.example.demo.common.ConstraintViolations;
@@ -27,7 +28,6 @@ import com.example.demo.post.repository.PostRepository;
 import com.example.demo.school.domain.School;
 import com.example.demo.school.repository.SchoolRepository;
 import com.example.demo.user.domain.User;
-import com.example.demo.user.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -37,18 +37,17 @@ import lombok.RequiredArgsConstructor;
 public class PostService {
 
     private final PostRepository postRepository;
-    private final UserRepository userRepository;
     private final SchoolRepository schoolRepository;
     private final CommentRepository commentRepository;
     private final PostLikeRepository postLikeRepository;
+    private final AccessGuard accessGuard;
 
     // 게시글을 저장하고 저장된 결과(id, createdAt, 작성자 포함)를 돌려준다.
     // 작성자는 요청 본문이 아니라 로그인 정보(토큰)에서만 가져온다.
     @Transactional
     public PostResponse create(LoginUser loginUser, PostCreateRequest request) {
         // 토큰은 유효한데 사용자가 DB에 없으면(탈퇴·삭제) 로그인 안 된 것과 같이 401
-        User author = userRepository.findById(loginUser.id())
-                .orElseThrow(ApiErrors::loginRequired);
+        User author = accessGuard.requireUser(loginUser);
         // 없는 학교 id는 잘못된 입력이므로 400 (500이 되지 않게 미리 확인한다)
         School school = schoolRepository.findById(request.schoolId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "존재하지 않는 학교입니다."));
@@ -92,11 +91,11 @@ public class PostService {
         return toResponse(post);
     }
 
-    // 게시글 삭제(DB 행 제거). 없으면 404, 내 글이 아니면 403
+    // 게시글 삭제(DB 행 제거). 없으면 404, 본인도 관리자도 아니면 403
     @Transactional
     public void delete(Long id, LoginUser loginUser) {
         Post post = findOrThrow(id);
-        checkWriter(post, loginUser);
+        checkWriterOrAdmin(post, loginUser);
         postRepository.delete(post);
     }
 
@@ -144,5 +143,10 @@ public class PostService {
         if (!post.isWrittenBy(loginUser.id())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인이 쓴 글만 수정·삭제할 수 있습니다.");
         }
+    }
+
+    // 삭제 권한: 본인이거나 관리자(토큰 role이 ADMIN이면 DB에서 다시 확인). 작성자가 없는 옛 글은 관리자만 지울 수 있다.
+    private void checkWriterOrAdmin(Post post, LoginUser loginUser) {
+        accessGuard.checkOwnerOrAdmin(post.isWrittenBy(loginUser.id()), loginUser, "본인이 쓴 글만 삭제할 수 있습니다.");
     }
 }

@@ -35,14 +35,14 @@ public class AuthController {
     private final AuthService authService;
     private final AuthCookieFactory cookieFactory;
 
-    // 회원가입: 201 Created + {id, username, nickname}
+    // 회원가입: 201 Created + {id, username, nickname, role}
     @PostMapping("/signup")
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse signup(@Valid @RequestBody SignupRequest request) {
         return userService.signup(request);
     }
 
-    // 로그인: 200 {id, username, nickname} + access_token·refresh_token 쿠키. 아이디/비밀번호가 틀리면 401.
+    // 로그인: 200 {id, username, nickname, role} + access_token·refresh_token 쿠키. 아이디/비밀번호가 틀리면 401.
     @PostMapping("/login")
     public ResponseEntity<UserResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthService.LoginResult result = authService.login(request);

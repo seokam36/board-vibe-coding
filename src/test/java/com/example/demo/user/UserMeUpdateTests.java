@@ -146,6 +146,7 @@ class UserMeUpdateTests {
 				.andExpect(jsonPath("$.id").value(uid))
 				.andExpect(jsonPath("$.username").value("user01"))
 				.andExpect(jsonPath("$.nickname").value("새닉네임"))
+				.andExpect(jsonPath("$.role").value("USER"))
 				.andExpect(jsonPath("$.password").doesNotExist());
 
 		mockMvc.perform(get("/auth/me").cookie(액세스(login))).andExpect(status().isOk())

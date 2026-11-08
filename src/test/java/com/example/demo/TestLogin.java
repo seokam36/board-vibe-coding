@@ -2,6 +2,7 @@ package com.example.demo;
 
 import java.time.Instant;
 
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -10,6 +11,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 
 import com.example.demo.auth.service.TokenService;
 import com.example.demo.user.domain.User;
+import com.example.demo.user.domain.UserRole;
 import com.example.demo.user.repository.UserRepository;
 
 import jakarta.servlet.http.Cookie;
@@ -38,6 +40,23 @@ public final class TestLogin {
 
 	// 그 사용자 이름으로 발급한 access_token 쿠키
 	public static Cookie 쿠키(TokenService tokenService, User user) {
-		return new Cookie("access_token", tokenService.issueAccessToken(user.getId(), user.getUsername()));
+		return new Cookie("access_token", tokenService.issueAccessToken(user.getId(), user.getUsername(), user.getRole()));
+	}
+
+	// 토큰에 넣을 role을 직접 정한 쿠키. DB 값과 다른 role도 만들 수 있다(예: DB는 USER인데 토큰만 ADMIN인 "묵은 토큰")
+	public static Cookie 쿠키(TokenService tokenService, User user, UserRole role) {
+		return new Cookie("access_token", tokenService.issueAccessToken(user.getId(), user.getUsername(), role));
+	}
+
+	// 관리자 회원을 만든다. 가입으로는 ADMIN을 만들 수 없으므로 운영과 같이 DB를 직접 고친다(UPDATE).
+	public static User 관리자(UserRepository userRepository, JdbcTemplate jdbc, String username) {
+		User user = 사용자(userRepository, username);
+		jdbc.update("update users set role = 'ADMIN' where id = ?", user.getId());
+		return user;
+	}
+
+	// 관리자 회원의 access_token 쿠키(토큰 role = ADMIN)
+	public static Cookie 관리자_쿠키(TokenService tokenService, User admin) {
+		return 쿠키(tokenService, admin, UserRole.ADMIN);
 	}
 }

@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.auth.dto.LoginUser;
+import com.example.demo.auth.service.AccessGuard;
 import com.example.demo.comment.domain.Comment;
 import com.example.demo.comment.dto.CommentCreateRequest;
 import com.example.demo.comment.dto.CommentResponse;
@@ -18,7 +19,6 @@ import com.example.demo.common.ApiErrors;
 import com.example.demo.common.ConstraintViolations;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.domain.User;
-import com.example.demo.user.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,7 +29,7 @@ public class CommentService {
 
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
-    private final UserRepository userRepository;
+    private final AccessGuard accessGuard;
 
     // 글의 댓글 목록(id 오름차순). 없는 글이면 404, 댓글이 없으면 빈 배열
     @Transactional(readOnly = true)
@@ -46,8 +46,7 @@ public class CommentService {
     @Transactional
     public CommentResponse create(Long postId, LoginUser loginUser, CommentCreateRequest request) {
         // 토큰은 유효한데 회원이 DB에 없으면(탈퇴) 401
-        User author = userRepository.findById(loginUser.id())
-                .orElseThrow(ApiErrors::loginRequired);
+        User author = accessGuard.requireUser(loginUser);
         if (!postRepository.existsById(postId)) {
             throw ApiErrors.postNotFound();
         }
@@ -78,11 +77,11 @@ public class CommentService {
         return CommentResponse.from(comment);
     }
 
-    // 댓글 삭제(완전 삭제). 없으면 404, 내 댓글이 아니면 403
+    // 댓글 삭제(완전 삭제). 없으면 404, 본인도 관리자도 아니면 403
     @Transactional
     public void delete(Long id, LoginUser loginUser) {
         Comment comment = findOrThrow(id);
-        checkWriter(comment, loginUser);
+        checkWriterOrAdmin(comment, loginUser);
         commentRepository.delete(comment);
     }
 
@@ -96,5 +95,10 @@ public class CommentService {
         if (!comment.isWrittenBy(loginUser.id())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인이 쓴 댓글만 수정·삭제할 수 있습니다.");
         }
+    }
+
+    // 삭제 권한: 본인이거나 관리자(토큰 role이 ADMIN이면 DB에서 다시 확인). 작성자가 없는 옛 댓글은 관리자만 지울 수 있다.
+    private void checkWriterOrAdmin(Comment comment, LoginUser loginUser) {
+        accessGuard.checkOwnerOrAdmin(comment.isWrittenBy(loginUser.id()), loginUser, "본인이 쓴 댓글만 삭제할 수 있습니다.");
     }
 }

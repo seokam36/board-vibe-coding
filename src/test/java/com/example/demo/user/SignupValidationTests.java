@@ -49,12 +49,13 @@ class SignupValidationTests {
 				.content("{\"username\":\"" + username + "\",\"nickname\":\"nick01\",\"password\":\"" + password + "\"}"));
 	}
 
-	// 조건 1: 응답 필드가 id, username, nickname 세 개뿐이다
+	// 조건 1: 응답 필드가 id, username, nickname, role 네 개뿐이다 (S9-a에서 role 추가)
 	@Test
-	void 가입_응답은_id와_username과_nickname_세_필드만_가진다() throws Exception {
+	void 가입_응답은_id와_username과_nickname과_role_네_필드만_가진다() throws Exception {
 		가입("user01", "password123")
 				.andExpect(status().isCreated())
-				.andExpect(jsonPath("$.length()").value(3))
+				.andExpect(jsonPath("$.length()").value(4))
+				.andExpect(jsonPath("$.role").value("USER"))
 				.andExpect(jsonPath("$.id").isNumber())
 				.andExpect(jsonPath("$.username").value("user01"))
 				.andExpect(jsonPath("$.nickname").value("nick01"));

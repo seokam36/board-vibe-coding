@@ -8,6 +8,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.example.demo.auth.service.AccessGuard;
 import com.example.demo.auth.service.RefreshTokenService;
 import com.example.demo.comment.repository.CommentRepository;
 import com.example.demo.common.ApiErrors;
@@ -31,6 +32,7 @@ public class UserService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final TransactionTemplate transactionTemplate;
+    private final AccessGuard accessGuard;
 
     // 회원가입. 아이디 또는 닉네임이 이미 있으면 409.
     // 메서드 전체에 @Transactional을 걸지 않는다: saveAndFlush()가 자기 트랜잭션에서 끝나야
@@ -46,6 +48,7 @@ public class UserService {
         } catch (DataIntegrityViolationException e) {
             // 현재 users 테이블에서 위반될 수 있는 제약은 username·nickname unique 두 가지뿐이고,
             // 응답에서 둘을 구분하지 않으므로 어느 쪽이든 409로 변환한다.
+            // (ck_users_role은 생성자가 항상 USER를 넣어 여기서 걸리지 않는다.)
             // 제약이 늘어나면 원인을 구분하도록 범위를 좁혀야 한다.
             throw duplicated();
         }
@@ -76,7 +79,7 @@ public class UserService {
             if (userRepository.updateNickname(id, nickname) == 0) {
                 throw ApiErrors.loginRequired(); // 읽은 뒤 회원이 삭제됨
             }
-            return new UserResponse(user.getId(), user.getUsername(), nickname);
+            return new UserResponse(user.getId(), user.getUsername(), nickname, user.getRole());
         } catch (DataIntegrityViolationException e) {
             // 확인과 저장 사이에 다른 사람이 먼저 같은 닉네임을 가져간 경우(DB unique가 막아 줌).
             // 이 갱신에서 위반될 수 있는 제약은 nickname unique뿐이다.
@@ -139,10 +142,9 @@ public class UserService {
         refreshTokenService.revokeAll(id); // 모든 기기 로그아웃
     }
 
-    // 토큰은 유효한데 회원이 DB에 없으면(삭제됨) 로그인 안 된 것과 같이 401
+    // 토큰은 유효한데 회원이 DB에 없으면(삭제됨) 로그인 안 된 것과 같이 401 (공용 AccessGuard 사용)
     private User findLoginUser(Long id) {
-        return userRepository.findById(id)
-                .orElseThrow(ApiErrors::loginRequired);
+        return accessGuard.requireUser(id);
     }
 
     private ResponseStatusException nicknameTaken() {

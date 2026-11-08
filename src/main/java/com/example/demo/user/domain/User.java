@@ -5,6 +5,8 @@ import java.time.temporal.ChronoUnit;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -37,6 +39,11 @@ public class User {
     @Column(nullable = false, length = 100)
     private String password;
 
+    // 역할. 가입은 항상 USER이고, ADMIN은 DB에서만 지정한다(생성자·API로 정할 수 없다). enum 이름을 문자열로 저장.
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private UserRole role;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -44,6 +51,7 @@ public class User {
         this.username = username;
         this.nickname = nickname;
         this.password = encodedPassword;
+        this.role = UserRole.USER;
     }
 
     // 저장 직전에 가입 시각 기록 (Post와 같은 방식: UTC, 마이크로초)
