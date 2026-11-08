@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import api from '../api'
-import { NETWORK_ERROR_MESSAGE, getStatus, isNetworkError } from '../errorMessage'
+import { describeError, errorText } from '../errorMessage'
+import Loading from '../components/Loading'
+import Notice from '../components/Notice'
 import ReloginNotice from '../components/ReloginNotice'
 import type { Category, Post, PostUpdateRequest } from '../types'
 
@@ -45,10 +47,7 @@ export default function PostEditPage() {
       })
       .catch((e: unknown) => {
         if (ignore) return
-        const status = getStatus(e)
-        if (isNetworkError(e)) setLoadError(NETWORK_ERROR_MESSAGE)
-        else if (status === 404 || status === 400) setLoadError('글을 찾을 수 없습니다')
-        else setLoadError('글을 불러오지 못했습니다')
+        setLoadError(errorText(e, { 404: '글을 찾을 수 없습니다', 400: '글을 찾을 수 없습니다' }, '글을 불러오지 못했습니다'))
       })
       .finally(() => {
         if (!ignore) setLoading(false)
@@ -91,21 +90,19 @@ export default function PostEditPage() {
       // 수정한 글의 상세 화면으로 이동. replace: 저장한 수정 폼이 뒤로가기 기록에 남지 않게 한다
       navigate(`/posts/${safeId}`, { replace: true })
     } catch (err: unknown) {
-      if (isNetworkError(err)) {
-        setError(NETWORK_ERROR_MESSAGE)
-      } else if (getStatus(err) === 401) {
-        setNeedLogin(true)
-      } else if (getStatus(err) === 403) {
-        // 남의 글. 이 화면은 주소로 직접 들어와도 열리지만 저장은 서버가 막는다
-        // (CSRF 토큰 오류도 403이라 구분이 안 된다 — 이번에는 처리하지 않음)
-        setError('본인 글만 수정할 수 있습니다')
-      } else if (getStatus(err) === 400) {
-        setError('제목, 내용, 말머리를 확인해 주세요 (제목은 최대 100자)')
-      } else if (getStatus(err) === 404) {
-        setError('글을 찾을 수 없습니다')
-      } else {
-        setError('저장하지 못했습니다')
-      }
+      // 403: 남의 글. 이 화면은 주소로 직접 들어와도 열리지만 저장은 서버가 막는다
+      // (CSRF 토큰 오류도 403이라 구분이 안 된다 — 이번에는 처리하지 않음)
+      const info = describeError(
+        err,
+        {
+          403: '본인 글만 수정할 수 있습니다',
+          400: '제목, 내용, 말머리를 확인해 주세요 (제목은 최대 100자)',
+          404: '글을 찾을 수 없습니다',
+        },
+        '저장하지 못했습니다',
+      )
+      if (info.kind === 'needLogin') setNeedLogin(true)
+      else setError(info.message)
       setSaving(false) // 실패했을 때만 버튼을 되살린다 (입력값은 그대로 남는다)
     }
   }
@@ -113,8 +110,8 @@ export default function PostEditPage() {
   return (
     <div>
       <h1>글 수정</h1>
-      {loading && <p>불러오는 중...</p>}
-      {loadError && <p role="alert">{loadError}</p>}
+      {loading && <Loading />}
+      {loadError && <Notice kind="error">{loadError}</Notice>}
       {/* 글을 불러오는 데 성공했을 때만 폼을 보여준다 */}
       {!loading && !loadError && (
         <form onSubmit={handleSubmit}>
@@ -138,7 +135,7 @@ export default function PostEditPage() {
                 onChange={(e) => setTitle(e.target.value)}
                 maxLength={100}
                 placeholder="제목"
-                style={{ width: '100%' }}
+                className="full-width"
               />
             </label>
           </div>
@@ -150,11 +147,11 @@ export default function PostEditPage() {
                 onChange={(e) => setContent(e.target.value)}
                 rows={10}
                 placeholder="내용"
-                style={{ width: '100%' }}
+                className="full-width"
               />
             </label>
           </div>
-          {error && <p role="alert">{error}</p>}
+          {error && <Notice kind="error">{error}</Notice>}
           {needLogin && <ReloginNotice />}
           <button type="submit" disabled={saving}>
             {saving ? '저장 중...' : '저장'}

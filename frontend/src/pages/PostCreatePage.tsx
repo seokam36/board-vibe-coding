@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import api from '../api'
-import { NETWORK_ERROR_MESSAGE, getStatus, isNetworkError } from '../errorMessage'
+import { describeError } from '../errorMessage'
+import Notice from '../components/Notice'
 import ReloginNotice from '../components/ReloginNotice'
 import type { Category, Post, PostCreateRequest, School } from '../types'
 
@@ -68,15 +69,9 @@ export default function PostCreatePage() {
       const res = await api.post<Post>('/posts', body)
       navigate(`/posts/${res.data.id}`) // 응답 body의 id로 상세 페이지 이동
     } catch (err: unknown) {
-      if (isNetworkError(err)) {
-        setError(NETWORK_ERROR_MESSAGE)
-      } else if (getStatus(err) === 401) {
-        setNeedLogin(true)
-      } else if (getStatus(err) === 400) {
-        setError('제목, 내용, 학교, 말머리를 확인해 주세요 (제목은 최대 100자)')
-      } else {
-        setError('저장하지 못했습니다')
-      }
+      const info = describeError(err, { 400: '제목, 내용, 학교, 말머리를 확인해 주세요 (제목은 최대 100자)' }, '저장하지 못했습니다')
+      if (info.kind === 'needLogin') setNeedLogin(true)
+      else setError(info.message)
       setSaving(false) // 실패했을 때만 버튼을 되살린다 (성공하면 페이지가 바뀐다)
     }
   }
@@ -103,7 +98,7 @@ export default function PostCreatePage() {
               </option>
             ))}
           </select>
-          {optionsFailed && <p role="alert">학교·말머리 목록을 불러오지 못했습니다</p>}
+          {optionsFailed && <Notice kind="error">학교·말머리 목록을 불러오지 못했습니다</Notice>}
         </div>
         <div>
           {/* label로 감싸면 스크린리더가 입력창의 이름을 읽을 수 있다 */}
@@ -114,7 +109,7 @@ export default function PostCreatePage() {
               onChange={(e) => setTitle(e.target.value)}
               maxLength={100}
               placeholder="제목"
-              style={{ width: '100%' }}
+              className="full-width"
             />
           </label>
         </div>
@@ -126,11 +121,11 @@ export default function PostCreatePage() {
               onChange={(e) => setContent(e.target.value)}
               rows={10}
               placeholder="내용"
-              style={{ width: '100%' }}
+              className="full-width"
             />
           </label>
         </div>
-        {error && <p role="alert">{error}</p>}
+        {error && <Notice kind="error">{error}</Notice>}
         {needLogin && <ReloginNotice />}
         <button type="submit" disabled={saving}>
           {saving ? '저장 중...' : '저장'}

@@ -5,7 +5,8 @@ import api from '../api'
 import { useAuth } from '../auth/useAuth'
 import type { AuthUser } from '../auth/useAuth'
 import ReloginNotice from '../components/ReloginNotice'
-import { NETWORK_ERROR_MESSAGE, getStatus, isNetworkError } from '../errorMessage'
+import { describeError } from '../errorMessage'
+import Notice from '../components/Notice'
 
 // 보통 앱 시작 때 CSRF 쿠키(/csrf)를 못 받은 경우
 const CSRF_MESSAGE = '보안 토큰이 없습니다. 새로고침 후 다시 시도해 주세요'
@@ -66,20 +67,17 @@ function NicknameForm() {
       setNickname('')
       setSuccess('닉네임이 바뀌었습니다')
     } catch (err: unknown) {
-      const status = getStatus(err)
-      if (isNetworkError(err)) {
-        setError(NETWORK_ERROR_MESSAGE)
-      } else if (status === 409) {
-        setError('이미 사용 중인 닉네임입니다')
-      } else if (status === 400) {
-        setError('닉네임은 한글(완성형)·영문·숫자·_ 2~20자로 입력해 주세요 (공백·자음/모음만은 불가)')
-      } else if (status === 401) {
-        setNeedLogin(true)
-      } else if (status === 403) {
-        setError(CSRF_MESSAGE)
-      } else {
-        setError('닉네임을 바꾸지 못했습니다')
-      }
+      const info = describeError(
+        err,
+        {
+          409: '이미 사용 중인 닉네임입니다',
+          400: '닉네임은 한글(완성형)·영문·숫자·_ 2~20자로 입력해 주세요 (공백·자음/모음만은 불가)',
+          403: CSRF_MESSAGE,
+        },
+        '닉네임을 바꾸지 못했습니다',
+      )
+      if (info.kind === 'needLogin') setNeedLogin(true)
+      else setError(info.message)
     }
     setSaving(false)
   }
@@ -95,8 +93,8 @@ function NicknameForm() {
         <small>한글(완성형)·영문·숫자·_ 2~20자, 공백·자음/모음만은 불가</small>
       </div>
       {needLogin && <ReloginNotice />}
-      {error && <p role="alert">{error}</p>}
-      {success && <p>{success}</p>}
+      {error && <Notice kind="error">{error}</Notice>}
+      {success && <Notice kind="success">{success}</Notice>}
       <button type="submit" disabled={saving}>
         {saving ? '변경 중...' : '닉네임 변경'}
       </button>
@@ -124,22 +122,19 @@ function PasswordForm() {
       // 서버가 이미 쿠키를 지웠으니 /auth/logout 은 부르지 않고 화면의 로그인 상태만 비운다
       clearAndGo(clearUser, () => navigate('/login', { state: { message: '비밀번호가 바뀌었습니다. 다시 로그인해 주세요' } }))
     } catch (err: unknown) {
-      const status = getStatus(err)
-      if (isNetworkError(err)) {
-        setError(NETWORK_ERROR_MESSAGE)
-      } else if (status === 400) {
-        // 서버는 "현재 비밀번호 틀림"도 400으로 준다(401이면 재발급을 시도하므로). 서버가 원인을 구분해 주지 않아 함께 안내한다
-        setError('현재 비밀번호가 맞는지, 새 비밀번호가 8~64자이고 현재 비밀번호와 다른지 확인해 주세요')
-      } else if (status === 401) {
-        setNeedLogin(true)
-      } else if (status === 403) {
-        setError(CSRF_MESSAGE)
-      } else if (status === 500) {
-        // 명세(13절): 비밀번호를 바꾼 뒤 Redis 실패로 500이 날 수 있어, 이미 바뀌었을 수도 있다
-        setError('비밀번호가 이미 바뀌었을 수 있습니다. 새 비밀번호로 다시 로그인해 보세요')
-      } else {
-        setError('비밀번호를 바꾸지 못했습니다')
-      }
+      // 400: 서버는 "현재 비밀번호 틀림"도 400으로 준다(401이면 재발급을 시도하므로). 서버가 원인을 구분해 주지 않아 함께 안내한다
+      // 500: 명세(13절): 비밀번호를 바꾼 뒤 Redis 실패로 500이 날 수 있어, 이미 바뀌었을 수도 있다
+      const info = describeError(
+        err,
+        {
+          400: '현재 비밀번호가 맞는지, 새 비밀번호가 8~64자이고 현재 비밀번호와 다른지 확인해 주세요',
+          403: CSRF_MESSAGE,
+          500: '비밀번호가 이미 바뀌었을 수 있습니다. 새 비밀번호로 다시 로그인해 보세요',
+        },
+        '비밀번호를 바꾸지 못했습니다',
+      )
+      if (info.kind === 'needLogin') setNeedLogin(true)
+      else setError(info.message)
       setSaving(false) // 실패했을 때만 되살린다 (성공하면 화면이 바뀐다)
     }
   }
@@ -172,7 +167,7 @@ function PasswordForm() {
         <small>8~64자</small>
       </div>
       {needLogin && <ReloginNotice />}
-      {error && <p role="alert">{error}</p>}
+      {error && <Notice kind="error">{error}</Notice>}
       <button type="submit" disabled={saving}>
         {saving ? '변경 중...' : '비밀번호 변경'}
       </button>
@@ -202,23 +197,20 @@ function WithdrawForm() {
       // 서버가 쿠키를 이미 지웠으므로 /auth/logout 은 부르지 않는다
       clearAndGo(clearUser, () => navigate('/', { state: { message: '탈퇴가 완료되었습니다' } }))
     } catch (err: unknown) {
-      const status = getStatus(err)
-      if (isNetworkError(err)) {
-        setError(NETWORK_ERROR_MESSAGE)
-      } else if (status === 400) {
-        // 서버는 틀린 비밀번호도 400으로 주고, 빈 값·너무 긴 값·잘못된 요청도 같은 400이라 원인을 단정하지 않는다
-        setError('비밀번호를 입력했는지, 맞는지 확인해 주세요')
-      } else if (status === 401) {
-        setNeedLogin(true)
-      } else if (status === 403) {
-        setError(CSRF_MESSAGE)
-      } else if (status === 500) {
-        // 명세(14절): 회원을 지운 뒤 Redis 실패로 500이 날 수 있다. 다만 500만으로는 지워졌는지 알 수 없어
-        // 로그인 상태는 비우지 않는다(안 지워졌는데 비우면 멀쩡한 로그인이 풀린 것처럼 보인다). 이미 지워졌다면 다음 요청이 401이 되어 자연히 풀린다
-        setError('탈퇴가 이미 처리됐을 수 있습니다. 새로고침해서 로그인 상태를 확인해 주세요')
-      } else {
-        setError('탈퇴하지 못했습니다')
-      }
+      // 400: 서버는 틀린 비밀번호도 400으로 주고, 빈 값·너무 긴 값·잘못된 요청도 같은 400이라 원인을 단정하지 않는다
+      // 500: 명세(14절): 회원을 지운 뒤 Redis 실패로 500이 날 수 있다. 다만 500만으로는 지워졌는지 알 수 없어
+      // 로그인 상태는 비우지 않는다(안 지워졌는데 비우면 멀쩡한 로그인이 풀린 것처럼 보인다). 이미 지워졌다면 다음 요청이 401이 되어 자연히 풀린다
+      const info = describeError(
+        err,
+        {
+          400: '비밀번호를 입력했는지, 맞는지 확인해 주세요',
+          403: CSRF_MESSAGE,
+          500: '탈퇴가 이미 처리됐을 수 있습니다. 새로고침해서 로그인 상태를 확인해 주세요',
+        },
+        '탈퇴하지 못했습니다',
+      )
+      if (info.kind === 'needLogin') setNeedLogin(true)
+      else setError(info.message)
       setSaving(false)
     }
   }
@@ -238,7 +230,7 @@ function WithdrawForm() {
         </label>
       </div>
       {needLogin && <ReloginNotice />}
-      {error && <p role="alert">{error}</p>}
+      {error && <Notice kind="error">{error}</Notice>}
       <button type="submit" disabled={saving}>
         {saving ? '처리 중...' : '회원 탈퇴'}
       </button>

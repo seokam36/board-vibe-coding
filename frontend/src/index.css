@@ -5,3 +5,35 @@ body {
   margin: 0 auto;
   padding: 16px;
 }
+
+/* 레이아웃용 공용 클래스 (인라인 style 대신) */
+.full-width {
+  width: 100%;
+}
+/* 줄바꿈·공백을 그대로 보여준다 */
+.pre-wrap {
+  white-space: pre-wrap;
+}
+/* 위에 더해 긴 낱말도 줄바꿈 (관리자 신고 목록) */
+.pre-wrap-break {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* 상단바: 좁은 화면(모바일)에서 메뉴가 넘치지 않고 줄바꿈되게 한다 */
+.nav-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.nav-menu {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* 탭 버튼: 선택된 탭을 굵게+밑줄로 (disabled로 표현하지 않는다) */
+.tabs button[aria-pressed='true'] {
+  font-weight: bold;
+  text-decoration: underline;
+}

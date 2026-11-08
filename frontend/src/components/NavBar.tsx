@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
+import { isAdmin } from '../auth/isAdmin'
+import { SITE_NAME } from '../siteName'
+import Notice from './Notice'
 
 // 모든 화면 맨 위 한 줄: 왼쪽 홈 링크, 오른쪽 로그인 상태에 따른 메뉴
 export default function NavBar() {
@@ -18,15 +21,15 @@ export default function NavBar() {
   }
 
   return (
-    // flexWrap: 좁은 화면(모바일)에서 메뉴가 넘치지 않고 줄바꿈되게 한다
-    <nav style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', marginBottom: 16 }}>
-      <Link to="/">게시판</Link>
-      <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 8 }}>
+    // nav-bar: 좁은 화면(모바일)에서 메뉴가 넘치지 않고 줄바꿈되게 하는 레이아웃 클래스 (index.css)
+    <nav className="nav-bar">
+      <Link to="/">{SITE_NAME}</Link>
+      <span className="nav-menu">
         {user ? (
           <>
             {user.nickname} 님 <Link to="/me">내 정보</Link>{' '}
             {/* 관리자에게만 보이는 메뉴 */}
-            {user.role === 'ADMIN' && (
+            {isAdmin(user) && (
               <>
                 <Link to="/admin/reports">신고 관리</Link>{' '}
               </>
@@ -39,7 +42,7 @@ export default function NavBar() {
           </>
         )}
       </span>
-      {error && <p role="alert">{error}</p>}
+      {error && <Notice kind="error">{error}</Notice>}
     </nav>
   )
 }

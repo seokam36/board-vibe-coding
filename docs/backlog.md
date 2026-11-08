@@ -50,7 +50,12 @@
   - [x] S9-c. 관리자 신고 API (목록·기각)
   - [x] S9-d. 화면 (신고 버튼, 관리자 삭제 버튼, 신고 관리 페이지)
   - [x] S9-e. EC2 배포 (관리자 지정 SQL·V4/V5 되돌리기 메모를 deploy.md에)
-- [ ] UI1. 화면 꾸미기 (범위는 planner 후 확정. S9 리뷰 메모: 에러 분기 공용화, isAdmin 한 곳으로, window.confirm 공용 확인 창, 인라인 스타일 정리, 접근성 속성 유지)
+- [ ] UI1. 화면 꾸미기 (순수 CSS + CSS 변수, 새 의존성 없음. 에브리타임처럼 깔끔한 목록형이되 따라 하지 않는 우리만의 색·글꼴. 375px 폭 대응, 다크 모드 안 함. 백엔드·API 변경 없음)
+  - [x] UI1-a. 공용화 리팩터링(모양·기능 변화 없음): 에러 문구 공용 함수, 안내 배너 컴포넌트, isAdmin, 인라인 style 제거, 로딩 표시 공용
+  - [ ] UI1-b. 디자인 토대: 색·글꼴·간격 변수, 버튼·입력·안내 배너, 상단바, 사이트 이름 상수
+  - [ ] UI1-c. 화면별 꾸미기: 목록·상세·댓글, 폼 화면·관리자
+  - [ ] UI1-d. 공용 확인 창(<dialog>)으로 window.confirm 4곳 교체
+  - [ ] UI1-e. EC2 배포 (S9 후속 리뷰 변경도 같이 나감)
 - [ ] S10. 학교 메일 인증 (표시는 "학교 인증 완료", 인증 전에는 읽기만 가능하고 학교 게시판 글쓰기·비자 후기는 인증 후 가능, 졸업 후에도 인증 유지. 여권번호·외국인등록번호는 받지 않는다. 유학생 여부 확인은 나중에 전문 업체 인증으로 확장 검토)
 - [ ] S11. 비자 후기와 학교별 통계 (공식 안내 링크와 작성일을 함께 표시, 신청 대행·개인별 법률 판단은 하지 않는다)
 - [ ] S12. 비자 할 일과 자동 알림
@@ -109,4 +114,5 @@
 | 2026-11-08 | S9-c | 관리자 신고 API: /admin/**는 토큰 role 클레임으로 hasRole("ADMIN") + AccessGuard.requireAdmin이 DB 재확인(없음 401·강등 403). GET /admin/reports?status(기본 PENDING, 대상 미리보기·작성자·신고자 포함, left join fetch로 신고 수와 무관하게 쿼리 고정) + PUT /admin/reports/{id}/dismiss(조건부 UPDATE로 동시 기각 시 하나만 200·나머지 409, 없으면 404). 테스트 475개 | c68d2fe |
 | 2026-11-08 | S9-d | 화면: 글·댓글 신고 양식(사유 목록·상세 300자, 201/409/404/400 안내, 로그인 풀리면 부모가 안내), 관리자는 남의 글·댓글 삭제 버튼, 상단바 "신고 관리"(관리자만), /admin/reports(미처리·기각 탭, 삭제·문제 없음, 처리 후 재조회까지 버튼 잠금). 본인 삭제 403은 새로고침 안내. 브라우저 확인 | e670d23 |
 | 2026-11-08 | S9-e | EC2 배포: CI(475개·images) 초록 → Deploy 자동 백업 → V4·V5 적용(기록장 1~5 success, 기존 회원 1명 USER) → 운영 DB SQL로 관리자 1명 지정(UPDATE 1). deploy.md에 관리자 지정·해제, V4/V5 후 S8 이미지 되돌리기 메모(57c36d4) | 7041c4f |
-| 2026-11-08 | S9 후속 | 전체 리뷰 반영: 글·댓글 삭제를 JPQL 한 문장 + 행 수로(본인·관리자 동시 삭제 시 늦은 쪽 500 → 404, 경쟁 테스트 4개), role 판단을 UserRole.fromClaim 하나로, JSON 숫자 enum({"reason":0}, {"category":0}) 400(spring.jackson.datatype.enum.fail-on-numbers-for-enums). 테스트 489개. 재배포 안 함(다음 Deploy에 포함) | (이 커밋) |
+| 2026-11-08 | S9 후속 | 전체 리뷰 반영: 글·댓글 삭제를 JPQL 한 문장 + 행 수로(본인·관리자 동시 삭제 시 늦은 쪽 500 → 404, 경쟁 테스트 4개), role 판단을 UserRole.fromClaim 하나로, JSON 숫자 enum({"reason":0}, {"category":0}) 400(spring.jackson.datatype.enum.fail-on-numbers-for-enums). 테스트 489개. 재배포 안 함(다음 Deploy에 포함) | 42bf050 |
+| 2026-11-08 | UI1-a | 화면 공용화(모양·기능 변화 없음): 에러 문구 describeError/errorText 한 곳, 안내 Notice(error=alert, success·info=status), isAdmin, Loading, SITE_NAME, 인라인 style 0곳(CSS 클래스로), 디자인 기준 docs/design.md. 브라우저에서 문구 6장면 동일 확인 | (이 커밋) |

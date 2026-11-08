@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import api from '../api'
-import { NETWORK_ERROR_MESSAGE, getStatus, isNetworkError } from '../errorMessage'
+import { describeError } from '../errorMessage'
 import { useAuth } from '../auth/useAuth'
+import Notice from './Notice'
 import ReloginNotice from './ReloginNotice'
 import type { LikeResult } from '../types'
 
@@ -56,19 +57,18 @@ export default function LikeButton({ postId, initialCount }: { postId: string; i
       setCount(res.data.likeCount)
       setLiked(res.data.liked)
     } catch (err: unknown) {
-      const status = getStatus(err)
-      if (isNetworkError(err)) setMessage(NETWORK_ERROR_MESSAGE)
-      else if (status === 401) setNeedLogin(true)
-      else if (status === 409) {
+      // 네트워크 오류·401·표에 없는 코드는 공용 함수가 정한다. 409/404는 화면 상태를 맞추는 일이 붙어 status로 따로 처리한다
+      const info = describeError(err, { 409: '이미 공감한 글입니다', 404: '글을 찾을 수 없습니다' }, '처리하지 못했습니다')
+      if (info.kind === 'needLogin') setNeedLogin(true)
+      else if (info.status === 409) {
         // 이미 눌려 있었음: 화면 상태만 '공감함'으로 맞춘다
         setLiked(true)
         setMessage('이미 공감한 글입니다')
-      } else if (status === 404 && liked) {
+      } else if (info.status === 404 && liked) {
         // 취소하려는데 눌러 둔 적이 없음: '공감 안 함'으로 맞춘다
         setLiked(false)
         setMessage('공감하지 않은 글입니다')
-      } else if (status === 404) setMessage('글을 찾을 수 없습니다')
-      else setMessage('처리하지 못했습니다')
+      } else setMessage(info.message)
     } finally {
       setBusy(false)
     }
@@ -86,7 +86,7 @@ export default function LikeButton({ postId, initialCount }: { postId: string; i
       >
         {liked ? '❤️' : '🤍'} 공감 {count}
       </button>
-      {message && <p role="alert">{message}</p>}
+      {message && <Notice kind="error">{message}</Notice>}
       {needLogin && <ReloginNotice />}
     </div>
   )

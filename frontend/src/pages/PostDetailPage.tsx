@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import api from '../api'
-import { NETWORK_ERROR_MESSAGE, getStatus, isNetworkError } from '../errorMessage'
+import { describeError, errorText } from '../errorMessage'
+import { isAdmin } from '../auth/isAdmin'
+import Loading from '../components/Loading'
+import Notice from '../components/Notice'
 import { useAuth } from '../auth/useAuth'
 import CommentSection from '../components/CommentSection'
 import LikeButton from '../components/LikeButton'
@@ -43,10 +46,7 @@ export default function PostDetailPage() {
       .catch((e: unknown) => {
         if (ignore) return
         setPost(null)
-        const status = getStatus(e)
-        if (isNetworkError(e)) setError(NETWORK_ERROR_MESSAGE)
-        else if (status === 404 || status === 400) setError('글을 찾을 수 없습니다')
-        else setError('글을 불러오지 못했습니다')
+        setError(errorText(e, { 404: '글을 찾을 수 없습니다', 400: '글을 찾을 수 없습니다' }, '글을 불러오지 못했습니다'))
       })
       .finally(() => {
         if (!ignore) setLoading(false)
@@ -67,21 +67,25 @@ export default function PostDetailPage() {
       // replace: 삭제된 글의 상세 화면이 뒤로가기 기록에 남지 않게 한다
       navigate('/', { replace: true })
     } catch (err: unknown) {
-      if (isNetworkError(err)) setDeleteError(NETWORK_ERROR_MESSAGE)
-      else if (getStatus(err) === 401) setNeedLogin(true)
       // 403: 남의 글이거나, 본인 글인데 CSRF 토큰 오류. 본인이면 새로고침을 안내한다
-      else if (getStatus(err) === 403)
-        setDeleteError(isMine ? '삭제하지 못했습니다. 새로고침 후 다시 시도해 주세요' : '삭제할 권한이 없습니다')
-      else if (getStatus(err) === 404) setDeleteError('이미 삭제된 글입니다')
-      else setDeleteError('삭제하지 못했습니다')
+      const info = describeError(
+        err,
+        {
+          403: isMine ? '삭제하지 못했습니다. 새로고침 후 다시 시도해 주세요' : '삭제할 권한이 없습니다',
+          404: '이미 삭제된 글입니다',
+        },
+        '삭제하지 못했습니다',
+      )
+      if (info.kind === 'needLogin') setNeedLogin(true)
+      else setDeleteError(info.message)
       setDeleting(false) // 실패했을 때만 버튼을 되살린다 (성공하면 페이지가 바뀐다)
     }
   }
 
   return (
     <div>
-      {loading && <p>불러오는 중...</p>}
-      {error && <p role="alert">{error}</p>}
+      {loading && <Loading />}
+      {error && <Notice kind="error">{error}</Notice>}
       {post && (
         <article>
           <h1>{post.title}</h1>
@@ -90,13 +94,13 @@ export default function PostDetailPage() {
           <br />
           <small>{post.author?.nickname ?? '(작성자 없음)'}</small> <small>{formatDate(post.createdAt)}</small>
           {/* pre-wrap: 내용의 줄바꿈·공백을 그대로 보여준다. 텍스트로만 출력하므로 HTML이 실행되지 않는다 */}
-          <p style={{ whiteSpace: 'pre-wrap' }}>{post.content}</p>
+          <p className="pre-wrap">{post.content}</p>
         </article>
       )}
       {/* 공감 버튼과 댓글 영역 (글을 불러온 뒤에만) */}
       {post && <LikeButton postId={id ?? ''} initialCount={post.likeCount} />}
       {/* 수정은 내 글만, 삭제는 내 글 또는 관리자. 화면에서 숨기는 건 편의일 뿐, 진짜 보호는 서버의 403이다 */}
-      {post && user && (isMine || user.role === 'ADMIN') && (
+      {post && user && (isMine || isAdmin(user)) && (
         <div>
           {isMine && <Link to={`/posts/${encodeURIComponent(id ?? '')}/edit`}>수정</Link>}{' '}
           <button type="button" onClick={handleDelete} disabled={deleting}>
@@ -116,7 +120,7 @@ export default function PostDetailPage() {
         />
       )}
       {/* 삭제 실패 안내는 버튼 영역 밖에 둔다(로그인이 풀려 버튼이 사라져도 안내가 남게) */}
-      {deleteError && <p role="alert">{deleteError}</p>}
+      {deleteError && <Notice kind="error">{deleteError}</Notice>}
       {needLogin && <ReloginNotice />}
       {post && <CommentSection postId={id ?? ''} />}
       <Link to="/">목록으로</Link>

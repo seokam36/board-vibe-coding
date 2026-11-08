@@ -1,18 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import api from '../api'
-import { NETWORK_ERROR_MESSAGE, getStatus, isNetworkError } from '../errorMessage'
+import { describeError } from '../errorMessage'
 import { useAuth } from '../auth/useAuth'
+import { isAdmin } from '../auth/isAdmin'
 import { formatDate } from '../formatDate'
+import Loading from '../components/Loading'
+import Notice from '../components/Notice'
 import ReloginNotice from '../components/ReloginNotice'
 import type { Report, ReportStatus } from '../types'
 
 const ADMIN_ONLY = '관리자만 볼 수 있습니다'
-
-// 선택된 탭을 눈으로도 알아볼 수 있게 하는 모양 (disabled로 표현하지 않는다)
-function tabStyle(selected: boolean) {
-  return { fontWeight: selected ? 'bold' : 'normal', textDecoration: selected ? 'underline' : 'none' } as const
-}
 
 // 관리자 전용 신고 관리 화면: 미처리 / 기각 탭, 미처리 신고에는 "삭제"·"문제 없음" 버튼
 export default function AdminReportsPage() {
@@ -20,7 +18,7 @@ export default function AdminReportsPage() {
   // 탭은 주소의 ?status= 로 유지한다 (새로고침·뒤로가기에도 같은 탭). 모르는 값이면 미처리
   const [params, setParams] = useSearchParams()
   const status: ReportStatus = params.get('status') === 'DISMISSED' ? 'DISMISSED' : 'PENDING'
-  const isAdmin = user?.role === 'ADMIN'
+  const admin = isAdmin(user)
 
   const [reports, setReports] = useState<Report[] | null>(null) // null이면 아직 못 불러온 상태
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -43,19 +41,17 @@ export default function AdminReportsPage() {
     } catch (e: unknown) {
       if (myId !== requestRef.current) return
       setReports(null) // 실패했는데 옛 목록과 버튼이 남지 않게 비운다
-      const code = getStatus(e)
-      if (isNetworkError(e)) setLoadError(NETWORK_ERROR_MESSAGE)
-      else if (code === 401) setNeedLogin(true)
-      else if (code === 403) setLoadError(ADMIN_ONLY)
-      else setLoadError('신고 목록을 불러오지 못했습니다')
+      const info = describeError(e, { 403: ADMIN_ONLY }, '신고 목록을 불러오지 못했습니다')
+      if (info.kind === 'needLogin') setNeedLogin(true)
+      else setLoadError(info.message)
     }
   }, [status])
 
   useEffect(() => {
-    if (!isAdmin) return // 관리자가 아니면 요청 자체를 보내지 않는다
+    if (!admin) return // 관리자가 아니면 요청 자체를 보내지 않는다
     // 탭·로그인 상태가 바뀔 때 목록을 읽는다 (렌더 직후 비동기로 실행)
     Promise.resolve().then(fetchList)
-  }, [isAdmin, fetchList])
+  }, [admin, fetchList])
 
   function changeTab(next: ReportStatus) {
     setReports(null) // 이전 탭 목록이 잠깐 보이지 않게 비운다
@@ -74,14 +70,12 @@ export default function AdminReportsPage() {
 
   // 처리(삭제·문제 없음) 실패 공통 안내. 404/409는 이미 처리된 것이라 목록을 다시 읽어 맞춘다
   async function handleFail(err: unknown, fallback: string, gone: string) {
-    const code = getStatus(err)
-    if (isNetworkError(err)) setActionError(NETWORK_ERROR_MESSAGE)
-    else if (code === 401) setNeedLogin(true)
-    else if (code === 403) setActionError(ADMIN_ONLY)
-    else if (code === 404 || code === 409) {
-      setActionError(gone)
-      await fetchList()
-    } else setActionError(fallback)
+    const info = describeError(err, { 403: ADMIN_ONLY, 404: gone, 409: gone }, fallback)
+    if (info.kind === 'needLogin') setNeedLogin(true)
+    else {
+      setActionError(info.message)
+      if (info.status === 404 || info.status === 409) await fetchList()
+    }
   }
 
   function startAction() {
@@ -122,18 +116,18 @@ export default function AdminReportsPage() {
 
   // 관리자가 아니면 안내만 (비로그인·일반 회원 모두). 진짜 보호는 서버의 403이다.
   // 단, 처리 중 로그인이 풀려(401) 관리자가 아니게 된 경우엔 로그인 안내를 보여 준다
-  if (!isAdmin) return needLogin ? <ReloginNotice /> : <p role="alert">{ADMIN_ONLY}</p>
+  if (!admin) return needLogin ? <ReloginNotice /> : <Notice kind="error">{ADMIN_ONLY}</Notice>
 
   return (
     <div>
       <h1>신고 관리</h1>
-      <div>
+      {/* tabs: 선택된 탭(aria-pressed)을 굵게+밑줄로 보여 주는 CSS (index.css). disabled로 표현하지 않는다 */}
+      <div className="tabs">
         <button
           type="button"
           onClick={() => changeTab('PENDING')}
           aria-pressed={status === 'PENDING'}
           disabled={busy}
-          style={tabStyle(status === 'PENDING')}
         >
           미처리
         </button>{' '}
@@ -142,17 +136,16 @@ export default function AdminReportsPage() {
           onClick={() => changeTab('DISMISSED')}
           aria-pressed={status === 'DISMISSED'}
           disabled={busy}
-          style={tabStyle(status === 'DISMISSED')}
         >
           기각
         </button>
       </div>
       {loadError && (
-        <p role="alert">
+        <Notice kind="error">
           {loadError} {loadError !== ADMIN_ONLY && <button type="button" onClick={retry}>다시 시도</button>}
-        </p>
+        </Notice>
       )}
-      {reports === null && !loadError && !needLogin && <p>불러오는 중...</p>}
+      {reports === null && !loadError && !needLogin && <Loading />}
       {reports && reports.length === 0 && <p>신고가 없습니다</p>}
       <ul>
         {(reports ?? []).map((r) => (
@@ -160,12 +153,12 @@ export default function AdminReportsPage() {
             <strong>[{r.target.type === 'POST' ? '글' : '댓글'}]</strong>{' '}
             <Link to={`/posts/${r.target.postId}`}>글로 가기</Link>
             {/* pre-wrap: 줄바꿈을 그대로. 텍스트로만 출력하므로 HTML이 실행되지 않는다 */}
-            <p style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.target.preview}</p>
+            <p className="pre-wrap-break">{r.target.preview}</p>
             <small>대상 작성자: {r.target.author?.nickname ?? '탈퇴한 회원 또는 작성자 없음'}</small>
             <br />
             <small>사유: {r.reason.name}</small>
             <br />
-            <small style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>상세: {r.detail || '-'}</small>
+            <small className="pre-wrap-break">상세: {r.detail || '-'}</small>
             <br />
             <small>
               신고자: {r.reporter?.nickname ?? '탈퇴한 회원'} · {formatDate(r.createdAt)}
@@ -183,8 +176,8 @@ export default function AdminReportsPage() {
           </li>
         ))}
       </ul>
-      {notice && <p role="status">{notice}</p>}
-      {actionError && <p role="alert">{actionError}</p>}
+      {notice && <Notice kind="success">{notice}</Notice>}
+      {actionError && <Notice kind="error">{actionError}</Notice>}
       {needLogin && <ReloginNotice />}
     </div>
   )

@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router'
 import { useAuth } from './auth/useAuth'
+import Loading from './components/Loading'
 import NavBar from './components/NavBar'
 import RequireLogin from './components/RequireLogin'
 import LoginPage from './pages/LoginPage'
@@ -15,7 +16,7 @@ import AdminReportsPage from './pages/AdminReportsPage'
 export default function App() {
   const { loading } = useAuth()
   // 시작 시 CSRF 쿠키 확보 + 로그인 확인이 끝나기 전에는 화면을 그리지 않는다 (첫 쓰기 요청보다 쿠키가 먼저여야 하므로)
-  if (loading) return <p>불러오는 중...</p>
+  if (loading) return <Loading />
 
   return (
     <>

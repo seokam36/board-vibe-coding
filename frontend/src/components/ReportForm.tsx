@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import api from '../api'
-import { NETWORK_ERROR_MESSAGE, getStatus, isNetworkError } from '../errorMessage'
+import { describeError, errorText } from '../errorMessage'
 import type { ReportReason } from '../types'
+import Loading from './Loading'
+import Notice from './Notice'
 
 const DETAIL_MAX = 300
 
@@ -35,9 +37,7 @@ export default function ReportForm({
     api
       .get<ReportReason[]>('/report-reasons')
       .then((res) => setReasons(res.data))
-      .catch((e: unknown) =>
-        setReasonsError(isNetworkError(e) ? NETWORK_ERROR_MESSAGE : '신고 사유를 불러오지 못했습니다'),
-      )
+      .catch((e: unknown) => setReasonsError(errorText(e, {}, '신고 사유를 불러오지 못했습니다')))
   }
 
   function handleOpen() {
@@ -61,20 +61,24 @@ export default function ReportForm({
       setDone(true)
       setOpen(false)
     } catch (err: unknown) {
-      const status = getStatus(err)
-      if (isNetworkError(err)) setMessage(NETWORK_ERROR_MESSAGE)
-      else if (status === 401) onNeedLogin()
-      else if (status === 409) {
-        setMessage(`이미 신고한 ${label}입니다`)
-        setDone(true)
-        setOpen(false)
-      } else if (status === 404) {
-        // 이미 지워진 대상이라 더 보낼 수 없다 (안내만 남긴다)
-        setMessage(`이미 삭제된 ${label}입니다`)
-        setDone(true)
-        setOpen(false)
-      } else if (status === 400) setMessage('내용을 확인해 주세요 (자기 것은 신고할 수 없고, 사유는 필수입니다)')
-      else setMessage('신고하지 못했습니다')
+      const info = describeError(
+        err,
+        {
+          409: `이미 신고한 ${label}입니다`,
+          404: `이미 삭제된 ${label}입니다`,
+          400: '내용을 확인해 주세요 (자기 것은 신고할 수 없고, 사유는 필수입니다)',
+        },
+        '신고하지 못했습니다',
+      )
+      if (info.kind === 'needLogin') onNeedLogin()
+      else {
+        setMessage(info.message)
+        // 409(이미 신고함)·404(이미 지워진 대상)이면 더 보낼 수 없으니 양식을 닫는다
+        if (info.status === 409 || info.status === 404) {
+          setDone(true)
+          setOpen(false)
+        }
+      }
     } finally {
       setSending(false)
     }
@@ -91,11 +95,11 @@ export default function ReportForm({
         <form onSubmit={handleSubmit}>
           {/* 사유 목록: 로딩 중 / 실패(다시 시도만) / 성공(셀렉트) */}
           {reasonsError ? (
-            <p role="alert">
+            <Notice kind="error">
               {reasonsError} <button type="button" onClick={loadReasons}>다시 시도</button>
-            </p>
+            </Notice>
           ) : !reasons ? (
-            <p>사유 불러오는 중...</p>
+            <Loading prefix="사유" />
           ) : (
             <select aria-label="신고 사유" value={reason} onChange={(e) => setReason(e.target.value)}>
               <option value="">사유를 고르세요</option>
@@ -113,7 +117,7 @@ export default function ReportForm({
             maxLength={DETAIL_MAX}
             rows={2}
             placeholder="자세한 내용 (선택)"
-            style={{ width: '100%' }}
+            className="full-width"
           />
           <small>
             {detail.length}/{DETAIL_MAX}
@@ -126,7 +130,7 @@ export default function ReportForm({
           </button>
         </form>
       )}
-      {message && <p role="alert">{message}</p>}
+      {message && <Notice kind="error">{message}</Notice>}
     </div>
   )
 }

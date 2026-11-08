@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import api from '../api'
-import { NETWORK_ERROR_MESSAGE, getStatus, isNetworkError } from '../errorMessage'
+import { errorText } from '../errorMessage'
+import Loading from '../components/Loading'
+import { LOADING_TEXT } from '../components/loadingText'
+import Notice from '../components/Notice'
+import { SITE_NAME } from '../siteName'
 import { formatDate } from '../formatDate'
 import type { Category, Post, School } from '../types'
 
@@ -70,11 +74,11 @@ export default function PostListPage() {
       })
       .catch((e: unknown) => {
         if (ignore) return
-        const status = getStatus(e)
-        let error = '목록을 불러오지 못했습니다'
-        if (isNetworkError(e)) error = NETWORK_ERROR_MESSAGE
-        else if (status === 404) error = '존재하지 않는 학교입니다'
-        else if (status === 400) error = '잘못된 조건입니다. 학교와 말머리를 다시 골라 주세요'
+        const error = errorText(
+          e,
+          { 404: '존재하지 않는 학교입니다', 400: '잘못된 조건입니다. 학교와 말머리를 다시 골라 주세요' },
+          '목록을 불러오지 못했습니다',
+        )
         setResult({ key: queryKey, posts: [], error })
       })
     return () => {
@@ -105,16 +109,16 @@ export default function PostListPage() {
 
   return (
     <div>
-      <h1>게시판</h1>
+      <h1>{SITE_NAME}</h1>
       {/* 회원 탈퇴 화면이 라우터 state로 넘긴 완료 문구 (없으면 안 보임) */}
-      {notice && <p>{notice}</p>}
+      {notice && <Notice kind="info">{notice}</Notice>}
       {/* 글쓰기 버튼은 항상 보이되, 비로그인이면 로그인 화면으로 보낸다 */}
       <button onClick={() => navigate(user ? '/posts/new' : '/login')}>글쓰기</button>
       <div>
         <select aria-label="학교" value={schoolId} onChange={(e) => changeFilter('schoolId', e.target.value)}>
           <option value="">전체 학교</option>
           {schoolMissing && (
-            <option value={schoolId}>{schoolsPending ? '불러오는 중...' : `알 수 없는 학교 (${schoolId})`}</option>
+            <option value={schoolId}>{schoolsPending ? LOADING_TEXT : `알 수 없는 학교 (${schoolId})`}</option>
           )}
           {(schools ?? []).map((s) => (
             <option key={s.id} value={s.id}>
@@ -125,7 +129,7 @@ export default function PostListPage() {
         <select aria-label="말머리" value={category} onChange={(e) => changeFilter('category', e.target.value)}>
           <option value="">전체 말머리</option>
           {categoryMissing && (
-            <option value={category}>{categoriesPending ? '불러오는 중...' : `알 수 없는 말머리 (${category})`}</option>
+            <option value={category}>{categoriesPending ? LOADING_TEXT : `알 수 없는 말머리 (${category})`}</option>
           )}
           {(categories ?? []).map((c) => (
             <option key={c.code} value={c.code}>
@@ -135,8 +139,8 @@ export default function PostListPage() {
         </select>
         {optionsFailed && <p>학교·말머리 목록을 불러오지 못했습니다</p>}
       </div>
-      {loading && <p>불러오는 중...</p>}
-      {error && <p role="alert">{error}</p>}
+      {loading && <Loading />}
+      {error && <Notice kind="error">{error}</Notice>}
       {!loading && !error && posts.length === 0 && <p>아직 글이 없습니다</p>}
       <ul>
         {posts.map((post) => (

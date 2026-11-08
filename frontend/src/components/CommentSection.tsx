@@ -2,9 +2,13 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router'
 import api from '../api'
-import { NETWORK_ERROR_MESSAGE, getStatus, isNetworkError } from '../errorMessage'
+import { describeError, errorText } from '../errorMessage'
+import type { ErrorInfo } from '../errorMessage'
 import { useAuth } from '../auth/useAuth'
+import { isAdmin } from '../auth/isAdmin'
 import { formatDate } from '../formatDate'
+import Loading from './Loading'
+import Notice from './Notice'
 import ReloginNotice from './ReloginNotice'
 import ReportForm from './ReportForm'
 import type { Comment } from '../types'
@@ -46,7 +50,7 @@ export default function CommentSection({ postId }: { postId: string }) {
       })
       .catch((e: unknown) => {
         if (ignore) return
-        setLoadError(isNetworkError(e) ? NETWORK_ERROR_MESSAGE : '댓글을 불러오지 못했습니다')
+        setLoadError(errorText(e, {}, '댓글을 불러오지 못했습니다'))
       })
     return () => {
       ignore = true
@@ -58,15 +62,10 @@ export default function CommentSection({ postId }: { postId: string }) {
     setReloadKey((k) => k + 1)
   }
 
-  // 쓰기 요청이 실패했을 때 공통 안내. 400은 호출한 쪽이 먼저 처리하고, 나머지를 여기서 정한다
-  function showError(err: unknown, fallback: string, forbidden: string, gone: string) {
-    const status = getStatus(err)
-    if (isNetworkError(err)) setActionError(NETWORK_ERROR_MESSAGE)
-    else if (status === 401) setNeedLogin(true)
-    // 403: 남의 댓글 (CSRF 토큰 오류도 403이라 구분이 안 된다 — 글 삭제와 같이 처리하지 않음)
-    else if (status === 403) setActionError(forbidden)
-    else if (status === 404) setActionError(gone)
-    else setActionError(fallback)
+  // 쓰기 요청이 실패했을 때 공통 안내: 로그인이 풀렸으면 로그인 안내, 아니면 문구를 띄운다
+  function showError(info: ErrorInfo) {
+    if (info.kind === 'needLogin') setNeedLogin(true)
+    else setActionError(info.message)
   }
 
   function resetNotices() {
@@ -85,8 +84,14 @@ export default function CommentSection({ postId }: { postId: string }) {
       setComments((prev) => [...(prev ?? []), res.data])
       setNewText('')
     } catch (err: unknown) {
-      if (getStatus(err) === 400) setActionError(CONTENT_ERROR)
-      else showError(err, '댓글을 등록하지 못했습니다', '댓글을 등록할 수 없습니다', '글을 찾을 수 없습니다')
+      // 403: 남의 댓글 (CSRF 토큰 오류도 403이라 구분이 안 된다 — 글 삭제와 같이 처리하지 않음)
+      showError(
+        describeError(
+          err,
+          { 400: CONTENT_ERROR, 403: '댓글을 등록할 수 없습니다', 404: '글을 찾을 수 없습니다' },
+          '댓글을 등록하지 못했습니다',
+        ),
+      )
     } finally {
       setPosting(false)
     }
@@ -106,14 +111,16 @@ export default function CommentSection({ postId }: { postId: string }) {
       setComments((prev) => (prev ?? []).map((x) => (x.id === c.id ? res.data : x)))
       setEditingId(null)
     } catch (err: unknown) {
-      if (getStatus(err) === 400) setActionError(CONTENT_ERROR)
-      else {
-        showError(err, '수정하지 못했습니다', '본인 댓글만 수정할 수 있습니다', '이미 삭제된 댓글입니다')
-        // 이미 지워진 댓글이면 목록에서도 빼고 편집을 끝낸다
-        if (getStatus(err) === 404) {
-          setComments((prev) => (prev ?? []).filter((x) => x.id !== c.id))
-          setEditingId(null)
-        }
+      const info = describeError(
+        err,
+        { 400: CONTENT_ERROR, 403: '본인 댓글만 수정할 수 있습니다', 404: '이미 삭제된 댓글입니다' },
+        '수정하지 못했습니다',
+      )
+      showError(info)
+      // 이미 지워진 댓글이면 목록에서도 빼고 편집을 끝낸다
+      if (info.kind === 'message' && info.status === 404) {
+        setComments((prev) => (prev ?? []).filter((x) => x.id !== c.id))
+        setEditingId(null)
       }
     } finally {
       setBusy(false)
@@ -131,13 +138,16 @@ export default function CommentSection({ postId }: { postId: string }) {
     } catch (err: unknown) {
       // 403: 남의 댓글이면 권한 없음, 본인 댓글이면 CSRF 토큰 오류 가능성이라 새로고침을 안내한다
       const mine = !!user && c.author?.id === user.id
-      showError(
+      const info = describeError(
         err,
+        {
+          403: mine ? '삭제하지 못했습니다. 새로고침 후 다시 시도해 주세요' : '삭제할 권한이 없습니다',
+          404: '이미 삭제된 댓글입니다',
+        },
         '삭제하지 못했습니다',
-        mine ? '삭제하지 못했습니다. 새로고침 후 다시 시도해 주세요' : '삭제할 권한이 없습니다',
-        '이미 삭제된 댓글입니다',
       )
-      if (getStatus(err) === 404) setComments((prev) => (prev ?? []).filter((x) => x.id !== c.id))
+      showError(info)
+      if (info.kind === 'message' && info.status === 404) setComments((prev) => (prev ?? []).filter((x) => x.id !== c.id))
     } finally {
       setBusy(false)
     }
@@ -147,12 +157,12 @@ export default function CommentSection({ postId }: { postId: string }) {
     <section>
       <h2>댓글{comments ? ` ${comments.length}` : ''}</h2>
       {loadError && (
-        <p role="alert">
+        <Notice kind="error">
           {loadError} <button type="button" onClick={retryLoad}>다시 시도</button>
-        </p>
+        </Notice>
       )}
       {/* 아직 응답 전이면 비어 있는 게 아니라 불러오는 중이라고 알린다 */}
-      {comments === null && !loadError && <p>댓글 불러오는 중...</p>}
+      {comments === null && !loadError && <Loading prefix="댓글" />}
       {comments && comments.length === 0 && <p>아직 댓글이 없습니다</p>}
       <ul>
         {(comments ?? []).map((c) => (
@@ -166,7 +176,7 @@ export default function CommentSection({ postId }: { postId: string }) {
                   value={editText}
                   onChange={(e) => setEditText(e.target.value)}
                   rows={3}
-                  style={{ width: '100%' }}
+                  className="full-width"
                 />
                 <button type="button" onClick={() => handleSave(c)} disabled={busy}>
                   {busy ? '저장 중...' : '저장'}
@@ -178,9 +188,9 @@ export default function CommentSection({ postId }: { postId: string }) {
             ) : (
               <>
                 {/* pre-wrap: 줄바꿈을 그대로 보여준다. 텍스트로만 출력하므로 HTML이 실행되지 않는다 */}
-                <p style={{ whiteSpace: 'pre-wrap' }}>{c.content}</p>
+                <p className="pre-wrap">{c.content}</p>
                 {/* 수정은 내 댓글만, 삭제는 내 댓글 또는 관리자. 화면에서 숨기는 건 편의일 뿐, 진짜 보호는 서버의 403이다 */}
-                {user && (c.author?.id === user.id || user.role === 'ADMIN') && (
+                {user && (c.author?.id === user.id || isAdmin(user)) && (
                   <div>
                     {c.author?.id === user.id && (
                       <>
@@ -211,7 +221,7 @@ export default function CommentSection({ postId }: { postId: string }) {
         ))}
       </ul>
       {/* 실패 안내는 목록·입력칸 밖에 둔다(로그인이 풀려 버튼이 사라져도 안내가 남게) */}
-      {actionError && <p role="alert">{actionError}</p>}
+      {actionError && <Notice kind="error">{actionError}</Notice>}
       {needLogin && <ReloginNotice />}
       {user ? (
         <form onSubmit={handleCreate}>
@@ -221,7 +231,7 @@ export default function CommentSection({ postId }: { postId: string }) {
             onChange={(e) => setNewText(e.target.value)}
             rows={3}
             placeholder="댓글을 입력하세요"
-            style={{ width: '100%' }}
+            className="full-width"
           />
           <button type="submit" disabled={posting}>
             {posting ? '등록 중...' : '등록'}
