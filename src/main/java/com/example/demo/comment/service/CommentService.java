@@ -87,7 +87,7 @@ public class CommentService {
 
     private Comment findOrThrow(Long id) {
         return commentRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "댓글을 찾을 수 없습니다."));
+                .orElseThrow(ApiErrors::commentNotFound);
     }
 
     // 남의 댓글(작성자가 없는 댓글 포함)이면 403

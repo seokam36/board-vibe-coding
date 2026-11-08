@@ -52,6 +52,8 @@ public class SecurityConfig {
                 // 학교·말머리 목록도 읽기만 공개 (글쓰기 화면의 선택지)
                 m.matcher(HttpMethod.GET, "/schools"),
                 m.matcher(HttpMethod.GET, "/categories"),
+                // 신고 사유 목록도 읽기만 공개 (신고하기 자체는 로그인 필요)
+                m.matcher(HttpMethod.GET, "/report-reasons"),
                 m.matcher("/actuator/health"),
                 m.matcher("/error"));
     }
