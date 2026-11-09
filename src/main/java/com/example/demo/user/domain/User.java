@@ -52,7 +52,7 @@ public class User {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    // 학교 인증(S10). 인증 전에는 셋 다 null. 인증 처리 코드는 이후 단계(S10-b)에서 붙이며, 지금은 DB 값을 읽기만 한다.
+    // 학교 인증(S10). 인증 전에는 셋 다 null. 인증 처리(코드 확인)는 EmailVerificationService가 UserRepository.markVerified로 한다.
     // 인증한 학교(한 계정에 1개, 만료 없음). 지연 로딩이라 읽을 때 쿼리에서 함께 가져온다(UserRepository의 EntityGraph).
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "verified_school_id")

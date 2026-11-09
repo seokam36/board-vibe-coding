@@ -28,6 +28,15 @@ public class EmailVerificationCodeStore {
 
     public enum ReserveResult { OK, COOLDOWN, DAILY_LIMIT }
 
+    // 확인 결과. MATCHED일 때만 email·schoolId가 있다.
+    public enum ConfirmStatus { MATCHED, NOT_FOUND, WRONG, DISCARDED }
+
+    public record ConfirmResult(ConfirmStatus status, String email, Long schoolId) {
+        static ConfirmResult of(ConfirmStatus status) {
+            return new ConfirmResult(status, null, null);
+        }
+    }
+
     private static final String CODE_PREFIX = "email-verify:";
     private static final String COOLDOWN_PREFIX = "email-verify-cooldown:";
     private static final String DAILY_PREFIX = "email-verify-daily:";
@@ -65,6 +74,22 @@ public class EmailVerificationCodeStore {
                     + "return 1",
             Long.class);
 
+    // 코드 확인. 비교와 삭제/카운트를 Lua 한 번에 실행해 사이에 틈이 없다(같은 코드로 동시 확인해도 한 요청만 일치).
+    // 결과: {0}=키 없음(없거나 만료), {1,email,schoolId}=일치(키 삭제), {2}=불일치(attempts+1), {3}=불일치+횟수 초과(키 삭제=폐기)
+    // 6자리는 경우의 수가 100만뿐이라 추측 공격을 막는 건 이 attempts 제한(max-attempts)뿐이다. 쿨다운·하루 횟수 키는 건드리지 않는다.
+    // KEYS: [1]=코드 / ARGV: [1]=내가 낸 codeHash, [2]=최대 틀린 횟수
+    private static final DefaultRedisScript<List> CONFIRM_SCRIPT = new DefaultRedisScript<>(
+            "if redis.call('EXISTS', KEYS[1]) == 0 then return {0} end "
+                    + "if redis.call('HGET', KEYS[1], 'codeHash') == ARGV[1] then "
+                    + "local email = redis.call('HGET', KEYS[1], 'email') "
+                    + "local schoolId = redis.call('HGET', KEYS[1], 'schoolId') "
+                    + "redis.call('DEL', KEYS[1]) "
+                    + "return {1, email, schoolId} end "
+                    + "if redis.call('HINCRBY', KEYS[1], 'attempts', 1) >= tonumber(ARGV[2]) then "
+                    + "redis.call('DEL', KEYS[1]) return {3} end "
+                    + "return {2}",
+            List.class);
+
     // 제한을 통과하면 코드를 저장하고 OK. 아니면 이유만 돌려주고 기존 코드는 그대로 둔다.
     public ReserveResult reserve(Long userId, String code, String normalizedEmail, Long schoolId) {
         Long result = redis.execute(RESERVE_SCRIPT,
@@ -91,11 +116,26 @@ public class EmailVerificationCodeStore {
         redis.execute(ROLLBACK_SCRIPT, keys(userId), codeHash(userId, code));
     }
 
+    // 사용자가 낸 코드를 확인한다(위 Lua 설명 참고)
+    public ConfirmResult confirm(Long userId, String code) {
+        List<?> result = redis.execute(CONFIRM_SCRIPT, List.of(CODE_PREFIX + userId),
+                codeHash(userId, code), String.valueOf(props.maxAttempts()));
+        if (result == null || result.isEmpty()) {
+            throw new IllegalStateException("Redis 스크립트 결과가 없습니다.");
+        }
+        return switch (((Number) result.get(0)).intValue()) {
+            case 0 -> ConfirmResult.of(ConfirmStatus.NOT_FOUND);
+            case 1 -> new ConfirmResult(ConfirmStatus.MATCHED, String.valueOf(result.get(1)), Long.valueOf(String.valueOf(result.get(2))));
+            case 2 -> ConfirmResult.of(ConfirmStatus.WRONG);
+            default -> ConfirmResult.of(ConfirmStatus.DISCARDED);
+        };
+    }
+
     private List<String> keys(Long userId) {
         return List.of(CODE_PREFIX + userId, COOLDOWN_PREFIX + userId, DAILY_PREFIX + userId);
     }
 
-    // 코드 해시: 회원 id를 섞어 SHA-256(hex). 평문 코드는 저장하지 않는다. (S10-c의 확인도 같은 방식으로 비교해야 한다)
+    // 코드 해시: 회원 id를 섞어 SHA-256(hex). 평문 코드는 저장하지 않는다. (confirm도 같은 방식으로 비교한다)
     // 6자리는 경우의 수가 100만뿐이라 해시만으로는 Redis가 털리면 풀린다 -> 5번 실패 폐기·10분 TTL이 실제 방어선이다.
     static String codeHash(Long userId, String code) {
         try {

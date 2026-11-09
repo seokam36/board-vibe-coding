@@ -17,6 +17,7 @@ import com.example.demo.auth.dto.LoginUser;
 import com.example.demo.auth.service.AuthCookieFactory;
 import com.example.demo.user.dto.NicknameUpdateRequest;
 import com.example.demo.user.dto.PasswordChangeRequest;
+import com.example.demo.user.dto.SchoolCodeConfirmRequest;
 import com.example.demo.user.dto.SchoolEmailCodeRequest;
 import com.example.demo.user.dto.UserResponse;
 import com.example.demo.user.dto.WithdrawRequest;
@@ -47,6 +48,12 @@ public class UserController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public void requestSchoolCode(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody SchoolEmailCodeRequest request) {
         emailVerificationService.sendCode(LoginUser.from(jwt).id(), request.email());
+    }
+
+    // 학교 메일 인증 코드 확인: 200 + 인증 학교가 채워진 UserResponse
+    @PostMapping("/school-verification")
+    public UserResponse confirmSchoolCode(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody SchoolCodeConfirmRequest request) {
+        return emailVerificationService.confirmCode(LoginUser.from(jwt).id(), request.code());
     }
 
     // 비밀번호 변경: 204 + 두 쿠키 삭제. 모든 기기가 로그아웃되므로 이 기기도 다시 로그인해야 한다.

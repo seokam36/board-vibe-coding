@@ -60,7 +60,7 @@
   - 결정: Gmail SMTP로 시작(나중에 SES), 인증한 학교 게시판에만 글쓰기, 메일은 소문자 SHA-256 해시만 UNIQUE 저장(원문 저장 안 함), 인증 여부는 토큰 말고 매번 DB 확인, 학교는 메일 도메인으로 자동 판별, 코드 6자리·10분·재발송 60초·5회 실패 폐기·하루 10회, 미인증은 읽기만(글쓰기·댓글·공감·신고 모두 인증 후, 2026-11-09 변경), 관리자도 인증 필요, 가입 때 메일은 받지 않음(인증은 내 정보에서)
   - [x] S10-a. V6(school_email_domains 표 + users 인증 3칸) + 응답에 verifiedSchool, /schools에 emailDomains
   - [x] S10-b. 인증 코드 보내기 API (가짜 발송: 로그에 코드)
-  - [ ] S10-c. 코드 확인 API → 인증 완료 저장
+  - [x] S10-c. 코드 확인 API → 인증 완료 저장
   - [ ] S10-d. 인증 전 제한 (글쓰기는 인증 학교 게시판만, 댓글·공감·신고도 인증 후)
   - [ ] S10-e. 실제 메일 발송 (SMTP)
   - [ ] S10-f. 화면
@@ -128,4 +128,5 @@
 | 2026-11-08 | UI1-d | 공용 확인 창: window.confirm 4곳(글·댓글 삭제, 탈퇴, 관리자 삭제)을 <dialog> 하나(useConfirm 훅)로. 처음 포커스는 취소, Esc=취소, 화면이 바뀌면 취소로 닫힘(뒤로가기 후 엉뚱한 삭제 방지). 브라우저 확인 | e94ca84 |
 | 2026-11-08 | UI1-e | EC2 배포: CI(489개·frontend·images) 초록 → Deploy 자동 백업·헬스체크 성공. 운영에서 어두운 새 화면·확인 창 확인. S9 후속(42bf050: 동시 삭제 404, 숫자 enum 400)도 같이 나감. DB 변경 없음 | (이 커밋) |
 | 2026-11-09 | S10-a | V6(school_email_domains: 5개 학교 도메인 6개, 소문자만 CHECK, 학교 id는 이름으로 찾음 / users에 verified_school_id·verified_at·school_email_hash UNIQUE, 기존 회원 NULL) + 로그인·재발급·내 정보·닉네임 변경 응답에 verifiedSchool(EntityGraph로 한 쿼리) + GET /schools에 emailDomains(새 SchoolDetailResponse, 글 응답 school은 그대로, 쿼리 2번 고정). 동작 변화 없음. 테스트 509개 | 94ac0cf |
-| 2026-11-09 | S10-b | POST /users/me/school-verification/code(202): 메일 앞뒤 공백 제거·소문자 → 학교 도메인 없으면 400 → 이미 인증·다른 계정이 쓴 메일 409 → Redis Lua 한 번에 60초 쿨다운·하루 10회(429) 검사와 코드 저장(코드는 해시만, 10분, 옛 코드 무효) → 발송(지금은 로그). 발송 실패 시 내 코드일 때만 되돌려 바로 재요청 가능(500). 테스트 527개 | (이 커밋) |
+| 2026-11-09 | S10-b | POST /users/me/school-verification/code(202): 메일 앞뒤 공백 제거·소문자 → 학교 도메인 없으면 400 → 이미 인증·다른 계정이 쓴 메일 409 → Redis Lua 한 번에 60초 쿨다운·하루 10회(429) 검사와 코드 저장(코드는 해시만, 10분, 옛 코드 무효) → 발송(지금은 로그). 발송 실패 시 내 코드일 때만 되돌려 바로 재요청 가능(500). 테스트 527개 | c0de131 |
+| 2026-11-09 | S10-c | POST /users/me/school-verification(200 UserResponse): 이미 인증 409(코드 소모 안 함) → Redis Lua 한 번에 확인(틀림 400·attempts+1 / 없음·만료·5번째 틀림 폐기 410) → 일치하면 키 삭제 후 조건부 UPDATE(verified_school이 비었을 때만)로 학교·시각·메일 해시 저장, 같은 메일 다른 계정은 UNIQUE로 409. 화면이 상태코드로 "다시 입력"/"다시 받기"를 구분하게 410 분리. 테스트 548개 | (이 커밋) |

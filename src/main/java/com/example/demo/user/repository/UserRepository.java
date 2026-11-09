@@ -1,5 +1,6 @@
 package com.example.demo.user.repository;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -41,6 +42,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Transactional
     @Query("update User u set u.nickname = :nickname where u.id = :id")
     int updateNickname(@Param("id") Long id, @Param("nickname") String nickname);
+
+    // 학교 인증 칸 3개만 채운다. 아직 인증 안 한 회원(verified_school_id IS NULL)일 때만 바뀌므로 동시에 두 번 확인해도 한 번만 기록된다.
+    // 반환값 = 바뀐 행 수(0이면 그 사이 인증됐거나 회원이 삭제됨)
+    @Modifying
+    @Transactional
+    @Query("update User u set u.verifiedSchool.id = :schoolId, u.verifiedAt = :now, u.schoolEmailHash = :emailHash "
+            + "where u.id = :id and u.verifiedSchool is null")
+    int markVerified(@Param("id") Long id, @Param("schoolId") Long schoolId,
+            @Param("emailHash") String emailHash, @Param("now") Instant now);
 
     // 비밀번호(해시) 컬럼만 바꾼다. 이유는 updateNickname과 같다.
     @Modifying
