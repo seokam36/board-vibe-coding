@@ -533,3 +533,23 @@ label textarea {
   justify-content: flex-end;
   gap: var(--space-2);
 }
+
+/* ---------- 비자 후기 ---------- */
+/* 결과 뱃지: 승인은 인증 뱃지와 같은 청자 계열, 불허는 회색(빨강은 되돌릴 수 없는 동작 전용이라 쓰지 않는다) */
+.badge-result-APPROVED {
+  color: var(--celadon-ink);
+  background: var(--celadon-soft);
+}
+.badge-result-DENIED {
+  color: var(--muted);
+  background: var(--badge-chat-bg);
+}
+/* 상세의 접수일 → 결과일 줄 */
+.visa-dates {
+  margin: var(--space-3) 0 0;
+  font-weight: 500;
+}
+/* 본문이 비었을 때의 회색 문구 */
+.visa-empty {
+  color: var(--muted);
+}

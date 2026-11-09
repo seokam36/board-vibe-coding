@@ -15,3 +15,11 @@ export function formatDate(iso: string): string {
     hourCycle: 'h23', // 자정을 24:05가 아니라 00:05로
   })
 }
+
+// 날짜만 있는 "yyyy-MM-dd" 문자열을 "2026년 9월 1일"로 바꾼다.
+// formatDate에 넣으면 UTC 자정으로 읽혀 시각이 붙으므로, Date를 거치지 않고 문자열을 직접 쪼갠다(시간대 영향 없음)
+export function formatDay(day: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day)
+  if (!m) return '' // 모르는 모양이면 빈 값
+  return `${Number(m[1])}년 ${Number(m[2])}월 ${Number(m[3])}일`
+}

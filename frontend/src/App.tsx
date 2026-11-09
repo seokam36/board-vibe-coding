@@ -11,6 +11,8 @@ import PostEditPage from './pages/PostEditPage'
 import MyPage from './pages/MyPage'
 import SignupPage from './pages/SignupPage'
 import AdminReportsPage from './pages/AdminReportsPage'
+import VisaReviewListPage from './pages/VisaReviewListPage'
+import VisaReviewDetailPage from './pages/VisaReviewDetailPage'
 
 // 주소별로 어떤 페이지를 보여줄지 정하는 곳
 export default function App() {
@@ -57,6 +59,10 @@ export default function App() {
           />
           {/* 신고 관리: 관리자 여부는 페이지 안에서 확인한다 */}
           <Route path="/admin/reports" element={<AdminReportsPage />} />
+          {/* 비자 후기(읽기 전용, 로그인 없이 볼 수 있다) */}
+          <Route path="/visa-reviews" element={<VisaReviewListPage />} />
+          {/* 주의: 다음 단계의 "/visa-reviews/stats"는 반드시 아래 ":id"보다 먼저 선언한다 (안 그러면 "stats"가 id로 읽힌다) */}
+          <Route path="/visa-reviews/:id" element={<VisaReviewDetailPage />} />
           {/* 위 어디에도 안 맞는 주소 */}
           <Route
             path="*"

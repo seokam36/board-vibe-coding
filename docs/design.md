@@ -30,8 +30,11 @@
 보조 토큰: `--danger-strong` `#A13A27`(위험 버튼을 누르고 있을 때, 글자 `--ink`), `--danger-soft` `#3A2521`(에러 안내 배경), `--info-soft` `#222D2A`(정보 안내 배경), `--backdrop` `rgb(0 0 0 / 60%)`(확인 창 뒤를 덮는 막), `--badge-*`(뱃지 색 묶음). `:root`에 `color-scheme: dark`(폼 컨트롤·스크롤바도 어둡게). `theme-color`(index.html)는 `--canvas` 값.
 
 날짜는 초를 빼고 "11월 8일 15:19"로 짧게(올해가 아니면 연도를 붙인다).
+날짜만 있는 값(접수일·결과일)은 연도를 붙여 "2026년 9월 1일"로(`formatDay`, 시간대 영향이 없게 문자열을 직접 쪼갠다).
 
 인증 뱃지(`.badge-verified`): 학교 인증을 마친 회원 표시(상단바 "인증", 내 정보 "학교 인증 완료 · 학교명"). 학교생활 뱃지와 같은 청자 색(`--celadon-ink` / `--celadon-soft`).
+
+결과 뱃지(`.badge-result-APPROVED` / `.badge-result-DENIED`): 승인은 인증 뱃지와 같은 청자(`--celadon-ink` / `--celadon-soft`), 불허는 잡담 뱃지와 같은 회색(`--muted` / `--badge-chat-bg`). 빨강은 쓰지 않는다(위험색은 되돌릴 수 없는 동작에만).
 
 말머리 뱃지(글자색 / 배경): 잡담 `--muted` / `#262F2C`, 질문 `#A9C2F0` / `#1F2B42`, 학교생활 `--celadon-ink` / `--celadon-soft`.
 

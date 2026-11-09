@@ -79,3 +79,40 @@ export interface Report {
   status: ReportStatus
   createdAt: string
 }
+
+// 비자 후기 선택지 한 개 (GET /visa-review-options). code는 요청·주소에 쓰는 값, name은 화면에 보여 줄 한글 이름
+export interface VisaOption {
+  code: string
+  name: string
+}
+
+// 비자 후기 선택지 묶음 (GET /visa-review-options)
+export interface VisaReviewOptions {
+  visaTypes: VisaOption[]
+  applicationTypes: VisaOption[]
+  results: VisaOption[]
+}
+
+// 비자 후기 한 건 (GET /visa-reviews, /visa-reviews/{id})
+export interface VisaReview {
+  id: number
+  author: { id: number; nickname: string } | null // 작성자. 탈퇴했으면 null
+  school: School
+  visaType: VisaOption
+  applicationType: VisaOption
+  receivedDate: string // yyyy-MM-dd. 화면에는 formatDay를 거쳐서만 보여준다
+  resultDate: string // yyyy-MM-dd
+  result: VisaOption // 승인(APPROVED) / 불허(DENIED)
+  processingDays: number // 접수일~결과일 일수 (서버가 계산)
+  content: string // 본문. 안 썼으면 ""
+  createdAt: string // ISO-8601 UTC 문자열 (formatDate로 표시)
+}
+
+// 비자 후기 통계 한 줄 (GET /visa-reviews/stats): 학교 x 비자 종류 x 신청 종류 조합
+export interface VisaReviewStat {
+  school: School
+  visaType: VisaOption
+  applicationType: VisaOption
+  count: number // 후기 수
+  avgDays: number // 평균 처리 일수 (소수 1자리)
+}

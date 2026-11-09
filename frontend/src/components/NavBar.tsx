@@ -28,6 +28,8 @@ export default function NavBar() {
           {SITE_NAME}
         </Link>
         <span className="nav-menu">
+          {/* 비자 후기는 로그인 여부와 무관하게 누구나 본다 */}
+          <Link to="/visa-reviews">비자 후기</Link>
           {user ? (
             <>
               <span>{user.nickname} 님</span>
