@@ -68,7 +68,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // 회원 행을 FOR UPDATE로 잠근다(없으면 빈 값). JPA PESSIMISTIC_WRITE는 DB에 따라 FOR NO KEY UPDATE가 될 수 있는데,
     // 그것으로는 글 INSERT의 FK 검사(FOR KEY SHARE)를 막지 못하므로 네이티브로 FOR UPDATE를 분명히 쓴다.
-    // 같은 잠금이 댓글·공감 INSERT의 FK 검사도 막는다. 공감은 탈퇴 때 ON DELETE CASCADE로 같이 지워진다.
+    // 같은 잠금이 댓글·공감·비자 후기 INSERT의 FK 검사도 막는다. 공감은 탈퇴 때 ON DELETE CASCADE로 같이 지워진다.
     @Query(value = "select id from users where id = :id for update", nativeQuery = true)
     @Transactional(propagation = Propagation.MANDATORY)
     Optional<Long> lockById(@Param("id") Long id);

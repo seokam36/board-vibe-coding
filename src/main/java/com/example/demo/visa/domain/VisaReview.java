@@ -23,7 +23,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// 비자 후기 한 건 (visa_reviews 테이블). S11-a에서는 표와 매핑만 만들고, 만드는 코드는 다음 단계에서 붙인다.
+// 비자 후기 한 건 (visa_reviews 표). 작성은 VisaReviewService.create가 한다.
 @Entity
 @Table(name = "visa_reviews")
 @Getter
@@ -72,6 +72,19 @@ public class VisaReview {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    // 후기 작성용 생성자. 작성자·학교는 서비스가 로그인 회원에게서 넘겨 준다(요청 본문에서 받지 않는다).
+    public VisaReview(User author, School school, VisaType visaType, VisaApplicationType applicationType,
+            LocalDate receivedDate, LocalDate resultDate, VisaResult result, String content) {
+        this.author = author;
+        this.school = school;
+        this.visaType = visaType;
+        this.applicationType = applicationType;
+        this.receivedDate = receivedDate;
+        this.resultDate = resultDate;
+        this.result = result;
+        this.content = content;
+    }
 
     // 저장 직전에 작성 시각 기록 (DB 정밀도인 마이크로초로 맞춘다)
     @PrePersist

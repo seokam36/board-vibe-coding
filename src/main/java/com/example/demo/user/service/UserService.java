@@ -20,6 +20,7 @@ import com.example.demo.user.dto.SignupRequest;
 import com.example.demo.user.dto.UserResponse;
 import com.example.demo.user.dto.WithdrawRequest;
 import com.example.demo.user.repository.UserRepository;
+import com.example.demo.visa.repository.VisaReviewRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,6 +33,7 @@ public class UserService {
     private final RefreshTokenService refreshTokenService;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final VisaReviewRepository visaReviewRepository;
     private final TransactionTemplate transactionTemplate;
     private final AccessGuard accessGuard;
 
@@ -113,11 +115,11 @@ public class UserService {
     }
 
     // 회원 탈퇴. 비밀번호가 틀리면 400(401이면 프론트가 토큰 재발급을 돌리므로).
-    // 순서: 회원 조회 -> 비밀번호 확인(bcrypt, 트랜잭션 밖) -> [한 트랜잭션: 회원 행 잠금 + 글·댓글 작성자 비우기 + 회원 삭제] -> Redis 토큰 전부 삭제.
+    // 순서: 회원 조회 -> 비밀번호 확인(bcrypt, 트랜잭션 밖) -> [한 트랜잭션: 회원 행 잠금 + 글·댓글·비자 후기 작성자 비우기 + 회원 삭제] -> Redis 토큰 전부 삭제.
     // 트랜잭션 범위는 TransactionTemplate으로 잡는다. 같은 클래스의 @Transactional 메서드를 부르면 프록시를 거치지 않아
     // 트랜잭션이 안 걸리고, 저장소 default 메서드나 별도 빈을 만들 만큼 큰 로직도 아니라서 이 방법이 가장 단순하다.
-    // - 글·댓글 UPDATE와 회원 DELETE는 반드시 같은 트랜잭션: 작성자를 비우지 않고 회원을 지우면 FK 위반이고,
-    //   중간에 실패하면 전부 롤백되어 "글·댓글만 비워지고 회원은 남는" 상태가 없다.
+    // - 글·댓글·비자 후기 UPDATE와 회원 DELETE는 반드시 같은 트랜잭션: 작성자를 비우지 않고 회원을 지우면 FK 위반이고,
+    //   중간에 실패하면 전부 롤백되어 "글·댓글·후기만 비워지고 회원은 남는" 상태가 없다.
     // - bcrypt는 트랜잭션 밖에서 돌려 DB 연결(풀 3개)을 오래 잡지 않는다.
     // - revokeAll이 실패하면(Redis 장애) 회원은 이미 지워진 채 500이 난다. 남은 리프레시 토큰으로 재발급을 요청해도
     //   AuthService.refresh가 DB에서 회원을 찾지 못해 401이 되므로 탈퇴한 사람이 다시 로그인되는 일은 없다.
@@ -127,15 +129,16 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비밀번호가 올바르지 않습니다.");
         }
         Integer deleted = transactionTemplate.execute(status -> {
-            // 1) 회원 행을 FOR UPDATE로 먼저 잠근다(READ COMMITTED에서 UPDATE와 DELETE 사이에 글·댓글 INSERT가 끼는 것을 막기 위해).
-            //    - 이미 글·댓글 INSERT를 한 요청이 있으면: 그 커밋이 끝날 때까지 여기서 기다리고, 그 뒤 clearAuthor가 그것까지 비운다.
-            //    - 나중에 온 글·댓글·공감 INSERT는: FK 검사가 이 잠금에 막혔다가 회원 삭제 후 FK 위반이 나고, PostService/CommentService.create·PostLikeService.like가 401로 바꾼다.
-    //    - 공감(post_likes)은 user_id FK가 ON DELETE CASCADE라 회원 삭제 때 DB가 같이 지운다(따로 비우지 않는다). 위 잠금이 공감 INSERT 경쟁도 막는다.
+            // 1) 회원 행을 FOR UPDATE로 먼저 잠근다(READ COMMITTED에서 UPDATE와 DELETE 사이에 글·댓글·후기 INSERT가 끼는 것을 막기 위해).
+            //    - 이미 글·댓글·후기 INSERT를 한 요청이 있으면: 그 커밋이 끝날 때까지 여기서 기다리고, 그 뒤 clearAuthor가 그것까지 비운다.
+            //    - 나중에 온 글·댓글·공감·후기 INSERT는: FK 검사가 이 잠금에 막혔다가 회원 삭제 후 FK 위반이 나고, PostService/CommentService/VisaReviewService.create·PostLikeService.like가 401로 바꾼다.
+            //    - 공감(post_likes)은 user_id FK가 ON DELETE CASCADE라 회원 삭제 때 DB가 같이 지운다(따로 비우지 않는다). 위 잠금이 공감 INSERT 경쟁도 막는다.
             if (userRepository.lockById(id).isEmpty()) {
                 return 0; // 이미 삭제됨 -> 바깥에서 401
             }
             postRepository.clearAuthor(id); // 2) 글은 남기고 작성자만 null로
             commentRepository.clearAuthor(id); // 2-1) 댓글도 남기고 작성자만 null로
+            visaReviewRepository.clearAuthor(id); // 2-2) 비자 후기도 남기고 작성자만 null로 (학교는 그대로)
             return userRepository.deleteUserById(id); // 3) 회원 삭제
         });
         if (deleted == null || deleted == 0) {
