@@ -13,6 +13,8 @@ import SignupPage from './pages/SignupPage'
 import AdminReportsPage from './pages/AdminReportsPage'
 import VisaReviewListPage from './pages/VisaReviewListPage'
 import VisaReviewDetailPage from './pages/VisaReviewDetailPage'
+import VisaReviewCreatePage from './pages/VisaReviewCreatePage'
+import VisaReviewEditPage from './pages/VisaReviewEditPage'
 
 // 주소별로 어떤 페이지를 보여줄지 정하는 곳
 export default function App() {
@@ -61,8 +63,25 @@ export default function App() {
           <Route path="/admin/reports" element={<AdminReportsPage />} />
           {/* 비자 후기(읽기 전용, 로그인 없이 볼 수 있다) */}
           <Route path="/visa-reviews" element={<VisaReviewListPage />} />
+          {/* 작성·수정은 로그인한 사람만. "/visa-reviews/new"는 ":id"보다 구체적이라 먼저 잡힌다 */}
+          <Route
+            path="/visa-reviews/new"
+            element={
+              <RequireLogin>
+                <VisaReviewCreatePage />
+              </RequireLogin>
+            }
+          />
           {/* 주의: 다음 단계의 "/visa-reviews/stats"는 반드시 아래 ":id"보다 먼저 선언한다 (안 그러면 "stats"가 id로 읽힌다) */}
           <Route path="/visa-reviews/:id" element={<VisaReviewDetailPage />} />
+          <Route
+            path="/visa-reviews/:id/edit"
+            element={
+              <RequireLogin>
+                <VisaReviewEditPage />
+              </RequireLogin>
+            }
+          />
           {/* 위 어디에도 안 맞는 주소 */}
           <Route
             path="*"

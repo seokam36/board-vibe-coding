@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import api from '../api'
+import { useAuth } from '../auth/useAuth'
 import { errorText } from '../errorMessage'
 import Loading from '../components/Loading'
 import Notice from '../components/Notice'
@@ -20,6 +21,8 @@ interface ListResult {
 // 비자 후기 목록 (읽기 전용). 거르기 값은 글 목록과 같이 주소 쿼리가 진짜 값이다
 export default function VisaReviewListPage() {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const { user } = useAuth()
   const schoolId = searchParams.get('schoolId') ?? ''
   const visaType = searchParams.get('visaType') ?? ''
   const applicationType = searchParams.get('applicationType') ?? ''
@@ -73,12 +76,18 @@ export default function VisaReviewListPage() {
     <div>
       <h1 className="board-title">{title}</h1>
       <VisaDisclaimer />
-      <VisaReviewFilters
-        schools={schools}
-        options={options}
-        schoolsFailed={schoolsFailed}
-        optionsFailed={optionsFailed}
-      />
+      <div className="toolbar">
+        <VisaReviewFilters
+          schools={schools}
+          options={options}
+          schoolsFailed={schoolsFailed}
+          optionsFailed={optionsFailed}
+        />
+        {/* 후기 쓰기 버튼은 항상 보이되, 비로그인이면 로그인 화면으로 보낸다 (글쓰기 버튼과 같은 규칙) */}
+        <button type="button" className="btn btn-primary" onClick={() => navigate(user ? '/visa-reviews/new' : '/login')}>
+          후기 쓰기
+        </button>
+      </div>
       {/* 어느 한쪽이라도 실패하면 안내 */}
       {(schoolsFailed || optionsFailed) &&<Notice kind="error">선택지 목록을 불러오지 못했습니다</Notice>}
       {/* 후기 목록: 글 목록처럼 판 하나 안의 행들 */}

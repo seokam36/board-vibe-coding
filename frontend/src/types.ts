@@ -116,3 +116,13 @@ export interface VisaReviewStat {
   count: number // 후기 수
   avgDays: number // 평균 처리 일수 (소수 1자리)
 }
+
+// 비자 후기 작성·수정할 때 서버에 보내는 값 (PUT도 같은 모양). 학교는 서버가 정하니 schoolId가 없다
+export interface VisaReviewRequest {
+  visaType: string // code
+  applicationType: string // code
+  receivedDate: string // yyyy-MM-dd
+  resultDate: string // yyyy-MM-dd
+  result: string // code
+  content: string // 최대 2000자, 안 써도 된다
+}
