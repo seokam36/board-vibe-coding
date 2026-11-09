@@ -6,7 +6,7 @@ import { describeError } from '../errorMessage'
 import Notice from '../components/Notice'
 import ReloginNotice from '../components/ReloginNotice'
 import { useAuth } from '../auth/useAuth'
-import type { Category, Post, PostCreateRequest } from '../types'
+import type { Category, Post, School,PostCreateRequest } from '../types'
 
 export default function PostCreatePage() {
   // 입력창 값을 state로 관리한다 (controlled input). 에러가 나도 값이 그대로 남는다
@@ -15,7 +15,12 @@ export default function PostCreatePage() {
   // 말머리: 처음엔 아무것도 고르지 않은 상태(''). 학교는 고르지 않고 인증한 학교로 고정된다 (S10)
   const [category, setCategory] = useState('')
   const { user } = useAuth()
-  const school = user?.verifiedSchool ?? null // null이면 미인증 → 폼 대신 안내를 보여 준다
+  // 마지막으로 본 인증 학교. 저장 중 로그인이 풀려 user가 null이 돼도 폼(입력값)을 지키려고 기억해 둔다
+  const [lastSchool, setLastSchool] = useState<School | null>(null)
+  const currentSchool = user?.verifiedSchool ?? null
+  if (currentSchool && currentSchool.id !== lastSchool?.id) setLastSchool(currentSchool) // 렌더 중 갱신(허용되는 패턴)
+  // 미인증 판단은 user가 있을 때만. user가 null(세션 만료)이면 기억해 둔 학교로 폼을 유지 → ReloginNotice가 보인다
+  const school = user ? currentSchool : lastSchool // null이면 미인증 → 폼 대신 안내를 보여 준다
   // 말머리 목록. 못 받으면 null로 남고, optionsFailed로 안내한다
   const [categories, setCategories] = useState<Category[] | null>(null)
   const [optionsFailed, setOptionsFailed] = useState(false)
