@@ -2,6 +2,7 @@ package com.example.demo.user;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 import java.nio.charset.StandardCharsets;
@@ -30,6 +31,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -46,6 +48,7 @@ import com.example.demo.user.service.VerificationMailSender;
 import jakarta.servlet.http.Cookie;
 
 // S10-b 완료 조건 1~11: POST /users/me/school-verification/code (학교 메일 인증 코드 보내기)
+// + S10 리뷰 반영: 발송 -> 확인 API를 끝까지 잇는 흐름 테스트 1개(파일 맨 끝)
 @SpringBootTest
 @Import({ TestcontainersConfiguration.class, SchoolEmailCodeApiTests.RecordingSenderConfig.class })
 @AutoConfigureMockMvc
@@ -375,5 +378,42 @@ class SchoolEmailCodeApiTests {
 		Map<String, Object> row = jdbc.queryForMap("select school_email_hash, verified_school_id from users where id = ?", u.getId());
 		assertThat(row.get("school_email_hash")).isNull();
 		assertThat(row.get("verified_school_id")).isNull();
+	}
+
+	// ---------- 발송 -> 확인 전체 흐름 (S10 리뷰 권장) ----------
+	// 확인 API 테스트는 Redis에 코드를 직접 심기 때문에, 해시 공식·Redis 필드 이름이 한쪽만 바뀌어도 둘 다 초록이 된다.
+	// 그래서 발송 API가 실제로 저장한 코드를 그대로 확인 API에 넣어 끝까지 지나가 본다.
+	// DB 해시는 main의 SchoolEmailHash 대신 테스트 쪽 sha256(소문자 메일)로 독립 계산해 비교한다.
+	@Test
+	void 발송_API가_저장한_코드를_확인_API에_넣으면_인증이_끝까지_완료된다() throws Exception {
+		User u = TestLogin.사용자(userRepository, "flow");
+		Cookie c = TestLogin.쿠키(tokenService, u);
+
+		// 1) 대문자·공백이 섞인 메일로 코드 요청 -> 202
+		assertThat(요청(c, "  A@Yonsei.AC.kr ")).isEqualTo(202);
+		assertThat(sender.sent).hasSize(1);
+		String code = sender.sent.get(0)[1];
+		assertThat(code).matches("\\d{6}");
+
+		// 2) 발송기가 받은 코드를 그대로 확인 API에 -> 200, 연세대학교
+		MockHttpServletResponse res = mockMvc.perform(post("/users/me/school-verification").with(csrf()).cookie(c)
+				.contentType(MediaType.APPLICATION_JSON).content("{\"code\":\"" + code + "\"}")).andReturn().getResponse();
+		assertThat(res.getStatus()).isEqualTo(200);
+		assertThat(res.getContentAsString(StandardCharsets.UTF_8)).contains("\"name\":\"연세대학교\"");
+
+		// 3) DB: 정규화된 메일의 해시, 인증 시각, 인증 학교
+		Map<String, Object> row = jdbc.queryForMap(
+				"select school_email_hash, verified_at, verified_school_id from users where id = ?", u.getId());
+		assertThat(row.get("school_email_hash")).isEqualTo(sha256("a@yonsei.ac.kr"));
+		assertThat(row.get("verified_at")).isNotNull();
+		assertThat(((Number) row.get("verified_school_id")).longValue()).isEqualTo(연세대_id());
+
+		// 4) /auth/me 에도 연세대학교
+		MockHttpServletResponse me = mockMvc.perform(get("/auth/me").cookie(c)).andReturn().getResponse();
+		assertThat(me.getStatus()).isEqualTo(200);
+		assertThat(me.getContentAsString(StandardCharsets.UTF_8)).contains("\"name\":\"연세대학교\"");
+
+		// 5) 코드 키는 소모되어 사라졌다
+		assertThat(redis.hasKey(코드키(u))).as("코드 키 삭제").isFalse();
 	}
 }
