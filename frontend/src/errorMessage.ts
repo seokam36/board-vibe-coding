@@ -13,6 +13,9 @@ export function isNetworkError(error: unknown): boolean {
   return axios.isAxiosError(error) && !error.response
 }
 
+// 보통 앱 시작 때 CSRF 쿠키(/csrf)를 못 받았을 때 403에 쓰는 공용 문구
+export const CSRF_MESSAGE = '보안 토큰이 없습니다. 새로고침 후 다시 시도해 주세요'
+
 // 쓰기 요청이 401을 받았을 때(자동 재발급까지 실패해 로그인이 풀린 경우) 보여 주는 안내. 옆에 로그인 링크를 같이 둔다
 export const RELOGIN_MESSAGE = '다시 로그인해 주세요'
 

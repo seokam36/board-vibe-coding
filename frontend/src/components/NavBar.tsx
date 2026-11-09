@@ -31,6 +31,13 @@ export default function NavBar() {
           {user ? (
             <>
               <span>{user.nickname} 님</span>
+              {/* 학교 인증을 마친 회원 표시. 학교 이름은 마우스를 올리거나 스크린리더로 알 수 있다 */}
+              {user.verifiedSchool && (
+                <span className="badge badge-verified" title={user.verifiedSchool.name}>
+                  인증
+                  <span className="sr-only"> ({user.verifiedSchool.name} 인증 회원)</span>
+                </span>
+              )}
               <Link to="/me">내 정보</Link>
               {/* 관리자에게만 보이는 메뉴 */}
               {isAdmin(user) && <Link to="/admin/reports">신고 관리</Link>}

@@ -8,7 +8,9 @@ import ReloginNotice from './ReloginNotice'
 import type { LikeResult } from '../types'
 
 // 공감 버튼. 숫자는 글 응답의 likeCount로 시작하고, 누를 때마다 서버 응답의 값으로 맞춘다
-export default function LikeButton({ postId, initialCount }: { postId: string; initialCount: number }) {
+// describedBy: 버튼이 꺼진 이유를 설명하는 안내(SchoolGateNotice)의 id
+// canLike: 새로 공감할 수 있는지 (미인증·다른 학교 글이면 false). 이미 누른 공감의 취소는 항상 가능하다
+export default function LikeButton({ postId, initialCount, canLike, describedBy }: { postId: string; initialCount: number; canLike: boolean; describedBy?: string }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [count, setCount] = useState(initialCount)
@@ -58,7 +60,14 @@ export default function LikeButton({ postId, initialCount }: { postId: string; i
       setLiked(res.data.liked)
     } catch (err: unknown) {
       // 네트워크 오류·401·표에 없는 코드는 공용 함수가 정한다. 409/404는 화면 상태를 맞추는 일이 붙어 status로 따로 처리한다
-      const info = describeError(err, { 409: '이미 공감한 글입니다', 404: '글을 찾을 수 없습니다' }, '처리하지 못했습니다')
+      const info = describeError(err, {
+          409: '이미 공감한 글입니다',
+          404: '글을 찾을 수 없습니다',
+          // 취소(DELETE)의 403은 CSRF뿐이다. 누르기(POST)의 403만 학교 인증 문제
+          403: liked
+            ? '취소하지 못했습니다. 새로고침 후 다시 시도해 주세요'
+            : '학교 인증이 필요하거나 인증한 학교의 글이 아니에요. 계속 안 되면 새로고침 후 다시 시도해 주세요',
+        }, '처리하지 못했습니다')
       if (info.kind === 'needLogin') setNeedLogin(true)
       else if (info.status === 409) {
         // 이미 눌려 있었음: 화면 상태만 '공감함'으로 맞춘다
@@ -80,9 +89,10 @@ export default function LikeButton({ postId, initialCount }: { postId: string; i
       <button
         type="button"
         onClick={handleClick}
-        disabled={busy}
+        disabled={busy || (!canLike && !liked)}
         className="btn btn-sm"
         aria-pressed={liked}
+        aria-describedby={describedBy}
         aria-label={liked ? `공감 취소 (현재 ${count}명)` : `공감 (현재 ${count}명)`}
       >
         {liked ? '❤️' : '🤍'} 공감 {count}

@@ -17,7 +17,8 @@ import type { Comment } from '../types'
 const CONTENT_ERROR = '내용을 입력해 주세요 (최대 1000자)'
 
 // 상세 화면의 댓글 영역: 목록 + 작성 + (내 댓글) 수정·삭제
-export default function CommentSection({ postId }: { postId: string }) {
+// canComment: 댓글 작성·신고를 허용할지 (로그인했는데 미인증이거나 다른 학교 글이면 false)
+export default function CommentSection({ postId, canComment }: { postId: string; canComment: boolean }) {
   const { user } = useAuth()
   const confirm = useConfirm() // 삭제 전 확인 창
   const base = `/posts/${encodeURIComponent(postId)}/comments`
@@ -90,7 +91,10 @@ export default function CommentSection({ postId }: { postId: string }) {
       showError(
         describeError(
           err,
-          { 400: CONTENT_ERROR, 403: '댓글을 등록할 수 없습니다', 404: '글을 찾을 수 없습니다' },
+          {
+            400: CONTENT_ERROR,
+            403: '학교 인증이 필요하거나 인증한 학교의 글이 아니에요. 계속 안 되면 새로고침 후 다시 시도해 주세요',
+            404: '글을 찾을 수 없습니다' },
           '댓글을 등록하지 못했습니다',
         ),
       )
@@ -214,8 +218,8 @@ export default function CommentSection({ postId }: { postId: string }) {
                           삭제
                         </button>
                       )}
-                      {/* 신고: 로그인했고 내 댓글이 아닐 때만 (작성자 없는 옛 댓글도 신고 가능) */}
-                      {user && c.author?.id !== user.id && (
+                      {/* 신고: 로그인했고 내 댓글이 아닐 때만 (인증한 학교의 글일 때만 — canComment) */}
+                      {user && canComment && c.author?.id !== user.id && (
                         <ReportForm
                           url={`/comments/${c.id}/reports`}
                           label="댓글"
@@ -236,7 +240,10 @@ export default function CommentSection({ postId }: { postId: string }) {
       {/* 실패 안내는 목록·입력칸 밖에 둔다(로그인이 풀려 버튼이 사라져도 안내가 남게) */}
       {actionError && <Notice kind="error">{actionError}</Notice>}
       {needLogin && <ReloginNotice />}
-      {user ? (
+      {user && !canComment ? (
+        // 미인증·다른 학교 글: 작성 폼 대신 짧은 안내 (자세한 안내는 글 위쪽에 있다)
+        <p className="hint">댓글은 인증한 학교의 글에만 쓸 수 있어요</p>
+      ) : user ? (
         <form className="comment-form" onSubmit={handleCreate}>
           <textarea
             aria-label="댓글 내용"

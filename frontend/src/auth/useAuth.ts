@@ -5,6 +5,7 @@ export interface AuthUser {
   id: number
   username: string
   nickname: string // 화면에 보여 주는 이름 (S5-a). 글쓴이·상단바에는 닉네임만, 아이디(username)는 내 정보 화면에서만 보여 준다
+  verifiedSchool: { id: number; name: string } | null // 학교 인증을 마친 학교 (S10). null이면 미인증 → 읽기만 가능
   role: 'USER' | 'ADMIN' // 회원 역할 (S9). ADMIN이면 남의 글·댓글 삭제와 신고 관리 화면을 쓸 수 있다. 화면에서 숨기는 건 편의일 뿐, 진짜 보호는 서버 검사
 }
 

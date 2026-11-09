@@ -5,12 +5,10 @@ import api from '../api'
 import { useAuth } from '../auth/useAuth'
 import type { AuthUser } from '../auth/useAuth'
 import ReloginNotice from '../components/ReloginNotice'
-import { describeError } from '../errorMessage'
+import { CSRF_MESSAGE, describeError } from '../errorMessage'
 import Notice from '../components/Notice'
 import { useConfirm } from '../components/confirmContext'
-
-// 보통 앱 시작 때 CSRF 쿠키(/csrf)를 못 받은 경우
-const CSRF_MESSAGE = '보안 토큰이 없습니다. 새로고침 후 다시 시도해 주세요'
+import SchoolVerificationForm from '../components/SchoolVerificationForm'
 
 // 로그인 상태 비우기 + 화면 이동을 "한 번에" 반영한다.
 // 따로 하면: 로그인 상태(user=null)가 먼저 그려지고, 아직 /me 인 화면을 RequireLogin이 보고 /login 으로 덮어써서
@@ -38,6 +36,7 @@ export default function MyPage() {
           <p>닉네임: {user.nickname}</p>
         </div>
       )}
+      <SchoolVerificationForm />
       <NicknameForm />
       <PasswordForm />
       <WithdrawForm />

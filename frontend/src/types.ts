@@ -2,6 +2,7 @@
 export interface School {
   id: number
   name: string
+  emailDomains?: string[] // 인증 메일로 쓸 수 있는 도메인들 (GET /schools 응답에만 있다)
 }
 
 // 말머리 한 종류 (GET /categories, 글 응답 안의 category). code는 요청에 보내는 값, name은 화면에 보여 줄 이름

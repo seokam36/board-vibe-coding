@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import api from '../api'
 import { describeError, errorText } from '../errorMessage'
 import { isAdmin } from '../auth/isAdmin'
+import { canActInSchool } from '../auth/canActInSchool'
 import Loading from '../components/Loading'
 import Notice from '../components/Notice'
 import { useAuth } from '../auth/useAuth'
@@ -10,6 +11,7 @@ import CommentSection from '../components/CommentSection'
 import LikeButton from '../components/LikeButton'
 import ReloginNotice from '../components/ReloginNotice'
 import ReportForm from '../components/ReportForm'
+import SchoolGateNotice from '../components/SchoolGateNotice'
 import { useConfirm } from '../components/confirmContext'
 import { formatDate } from '../formatDate'
 import type { Post } from '../types'
@@ -29,6 +31,8 @@ export default function PostDetailPage() {
   const { user } = useAuth()
   const confirm = useConfirm() // 삭제 전 확인 창
   const isMine = !!user && post?.author?.id === user.id // 내 글인지
+  // 댓글·공감·신고는 인증한 학교의 글에서만 (S10-d). 비로그인은 기존 화면(로그인 링크)이라 여기서 막지 않는다
+  const canAct = canActInSchool(user, post?.school?.id)
 
   // id가 바뀔 때마다 다시 불러온다 (의존성 배열 [id])
   useEffect(() => {
@@ -107,7 +111,7 @@ export default function PostDetailPage() {
       {/* 작업 줄: 공감 / 수정·삭제 / 신고 */}
       {post && (
         <div className="actions">
-          <LikeButton postId={id ?? ''} initialCount={post.likeCount} />
+          <LikeButton postId={id ?? ''} initialCount={post.likeCount} canLike={!user || canAct} describedBy={user && !canAct ? 'school-gate-notice' : undefined} />
           {/* 수정은 내 글만, 삭제는 내 글 또는 관리자. 화면에서 숨기는 건 편의일 뿐, 진짜 보호는 서버의 403이다 */}
           {user && isMine && (
             <Link to={`/posts/${encodeURIComponent(id ?? '')}/edit`} className="btn btn-sm">
@@ -119,8 +123,8 @@ export default function PostDetailPage() {
               {deleting ? '삭제 중...' : '삭제'}
             </button>
           )}
-          {/* 신고는 로그인했고 내 글이 아닐 때만 (작성자 없는 옛 글은 신고 가능) */}
-          {user && !isMine && (
+          {/* 신고는 로그인했고 내 글이 아니고 인증한 학교의 글일 때만 (학교 인증 + 인증한 학교의 글일 때만 — canAct) */}
+          {user && !isMine && canAct && (
             <ReportForm
               url={`/posts/${encodeURIComponent(id ?? '')}/reports`}
               label="글"
@@ -132,10 +136,12 @@ export default function PostDetailPage() {
           )}
         </div>
       )}
+      {/* 로그인했지만 공감·신고를 막은 이유 (이미 누른 공감의 취소는 가능) */}
+      {post && user && !canAct && <SchoolGateNotice user={user} noSchool={!post.school} id="school-gate-notice" />}
       {/* 삭제 실패 안내는 버튼 영역 밖에 둔다(로그인이 풀려 버튼이 사라져도 안내가 남게) */}
       {deleteError && <Notice kind="error">{deleteError}</Notice>}
       {needLogin && <ReloginNotice />}
-      {post && <CommentSection postId={id ?? ''} />}
+      {post && <CommentSection postId={id ?? ''} canComment={!user || canAct} />}
       <p>
         <Link to="/" className="btn">
           목록으로
