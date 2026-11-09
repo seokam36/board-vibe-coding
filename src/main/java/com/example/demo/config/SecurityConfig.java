@@ -68,6 +68,8 @@ public class SecurityConfig {
                 // 주의: {id}는 한 칸 아무 글자라 /visa-reviews/stats 같은 하위 GET도 공개가 된다.
                 // 로그인 전용 GET을 /visa-reviews/ 아래에 두려면 이 규칙보다 먼저 따로 막아야 한다.
                 m.matcher(HttpMethod.GET, "/visa-reviews/{id}"),
+                // 비자 후기 목록 읽기도 공개
+                m.matcher(HttpMethod.GET, "/visa-reviews"),
                 m.matcher("/actuator/health"),
                 m.matcher("/error"));
     }

@@ -71,8 +71,8 @@
   - 결정(planner 후): 별개 표 visa_reviews. 비자 D-2·D-4·D-10·E-7·기타 / 신청 신규 발급·외국인등록·연장·자격 변경·기타 / 결과 승인·불허(결과 난 후기만). 날짜는 접수일 ≤ 결과일 ≤ 오늘(서울 기준). 처리 일수는 저장하지 않고 계산. 통계는 숨기지 않고 건수와 함께. 공식 링크는 하이코리아 하나(화면 상수). 본문 선택·2000자. 수정 본인, 삭제 본인·관리자, 탈퇴 시 작성자 null(학교는 남음). 페이징·댓글·공감·신고 없음. 알려진 한계: 탈퇴·재가입으로 후기를 다시 써 통계를 부풀릴 수 있음
   - [x] S11-a. V7(visa_reviews 표 + 인덱스, users.verified_school_id 인덱스) + 엔티티·enum + 선택지 목록 API (동작 변화 없음)
   - [x] S11-b. 후기 작성(인증 회원, 학교 자동) + 단건 조회(공개) + 탈퇴 시 후기 작성자 null(작성자 FK에 ON DELETE가 없어 같이 해야 탈퇴가 안 깨짐)
-  - [ ] S11-c. 목록 거르기 + 수정·삭제
-  - [ ] S11-d. 통계 API (학교·비자·신청 종류별 건수·평균 처리 일수)
+  - [x] S11-c. 목록 거르기 + 수정·삭제
+  - [ ] S11-d. 통계 API (학교·비자·신청 종류별 건수·평균 처리 일수). S11-c 리뷰 메모: 엔티티를 읽지 말고 group by 집계 쿼리로(날짜 빼기는 PostgreSQL 네이티브가 간단), 거르기 조건은 getAll과 공용으로 빼기, api.md 19번 "id 숫자 아님 400"에 /stats 예외 한 마디. 알려진 한계: 수정 중 다른 쪽이 삭제하면 500(글 수정과 같음)
   - [ ] S11-e. 화면 (목록·상세 / 작성·수정 / 통계)
   - [ ] S11-f. EC2 배포
 - [ ] S12. 비자 할 일과 자동 알림
@@ -146,4 +146,5 @@
 | 2026-11-09 | S10-h | EC2 배포(집 PC): 테스트 593개·CI(frontend·backend·images) 초록 → 운영 .env에 MAIL_* 6줄(smtp) + 바뀐 compose scp(백업 .bak-20261109) → Deploy 성공. V6 success, 글 6·댓글 2·회원 2 유지, 기존 회원 전원 미인증, 앱에 MAIL_* 6개 전달 확인. 운영 DB에 gmail.com을 잠깐 연세대 도메인으로 넣고 테스트 계정으로 실제 Gmail 발송 → 인증 → 학교 고정 글쓰기 확인 후 도메인 삭제·계정 탈퇴로 원상복구 | (이 커밋) |
 | 2026-11-09 | S10 리뷰 | 파트 전체 리뷰(필수 없음) 중 S11 전 권장 반영: 발송 API로 받은 코드를 확인 API에 넣어 DB 해시(독립 계산)·/auth/me·Redis 키 삭제까지 잇는 흐름 테스트 1개, api.md 탈퇴에 "학교 인증 정보도 지워져 같은 메일로 새 계정 재인증 가능(S11 기획 때 재결정) · Redis 인증 키는 TTL로 사라짐" 명시. verified_school_id 인덱스는 S11 V7에서. 테스트 594개 | 16c9c7b |
 | 2026-11-09 | S11-a | V7(visa_reviews: 작성자 null 허용·학교 NOT NULL 스냅샷·비자/신청/결과 CHECK·결과일≥접수일 CHECK, 인덱스 통계용(school_id, visa_type, application_type)·author_id·users.verified_school_id) + VisaReview 엔티티(author updatable=false)·enum 3개 + GET /visa-review-options(공개, 한글 이름, enum 순서). 동작 변화 없음. 테스트 609개 | 7e58d81 |
-| 2026-11-09 | S11-b | POST /visa-reviews(201, 인증 회원만, 학교는 작성자 인증 학교 자동·본문 schoolId 무시, 검사 순서는 글쓰기와 같게 회원 401 → 미인증 403 → 날짜 400, 날짜는 접수일 ≤ 결과일 ≤ 서울 오늘(Clock 빈 도입), 본문 선택 2000자·NUL 금지, 저장 직전 탈퇴는 fk_visa_reviews_author → 401) + GET /visa-reviews/{id}(공개, 쿼리 1번, processingDays 계산) + 탈퇴 시 후기 작성자 null(학교 유지). {code,name}은 VisaOptionResponse 하나로. V7 주석의 "S11-c"는 S11-b에서 처리. 테스트 634개 | (이 커밋) |
+| 2026-11-09 | S11-b | POST /visa-reviews(201, 인증 회원만, 학교는 작성자 인증 학교 자동·본문 schoolId 무시, 검사 순서는 글쓰기와 같게 회원 401 → 미인증 403 → 날짜 400, 날짜는 접수일 ≤ 결과일 ≤ 서울 오늘(Clock 빈 도입), 본문 선택 2000자·NUL 금지, 저장 직전 탈퇴는 fk_visa_reviews_author → 401) + GET /visa-reviews/{id}(공개, 쿼리 1번, processingDays 계산) + 탈퇴 시 후기 작성자 null(학교 유지). {code,name}은 VisaOptionResponse 하나로. V7 주석의 "S11-c"는 S11-b에서 처리. 테스트 634개 | cce83c6 |
+| 2026-11-09 | S11-c | GET /visa-reviews(공개, schoolId·visaType·applicationType 넘긴 것만 AND, 최신순, 없는 학교 404, 쿼리 1번 + 학교 확인 1번) + PUT /visa-reviews/{id}(본인만·관리자도 403, 입력 400 → 404 → 403, 학교·작성자·작성일 불변) + DELETE(본인·관리자 DB 재확인, 동시 삭제 늦은 쪽 404). 작성·수정 DTO는 VisaReviewRequest 하나로. 수정·삭제는 학교 인증 불필요. 테스트 674개 | (이 커밋) |

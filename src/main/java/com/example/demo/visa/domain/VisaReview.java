@@ -86,6 +86,22 @@ public class VisaReview {
         this.content = content;
     }
 
+    // 후기 수정용. 내용 필드만 바꾸고 작성자·학교·작성 시각은 그대로 둔다(setter 대신 의도가 드러나는 메서드).
+    public void update(VisaType visaType, VisaApplicationType applicationType, LocalDate receivedDate,
+            LocalDate resultDate, VisaResult result, String content) {
+        this.visaType = visaType;
+        this.applicationType = applicationType;
+        this.receivedDate = receivedDate;
+        this.resultDate = resultDate;
+        this.result = result;
+        this.content = content;
+    }
+
+    // 이 후기를 userId가 쓴 게 맞는지 확인한다. 작성자가 탈퇴해 없으면 누구의 후기도 아니므로 false.
+    public boolean isWrittenBy(Long userId) {
+        return author != null && author.getId().equals(userId);
+    }
+
     // 저장 직전에 작성 시각 기록 (DB 정밀도인 마이크로초로 맞춘다)
     @PrePersist
     void onCreate() {
