@@ -14,6 +14,7 @@ import com.example.demo.like.domain.PostLike;
 import com.example.demo.like.dto.LikeResponse;
 import com.example.demo.like.dto.LikedResponse;
 import com.example.demo.like.repository.PostLikeRepository;
+import com.example.demo.post.domain.Post;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.domain.User;
 
@@ -28,21 +29,21 @@ public class PostLikeService {
     private final PostRepository postRepository;
     private final AccessGuard accessGuard;
 
-    // 공감 누르기. 없는 글 404, 이미 눌렀으면 409
+    // 공감 누르기. 미인증 403, 없는 글 404, 다른 학교 글 403, 이미 눌렀으면 409
     @Transactional
     public LikeResponse like(Long postId, LoginUser loginUser) {
-        // 토큰은 유효한데 회원이 DB에 없으면(탈퇴) 401
-        User user = accessGuard.requireUser(loginUser);
-        if (!postRepository.existsById(postId)) {
-            throw ApiErrors.postNotFound();
-        }
+        // 검사 순서: 회원 없음 401 -> 미인증 403 -> 없는 글 404 -> 다른 학교 글 403 -> 중복 409
+        User user = accessGuard.requireVerified(loginUser);
+        // 존재 확인(exists) 대신 글을 읽는다: 학교 id가 필요해서. 쿼리 수는 그대로 1번
+        Post post = postRepository.findById(postId).orElseThrow(ApiErrors::postNotFound);
+        accessGuard.requireSameSchool(user, post.getSchool());
         // 미리 확인해서 흔한 중복은 여기서 409로 거른다
         if (postLikeRepository.existsByPostIdAndUserId(postId, user.getId())) {
             throw alreadyLiked();
         }
         try {
             // IDENTITY라 save() 안에서 바로 INSERT가 나가 제약 위반을 여기서 잡을 수 있다
-            postLikeRepository.save(new PostLike(postRepository.getReferenceById(postId), user));
+            postLikeRepository.save(new PostLike(post, user));
         } catch (DataIntegrityViolationException e) {
             // 동시 요청이 확인을 같이 통과하면 DB의 UNIQUE(23505)가 막는다 -> 409
             // 확인 직후 회원 탈퇴/글 삭제가 커밋되면 FK 위반(23503) -> 제약 이름으로 구분

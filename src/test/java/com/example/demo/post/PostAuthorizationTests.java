@@ -62,6 +62,8 @@ class PostAuthorizationTests {
 	@Autowired
 	UserRepository userRepository;
 	@Autowired
+	org.springframework.jdbc.core.JdbcTemplate jdbc;
+	@Autowired
 	TokenService tokenService;
 	@Autowired
 	JwtEncoder jwtEncoder;
@@ -78,8 +80,8 @@ class PostAuthorizationTests {
 	@BeforeEach
 	void 준비() {
 		정리();
-		userA = TestLogin.사용자(userRepository, "userA");
-		userB = TestLogin.사용자(userRepository, "userB");
+		userA = TestLogin.인증된_사용자(userRepository, jdbc, "userA", "경희대학교");
+		userB = TestLogin.인증된_사용자(userRepository, jdbc, "userB", "경희대학교");
 		cookieA = TestLogin.쿠키(tokenService, userA);
 		cookieB = TestLogin.쿠키(tokenService, userB);
 	}
@@ -340,7 +342,7 @@ class PostAuthorizationTests {
 
 	@Test
 	void 토큰_발급후_사용자가_삭제되면_글쓰기는_401이고_저장되지_않는다() throws Exception {
-		User ghost = TestLogin.사용자(userRepository, "ghost");
+		User ghost = TestLogin.인증된_사용자(userRepository, jdbc, "ghost", "경희대학교");
 		Cookie ghostCookie = TestLogin.쿠키(tokenService, ghost);
 		userRepository.deleteById(ghost.getId());
 		long before = postRepository.count();
@@ -395,7 +397,7 @@ class PostAuthorizationTests {
 				postRepository.deleteAll();
 				userRepository.deleteAll();
 				for (int i = 0; i < n; i++) {
-					User u = TestLogin.사용자(userRepository, "writer" + i);
+					User u = TestLogin.인증된_사용자(userRepository, jdbc, "writer" + i, "경희대학교");
 					글저장("제목" + i, "본문", u);
 				}
 				stats.clear();

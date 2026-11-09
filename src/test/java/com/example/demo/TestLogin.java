@@ -10,6 +10,8 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 
 import com.example.demo.auth.service.TokenService;
+import com.example.demo.school.domain.School;
+import com.example.demo.school.repository.SchoolRepository;
 import com.example.demo.user.domain.User;
 import com.example.demo.user.domain.UserRole;
 import com.example.demo.user.repository.UserRepository;
@@ -64,9 +66,19 @@ public final class TestLogin {
 	// schoolName 예: "연세대학교". 메일 해시는 아이디마다 달라야 UNIQUE에 안 걸리므로 아이디로 만든 가짜 값(64자)을 넣는다.
 	public static User 인증된_사용자(UserRepository userRepository, JdbcTemplate jdbc, String username, String schoolName) {
 		User user = 사용자(userRepository, username);
+		학교_인증_처리(jdbc, username, schoolName); // 같은 UPDATE를 한 곳에서만 관리한다
+		return user;
+	}
+
+	// 이름으로 학교를 찾는다(V2가 넣어 둔 학교, 예: "연세대학교"). 글에 학교를 지정하거나 학교 id를 얻을 때 쓴다.
+	public static School 학교(SchoolRepository schoolRepository, String schoolName) {
+		return schoolRepository.findAll().stream().filter(s -> s.getName().equals(schoolName)).findFirst().orElseThrow();
+	}
+
+	// 이미 만들어진 회원(예: 실제 가입으로 만든 회원)을 학교 인증 상태로 바꾼다. 메일 해시는 UNIQUE라 아이디로 만든 가짜 64자.
+	public static void 학교_인증_처리(JdbcTemplate jdbc, String username, String schoolName) {
 		String fakeHash = String.format("%-64s", username).replace(' ', '0');
 		jdbc.update("update users set verified_school_id = (select id from schools where name = ?), "
-				+ "verified_at = now(), school_email_hash = ? where id = ?", schoolName, fakeHash, user.getId());
-		return user;
+				+ "verified_at = now(), school_email_hash = ? where username = ?", schoolName, fakeHash, username);
 	}
 }

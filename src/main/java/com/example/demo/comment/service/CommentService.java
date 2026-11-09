@@ -17,6 +17,7 @@ import com.example.demo.comment.dto.CommentUpdateRequest;
 import com.example.demo.comment.repository.CommentRepository;
 import com.example.demo.common.ApiErrors;
 import com.example.demo.common.ConstraintViolations;
+import com.example.demo.post.domain.Post;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.domain.User;
 
@@ -45,15 +46,16 @@ public class CommentService {
     // 댓글 작성. 작성자는 본문이 아니라 로그인 정보(토큰)에서만 가져온다.
     @Transactional
     public CommentResponse create(Long postId, LoginUser loginUser, CommentCreateRequest request) {
-        // 토큰은 유효한데 회원이 DB에 없으면(탈퇴) 401
-        User author = accessGuard.requireUser(loginUser);
-        if (!postRepository.existsById(postId)) {
-            throw ApiErrors.postNotFound();
-        }
+        // 검사 순서: 회원 없음 401 -> 미인증 403 -> 없는 글 404 -> 다른 학교 글 403
+        // (글이 있는지 모르는 채 학교 얘기부터 하지 않도록 404가 학교 403보다 먼저. 이 서비스의 기존 관례와 같다)
+        User author = accessGuard.requireVerified(loginUser);
+        // 존재 확인(exists) 대신 글을 읽는다: 학교 id가 필요해서. 쿼리 수는 그대로 1번
+        Post post = postRepository.findById(postId).orElseThrow(ApiErrors::postNotFound);
+        accessGuard.requireSameSchool(author, post.getSchool());
         try {
-            // 글은 id만 필요해서 프록시(getReferenceById)로 쓴다. IDENTITY라 save() 안에서 바로 INSERT가 나가 FK 위반을 여기서 잡는다.
+            // IDENTITY라 save() 안에서 바로 INSERT가 나가 FK 위반을 여기서 잡는다.
             Comment saved = commentRepository.save(
-                    new Comment(postRepository.getReferenceById(postId), author, request.content()));
+                    new Comment(post, author, request.content()));
             return CommentResponse.from(saved);
         } catch (DataIntegrityViolationException e) {
             // 확인 직후 회원 탈퇴/글 삭제가 커밋되면 FK 위반(SQLState 23503)이 난다. 어느 FK인지 이름으로 구분한다.

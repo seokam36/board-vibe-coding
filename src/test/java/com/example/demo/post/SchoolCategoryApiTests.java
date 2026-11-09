@@ -51,6 +51,7 @@ class SchoolCategoryApiTests {
 	@Autowired MockMvc mockMvc;
 	@Autowired PostRepository postRepository;
 	@Autowired UserRepository userRepository;
+	@Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 	@Autowired TokenService tokenService;
 	@Autowired JwtEncoder jwtEncoder;
 	@Autowired ObjectMapper objectMapper;
@@ -61,7 +62,8 @@ class SchoolCategoryApiTests {
 	@BeforeEach
 	void 준비() {
 		정리();
-		작성자 = TestLogin.사용자(userRepository, "writer");
+		// S10-d: 글쓰기는 인증한 학교의 글에만 가능하므로 작성자는 경희대 인증 회원(아래 작성 테스트는 모두 경희대로 쓴다)
+		작성자 = TestLogin.인증된_사용자(userRepository, jdbc, "writer", "경희대학교");
 		쿠키 = TestLogin.쿠키(tokenService, 작성자);
 	}
 
@@ -143,12 +145,12 @@ class SchoolCategoryApiTests {
 
 	@Test
 	void 올바른_schoolId와_category로_작성하면_201이고_응답의_school_category가_보낸_값과_같다() throws Exception {
-		long yonsei = 학교id("연세대학교");
-		MvcResult r = 작성("{\"title\":\"t\",\"content\":\"c\",\"schoolId\":" + yonsei + ",\"category\":\"QUESTION\"}");
+		long kyunghee = 학교id("경희대학교");
+		MvcResult r = 작성("{\"title\":\"t\",\"content\":\"c\",\"schoolId\":" + kyunghee + ",\"category\":\"QUESTION\"}");
 		assertThat(r.getResponse().getStatus()).isEqualTo(201);
 		JsonNode body = 본문(r);
-		assertThat(body.get("school").get("id").asLong()).isEqualTo(yonsei);
-		assertThat(body.get("school").get("name").asString()).isEqualTo("연세대학교");
+		assertThat(body.get("school").get("id").asLong()).isEqualTo(kyunghee);
+		assertThat(body.get("school").get("name").asString()).isEqualTo("경희대학교");
 		assertThat(body.get("category").get("code").asString()).isEqualTo("QUESTION");
 		assertThat(body.get("category").get("name").asString()).isEqualTo("질문");
 	}
@@ -157,7 +159,7 @@ class SchoolCategoryApiTests {
 	@ParameterizedTest
 	@EnumSource(PostCategory.class)
 	void 모든_말머리로_글_작성이_201이고_응답_category_code가_그_값이다(PostCategory category) throws Exception {
-		long school = 학교id("연세대학교");
+		long school = 학교id("경희대학교");
 		MvcResult r = 작성("{\"title\":\"t\",\"content\":\"c\",\"schoolId\":" + school + ",\"category\":\"" + category.name() + "\"}");
 		assertThat(r.getResponse().getStatus()).as(category.name()).isEqualTo(201);
 		assertThat(본문(r).get("category").get("code").asString()).isEqualTo(category.name());
@@ -196,15 +198,15 @@ class SchoolCategoryApiTests {
 
 	@Test
 	void 목록과_단건_조회_응답에_school_category가_있고_옛_글의_school은_null이다() throws Exception {
-		long korea = 학교id("고려대학교");
-		long newId = 본문(작성("{\"title\":\"새글\",\"content\":\"c\",\"schoolId\":" + korea + ",\"category\":\"CAMPUS_LIFE\"}"))
+		long kyunghee = 학교id("경희대학교");
+		long newId = 본문(작성("{\"title\":\"새글\",\"content\":\"c\",\"schoolId\":" + kyunghee +",\"category\":\"CAMPUS_LIFE\"}"))
 				.get("id").asLong();
 		// 옛 글 흉내: 3개짜리 생성자는 school 없음 + CHAT (V2가 채우는 기존 글과 같은 모양)
 		long oldId = postRepository.save(new Post("옛글", "c", 작성자, null, PostCategory.CHAT)).getId();
 
 		// 단건
 		JsonNode one = 본문(mockMvc.perform(get("/posts/" + newId)).andReturn());
-		assertThat(one.get("school").get("name").asString()).isEqualTo("고려대학교");
+		assertThat(one.get("school").get("name").asString()).isEqualTo("경희대학교");
 		assertThat(one.get("category").get("code").asString()).isEqualTo("CAMPUS_LIFE");
 		JsonNode oldOne = 본문(mockMvc.perform(get("/posts/" + oldId)).andReturn());
 		assertThat(oldOne.has("school")).as("school 키 존재").isTrue();
@@ -223,7 +225,7 @@ class SchoolCategoryApiTests {
 				checked++;
 			}
 			if (p.get("id").asLong() == newId) {
-				assertThat(p.get("school").get("name").asString()).isEqualTo("고려대학교");
+				assertThat(p.get("school").get("name").asString()).isEqualTo("경희대학교");
 				checked++;
 			}
 		}

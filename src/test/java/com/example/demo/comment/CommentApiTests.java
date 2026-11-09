@@ -29,6 +29,8 @@ import com.example.demo.auth.service.TokenService;
 import com.example.demo.post.domain.Post;
 import com.example.demo.post.domain.PostCategory;
 import com.example.demo.post.repository.PostRepository;
+import com.example.demo.school.domain.School;
+import com.example.demo.school.repository.SchoolRepository;
 import com.example.demo.user.domain.User;
 import com.example.demo.user.repository.UserRepository;
 
@@ -49,6 +51,8 @@ class CommentApiTests {
 	@Autowired
 	UserRepository userRepository;
 	@Autowired
+	SchoolRepository schoolRepository;
+	@Autowired
 	TokenService tokenService;
 	@Autowired
 	JdbcTemplate jdbc;
@@ -60,6 +64,7 @@ class CommentApiTests {
 	Cookie 글쓴이쿠키;
 	Cookie 다른쿠키;
 	Post 글;
+	School 연세대;
 
 	// 글을 먼저 지우면 댓글도 DB가 CASCADE로 지운다 -> 그 다음 회원을 지운다
 	@AfterEach
@@ -71,11 +76,13 @@ class CommentApiTests {
 	@BeforeEach
 	void 준비() {
 		정리(); // 실행 순서 꼬임을 막으려고 준비 안에서 먼저 비운다
-		글쓴이 = TestLogin.사용자(userRepository, "writer");
-		다른회원 = TestLogin.사용자(userRepository, "other");
+		// S10-d: 댓글은 인증한 학교의 글에만 쓸 수 있으므로 회원은 연세대 인증, 글도 연세대로 만든다
+		연세대 = TestLogin.학교(schoolRepository, "연세대학교");
+		글쓴이 = TestLogin.인증된_사용자(userRepository, jdbc, "writer", "연세대학교");
+		다른회원 = TestLogin.인증된_사용자(userRepository, jdbc, "other", "연세대학교");
 		글쓴이쿠키 = TestLogin.쿠키(tokenService, 글쓴이);
 		다른쿠키 = TestLogin.쿠키(tokenService, 다른회원);
-		글 = postRepository.save(new Post("제목", "내용", 글쓴이, null, PostCategory.CHAT));
+		글 = postRepository.save(new Post("제목", "내용", 글쓴이, 연세대, PostCategory.CHAT));
 	}
 
 	// ---------- 도우미 ----------
@@ -234,7 +241,7 @@ class CommentApiTests {
 	@Test
 	void 다른_글의_댓글은_목록에_섞이지_않는다() throws Exception {
 		댓글만들기(다른쿠키, "이 글 댓글");
-		Post 다른글 = postRepository.save(new Post("다른", "내용", 글쓴이, null, PostCategory.CHAT));
+		Post 다른글 = postRepository.save(new Post("다른", "내용", 글쓴이, 연세대, PostCategory.CHAT));
 		assertThat(om.readTree(목록(다른글.getId()).getContentAsString()).size()).isZero();
 	}
 
@@ -390,6 +397,8 @@ class CommentApiTests {
 				.andReturn().getResponse();
 		assertThat(login.getStatus()).isEqualTo(200);
 		Cookie leaverCookie = new Cookie("access_token", login.getCookie("access_token").getValue());
+		// 댓글을 쓰려면 학교 인증이 필요하므로 운영처럼 DB 칸을 직접 채운다
+		TestLogin.학교_인증_처리(jdbc, "leaver", "연세대학교");
 
 		long id = 댓글만들기(leaverCookie, "탈퇴자의 댓글");
 		long otherId = 댓글만들기(다른쿠키, "남은 사람 댓글");

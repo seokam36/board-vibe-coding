@@ -38,6 +38,8 @@ class CorsTests {
 
 	@Autowired
 	UserRepository userRepository;
+	@Autowired
+	org.springframework.jdbc.core.JdbcTemplate jdbc;
 
 	@Autowired
 	TokenService tokenService;
@@ -49,7 +51,7 @@ class CorsTests {
 	@BeforeEach
 	void 준비() {
 		정리();
-		쿠키 = TestLogin.쿠키(tokenService, TestLogin.사용자(userRepository, "writer"));
+		쿠키 = TestLogin.쿠키(tokenService, TestLogin.인증된_사용자(userRepository, jdbc, "writer", "경희대학교"));
 	}
 
 	// POST 테스트로 생긴 데이터를 정리한다 (글이 사용자를 참조하므로 글부터)

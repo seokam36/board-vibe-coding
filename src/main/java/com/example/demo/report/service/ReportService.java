@@ -23,7 +23,7 @@ import com.example.demo.user.domain.User;
 import lombok.RequiredArgsConstructor;
 
 // 신고 비즈니스 로직. 신고자는 본문이 아니라 로그인 정보(토큰)에서만 가져온다.
-// 검사 순서: 회원 확인 401 -> 대상 404 -> 자기 것 400 -> 중복 409 (본문 400은 컨트롤러의 @Valid가 먼저 한다)
+// 검사 순서: 회원 확인 401 -> 미인증 403 -> 대상 404 -> 다른 학교 403 -> 자기 것 400 -> 중복 409 (본문 400은 컨트롤러의 @Valid가 먼저 한다)
 @Service
 @RequiredArgsConstructor
 public class ReportService {
@@ -36,9 +36,11 @@ public class ReportService {
     // 글 신고
     @Transactional
     public ReportResponse reportPost(Long postId, LoginUser loginUser, ReportCreateRequest request) {
-        // 토큰은 유효한데 회원이 DB에 없으면(탈퇴) 401
-        User reporter = accessGuard.requireUser(loginUser);
+        // 회원 없음(탈퇴) 401 -> 학교 미인증 403
+        User reporter = accessGuard.requireVerified(loginUser);
         Post post = postRepository.findById(postId).orElseThrow(ApiErrors::postNotFound);
+        // 글의 학교가 인증 학교와 같아야 한다(findById가 학교를 같이 읽어 둠)
+        accessGuard.requireSameSchool(reporter, post.getSchool());
         if (post.isWrittenBy(reporter.getId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "자기 글은 신고할 수 없습니다.");
         }
@@ -52,8 +54,10 @@ public class ReportService {
     // 댓글 신고
     @Transactional
     public ReportResponse reportComment(Long commentId, LoginUser loginUser, ReportCreateRequest request) {
-        User reporter = accessGuard.requireUser(loginUser);
-        Comment comment = commentRepository.findById(commentId).orElseThrow(ApiErrors::commentNotFound);
+        User reporter = accessGuard.requireVerified(loginUser);
+        // 댓글의 글·학교까지 한 번에 읽는다
+        Comment comment = commentRepository.findWithPostSchoolById(commentId).orElseThrow(ApiErrors::commentNotFound);
+        accessGuard.requireSameSchool(reporter, comment.getPost().getSchool());
         if (comment.isWrittenBy(reporter.getId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "자기 댓글은 신고할 수 없습니다.");
         }

@@ -46,11 +46,13 @@ public class PostService {
     // 작성자는 요청 본문이 아니라 로그인 정보(토큰)에서만 가져온다.
     @Transactional
     public PostResponse create(LoginUser loginUser, PostCreateRequest request) {
-        // 토큰은 유효한데 사용자가 DB에 없으면(탈퇴·삭제) 로그인 안 된 것과 같이 401
-        User author = accessGuard.requireUser(loginUser);
+        // 회원 없음(탈퇴·삭제) 401 -> 학교 미인증 403 (미인증 회원은 읽기만 가능)
+        User author = accessGuard.requireVerified(loginUser);
         // 없는 학교 id는 잘못된 입력이므로 400 (500이 되지 않게 미리 확인한다)
         School school = schoolRepository.findById(request.schoolId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "존재하지 않는 학교입니다."));
+        // 입력이 올바른지(400) 먼저 보고, 그다음 인증한 학교와 같은지 본다(다르면 403)
+        accessGuard.requireSameSchool(author, school);
         try {
             // id가 IDENTITY라 save() 안에서 바로 INSERT가 나가므로 FK 위반을 여기서 잡을 수 있다
             Post saved = postRepository.save(

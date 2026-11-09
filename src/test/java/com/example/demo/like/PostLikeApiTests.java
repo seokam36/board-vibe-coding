@@ -38,6 +38,8 @@ import com.example.demo.auth.service.TokenService;
 import com.example.demo.post.domain.Post;
 import com.example.demo.post.domain.PostCategory;
 import com.example.demo.post.repository.PostRepository;
+import com.example.demo.school.domain.School;
+import com.example.demo.school.repository.SchoolRepository;
 import com.example.demo.user.domain.User;
 import com.example.demo.user.repository.UserRepository;
 
@@ -59,6 +61,8 @@ class PostLikeApiTests {
 	@Autowired
 	UserRepository userRepository;
 	@Autowired
+	SchoolRepository schoolRepository;
+	@Autowired
 	TokenService tokenService;
 	@Autowired
 	JdbcTemplate jdbc;
@@ -74,6 +78,7 @@ class PostLikeApiTests {
 	Cookie 쿠키A;
 	Cookie 쿠키B;
 	Post 글;
+	School 연세대;
 
 	// 글을 먼저 지우면 댓글·공감도 DB가 CASCADE로 지운다 -> 그 다음 회원을 지운다
 	@AfterEach
@@ -85,13 +90,15 @@ class PostLikeApiTests {
 	@BeforeEach
 	void 준비() {
 		정리();
-		글쓴이 = TestLogin.사용자(userRepository, "writer");
-		회원A = TestLogin.사용자(userRepository, "memberA");
-		회원B = TestLogin.사용자(userRepository, "memberB");
+		// S10-d: 공감은 인증한 학교의 글에만 누를 수 있으므로 회원은 연세대 인증, 글도 연세대로 만든다
+		연세대 = TestLogin.학교(schoolRepository, "연세대학교");
+		글쓴이 = TestLogin.인증된_사용자(userRepository, jdbc, "writer", "연세대학교");
+		회원A = TestLogin.인증된_사용자(userRepository, jdbc, "memberA", "연세대학교");
+		회원B = TestLogin.인증된_사용자(userRepository, jdbc, "memberB", "연세대학교");
 		글쓴이쿠키 = TestLogin.쿠키(tokenService, 글쓴이);
 		쿠키A = TestLogin.쿠키(tokenService, 회원A);
 		쿠키B = TestLogin.쿠키(tokenService, 회원B);
-		글 = postRepository.save(new Post("제목", "내용", 글쓴이, null, PostCategory.CHAT));
+		글 = postRepository.save(new Post("제목", "내용", 글쓴이, 연세대, PostCategory.CHAT));
 	}
 
 	// ---------- 도우미 ----------
@@ -292,7 +299,7 @@ class PostLikeApiTests {
 
 	@Test
 	void 글_상세는_댓글_2개_공감_3개면_2와_3을_반환한다() throws Exception {
-		User 회원C = TestLogin.사용자(userRepository, "memberC");
+		User 회원C = TestLogin.인증된_사용자(userRepository, jdbc, "memberC", "연세대학교");
 		댓글달기(쿠키A, 글, "c1");
 		댓글달기(쿠키B, 글, "c2");
 		공감(쿠키A, 글.getId());
@@ -314,8 +321,8 @@ class PostLikeApiTests {
 
 	@Test
 	void 글_목록은_글마다_각자_맞는_댓글수_공감수를_반환한다() throws Exception {
-		Post 둘째 = postRepository.save(new Post("둘째", "내용", 글쓴이, null, PostCategory.CHAT));
-		Post 셋째 = postRepository.save(new Post("셋째", "내용", 글쓴이, null, PostCategory.CHAT));
+		Post 둘째 = postRepository.save(new Post("둘째", "내용", 글쓴이, 연세대, PostCategory.CHAT));
+		Post 셋째 = postRepository.save(new Post("셋째", "내용", 글쓴이, 연세대, PostCategory.CHAT));
 		// 첫째: 댓글 2 / 공감 1, 둘째: 댓글 0 / 공감 2, 셋째: 아무것도 없음
 		댓글달기(쿠키A, 글, "c1");
 		댓글달기(쿠키B, 글, "c2");
@@ -348,7 +355,7 @@ class PostLikeApiTests {
 	@Test
 	void 글_10개일_때_글_목록_조회의_SQL은_3번_이하다() throws Exception {
 		for (int i = 0; i < 9; i++) {
-			postRepository.save(new Post("글" + i, "내용", 글쓴이, null, PostCategory.CHAT));
+			postRepository.save(new Post("글" + i, "내용", 글쓴이, 연세대, PostCategory.CHAT));
 		}
 		댓글달기(쿠키A, 글, "c1");
 		공감(쿠키A, 글.getId());
@@ -438,6 +445,7 @@ class PostLikeApiTests {
 				.andReturn().getResponse();
 		assertThat(login.getStatus()).isEqualTo(200);
 		Cookie leaverCookie = new Cookie("access_token", login.getCookie("access_token").getValue());
+		TestLogin.학교_인증_처리(jdbc, "leaver", "연세대학교"); // 공감하려면 학교 인증이 필요하다
 
 		assertThat(공감(leaverCookie, 글.getId()).getStatus()).isEqualTo(201);
 		assertThat(공감(쿠키A, 글.getId()).getStatus()).isEqualTo(201);

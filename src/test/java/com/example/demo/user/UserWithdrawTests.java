@@ -40,6 +40,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.test.web.servlet.ResultActions;
 
 import com.example.demo.LockRaceSupport;
+import com.example.demo.TestLogin;
 import com.example.demo.TestcontainersConfiguration;
 import com.example.demo.post.domain.Post;
 import com.example.demo.post.domain.PostCategory;
@@ -238,6 +239,7 @@ class UserWithdrawTests {
 		for (int round = 0; round < 20; round++) {
 			정리();
 			가입("user01", "닉네임일");
+			TestLogin.학교_인증_처리(jdbc, "user01", "경희대학교"); // 글쓰기(201)에는 학교 인증이 필요하다
 			Cookie access = 액세스(로그인("user01"));
 			int writers = 6;
 			ExecutorService pool = Executors.newFixedThreadPool(writers + 1);
@@ -282,6 +284,7 @@ class UserWithdrawTests {
 	@Test
 	void 조건9_글_INSERT가_커밋되기_전에는_탈퇴가_기다리다가_그_글까지_author를_비우고_204다() throws Exception {
 		가입("user01", "닉네임일");
+		TestLogin.학교_인증_처리(jdbc, "user01", "경희대학교"); // 인증 검사(403)를 지나 INSERT까지 가야 FK 경쟁을 볼 수 있다
 		Cookie access = 액세스(로그인("user01"));
 		Long uid = id("user01");
 		ExecutorService pool = Executors.newSingleThreadExecutor();
@@ -313,6 +316,7 @@ class UserWithdrawTests {
 	@Test
 	void 조건9_회원_행이_잠긴_상태에서_글쓰기가_기다리다_회원이_삭제되면_401이고_글이_안_생긴다() throws Exception {
 		가입("user01", "닉네임일");
+		TestLogin.학교_인증_처리(jdbc, "user01", "경희대학교"); // 인증 검사(403)를 지나 INSERT까지 가야 FK 경쟁을 볼 수 있다
 		Cookie access = 액세스(로그인("user01"));
 		Long uid = id("user01");
 		ExecutorService pool = Executors.newSingleThreadExecutor();

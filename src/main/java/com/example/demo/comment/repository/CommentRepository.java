@@ -27,6 +27,11 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     @EntityGraph(attributePaths = "author")
     Optional<Comment> findById(Long id);
 
+    // 신고용 조회: 댓글의 글과 그 글의 학교까지 한 번에 읽는다(학교 일치 검사에 필요, 트랜잭션 안 추가 쿼리 방지)
+    @EntityGraph(attributePaths = { "author", "post", "post.school" })
+    @Query("select c from Comment c where c.id = :id")
+    Optional<Comment> findWithPostSchoolById(@Param("id") Long id);
+
     // 글의 댓글 수
     long countByPostId(Long postId);
 

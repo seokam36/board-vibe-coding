@@ -37,6 +37,8 @@ import com.example.demo.post.domain.Post;
 import com.example.demo.post.domain.PostCategory;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.domain.User;
+import com.example.demo.school.domain.School;
+import com.example.demo.school.repository.SchoolRepository;
 import com.example.demo.user.repository.UserRepository;
 
 import jakarta.servlet.http.Cookie;
@@ -58,6 +60,8 @@ class ReportApiTests {
 	@Autowired
 	UserRepository userRepository;
 	@Autowired
+	SchoolRepository schoolRepository;
+	@Autowired
 	TokenService tokenService;
 	@Autowired
 	JdbcTemplate jdbc;
@@ -75,6 +79,7 @@ class ReportApiTests {
 	Cookie 쿠키A;
 	Cookie 쿠키B;
 	Post 글;
+	School 연세대;
 	Comment 댓글; // 글쓴이가 쓴 댓글
 
 	// 글을 먼저 지우면 댓글·신고도 DB가 CASCADE로 지운다 -> 그 다음 회원을 지운다
@@ -87,13 +92,15 @@ class ReportApiTests {
 	@BeforeEach
 	void 준비() {
 		정리();
-		글쓴이 = TestLogin.사용자(userRepository, "writer");
-		회원A = TestLogin.사용자(userRepository, "memberA");
-		회원B = TestLogin.사용자(userRepository, "memberB");
+		// S10-d: 신고는 인증한 학교의 글에만 할 수 있으므로 회원은 연세대 인증, 글도 연세대로 만든다
+		연세대 = TestLogin.학교(schoolRepository, "연세대학교");
+		글쓴이 = TestLogin.인증된_사용자(userRepository, jdbc, "writer", "연세대학교");
+		회원A = TestLogin.인증된_사용자(userRepository, jdbc, "memberA", "연세대학교");
+		회원B = TestLogin.인증된_사용자(userRepository, jdbc, "memberB", "연세대학교");
 		글쓴이쿠키 = TestLogin.쿠키(tokenService, 글쓴이);
 		쿠키A = TestLogin.쿠키(tokenService, 회원A);
 		쿠키B = TestLogin.쿠키(tokenService, 회원B);
-		글 = postRepository.save(new Post("제목", "내용", 글쓴이, null, PostCategory.CHAT));
+		글 = postRepository.save(new Post("제목", "내용", 글쓴이, 연세대, PostCategory.CHAT));
 		댓글 = commentRepository.save(new Comment(글, 글쓴이, "댓글 내용"));
 	}
 
@@ -505,7 +512,7 @@ class ReportApiTests {
 	@Test
 	void 조건8_신고된_글을_삭제하면_그_글_신고와_그_글_댓글의_신고가_모두_삭제된다() throws Exception {
 		// 다른 글의 신고는 남아야 한다
-		Post 다른글 = postRepository.save(new Post("다른 글", "내용", 글쓴이, null, PostCategory.CHAT));
+		Post 다른글 = postRepository.save(new Post("다른 글", "내용", 글쓴이, 연세대, PostCategory.CHAT));
 		assertThat(글신고(쿠키A, 글.getId(), 본문("SPAM")).getStatus()).isEqualTo(201);
 		assertThat(댓글신고(쿠키A, 댓글.getId(), 본문("SPAM")).getStatus()).isEqualTo(201);
 		assertThat(글신고(쿠키A, 다른글.getId(), 본문("SPAM")).getStatus()).isEqualTo(201);
@@ -564,6 +571,7 @@ class ReportApiTests {
 				.andReturn().getResponse();
 		assertThat(login.getStatus()).isEqualTo(200);
 		Cookie leaverCookie = new Cookie("access_token", login.getCookie("access_token").getValue());
+		TestLogin.학교_인증_처리(jdbc, "leaver", "연세대학교"); // 신고하려면 학교 인증이 필요하다
 
 		assertThat(글신고(leaverCookie, 글.getId(), 본문("SPAM")).getStatus()).isEqualTo(201);
 		assertThat(댓글신고(leaverCookie, 댓글.getId(), 본문("SPAM")).getStatus()).isEqualTo(201);
@@ -583,7 +591,7 @@ class ReportApiTests {
 
 	@Test
 	void 조건9_작성자_없는_옛_글과_댓글도_신고할_수_있다() throws Exception {
-		Post 옛글 = postRepository.save(new Post("옛 글", "내용", null, null, PostCategory.CHAT));
+		Post 옛글 = postRepository.save(new Post("옛 글", "내용", null, 연세대, PostCategory.CHAT));
 		Comment 옛댓글 = commentRepository.save(new Comment(옛글, null, "옛 댓글"));
 
 		MockHttpServletResponse r1 = 글신고(쿠키A, 옛글.getId(), 본문("SPAM"));

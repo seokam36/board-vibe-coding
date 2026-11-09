@@ -39,6 +39,8 @@ class PostApiTests {
 
 	@Autowired
 	UserRepository userRepository;
+	@Autowired
+	org.springframework.jdbc.core.JdbcTemplate jdbc;
 
 	@Autowired
 	TokenService tokenService;
@@ -53,7 +55,7 @@ class PostApiTests {
 	@BeforeEach
 	void 준비() {
 		정리();
-		쿠키 = TestLogin.쿠키(tokenService, TestLogin.사용자(userRepository, "writer"));
+		쿠키 = TestLogin.쿠키(tokenService, TestLogin.인증된_사용자(userRepository, jdbc, "writer", "경희대학교"));
 	}
 
 	@AfterEach

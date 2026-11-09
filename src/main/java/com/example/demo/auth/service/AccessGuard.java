@@ -6,6 +6,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.auth.dto.LoginUser;
 import com.example.demo.common.ApiErrors;
+import com.example.demo.school.domain.School;
 import com.example.demo.user.domain.User;
 import com.example.demo.user.domain.UserRole;
 import com.example.demo.user.repository.UserRepository;
@@ -30,6 +31,25 @@ public class AccessGuard {
     public User requireUser(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(ApiErrors::loginRequired);
+    }
+
+    // 학교 인증을 마친 회원만 통과(관리자도 예외 없음). 인증 여부는 토큰이 아니라 매번 DB로 본다.
+    // 회원 없음 401 -> 미인증 403. 통과하면 그 회원을 돌려준다(verifiedSchool은 findById의 EntityGraph로 이미 읽혀 있다).
+    // 401은 프론트가 토큰 재발급을 돌리므로 미인증에는 쓰지 않고 403을 쓴다.
+    public User requireVerified(LoginUser loginUser) {
+        User user = requireUser(loginUser);
+        if (user.getVerifiedSchool() == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "학교 인증이 필요합니다.");
+        }
+        return user;
+    }
+
+    // 인증한 학교의 글에만 만들 수 있다. 글의 학교가 없는(옛) 글이거나 다른 학교면 403.
+    // 글쓰기·댓글·공감·신고 4곳이 같이 쓴다. postSchool은 호출한 쪽이 이미 읽은 값(추가 쿼리 없음).
+    public void requireSameSchool(User verifiedUser, School postSchool) {
+        if (postSchool == null || !postSchool.getId().equals(verifiedUser.getVerifiedSchool().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "인증한 학교의 글에만 할 수 있습니다.");
+        }
     }
 
     // "본인 또는 관리자"만 지울 수 있는 대상의 권한 검사. 통과하면 조용히 끝나고, 아니면 예외.
