@@ -205,6 +205,29 @@ Gmail 무료 계정은 하루 약 500통까지만 보낼 수 있습니다. 회�
 
 주의: 메일 주소 자체는 로그·문서·이슈에 남기지 않습니다(해시만 다룹니다). 위 PowerShell 줄은 주소가 터미널 기록에 남을 수 있으니 계산 후 창을 닫거나 기록을 지웁니다.
 
+**학교 메일 없이 운영에서 인증 테스트하기** (S10-h 배포 때 실제로 한 방법)
+학교 메일 도메인만 허용되므로, 잠깐 `gmail.com`을 연세대 도메인으로 등록해서 테스트합니다. SQL 실행 방식은 아래 "관리자 지정·해제"와 같습니다([서버]에서 실행, PowerShell 아님).
+
+1. **[PC]** EC2에 접속합니다: `ssh -i ~/.ssh/board-ec2 ec2-user@<퍼블릭IP>`
+2. **[서버]** 임시 도메인 추가 (연세대와 같은 학교로 `gmail.com`을 등록합니다):
+```sh
+docker exec -i board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1' <<'SQL'
+INSERT INTO school_email_domains (school_id, domain) SELECT school_id, 'gmail.com' FROM school_email_domains WHERE domain = 'yonsei.ac.kr';
+SQL
+```
+   `INSERT 0 1`이 나오면 성공입니다.
+3. **[브라우저]** 테스트 계정을 새로 가입합니다. 내 정보에서 발송 전용 Gmail(`MAIL_USERNAME`과 같은 주소)로 인증 코드를 요청하면 자기 자신에게 메일이 갑니다. **첫 메일은 스팸함**에 있을 수 있습니다. 코드를 입력해 인증하고, 연세대 글쓰기가 되는지 확인한 뒤 테스트 글을 삭제합니다.
+4. **[서버]** **꼭** 임시 도메인을 지웁니다:
+```sh
+docker exec -i board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1' <<'SQL'
+DELETE FROM school_email_domains WHERE domain = 'gmail.com';
+SQL
+```
+   `DELETE 1`이 나오면 성공입니다.
+5. **[브라우저]** 테스트 계정을 탈퇴합니다. 학교 메일 해시는 `users` 표의 `school_email_hash` 칸에 저장되고 탈퇴는 회원 행 자체를 지우므로, 해시도 같이 사라집니다. 그래서 같은 Gmail로 나중에 다시 테스트할 수 있습니다.
+
+주의: 2번~4번 사이에는 **누구나 gmail 주소로 연세대 인증을 받을 수 있습니다.** 짧게 끝내세요. 또 같은 메일은 하루 5회, 같은 계정+같은 메일은 하루 2회까지만 보낼 수 있어서 여러 번 하면 막힐 수 있습니다(위 "학교 인증 코드가 막혔다는 문의가 오면" 참고).
+
 ## DB 설정에서 바꾸면 안 되는 것
 - **DB 메시지 언어는 영어(공식 이미지 기본값)로 둡니다.** 서버 코드(`ConstraintViolations`)가 PostgreSQL 오류 메시지의 `constraint "..."` 글자에서 제약 이름을 꺼내 404/401로 바꿉니다. `lc_messages`를 한국어로 바꾸면 그 글자가 없어 댓글·공감 작성 중 경쟁 상황에서 500이 납니다.
 
@@ -292,6 +315,16 @@ V3(S8-a)는 `comments`·`post_likes` 표를 **새로 만들기만** 하고 기�
 - V5(S9-b)는 `reports` 표를 **새로 만들기만** 합니다. 옛 코드는 새 표를 무시합니다(V3와 같은 이유). `reports`의 외래키(FK)는 모두 삭제 동작이 있어서(글·댓글은 `ON DELETE CASCADE`, 회원은 `ON DELETE SET NULL`) 옛 코드가 글·댓글·회원을 지워도 DB가 알아서 처리하고 오류가 나지 않습니다.
 - 로그에 `Schema "public" has a version (5) that is newer than the latest available migration (3) !` 경고가 나와도 정상입니다(V2·V3 때와 같음, 앱은 뜹니다).
 - 특별한 절차 없이 (a)대로 이미지만 바꾸면 됩니다. 기록장 행은 지우지 마세요.
+
+**S9/UI1 이미지(V5까지 아는 코드)로 돌아갈 때 (V6 적용 후)**
+- V6(S10-a)는 `school_email_domains` 표를 **새로 만들고**, `users`에 인증 정보 칸 3개(`verified_school_id`, `verified_at`, `school_email_hash`)를 **더하기만** 합니다. 세 칸 모두 NULL을 허용합니다. 옛 코드의 엔티티에는 이 표·칸이 없고 `ddl-auto=validate`는 엔티티에 없는 것을 보지 않으므로 앱이 뜹니다. 옛 코드의 가입(INSERT)도 새 칸을 안 적으면 NULL이 들어가서 문제없습니다.
+- 제약(UNIQUE·FK)도 옛 코드 동작을 막지 않습니다. `school_email_hash`의 UNIQUE는 NULL끼리는 충돌하지 않아서(옛 코드로 가입한 회원은 모두 NULL) 가입이 됩니다. `users`의 FK(`verified_school_id` -> `schools`)는 "회원이 학교를 가리키는" 방향이라, 회원을 지우는 쪽에는 영향이 없습니다(학교 행은 지우지 않습니다). `school_email_domains`도 학교만 가리킵니다. 그래서 회원 삭제·글 삭제에서 FK 오류가 나지 않습니다.
+- **하지만 학교 인증 제한이 사라집니다.** 옛 코드에는 인증 검사가 없어서, 인증하지 않은 회원도 아무 학교 글에 글쓰기·댓글·공감·신고를 다시 할 수 있습니다. 화면의 인증 섹션·뱃지도 보이지 않습니다. 짧게만 되돌리고 빨리 새 코드로 돌아오세요.
+- 이미 인증한 정보(DB 칸)는 그대로 남아서, 새 코드로 돌아오면 인증 상태가 유지됩니다. Redis에 남은 인증 키도 해롭지 않습니다.
+- 운영 `.env`에 `MAIL_*` 값이 있어도 옛 코드는 무시합니다(문제없음).
+- 로그에 `Schema "public" has a version (6) that is newer than the latest available migration (5) !` 경고가 나와도 정상입니다(앱은 뜹니다).
+- 특별한 절차 없이 (a)대로 이미지만 바꾸면 됩니다. 기록장 행은 지우지 마세요.
+- 아직 확인하지 못한 것: 실제로 S9/UI1 이미지로 돌아가 시험하지는 않았습니다. 위 내용은 V6 SQL과 코드를 읽고 판단한 것입니다.
 
 ### (c) V2 이상이 적용 중 실패했을 때
 PostgreSQL은 표 변경(DDL)도 트랜잭션이라, V 파일 하나가 중간에 실패하면 그 파일의 표 변경은 통째로 원상복구됩니다(반쯤 바뀐 채로 남지 않음). 먼저 기록장 상태를 확인합니다.
