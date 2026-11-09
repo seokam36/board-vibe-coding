@@ -148,6 +148,42 @@ EC2는 이미지를 받아 실행만 합니다. 저장소를 clone할 필요 없
 - 되돌리는 것은 compose 설정뿐입니다. 이미지는 `latest` 태그라 push할 때 Docker Hub의 옛 이미지가 덮어써지므로, 되돌려도 새 이미지가 그대로 쓰입니다.
   이미지까지 되돌리고 싶다면 아래 "Flyway(표 변경) 문제와 되돌리기"의 (a) "이전 이미지로 되돌리기"를 따릅니다(CI가 커밋마다 40자리 SHA 태그를 남겨 두므로 미리 태그를 붙여 둘 필요가 없습니다).
 
+## 메일 발송 (S10)
+학교 메일 인증 코드를 실제로 보내는 설정입니다. 값은 모두 EC2 `~/board/.env`에만 두고 이 파일·저장소에는 적지 않습니다.
+
+환경변수 6개 (`docker-compose.yml`이 `.env`에서 읽어 app에 넘김):
+- `MAIL_MODE`: `log`(기본) 또는 `smtp`. `smtp`일 때만 실제로 보냅니다.
+- `MAIL_HOST`: 메일 서버 주소 (Gmail은 `smtp.gmail.com`).
+- `MAIL_PORT`: 메일 서버 포트 (기본 `587`).
+- `MAIL_USERNAME`: 메일 서버 로그인 아이디 (Gmail은 전용 Gmail 주소).
+- `MAIL_PASSWORD`: 로그인 비밀번호 (**비밀**. Gmail은 계정 비밀번호가 아니라 "앱 비밀번호").
+- `MAIL_FROM`: 보내는 사람 주소 (Gmail은 `MAIL_USERNAME`과 같게).
+
+`MAIL_MODE=smtp`인데 HOST, USERNAME, PASSWORD, FROM 중 하나라도 비면 앱이 시작 때 실패합니다(Deploy 헬스체크도 빨간불).
+`/actuator/health`는 메일 상태를 보지 않으므로, 나중에 Gmail이 장애여도 배포 헬스체크는 영향이 없습니다.
+Gmail 무료 계정은 하루 약 500통까지만 보낼 수 있습니다. 회원당 하루 10회 상한이라 사용자가 많이 몰리면 그날 나머지 발송은 실패(API 500)할 수 있고, 근본 해결은 AWS SES 전환입니다.
+
+**주의**: `MAIL_MODE`를 `log`로 두거나 안 적으면 메일이 가지 않고 서버 로그에 코드가 찍히기만 합니다. 운영에서 인증 메일이 안 온다면 먼저 `.env`에 `MAIL_MODE=smtp`가 있는지 봅니다. (코드가 로그에 남으므로 운영에서는 `smtp`로 씁니다.)
+
+**Gmail 앱 비밀번호 만들기 (요약)**
+1. 서비스 전용 Gmail 계정을 새로 만듭니다(개인 계정 사용 금지).
+2. 그 계정에서 Google 계정 -> 보안 -> "2단계 인증"을 켭니다(켜야 앱 비밀번호 메뉴가 나옵니다).
+3. Google 계정 -> 보안 -> "앱 비밀번호"에서 이름(예: `board`)을 정해 만듭니다. 나오는 16자리를 복사해 둡니다(다시 볼 수 없음).
+4. 그 16자리가 `MAIL_PASSWORD`, Gmail 주소가 `MAIL_USERNAME`과 `MAIL_FROM`입니다.
+
+**운영에 적용하기** (운영 배포는 S10-g에서 합니다)
+1. **[서버]** `~/board/.env`에 6개 값을 추가합니다(`MAIL_MODE=smtp`, `MAIL_HOST=smtp.gmail.com`, `MAIL_PORT=587`, 나머지는 위 값). 로그에 비밀번호가 남지 않게 `cat .env`로 화면에 띄우지 않습니다.
+2. **[PC]** `docker-compose.yml`이 바뀌었으므로 위 비상용 4~5단계(compose 백업 -> `scp`)로 EC2에 먼저 복사합니다. 이걸 빼먹으면 `.env`에 값을 넣어도 app에 전달되지 않습니다.
+3. Deploy 버튼을 누릅니다(앱이 새 환경변수로 다시 뜹니다).
+4. 확인: **[서버]** `docker compose --profile prod config | grep -c '^ *MAIL_'` 가 `6`인지 봅니다(비밀번호가 화면에 나오므로 `config`를 그대로 출력하지 않습니다). 실제 메일이 오는지는 브라우저에서 인증 코드를 요청해 봅니다.
+
+**앱 비밀번호 교체** (유출 의심, 정기 교체)
+1. Gmail 계정의 "앱 비밀번호"에서 새로 만들고, 옛 것은 삭제합니다.
+2. **[서버]** `~/board/.env`의 `MAIL_PASSWORD` 줄만 새 값으로 고칩니다.
+3. **[서버]** `cd ~/board && docker compose --profile prod up -d app` — 환경변수가 바뀌었으므로 app 컨테이너가 새로 만들어집니다(단순 `restart`는 `.env`를 다시 읽지 않아 반영되지 않습니다).
+
+**나중에 AWS SES로 바꿀 때**: 코드는 그대로이고 `.env`의 `MAIL_HOST`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` 값만 SES SMTP 정보로 바꾸면 됩니다(`MAIL_MODE=smtp`, 포트 587 유지). 위 "앱 비밀번호 교체"와 같은 순서로 app을 다시 띄웁니다.
+
 ## DB 설정에서 바꾸면 안 되는 것
 - **DB 메시지 언어는 영어(공식 이미지 기본값)로 둡니다.** 서버 코드(`ConstraintViolations`)가 PostgreSQL 오류 메시지의 `constraint "..."` 글자에서 제약 이름을 꺼내 404/401로 바꿉니다. `lc_messages`를 한국어로 바꾸면 그 글자가 없어 댓글·공감 작성 중 경쟁 상황에서 500이 납니다.
 

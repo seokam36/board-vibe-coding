@@ -62,7 +62,7 @@
   - [x] S10-b. 인증 코드 보내기 API (가짜 발송: 로그에 코드)
   - [x] S10-c. 코드 확인 API → 인증 완료 저장
   - [x] S10-d. 인증 전 제한 (글쓰기·댓글·공감·신고 모두 인증 후, 인증한 학교 글에만. 학교 미지정 옛 글은 읽기만. 수정·삭제·공감 취소는 인증과 무관)
-  - [ ] S10-e. 실제 메일 발송 (SMTP)
+  - [x] S10-e. 실제 메일 발송 (SMTP)
   - [ ] S10-f. 화면
   - [ ] S10-g. EC2 배포
 - [ ] S11. 비자 후기와 학교별 통계 (공식 안내 링크와 작성일을 함께 표시, 신청 대행·개인별 법률 판단은 하지 않는다)
@@ -130,4 +130,5 @@
 | 2026-11-09 | S10-a | V6(school_email_domains: 5개 학교 도메인 6개, 소문자만 CHECK, 학교 id는 이름으로 찾음 / users에 verified_school_id·verified_at·school_email_hash UNIQUE, 기존 회원 NULL) + 로그인·재발급·내 정보·닉네임 변경 응답에 verifiedSchool(EntityGraph로 한 쿼리) + GET /schools에 emailDomains(새 SchoolDetailResponse, 글 응답 school은 그대로, 쿼리 2번 고정). 동작 변화 없음. 테스트 509개 | 94ac0cf |
 | 2026-11-09 | S10-b | POST /users/me/school-verification/code(202): 메일 앞뒤 공백 제거·소문자 → 학교 도메인 없으면 400 → 이미 인증·다른 계정이 쓴 메일 409 → Redis Lua 한 번에 60초 쿨다운·하루 10회(429) 검사와 코드 저장(코드는 해시만, 10분, 옛 코드 무효) → 발송(지금은 로그). 발송 실패 시 내 코드일 때만 되돌려 바로 재요청 가능(500). 테스트 527개 | c0de131 |
 | 2026-11-09 | S10-c | POST /users/me/school-verification(200 UserResponse): 이미 인증 409(코드 소모 안 함) → Redis Lua 한 번에 확인(틀림 400·attempts+1 / 없음·만료·5번째 틀림 폐기 410) → 일치하면 키 삭제 후 조건부 UPDATE(verified_school이 비었을 때만)로 학교·시각·메일 해시 저장, 같은 메일 다른 계정은 UNIQUE로 409. 화면이 상태코드로 "다시 입력"/"다시 받기"를 구분하게 410 분리. 테스트 548개 | 122bc7f |
-| 2026-11-09 | S10-d | 인증 전 제한: AccessGuard.requireVerified(미인증 403)·requireSameSchool(다른 학교·학교 미지정 글 403)를 글쓰기·댓글·공감·글/댓글 신고 5곳에 적용(관리자도 예외 없음). 수정·삭제·공감 취소·GET·/admin은 그대로. 쿼리 수 그대로(댓글 신고는 글·학교 함께 읽기). 두 403은 본문으로 구분 불가 → 화면이 verifiedSchool로 먼저 막음(api.md). 기존 테스트는 인증 회원 + 같은 학교 글로 준비 변경. 테스트 568개 | (이 커밋) |
+| 2026-11-09 | S10-d | 인증 전 제한: AccessGuard.requireVerified(미인증 403)·requireSameSchool(다른 학교·학교 미지정 글 403)를 글쓰기·댓글·공감·글/댓글 신고 5곳에 적용(관리자도 예외 없음). 수정·삭제·공감 취소·GET·/admin은 그대로. 쿼리 수 그대로(댓글 신고는 글·학교 함께 읽기). 두 403은 본문으로 구분 불가 → 화면이 verifiedSchool로 먼저 막음(api.md). 기존 테스트는 인증 회원 + 같은 학교 글로 준비 변경. 테스트 568개 | b6d521f |
+| 2026-11-09 | S10-e | Gmail SMTP 실제 발송: spring-boot-starter-mail 추가, MAIL_MODE=smtp일 때만 SmtpVerificationMailSender(한/영 본문), 필수값(MAIL_HOST·USERNAME·PASSWORD·FROM) 비면 시작 실패, 발송 실패 예외에 주소·코드 안 남김(원인 클래스명만), 메일 헬스체크 끔, 타임아웃 5·10초. compose·.env.example·deploy.md에 MAIL_*. 로컬에서 실제 메일 수신(첫 메일은 스팸함) → 코드 확인 200까지 확인. 테스트 584개 | (이 커밋) |

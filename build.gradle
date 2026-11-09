@@ -30,6 +30,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server'
 	// 리프레시 토큰을 저장할 Redis 연결 (기본 클라이언트 Lettuce 포함)
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	// 학교 인증 코드 메일을 SMTP로 보내기 위한 JavaMailSender (S10-e, 버전은 Boot BOM 관리)
+	implementation 'org.springframework.boot:spring-boot-starter-mail'
 	// DB 표 변경을 번호 붙은 SQL(V1, V2...)로 관리하는 Flyway (Boot 4는 flyway-core만으로는 자동 설정이 안 돼 이 스타터가 필요)
 	implementation 'org.springframework.boot:spring-boot-starter-flyway'
 	// Flyway 10+에서 PostgreSQL 지원이 별도 모듈로 분리됨 (실행 시에만 필요, 버전은 Boot BOM 관리)

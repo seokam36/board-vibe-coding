@@ -4,6 +4,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,8 @@ import lombok.extern.slf4j.Slf4j;
 
 // 학교 메일 인증 코드 발송(S10-b)과 확인(S10-c).
 // 트랜잭션을 걸지 않는다: DB 조회는 각자 짧게 끝내고, 느릴 수 있는 메일 발송 동안 DB 연결(풀 3개)을 붙잡지 않기 위함.
+// MailConfig(메일 설정 시작 검사)가 먼저 만들어지도록 고정: MAIL_MODE 오타 등을 Spring의 "빈 없음" 오류보다 먼저 우리 메시지로 알린다
+@DependsOn("mailConfig")
 @Slf4j
 @Service
 @RequiredArgsConstructor

@@ -81,6 +81,15 @@ services:
       # 리프레시 토큰 저장소(Redis) 접속 정보. 같은 compose 안이라 서비스명(redis)이 호스트
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD:?.env에 REDIS_PASSWORD를 설정하세요}
+      # 학교 메일 인증 코드 발송(S10). 값은 .env에서 읽는다 (비밀번호를 파일에 쓰지 않기 위함).
+      # MAIL_MODE: log(기본, 코드를 로그에만 찍음) | smtp(실제 발송). smtp인데 아래 값이 비면 앱이 시작 때 실패한다.
+      # 값이 필수는 아니라서(log 모드에서는 안 씀) :? 대신 기본값(:-)을 쓴다
+      MAIL_MODE: ${MAIL_MODE:-log}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
     depends_on:
       postgres:
         # DB가 healthy가 된 뒤에 앱 시작
