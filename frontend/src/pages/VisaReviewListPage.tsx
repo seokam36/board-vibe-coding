@@ -7,6 +7,7 @@ import Loading from '../components/Loading'
 import Notice from '../components/Notice'
 import VisaDisclaimer from '../components/VisaDisclaimer'
 import VisaReviewFilters from '../components/VisaReviewFilters'
+import VisaReviewTabs from '../components/VisaReviewTabs'
 import { useVisaFilterOptions } from '../components/useVisaFilterOptions'
 import { formatDate, formatDay } from '../formatDate'
 import type { VisaReview } from '../types'
@@ -76,6 +77,7 @@ export default function VisaReviewListPage() {
     <div>
       <h1 className="board-title">{title}</h1>
       <VisaDisclaimer />
+      <VisaReviewTabs current="list" />
       <div className="toolbar">
         <VisaReviewFilters
           schools={schools}

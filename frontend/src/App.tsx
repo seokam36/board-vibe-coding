@@ -12,7 +12,8 @@ import MyPage from './pages/MyPage'
 import SignupPage from './pages/SignupPage'
 import AdminReportsPage from './pages/AdminReportsPage'
 import VisaReviewListPage from './pages/VisaReviewListPage'
-import VisaReviewDetailPage from './pages/VisaReviewDetailPage'
+import VisaReviewStatsPage from './pages/VisaReviewStatsPage'
+import VisaReviewDetailPage from'./pages/VisaReviewDetailPage'
 import VisaReviewCreatePage from './pages/VisaReviewCreatePage'
 import VisaReviewEditPage from './pages/VisaReviewEditPage'
 
@@ -72,7 +73,8 @@ export default function App() {
               </RequireLogin>
             }
           />
-          {/* 주의: 다음 단계의 "/visa-reviews/stats"는 반드시 아래 ":id"보다 먼저 선언한다 (안 그러면 "stats"가 id로 읽힌다) */}
+          {/* 주의: "/visa-reviews/stats"는 반드시 아래 ":id"보다 먼저 선언한다 (안 그러면 "stats"가 id로 읽힌다) */}
+          <Route path="/visa-reviews/stats" element={<VisaReviewStatsPage />} />
           <Route path="/visa-reviews/:id" element={<VisaReviewDetailPage />} />
           <Route
             path="/visa-reviews/:id/edit"

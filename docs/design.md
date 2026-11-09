@@ -36,6 +36,8 @@
 
 결과 뱃지(`.badge-result-APPROVED` / `.badge-result-DENIED`): 승인은 인증 뱃지와 같은 청자(`--celadon-ink` / `--celadon-soft`), 불허는 잡담 뱃지와 같은 회색(`--muted` / `--badge-chat-bg`). 빨강은 쓰지 않는다(위험색은 되돌릴 수 없는 동작에만).
 
+표(`.stats-table`, 비자 후기 통계): 판 안, 머리글 `--muted` 13px, 행 사이 `--line`, 숫자 열은 오른쪽 정렬, 소수는 항상 1자리("19.0일"). 표 wrapper만 가로 스크롤. 링크 탭(`.tabs a`)의 현재 탭은 `aria-current="page"`(청자색 밑줄).
+
 말머리 뱃지(글자색 / 배경): 잡담 `--muted` / `#262F2C`, 질문 `#A9C2F0` / `#1F2B42`, 학교생활 `--celadon-ink` / `--celadon-soft`.
 
 ## 글꼴

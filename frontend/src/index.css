@@ -470,7 +470,7 @@ label textarea {
   min-width: 0;
 }
 
-/* 탭 버튼: 선택된 탭은 청자색 밑줄 + 색 (disabled로 표현하지 않는다) */
+/* 탭(버튼형·링크형): 선택된 탭은 청자색 밑줄 + 색 (disabled로 표현하지 않는다) */
 .tabs {
   display: flex;
   gap: var(--space-4);
@@ -495,6 +495,54 @@ label textarea {
   color: var(--celadon);
   font-weight: 500; /* 굵기는 그대로 둬 폭이 흔들리지 않게 */
   border-bottom-color: var(--celadon);
+}
+/* 링크 탭(비자 후기 후기/통계): 현재 탭은 aria-current="page" */
+.tabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 var(--space-1);
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  text-decoration: none;
+}
+.tabs a[aria-current='page'] {
+  color: var(--celadon);
+  font-weight: 500;
+  border-bottom-color: var(--celadon);
+}
+
+/* 통계 표: wrapper만 가로 스크롤, 숫자 열은 오른쪽 정렬 */
+.stats-table-wrap {
+  overflow-x: auto;
+}
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-body);
+}
+.stats-table th,
+.stats-table td {
+  padding: var(--space-2) var(--space-4);
+  text-align: left;
+  white-space: nowrap;
+  border-top: 1px solid var(--line);
+}
+.stats-table thead th {
+  border-top: 0;
+  color: var(--muted);
+  font-size: var(--fs-small);
+  font-weight: 500;
+}
+.stats-table .num {
+  text-align: right;
+}
+.stats-hint {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: var(--fs-small);
 }
 
 /* 움직임을 줄이도록 설정한 사람에게는 전환 효과를 끈다 */
