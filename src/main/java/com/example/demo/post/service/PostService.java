@@ -111,7 +111,7 @@ public class PostService {
     @Transactional(readOnly = true)
     public List<PostResponse> getAll(Long schoolId, PostCategory category) {
         if (schoolId != null && !schoolRepository.existsById(schoolId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "학교를 찾을 수 없습니다.");
+            throw ApiErrors.schoolNotFound();
         }
         Specification<Post> spec = Specification.unrestricted();
         if (schoolId != null) {

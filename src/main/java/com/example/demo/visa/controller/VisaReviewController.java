@@ -21,6 +21,7 @@ import com.example.demo.visa.domain.VisaApplicationType;
 import com.example.demo.visa.domain.VisaType;
 import com.example.demo.visa.dto.VisaReviewRequest;
 import com.example.demo.visa.dto.VisaReviewResponse;
+import com.example.demo.visa.dto.VisaReviewStatResponse;
 import com.example.demo.visa.service.VisaReviewService;
 
 import jakarta.validation.Valid;
@@ -40,6 +41,15 @@ public class VisaReviewController {
             @Valid @RequestBody VisaReviewRequest request) {
         VisaReviewResponse response = visaReviewService.create(LoginUser.from(jwt), request);
         return ResponseEntity.created(URI.create("/visa-reviews/" + response.id())).body(response);
+    }
+
+    // 통계 조회 (공개). 학교 x 비자 종류 x 신청 종류별 건수·평균 처리 일수. 필터 파라미터는 목록과 같다.
+    // 리터럴 경로(/stats)가 패턴(/{id})보다 우선하므로 순서와 상관없이 여기로 오지만, 읽기 쉽게 /{id}보다 위에 둔다.
+    @GetMapping("/stats")
+    public List<VisaReviewStatResponse> getStats(@RequestParam(required = false) Long schoolId,
+            @RequestParam(required = false) VisaType visaType,
+            @RequestParam(required = false) VisaApplicationType applicationType) {
+        return visaReviewService.getStats(schoolId, visaType, applicationType);
     }
 
     // 단건 조회 (로그인 없이 공개)

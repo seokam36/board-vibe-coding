@@ -1,12 +1,13 @@
 package com.example.demo.visa.service;
 
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,14 +17,19 @@ import com.example.demo.auth.dto.LoginUser;
 import com.example.demo.auth.service.AccessGuard;
 import com.example.demo.common.ApiErrors;
 import com.example.demo.common.ConstraintViolations;
+import com.example.demo.school.dto.SchoolResponse;
 import com.example.demo.school.repository.SchoolRepository;
 import com.example.demo.user.domain.User;
 import com.example.demo.visa.domain.VisaApplicationType;
 import com.example.demo.visa.domain.VisaReview;
 import com.example.demo.visa.domain.VisaType;
+import com.example.demo.visa.dto.VisaOptionResponse;
 import com.example.demo.visa.dto.VisaReviewRequest;
 import com.example.demo.visa.dto.VisaReviewResponse;
+import com.example.demo.visa.dto.VisaReviewStatResponse;
 import com.example.demo.visa.repository.VisaReviewRepository;
+import com.example.demo.visa.repository.VisaReviewFilter;
+import com.example.demo.visa.repository.VisaReviewStatRow;
 
 import lombok.RequiredArgsConstructor;
 
@@ -77,22 +83,40 @@ public class VisaReviewService {
     // 작성자·학교는 repository의 EntityGraph가 join으로 같이 읽으므로 후기 수와 무관하게 목록 쿼리는 1번이다.
     @Transactional(readOnly = true)
     public List<VisaReviewResponse> getAll(Long schoolId, VisaType visaType, VisaApplicationType applicationType) {
-        if (schoolId != null && !schoolRepository.existsById(schoolId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "학교를 찾을 수 없습니다.");
-        }
-        Specification<VisaReview> spec = Specification.unrestricted();
-        if (schoolId != null) {
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("school").get("id"), schoolId));
-        }
-        if (visaType != null) {
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("visaType"), visaType));
-        }
-        if (applicationType != null) {
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("applicationType"), applicationType));
-        }
-        return visaReviewRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "id")).stream()
+        VisaReviewFilter filter = checkedFilter(schoolId, visaType, applicationType);
+        return visaReviewRepository.findAll(filter.toSpecification(), Sort.by(Sort.Direction.DESC, "id")).stream()
                 .map(VisaReviewResponse::from)
                 .toList();
+    }
+
+    // 통계(누구나): 학교 x 비자 종류 x 신청 종류 조합별 후기 건수와 평균 처리 일수(불허 건 포함).
+    // 쿼리는 집계 1번(+ schoolId를 넘기면 학교 확인 1번). 후기가 없으면 빈 목록.
+    // 정렬은 학교 이름 가나다 -> 학교 id -> 비자 종류 선언 순 -> 신청 종류 선언 순.
+    // 이름 정렬을 DB가 아니라 자바에서 하는 이유는 SchoolService.getAll과 같다(DB 언어 설정에 따라 한글 순서가 달라짐).
+    @Transactional(readOnly = true)
+    public List<VisaReviewStatResponse> getStats(Long schoolId, VisaType visaType, VisaApplicationType applicationType) {
+        VisaReviewFilter filter = checkedFilter(schoolId, visaType, applicationType);
+        return visaReviewRepository.aggregate(filter).stream()
+                .sorted(Comparator.comparing(VisaReviewStatRow::schoolName)
+                        .thenComparing(VisaReviewStatRow::schoolId)
+                        .thenComparing(VisaReviewStatRow::visaType) // enum은 선언 순서로 비교된다
+                        .thenComparing(VisaReviewStatRow::applicationType))
+                .map(r -> new VisaReviewStatResponse(
+                        new SchoolResponse(r.schoolId(), r.schoolName()),
+                        VisaOptionResponse.from(r.visaType()),
+                        VisaOptionResponse.from(r.applicationType()),
+                        r.count(),
+                        // 평균을 소수 1자리로 반올림 (12.25 -> 12.3)
+                        r.avgDays().setScale(1, RoundingMode.HALF_UP).doubleValue()))
+                .toList();
+    }
+
+    // 목록·통계가 같이 쓰는 거르기 조건 만들기. schoolId를 넘겼는데 없는 학교면 404.
+    private VisaReviewFilter checkedFilter(Long schoolId, VisaType visaType, VisaApplicationType applicationType) {
+        if (schoolId != null && !schoolRepository.existsById(schoolId)) {
+            throw ApiErrors.schoolNotFound();
+        }
+        return new VisaReviewFilter(schoolId, visaType, applicationType);
     }
 
     // 후기 수정(본인만). 검사 순서는 글 수정 PostService.update와 같다: 입력 400(날짜) -> 없는 id 404 -> 본인 아님 403.

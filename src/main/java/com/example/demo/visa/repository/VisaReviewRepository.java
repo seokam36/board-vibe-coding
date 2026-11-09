@@ -16,9 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.example.demo.visa.domain.VisaReview;
 
-// 비자 후기 저장소. 통계(집계 쿼리)는 S11-d에서 추가한다.
+// 비자 후기 저장소. 통계(집계 쿼리)는 VisaReviewStatsRepository 조각이 맡는다(S11-d).
 // JpaSpecificationExecutor: 학교·비자 종류·신청 종류 조건을 "있을 때만" 붙여 조합하려고 쓴다 (PostRepository와 같은 방식)
-public interface VisaReviewRepository extends JpaRepository<VisaReview, Long>, JpaSpecificationExecutor<VisaReview> {
+public interface VisaReviewRepository
+        extends JpaRepository<VisaReview, Long>, JpaSpecificationExecutor<VisaReview>, VisaReviewStatsRepository {
 
     // 조건(Specification) + 정렬 목록 조회. 작성자·학교를 join으로 같이 읽어 후기마다 추가 쿼리가 나가는 N+1을 막는다
     @Override

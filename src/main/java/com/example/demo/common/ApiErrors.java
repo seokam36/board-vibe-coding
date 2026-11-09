@@ -24,6 +24,11 @@ public final class ApiErrors {
         return new ResponseStatusException(HttpStatus.NOT_FOUND, "신고를 찾을 수 없습니다.");
     }
 
+    // 없는 학교 -> 404
+    public static ResponseStatusException schoolNotFound() {
+        return new ResponseStatusException(HttpStatus.NOT_FOUND, "학교를 찾을 수 없습니다.");
+    }
+
     // 없는 비자 후기 -> 404
     public static ResponseStatusException visaReviewNotFound() {
         return new ResponseStatusException(HttpStatus.NOT_FOUND, "비자 후기를 찾을 수 없습니다.");

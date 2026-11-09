@@ -72,7 +72,7 @@
   - [x] S11-a. V7(visa_reviews 표 + 인덱스, users.verified_school_id 인덱스) + 엔티티·enum + 선택지 목록 API (동작 변화 없음)
   - [x] S11-b. 후기 작성(인증 회원, 학교 자동) + 단건 조회(공개) + 탈퇴 시 후기 작성자 null(작성자 FK에 ON DELETE가 없어 같이 해야 탈퇴가 안 깨짐)
   - [x] S11-c. 목록 거르기 + 수정·삭제
-  - [ ] S11-d. 통계 API (학교·비자·신청 종류별 건수·평균 처리 일수). S11-c 리뷰 메모: 엔티티를 읽지 말고 group by 집계 쿼리로(날짜 빼기는 PostgreSQL 네이티브가 간단), 거르기 조건은 getAll과 공용으로 빼기, api.md 19번 "id 숫자 아님 400"에 /stats 예외 한 마디. 알려진 한계: 수정 중 다른 쪽이 삭제하면 500(글 수정과 같음)
+  - [x] S11-d. 통계 API (학교·비자·신청 종류별 건수·평균 처리 일수). S11-c 리뷰 메모: 엔티티를 읽지 말고 group by 집계 쿼리로(날짜 빼기는 PostgreSQL 네이티브가 간단), 거르기 조건은 getAll과 공용으로 빼기, api.md 19번 "id 숫자 아님 400"에 /stats 예외 한 마디. 알려진 한계: 수정 중 다른 쪽이 삭제하면 500(글 수정과 같음)
   - [ ] S11-e. 화면 (목록·상세 / 작성·수정 / 통계)
   - [ ] S11-f. EC2 배포
 - [ ] S12. 비자 할 일과 자동 알림
@@ -148,3 +148,4 @@
 | 2026-11-09 | S11-a | V7(visa_reviews: 작성자 null 허용·학교 NOT NULL 스냅샷·비자/신청/결과 CHECK·결과일≥접수일 CHECK, 인덱스 통계용(school_id, visa_type, application_type)·author_id·users.verified_school_id) + VisaReview 엔티티(author updatable=false)·enum 3개 + GET /visa-review-options(공개, 한글 이름, enum 순서). 동작 변화 없음. 테스트 609개 | 7e58d81 |
 | 2026-11-09 | S11-b | POST /visa-reviews(201, 인증 회원만, 학교는 작성자 인증 학교 자동·본문 schoolId 무시, 검사 순서는 글쓰기와 같게 회원 401 → 미인증 403 → 날짜 400, 날짜는 접수일 ≤ 결과일 ≤ 서울 오늘(Clock 빈 도입), 본문 선택 2000자·NUL 금지, 저장 직전 탈퇴는 fk_visa_reviews_author → 401) + GET /visa-reviews/{id}(공개, 쿼리 1번, processingDays 계산) + 탈퇴 시 후기 작성자 null(학교 유지). {code,name}은 VisaOptionResponse 하나로. V7 주석의 "S11-c"는 S11-b에서 처리. 테스트 634개 | cce83c6 |
 | 2026-11-09 | S11-c | GET /visa-reviews(공개, schoolId·visaType·applicationType 넘긴 것만 AND, 최신순, 없는 학교 404, 쿼리 1번 + 학교 확인 1번) + PUT /visa-reviews/{id}(본인만·관리자도 403, 입력 400 → 404 → 403, 학교·작성자·작성일 불변) + DELETE(본인·관리자 DB 재확인, 동시 삭제 늦은 쪽 404). 작성·수정 DTO는 VisaReviewRequest 하나로. 수정·삭제는 학교 인증 불필요. 테스트 674개 | (이 커밋) |
+| 2026-11-09 | S11-d | GET /visa-reviews/stats(공개, 학교×비자×신청 조합별 count·avgDays 소수 1자리 HALF_UP, 승인·불허 안 나눔·불허도 평균 포함, 0건 조합 행 없음, 엔티티 안 읽는 네이티브 group by 1번 + schoolId면 학교 확인 1번, 정렬은 자바에서 학교 가나다 → id → 비자 enum 순 → 신청 enum 순). 거르기는 목록과 공용(VisaReviewFilter·checkedFilter), 평균은 BigDecimal 그대로 반올림, 학교 404는 ApiErrors.schoolNotFound로 모음. api.md 23번. 리뷰 필수 없음·권장 4개 반영. 테스트 699개 | (이 커밋) |

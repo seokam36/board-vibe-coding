@@ -973,7 +973,7 @@ CSRF 헤더 필요. `refresh_token` 쿠키가 있으면 서버(Redis)의 리프�
 
 ## 비자 후기 (Visa review)
 
-비자 후기 표(`visa_reviews`)는 S11-a에서 만들었다. 현재 API는 선택지(17), 작성(18), 단건 조회(19), 목록(20), 수정(21), 삭제(22)이고 통계는 이후 단계에서 추가한다. (작성·수정 요청 본문은 같은 필드를 쓴다.)
+비자 후기 표(`visa_reviews`)는 S11-a에서 만들었다. 현재 API는 선택지(17), 작성(18), 단건 조회(19), 목록(20), 수정(21), 삭제(22), 통계(23)이다. (작성·수정 요청 본문은 같은 필드를 쓴다.)
 
 ### 17. 비자 후기 선택지 `GET /visa-review-options`
 
@@ -1087,7 +1087,7 @@ CSRF 헤더 필요. `refresh_token` 쿠키가 있으면 서버(Redis)의 리프�
 | 상태코드 | 언제 |
 |----------|------|
 | 404 | 없는 id |
-| 400 | id가 숫자가 아님 (예: `/visa-reviews/abc`) |
+| 400 | id가 숫자가 아님 (예: `/visa-reviews/abc`) (단, `/visa-reviews/stats`는 23번 통계 API) |
 
 ### 20. 비자 후기 목록 `GET /visa-reviews`
 
@@ -1149,3 +1149,47 @@ CSRF 헤더 필요. `refresh_token` 쿠키가 있으면 서버(Redis)의 리프�
 | 401 | 로그인 안 됨 (쿠키 없음, 토큰 만료·변조). 남의 후기를 관리자 토큰으로 지우려는데 그 회원이 DB에 없는 경우도 401 |
 | 403 | `X-XSRF-TOKEN` 헤더가 없거나 틀림, 또는 본인 후기가 아니고 관리자도 아님 (토큰은 ADMIN인데 DB의 role이 USER인 경우 포함) |
 | 404 | 없는 id (이미 삭제된 id 포함). 본인과 관리자가 동시에 지우면 늦은 쪽이 404 |
+
+### 23. 비자 후기 통계 `GET /visa-reviews/stats`
+
+로그인 없이 쓸 수 있다(만료·변조된 `access_token` 쿠키가 붙어 와도 `200`). **학교 × 비자 종류 × 신청 종류** 조합마다 후기 건수와 평균 처리 일수(`resultDate - receivedDate`)를 돌려준다. 승인/불허로 나누지 않으며, **평균에는 불허 건도 포함**한다. 후기가 없는 조합은 행이 없고, 후기가 하나도 없으면 빈 배열 `[]`.
+
+쿼리 파라미터 (모두 선택, 넘긴 것만 AND 조건. 20번 목록과 같은 형식)
+
+| 이름 | 설명 |
+|------|------|
+| `schoolId` | 그 학교만 |
+| `visaType` | 비자 종류 code |
+| `applicationType` | 신청 종류 code |
+
+- 파라미터 없이 부르면 전체. 값이 비어 있으면(`?visaType=`) 조건을 안 건 것과 같다.
+- 예: `GET /visa-reviews/stats?schoolId=1&visaType=D_2`
+- 정렬: 학교 이름 가나다 → 학교 id → 비자 종류 선언 순 → 신청 종류 선언 순 (선택지 목록 17번의 순서와 같다).
+
+성공 응답 `200 OK`
+
+```json
+[
+  {
+    "school": { "id": 1, "name": "경희대학교" },
+    "visaType": { "code": "D_2", "name": "D-2 유학" },
+    "applicationType": { "code": "NEW", "name": "신규 발급" },
+    "count": 1,
+    "avgDays": 10.0
+  }
+]
+```
+
+| 필드 | 설명 |
+|------|------|
+| school | `{id, name}` |
+| visaType, applicationType | `{code, name}` |
+| count | 그 조합의 후기 수 (1 이상) |
+| avgDays | 평균 처리 일수. 소수 1자리 반올림 |
+
+실패
+
+| 상태코드 | 언제 |
+|----------|------|
+| 404 | 없는 학교 id (예: `?schoolId=999`) |
+| 400 | `schoolId`가 숫자가 아님, 모르는 `visaType`·`applicationType` 코드 |
