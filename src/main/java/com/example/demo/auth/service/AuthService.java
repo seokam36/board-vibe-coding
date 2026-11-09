@@ -60,7 +60,7 @@ public class AuthService {
         AuthUserDetails principal = (AuthUserDetails) authentication.getPrincipal();
         String token = tokenService.issueAccessToken(principal.id(), principal.username(), principal.role());
         String refreshToken = refreshTokenService.issue(principal.id());
-        return new LoginResult(new UserResponse(principal.id(), principal.username(), principal.nickname(), principal.role()), token, refreshToken);
+        return new LoginResult(new UserResponse(principal.id(), principal.username(), principal.nickname(), principal.role(), principal.verifiedSchool()), token, refreshToken);
     }
 
     // 로그아웃: 리프레시 토큰이 있으면 Redis에서 지운다(회원별 토큰 목록(Set)에서도 빠진다).

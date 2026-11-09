@@ -6,6 +6,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.demo.school.dto.SchoolResponse;
 import com.example.demo.user.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,8 @@ public class AppUserDetailsService implements UserDetailsService {
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         return userRepository.findByUsername(username)
-                .map(u -> new AuthUserDetails(u.getId(), u.getUsername(), u.getNickname(), u.getPassword(), u.getRole()))
+                .map(u -> new AuthUserDetails(u.getId(), u.getUsername(), u.getNickname(), u.getPassword(), u.getRole(),
+                        SchoolResponse.fromNullable(u.getVerifiedSchool())))
                 .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
     }
 }

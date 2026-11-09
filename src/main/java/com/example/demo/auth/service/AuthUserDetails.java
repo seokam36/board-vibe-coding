@@ -6,11 +6,14 @@ import java.util.List;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import com.example.demo.school.dto.SchoolResponse;
 import com.example.demo.user.domain.UserRole;
 
 // Spring Security가 로그인 검증에 쓰는 사용자 정보. 토큰의 sub에 넣을 id를 함께 들고 있다.
 // (우리 엔티티 User와 이름이 겹치는 Security의 User 클래스를 쓰지 않으려고 직접 구현했다)
-public record AuthUserDetails(Long id, String username, String nickname, String password, UserRole role) implements UserDetails {
+// verifiedSchool은 로그인 응답에 담을 인증 학교(미인증이면 null). 트랜잭션 안에서 미리 DTO로 바꿔 둔다.
+public record AuthUserDetails(Long id, String username, String nickname, String password, UserRole role,
+        SchoolResponse verifiedSchool) implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

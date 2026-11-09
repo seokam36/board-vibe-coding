@@ -299,10 +299,12 @@ S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOK
 
 ```json
 [
-  { "id": 1, "name": "경희대학교" },
-  { "id": 2, "name": "고려대학교" }
+  { "id": 1, "name": "경희대학교", "emailDomains": ["khu.ac.kr"] },
+  { "id": 3, "name": "성균관대학교", "emailDomains": ["g.skku.edu", "skku.edu"] }
 ]
 ```
+
+`emailDomains`는 그 학교의 인증용 메일 도메인(정렬됨, 도메인이 없으면 `[]`). 글 응답의 `school`에는 들어 있지 않다(`id`, `name`만).
 
 ### 5-2. 말머리 목록 `GET /categories`
 
@@ -653,6 +655,8 @@ id 오름차순(오래된 댓글이 먼저). 페이징 없음. 댓글이 없으�
 
 ## 회원 (Auth)
 
+회원 응답(가입·로그인·`/auth/me`·재발급·닉네임 변경 공통)의 `verifiedSchool`은 학교 인증을 마친 학교 `{ "id": 숫자, "name": 문자열 }`, 미인증이면 `null`이다(S10-a: 값은 DB에서만 바뀌고 인증 API는 아직 없다). 아래 예시는 모두 미인증 회원이다.
+
 ### 7. 회원가입 `POST /auth/signup`
 
 로그인 없이 호출 가능하지만 CSRF 헤더(`X-XSRF-TOKEN`)는 필요하다. 가입만 하고 로그인은 되지 않는다(로그인은 `POST /auth/login`).
@@ -683,7 +687,8 @@ id 오름차순(오래된 댓글이 먼저). 페이징 없음. 댓글이 없으�
   "id": 1,
   "username": "user01",
   "nickname": "길동이",
-  "role": "USER"
+  "role": "USER",
+  "verifiedSchool": null
 }
 ```
 
@@ -713,7 +718,8 @@ id 오름차순(오래된 댓글이 먼저). 페이징 없음. 댓글이 없으�
   "id": 1,
   "username": "user01",
   "nickname": "길동이",
-  "role": "USER"
+  "role": "USER",
+  "verifiedSchool": null
 }
 ```
 
@@ -748,7 +754,8 @@ CSRF 헤더 필요. `refresh_token` 쿠키가 있으면 서버(Redis)의 리프�
   "id": 1,
   "username": "user01",
   "nickname": "길동이",
-  "role": "USER"
+  "role": "USER",
+  "verifiedSchool": null
 }
 ```
 
@@ -773,7 +780,8 @@ CSRF 헤더 필요. `refresh_token` 쿠키가 있으면 서버(Redis)의 리프�
   "id": 1,
   "username": "user01",
   "nickname": "길동이",
-  "role": "USER"
+  "role": "USER",
+  "verifiedSchool": null
 }
 ```
 
@@ -808,7 +816,8 @@ CSRF 헤더 필요. `refresh_token` 쿠키가 있으면 서버(Redis)의 리프�
   "id": 1,
   "username": "user01",
   "nickname": "새닉네임",
-  "role": "USER"
+  "role": "USER",
+  "verifiedSchool": null
 }
 ```
 

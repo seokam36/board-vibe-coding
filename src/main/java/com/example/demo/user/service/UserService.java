@@ -13,6 +13,7 @@ import com.example.demo.auth.service.RefreshTokenService;
 import com.example.demo.comment.repository.CommentRepository;
 import com.example.demo.common.ApiErrors;
 import com.example.demo.post.repository.PostRepository;
+import com.example.demo.school.dto.SchoolResponse;
 import com.example.demo.user.domain.User;
 import com.example.demo.user.dto.PasswordChangeRequest;
 import com.example.demo.user.dto.SignupRequest;
@@ -46,10 +47,11 @@ public class UserService {
             // 확인과 저장 사이에 같은 아이디·닉네임이 먼저 들어오면 DB unique 제약이 막아 준다
             return UserResponse.from(userRepository.saveAndFlush(user));
         } catch (DataIntegrityViolationException e) {
-            // 현재 users 테이블에서 위반될 수 있는 제약은 username·nickname unique 두 가지뿐이고,
-            // 응답에서 둘을 구분하지 않으므로 어느 쪽이든 409로 변환한다.
-            // (ck_users_role은 생성자가 항상 USER를 넣어 여기서 걸리지 않는다.)
-            // 제약이 늘어나면 원인을 구분하도록 범위를 좁혀야 한다.
+            // users에서 위반될 수 있는 UNIQUE는 username·nickname 말고 school_email_hash(uk_users_school_email_hash)도 있지만,
+            // 가입 때 해시는 항상 null이라(UNIQUE는 NULL끼리 충돌하지 않음) 실제로는 걸리지 않는다.
+            // 그래서 여기서 걸리는 것은 username·nickname unique뿐이고, 응답에서 둘을 구분하지 않으므로 409로 변환한다.
+            // (ck_users_role은 생성자가 항상 USER를 넣어 걸리지 않는다.)
+            // 가입이 해시를 채우게 되거나 제약이 더 늘면, ConstraintViolations.violatedConstraint로 제약 이름을 보고 범위를 좁혀야 한다.
             throw duplicated();
         }
     }
@@ -79,7 +81,7 @@ public class UserService {
             if (userRepository.updateNickname(id, nickname) == 0) {
                 throw ApiErrors.loginRequired(); // 읽은 뒤 회원이 삭제됨
             }
-            return new UserResponse(user.getId(), user.getUsername(), nickname, user.getRole());
+            return new UserResponse(user.getId(), user.getUsername(), nickname, user.getRole(), SchoolResponse.fromNullable(user.getVerifiedSchool()));
         } catch (DataIntegrityViolationException e) {
             // 확인과 저장 사이에 다른 사람이 먼저 같은 닉네임을 가져간 경우(DB unique가 막아 줌).
             // 이 갱신에서 위반될 수 있는 제약은 nickname unique뿐이다.

@@ -2,6 +2,7 @@ package com.example.demo.user.repository;
 
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -13,13 +14,20 @@ import com.example.demo.user.domain.User;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
+    // id로 읽을 때 인증 학교도 한 쿼리로 같이 가져온다. 응답 변환이 트랜잭션 밖에서 일어나도(예: 토큰 재발급)
+    // 지연 로딩 예외가 나지 않게 하고, 쿼리를 1번으로 유지한다.
+    @Override
+    @EntityGraph(attributePaths = "verifiedSchool")
+    Optional<User> findById(Long id);
+
     // 가입 전에 아이디 중복을 확인한다
     boolean existsByUsername(String username);
 
     // 가입 전에 닉네임 중복을 확인한다 (대소문자 구분: DB unique와 같은 기준)
     boolean existsByNickname(String nickname);
 
-    // 로그인 때 아이디로 사용자를 찾는다
+    // 로그인 때 아이디로 사용자를 찾는다 (인증 학교도 함께: 로그인 응답에 담기 때문)
+    @EntityGraph(attributePaths = "verifiedSchool")
     Optional<User> findByUsername(String username);
 
     // 닉네임 컬럼만 바꾼다. findById로 읽은 User를 통째로 저장(merge)하면 모든 컬럼을 UPDATE해서,

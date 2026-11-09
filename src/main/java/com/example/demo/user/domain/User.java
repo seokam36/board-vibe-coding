@@ -3,13 +3,18 @@ package com.example.demo.user.domain;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
+import com.example.demo.school.domain.School;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
@@ -46,6 +51,19 @@ public class User {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    // 학교 인증(S10). 인증 전에는 셋 다 null. 인증 처리 코드는 이후 단계(S10-b)에서 붙이며, 지금은 DB 값을 읽기만 한다.
+    // 인증한 학교(한 계정에 1개, 만료 없음). 지연 로딩이라 읽을 때 쿼리에서 함께 가져온다(UserRepository의 EntityGraph).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "verified_school_id")
+    private School verifiedSchool;
+
+    @Column(name = "verified_at")
+    private Instant verifiedAt;
+
+    // 학교 메일을 소문자로 바꾼 SHA-256 해시(hex 64자). 원문은 저장하지 않고, UNIQUE라 같은 메일로 여러 계정 인증을 막는다.
+    @Column(name = "school_email_hash", length = 64)
+    private String schoolEmailHash;
 
     public User(String username, String nickname, String encodedPassword) {
         this.username = username;

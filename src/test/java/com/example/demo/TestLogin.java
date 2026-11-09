@@ -59,4 +59,14 @@ public final class TestLogin {
 	public static Cookie 관리자_쿠키(TokenService tokenService, User admin) {
 		return 쿠키(tokenService, admin, UserRole.ADMIN);
 	}
+
+	// 학교 인증을 마친 회원을 만든다(S10-d 글쓰기 테스트용). 인증 API 없이 운영처럼 DB 칸을 직접 채운다(UPDATE).
+	// schoolName 예: "연세대학교". 메일 해시는 아이디마다 달라야 UNIQUE에 안 걸리므로 아이디로 만든 가짜 값(64자)을 넣는다.
+	public static User 인증된_사용자(UserRepository userRepository, JdbcTemplate jdbc, String username, String schoolName) {
+		User user = 사용자(userRepository, username);
+		String fakeHash = String.format("%-64s", username).replace(' ', '0');
+		jdbc.update("update users set verified_school_id = (select id from schools where name = ?), "
+				+ "verified_at = now(), school_email_hash = ? where id = ?", schoolName, fakeHash, user.getId());
+		return user;
+	}
 }
