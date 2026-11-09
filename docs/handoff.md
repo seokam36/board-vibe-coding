@@ -2,27 +2,27 @@
 
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 
-마지막 갱신: 2026-11-09 (집 PC)
+마지막 갱신: 2026-11-09 밤 (집 PC)
 
 ## 지금 어디까지
-- **S0~S10 + UI1 완료·배포됨.** S10-h 배포 끝(운영에서 실제 Gmail 발송·인증·글쓰기까지 확인). 백엔드 테스트 593개 통과.
-- 운영 기존 회원 2명(관리자 포함)은 전부 미인증 → 학교 메일로 인증하기 전까지 글쓰기 불가(의도).
+- **S0~S10 + UI1 완료·배포됨.** S10 마무리(deploy.md 메모, Notion S10-h·진행 현황 체크, 파트 전체 로직 정리·리뷰 + 리뷰 반영)까지 끝.
+- **S11 비자 후기와 학교별 통계 진행 중: S11-a·b·c 커밋됨(로컬만, 배포 전).** 백엔드 테스트 674개 통과.
+  - S11-a V7(`visa_reviews` 표 + 인덱스, `users.verified_school_id` 인덱스) + `GET /visa-review-options`
+  - S11-b `POST /visa-reviews`(인증 회원만, 학교 자동) + `GET /visa-reviews/{id}` + 탈퇴 시 후기 작성자 null
+  - S11-c `GET /visa-reviews?schoolId&visaType&applicationType` + `PUT`(본인만) + `DELETE`(본인·관리자)
+- S11 결정(backlog S11 항목에 전부): 별개 표, 정해진 칸 + 선택 본문(2000자), 결과 난 후기만(승인·불허), 접수일 ≤ 결과일 ≤ 서울 오늘, 처리 일수는 계산(저장 X), 통계는 숨기지 않고 건수와 함께, 공식 링크는 하이코리아 하나(화면 상수), 읽기 누구나·쓰기 인증 회원, 학교는 작성 시점 인증 학교 복사, 탈퇴 후 재인증 허용(알려진 한계).
 - 사이트 컨셉: **같은 학교 유학생 선배들의 경험이 쌓이는 외국인 유학생 커뮤니티.** 로드맵과 결정은 docs/backlog.md.
-- S10 결정(backlog S10 항목에 전부): 가입 때 메일 안 받음, 내 정보에서 학교 메일 인증. 학교는 메일 도메인으로 자동 판별(V6 `school_email_domains`, 소문자만). 메일 원문은 DB에 없음(소문자 SHA-256만 `users.school_email_hash` UNIQUE). 인증 여부는 토큰 말고 매번 DB(`AccessGuard.requireVerified`/`requireSameSchool`). **미인증은 읽기만**, 글쓰기·댓글·공감·신고는 인증 후 **인증한 학교 글에만**(학교 미지정 옛 글은 읽기만, 관리자도 예외 없음). 수정·삭제·공감 취소는 그대로.
-- 코드: 6자리, Redis 10분, 틀림 400 / 없음·만료·5회 틀림 폐기 410. 발송 제한(Redis Lua 한 번에): 계정 60초 → 계정 하루 10 → 같은 계정·같은 메일 하루 2 → 같은 메일 하루 5(계정 합산), 모두 429.
-- 메일: Gmail SMTP(`MAIL_MODE=smtp` + MAIL_HOST/PORT/USERNAME/PASSWORD/FROM). 기본 log 모드(서버 로그에 코드). smtp인데 값 빠지면 앱 시작 실패. 발송 계정은 전용 Gmail(campuscode4), 앱 비밀번호 사용. 노트북에서 실제 메일 수신·인증까지 확인함(**첫 메일은 스팸함**).
-- Notion: S10 카드(번호 11)에 S10-a~e, g 기록. S10-f는 프론트라 표 한 줄만. **S10-h 배포 기록·진행 현황 S10 체크는 아직 안 함.**
+- S10 요약: 미인증은 읽기만, 글쓰기·댓글·공감·신고는 인증한 학교 글에만(`AccessGuard.requireVerified`/`requireSameSchool`, 매번 DB). 메일은 Gmail SMTP(`MAIL_MODE=smtp`), 원문 저장 없이 해시만. 자세한 건 backlog S10·docs/api.md.
+- Notion: S10 카드 완료(S10-h 배포 기록, "S10 백엔드 로직 정리와 코드 리뷰" + 반영 결과). **S11 카드(번호 12)에 S11-a·b·c 기록 완료**, 진행 현황에 S11 줄(미체크).
 
 ## 다음에 할 일
-- **S10 마무리 3가지**(S9 때처럼):
-  1. deploy 에이전트로 deploy.md에 "V6 후 옛 이미지(S9/UI1) 되돌리기" 메모(새 칸은 NULL 허용이라 뜨지만 인증 제한은 사라짐) + "학교 메일 없이 운영 인증 테스트하는 법"(아래 주의할 점) 추가
-  2. Notion S10 카드에 S10-h 배포 기록 + 진행 현황 S10 체크
-  3. S10 전체 백엔드 로직 정리 + 전체 코드 리뷰(review 에이전트) 보여 주고 Notion에도
-- 그다음 새 기능 **S11 비자 후기와 학교별 통계**(에타와 다른 점이 여기서부터 생김) → backlog 항목 다듬고 planner.
+- **S11-d 통계 API build 시작.** backlog S11-d 줄의 리뷰 메모대로: 엔티티를 읽지 말고 group by 집계 쿼리(평균 처리 일수는 PostgreSQL 네이티브 `avg(result_date - received_date)`가 간단), 거르기 조건은 `VisaReviewService.getAll`과 공용으로 빼기, api.md 19번 "id 숫자 아님 400"에 `/stats` 예외 한 마디. planner 초안의 S11-d 완료 조건: 조합별 count·avgDays(소수 1자리), 0건 조합 행 없음, schoolId 거르기(없는 학교 404), 쿼리 1번(+학교 확인 1번), 정렬은 학교 가나다 → 비자 enum 순 → 신청 enum 순(서비스에서 정렬).
+- 그다음 S11-e 화면(목록·상세 / 작성·수정 / 통계 표) → S11-f 배포(deploy.md에 "V7 후 S10 이미지로 되돌리기" 메모 추가).
 
 ## 진행 중인 단계
-- 없음(S10-h 배포 끝). 커밋 안 된 변경: `.claude/launch.json`(컴퓨터마다 다른 실행 설정, 일부러 커밋 안 함)
-- 미룬 것(S10 리뷰 "나중"): 메일 해시가 소금 없는 SHA-256(Redis·DB 털리면 사전 역산 가능 → 나중에 HMAC로 둘 다) · Redis Cluster로 가면 인증 Lua 키(5개)가 한 슬롯에 안 묶임 · 인증 테스트 헬퍼(RecordingSender·sha256) 중복 · 409 "다른 계정이 쓴 메일"이 존재 여부를 조금 알려 줌 · Gmail 하루 약 500통 한도(근본 해결은 도메인 + AWS SES) · SMTP 장애 중 연타하면 요청마다 최대 ~25초 스레드 점유
+- S11(a·b·c 커밋됨, d부터). 커밋 안 된 변경: `.claude/launch.json`(컴퓨터마다 다른 실행 설정, 일부러 커밋 안 함)
+- 미룬 것(S11 리뷰): 후기 수정 중 다른 쪽이 삭제하면 500(글 수정과 같은 한계) · 테스트의 `@MockitoBean Clock`이 컨텍스트를 따로 띄움(느려지면 공용 MutableClock) · RecordingSender를 공용 테스트 설정으로
+- 미룬 것(S10 리뷰 "나중"): 메일 해시가 소금 없는 SHA-256(Redis·DB 털리면 사전 역산 가능 → 나중에 HMAC로 둘 다) · Redis Cluster로 가면 인증 Lua 키(5개)가 한 슬롯에 안 묶임 · 인증 테스트 헬퍼(RecordingSender·sha256) 중복 · 409 "다른 계정이 쓴 메일"이 존재 여부를 조금 알려 줌 · Gmail 하루 약 500통 한도(근본 해결은 도메인 + AWS SES) · SMTP 장애 중 연타하면 요청마다 최대 ~25초 스레드 점유 · 운영 gmail.com 임시 도메인 테스트 뒤 그 시간대 인증 계정 수 확인 단계 · 인증 설정값 @Validated · api.md 400·410 문구는 실제 본문에 없음 · 운영 MAIL_MODE 빠지면 조용히 log 모드
 - 미룬 것(S9 리뷰 "나중"): 관리자 목록 페이징 · 기각된 신고는 같은 사람이 재신고 불가 · 관리자 삭제로 처리하면 신고 이력 없음 · 서버 에러 message가 브라우저에 안 감(include-message never, 화면은 상태코드로 문구 — S10도 이 전제로 400/410 등으로 나눔) · SecurityConfig `BearerTokenResolver` deprecated 경고 · JPQL enum 전체 경로 리터럴 · `ReportResponse.ReasonInfo` 중복 DTO · 유령 토큰의 글·댓글 수정은 401이 아니라 403.
 - 미룬 것(UI1 리뷰): 글쓰기·공감·신고의 CSRF 403 안내 문구가 학교 인증 403과 같은 문구로 섞임 · `describeError` 프론트 단위 테스트 없음 · /admin/reports 비로그인 시 /login 대신 안내만 · Google Fonts 대신 셀프 호스팅.
 - 미룬 것(S8 이전): 글 목록 페이징 + 목록 응답에서 본문 빼기 · 댓글 수정 중 글이 CASCADE로 사라지면 500 · `Location: /comments/{id}`인데 단건 GET 없음 · 학교·말머리 목록 중복 코드 훅으로 · `.gitattributes` 줄바꿈 규칙(서브에이전트가 LF로 저장해 CRLF 경고가 계속 뜸, 내용엔 영향 없음).
@@ -30,7 +30,7 @@
 
 ## 주의할 점
 - 새 컴퓨터에서는 먼저 `git pull`. 끝나면 커밋·push.
-- **표(테이블)를 바꾸는 기능은 새 V 파일**(다음은 `V7__...sql`)로. 커밋된 V 파일은 고치지 않는다. ddl-auto는 validate 유지.
+- **표(테이블)를 바꾸는 기능은 새 V 파일**(다음은 `V8__...sql`)로. 커밋된 V 파일은 고치지 않는다. ddl-auto는 validate 유지.
 - **FK·UNIQUE·CHECK 제약에는 반드시 이름**을 지어라. 서비스가 제약 이름으로 404/401/409를 구분한다(`ConstraintViolations`). V1의 `posts.author_id` FK만 해시 이름이라 글쓰기는 "23503이면 401".
 - **DB 오류 메시지 언어는 영어(기본값) 유지.** `lc_messages`를 바꾸면 경쟁 상황에서 500(docs/deploy.md).
 - 경쟁 조건 테스트는 `LockRaceSupport`, 유령 토큰은 `TestLogin.행없는_회원_토큰(jwtEncoder)`, 인증 회원은 `TestLogin.인증된_사용자(...)`·`학교_인증_처리(jdbc, username, 학교명)`. 글쓰기·댓글·공감·신고 테스트는 **인증 회원 + 같은 학교 글**이어야 한다.
@@ -48,7 +48,11 @@
 - PostgreSQL 컨테이너의 정렬이 한글 가나다순과 달라 학교 이름 순서는 서버 코드에서 정렬.
 - **학교 메일 없이 운영에서 인증 테스트**(S10-h 때 한 방법): [서버] psql에서 `INSERT INTO school_email_domains (school_id, domain) SELECT school_id, 'gmail.com' FROM school_email_domains WHERE domain = 'yonsei.ac.kr';` → 테스트 계정 새로 가입 → campuscode4 Gmail 주소로 인증(자기한테 보냄, 스팸함 확인) → 글쓰기 확인·삭제 → **`DELETE FROM school_email_domains WHERE domain = 'gmail.com';` 꼭** → 테스트 계정 탈퇴(회원 줄이 지워져 메일 해시도 사라짐). 그 사이엔 누구나 gmail로 연세대 인증 가능하니 짧게.
 - 글쓰기 화면은 학교를 고르지 않고 인증한 학교로 고정(S10-f 설계). "다른 학교 글쓰기 막힘"은 화면에서 확인 불가, 테스트가 지킨다.
-- 집 PC 로컬 DB는 아직 V6 전(pull 후 앱을 안 켬). `./gradlew bootRun` 한 번 하면 V6 적용.
+- 집 PC 로컬 DB는 아직 V6 전(pull 후 앱을 안 켬). `./gradlew bootRun` 한 번 하면 V6·V7 적용.
+- **비자 후기 "오늘"은 `Clock` 빈(ClockConfig, Asia/Seoul) 기준.** 서버는 UTC라 `LocalDate.now()`·`@PastOrPresent`를 쓰면 서울 밤에 오늘이 미래로 판정된다. 후기 테스트는 `@MockitoBean Clock`으로 서울 2026-11-09 12:00 고정(VisaReviewApiTests·VisaReviewListUpdateDeleteTests와 같은 설정을 써야 컨텍스트를 같이 씀).
+- 후기 작성 테스트는 **인증 회원**이어야 한다(`TestLogin.인증된_사용자`·`학교_인증_처리`). 수정·삭제는 인증 불필요. 탈퇴는 `UserService.withdraw`가 posts·comments·visa_reviews 작성자를 비운 뒤 회원 삭제(작성자 FK에 ON DELETE 없음).
+- SecurityConfig의 `GET /visa-reviews/{id}` 공개 규칙은 `/visa-reviews/stats` 같은 하위 GET도 공개로 만든다(통계는 공개라 OK). 로그인 전용 GET을 그 아래 두려면 따로 막아야 한다.
+- Flyway 테스트 `FlywayExistingBaselineTests`는 "새로 적용되는 V 파일 수"를 하드코딩한다 → V8을 만들면 같이 고쳐야 한다.
 - 노트북 로컬 DB: 이제 기록장이 있고 V6까지 적용됨. 연습 계정 `mailtest01`(연세대 인증), `koreauser`(고려대 인증, 가짜 해시), `newbie`(미인증), 비밀번호는 연습용. 글 3개(연세대·고려대·학교 미지정).
 - `.env`는 git에 없다. `.env.example`을 복사해 채운다. 필요한 키: DB_*, POSTGRES_*, JWT_SECRET, REDIS_PASSWORD, (선택) MAIL_*. **`.env`는 캡처해서 공유하지 말 것.**
 - 로컬 `docker compose up -d`는 postgres + redis만(app은 `profiles: prod`). Docker Desktop이 꺼져 있으면 먼저 켠다.
