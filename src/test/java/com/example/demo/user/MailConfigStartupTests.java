@@ -22,7 +22,7 @@ class MailConfigStartupTests {
 
 	private final ApplicationContextRunner runner = new ApplicationContextRunner()
 			.withUserConfiguration(MailConfig.class)
-			.withBean(VerificationProperties.class, () -> new VerificationProperties(Duration.ofMinutes(10), Duration.ofSeconds(60), 10, 5))
+			.withBean(VerificationProperties.class, () -> new VerificationProperties(Duration.ofMinutes(10), Duration.ofSeconds(60), 10, 5, 5, 2))
 			.withBean(JavaMailSender.class, () -> mock(JavaMailSender.class));
 
 	private static final String[] ALL = { "app.mail.mode=smtp", "spring.mail.host=smtp.example.com",

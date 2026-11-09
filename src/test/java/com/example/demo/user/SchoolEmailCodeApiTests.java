@@ -242,10 +242,11 @@ class SchoolEmailCodeApiTests {
 		Cookie c = TestLogin.쿠키(tokenService, u);
 		for (int i = 1; i <= 10; i++) {
 			redis.delete(쿨다운키(u)); // 60초를 기다리지 않고 쿨다운만 지운다
-			assertThat(요청(c, "a@yonsei.ac.kr")).as(i + "번째").isEqualTo(202);
+			// 메일 주소 기준 상한(5회)에 걸리지 않게 매번 다른 메일을 쓴다 -> 회원 하루 상한만 검증
+			assertThat(요청(c, "user" + i + "@yonsei.ac.kr")).as(i + "번째").isEqualTo(202);
 		}
 		redis.delete(쿨다운키(u));
-		assertThat(요청(c, "a@yonsei.ac.kr")).as("11번째").isEqualTo(429);
+		assertThat(요청(c, "user11@yonsei.ac.kr")).as("11번째").isEqualTo(429);
 		assertThat(sender.sent).hasSize(10);
 	}
 
@@ -319,12 +320,18 @@ class SchoolEmailCodeApiTests {
 		// 다른 요청이 새 코드를 저장한 상황: codeHash를 다른 값으로 바꿔 둔다
 		redis.opsForHash().put(코드키(u), "codeHash", "other-hash");
 		String daily = redis.opsForValue().get(하루키(u));
+		String targetKey = "email-verify-target:" + sha256("a@yonsei.ac.kr");
+		String pairKey = "email-verify-pair:" + u.getId() + ":" + sha256("a@yonsei.ac.kr");
+		String target = redis.opsForValue().get(targetKey);
+		String pair = redis.opsForValue().get(pairKey);
 
-		codeStore.rollback(u.getId(), code);
+		codeStore.rollback(u.getId(), code, "a@yonsei.ac.kr");
 
 		assertThat(redis.opsForHash().get(코드키(u), "codeHash")).isEqualTo("other-hash");
 		assertThat(redis.hasKey(쿨다운키(u))).as("쿨다운 키").isTrue();
 		assertThat(redis.opsForValue().get(하루키(u))).as("하루 횟수").isEqualTo(daily);
+		assertThat(redis.opsForValue().get(targetKey)).as("메일 하루 횟수").isEqualTo(target).isEqualTo("1");
+		assertThat(redis.opsForValue().get(pairKey)).as("회원+메일 하루 횟수").isEqualTo(pair).isEqualTo("1");
 	}
 
 	// ---------- 완료 조건 10 ----------

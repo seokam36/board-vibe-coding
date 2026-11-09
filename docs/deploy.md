@@ -184,6 +184,27 @@ Gmail 무료 계정은 하루 약 500통까지만 보낼 수 있습니다. 회�
 
 **나중에 AWS SES로 바꿀 때**: 코드는 그대로이고 `.env`의 `MAIL_HOST`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` 값만 SES SMTP 정보로 바꾸면 됩니다(`MAIL_MODE=smtp`, 포트 587 유지). 위 "앱 비밀번호 교체"와 같은 순서로 app을 다시 띄웁니다.
 
+**학교 인증 코드가 막혔다는 문의가 오면** (운영자 메모)
+인증 코드 발송에는 Redis 제한이 있습니다. 모든 키는 만들어진 지 24시간 뒤 저절로 사라지므로, 급하지 않으면 기다려도 풀립니다.
+- 회원 60초 쿨다운: `email-verify-cooldown:{회원id}`
+- 회원 하루 10회: `email-verify-daily:{회원id}`
+- 같은 회원·같은 메일 하루 2회: `email-verify-pair:{회원id}:{메일해시}`
+- 같은 메일 하루 5회(모든 계정 합산): `email-verify-target:{메일해시}`
+
+메일해시 = 메일 주소를 앞뒤 공백 제거·소문자로 바꾼 뒤 SHA-256 하고 hex 64자로 적은 값입니다. 누군가 남의 메일로 일부러 보내서 막은 경우(`target` 키)에는 운영자가 키를 지워 풀 수 있습니다.
+
+1. **[PC, PowerShell]** 메일해시 계산 (메일 자리에 실제 주소를 넣고, 소문자로 씁니다):
+   - `$m='abc@school.ac.kr'.Trim().ToLowerInvariant(); [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($m))).Replace('-','').ToLower()`
+2. **[PC]** EC2에 접속합니다: `ssh -i ~/.ssh/board-ec2 ec2-user@<퍼블릭IP>`
+3. **[서버]** 같은 메일 하루 5회 제한 풀기. board-redis 컨테이너에 비밀번호가 `REDISCLI_AUTH` 환경변수로 이미 들어 있어서 명령에 비밀번호를 쓰지 않습니다(`REDIS_PASSWORD`를 입력하거나 화면에 찍지 않습니다):
+   - `docker exec board-redis redis-cli DEL email-verify-target:<해시>`
+4. **[서버]** (필요하면) 그 메일의 회원별 2회 제한(`pair`) 키는 `KEYS` 대신 SCAN으로 찾아서 지웁니다(`KEYS`는 키가 많으면 Redis를 멈추게 합니다):
+   - 찾기: `docker exec board-redis redis-cli --scan --pattern 'email-verify-pair:*:<해시>'`
+   - 지우기: 위에서 나온 키 이름을 확인한 뒤 `docker exec board-redis redis-cli DEL email-verify-pair:<회원id>:<해시>`
+5. 쿨다운·하루 10회 키(`cooldown`, `daily`)도 같은 방식으로 `DEL email-verify-cooldown:<회원id>` 처럼 지울 수 있습니다.
+
+주의: 메일 주소 자체는 로그·문서·이슈에 남기지 않습니다(해시만 다룹니다). 위 PowerShell 줄은 주소가 터미널 기록에 남을 수 있으니 계산 후 창을 닫거나 기록을 지웁니다.
+
 ## DB 설정에서 바꾸면 안 되는 것
 - **DB 메시지 언어는 영어(공식 이미지 기본값)로 둡니다.** 서버 코드(`ConstraintViolations`)가 PostgreSQL 오류 메시지의 `constraint "..."` 글자에서 제약 이름을 꺼내 404/401로 바꿉니다. `lc_messages`를 한국어로 바꾸면 그 글자가 없어 댓글·공감 작성 중 경쟁 상황에서 500이 납니다.
 

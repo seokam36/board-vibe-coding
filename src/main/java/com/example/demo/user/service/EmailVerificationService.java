@@ -47,7 +47,7 @@ public class EmailVerificationService {
     //  2) 메일 정규화·도메인 검사 400 - 목록에 없는 도메인은 이후 어떤 검사도 할 필요가 없고, 싸게 걸러진다
     //  3) 이미 인증된 회원 409 - 인증됐다면 메일을 또 보낼 이유가 없다
     //  4) 다른 회원이 쓰는 메일 409 - 발송 횟수를 쓰기 전에 거른다(어차피 인증을 끝낼 수 없는 메일이므로)
-    //  5) 재발송 60초·하루 10회 429 - Redis를 쓰는 검사라 맨 뒤. 통과와 동시에 코드를 저장한다(원자적)
+    //  5) 재발송 60초·회원 하루 10회·같은 메일 주소 하루 5회 429 - Redis를 쓰는 검사라 맨 뒤. 통과와 동시에 코드를 저장한다(원자적)
     //  6) 발송 - 실패하면 저장·제한을 되돌려 바로 다시 시도할 수 있게 한다
     public void sendCode(Long userId, String rawEmail) {
         User user = accessGuard.requireUser(userId);
@@ -67,9 +67,11 @@ public class EmailVerificationService {
         String code = generateCode();
         ReserveResult result = codeStore.reserve(userId, code, email, schoolDomain.getSchool().getId());
         if (result != ReserveResult.OK) {
-            String message = result == ReserveResult.COOLDOWN
-                    ? "인증 메일은 잠시 후에 다시 요청할 수 있습니다."
-                    : "오늘 인증 메일 요청 횟수를 모두 사용했습니다.";
+            String message = switch (result) {
+                case COOLDOWN -> "인증 메일은 잠시 후에 다시 요청할 수 있습니다.";
+                case TARGET_LIMIT, PAIR_LIMIT -> "이 메일 주소로는 오늘 더 보낼 수 없습니다.";
+                default -> "오늘 인증 메일 요청 횟수를 모두 사용했습니다.";
+            };
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, message);
         }
 
@@ -79,7 +81,7 @@ public class EmailVerificationService {
             // 발송 실패: 저장한 코드·쿨다운·횟수를 되돌려 바로 재시도할 수 있게 한다. 코드·메일은 로그에 남기지 않는다.
             // (S10-e 메모: SMTP 예외 메시지에 받는 주소가 섞일 수 있으니 실제 발송기를 붙일 때 로그 내용을 확인할 것)
             log.warn("인증 메일 발송 실패 userId={}", userId, e);
-            codeStore.rollback(userId, code);
+            codeStore.rollback(userId, code, email);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "인증 메일을 보내지 못했습니다. 잠시 후 다시 시도하세요.");
         }
     }
