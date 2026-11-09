@@ -62,6 +62,8 @@ public class SecurityConfig {
                 m.matcher(HttpMethod.GET, "/categories"),
                 // 신고 사유 목록도 읽기만 공개 (신고하기 자체는 로그인 필요)
                 m.matcher(HttpMethod.GET, "/report-reasons"),
+                // 비자 후기 선택지(비자 종류·신청 종류·결과)도 읽기만 공개 (후기 작성 자체는 로그인 필요)
+                m.matcher(HttpMethod.GET, "/visa-review-options"),
                 m.matcher("/actuator/health"),
                 m.matcher("/error"));
     }
