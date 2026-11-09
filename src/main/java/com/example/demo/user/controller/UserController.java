@@ -1,21 +1,26 @@
 package com.example.demo.user.controller;
 
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.demo.auth.dto.LoginUser;
 import com.example.demo.auth.service.AuthCookieFactory;
 import com.example.demo.user.dto.NicknameUpdateRequest;
 import com.example.demo.user.dto.PasswordChangeRequest;
+import com.example.demo.user.dto.SchoolEmailCodeRequest;
 import com.example.demo.user.dto.UserResponse;
 import com.example.demo.user.dto.WithdrawRequest;
+import com.example.demo.user.service.EmailVerificationService;
 import com.example.demo.user.service.UserService;
 
 import jakarta.validation.Valid;
@@ -29,11 +34,19 @@ public class UserController {
 
     private final UserService userService;
     private final AuthCookieFactory cookieFactory;
+    private final EmailVerificationService emailVerificationService;
 
     // 닉네임 변경: 200 {id, username, nickname}
     @PutMapping("/nickname")
     public UserResponse updateNickname(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody NicknameUpdateRequest request) {
         return userService.updateNickname(LoginUser.from(jwt).id(), request.nickname());
+    }
+
+    // 학교 메일 인증 코드 요청: 202 본문 없음 (메일 발송 요청을 "접수"했다는 뜻)
+    @PostMapping("/school-verification/code")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void requestSchoolCode(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody SchoolEmailCodeRequest request) {
+        emailVerificationService.sendCode(LoginUser.from(jwt).id(), request.email());
     }
 
     // 비밀번호 변경: 204 + 두 쿠키 삭제. 모든 기기가 로그아웃되므로 이 기기도 다시 로그인해야 한다.

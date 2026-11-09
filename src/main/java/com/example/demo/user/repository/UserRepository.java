@@ -26,6 +26,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // 가입 전에 닉네임 중복을 확인한다 (대소문자 구분: DB unique와 같은 기준)
     boolean existsByNickname(String nickname);
 
+    // 이 메일 해시로 이미 인증한 회원이 있는지 (학교 메일 한 개로 계정 하나만 인증하게 하는 사전 검사. 최종 보장은 DB UNIQUE)
+    boolean existsBySchoolEmailHash(String schoolEmailHash);
+
     // 로그인 때 아이디로 사용자를 찾는다 (인증 학교도 함께: 로그인 응답에 담기 때문)
     @EntityGraph(attributePaths = "verifiedSchool")
     Optional<User> findByUsername(String username);
