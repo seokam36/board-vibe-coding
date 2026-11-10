@@ -3,6 +3,7 @@ package com.example.demo.visa.service;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 
@@ -40,6 +41,10 @@ public class VisaReviewService {
 
     // 작성자 탈퇴로 깨지는 FK 제약 이름 (V7). 이 이름일 때만 401로 바꾼다.
     private static final String AUTHOR_FK = "fk_visa_reviews_author";
+
+    // 통계 평균이 한두 건의 엉뚱한 날짜에 망가지지 않도록 두는 한도 (이유는 validateDates 참고)
+    private static final int MAX_PROCESSING_DAYS = 365;
+    private static final int MAX_RECEIVED_YEARS_AGO = 5;
 
     private final VisaReviewRepository visaReviewRepository;
     private final SchoolRepository schoolRepository; // 목록의 학교 조건이 실제 있는 학교인지 확인
@@ -151,7 +156,8 @@ public class VisaReviewService {
         return request.content() == null ? "" : request.content();
     }
 
-    // 결과일은 접수일보다 앞설 수 없고, 두 날짜 모두 오늘(서울 기준)을 넘을 수 없다. 어기면 400.
+    // 결과일은 접수일보다 앞설 수 없고, 두 날짜 모두 오늘(서울 기준)을 넘을 수 없다.
+    // 또 접수일은 최근 5년 이내, 처리 기간은 365일 이하여야 한다. 어기면 400.
     private void validateDates(LocalDate receivedDate, LocalDate resultDate) {
         LocalDate today = LocalDate.now(clock);
         if (resultDate.isBefore(receivedDate)) {
@@ -159,6 +165,15 @@ public class VisaReviewService {
         }
         if (receivedDate.isAfter(today) || resultDate.isAfter(today)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "오늘 이후 날짜는 쓸 수 없습니다.");
+        }
+        // 아주 옛날 날짜(예: 1900년, 음수 연도)가 통계 평균을 망치거나 DB date 범위를 벗어나 500이 나는 것을 막는다.
+        // 이 검사가 DB에 닿기 전에 걸러 주므로 음수 연도도 400이 된다. 경계 당일은 통과.
+        if (receivedDate.isBefore(today.minusYears(MAX_RECEIVED_YEARS_AGO))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "접수일은 최근 5년 이내여야 합니다.");
+        }
+        // 처리 일수가 비정상적으로 큰 값이 통계 평균을 왜곡하는 것을 막는다. 365일은 통과, 366일부터 400.
+        if (ChronoUnit.DAYS.between(receivedDate, resultDate) > MAX_PROCESSING_DAYS) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "처리 기간은 365일을 넘을 수 없습니다.");
         }
     }
 }
