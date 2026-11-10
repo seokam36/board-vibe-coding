@@ -1,7 +1,7 @@
 import { test as base, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import type { AuthUser } from '../src/auth/useAuth.ts'
-import type { Category, Comment, Post, School } from '../src/types.ts'
+import type { Category, Comment, Post, School, VisaReview, VisaReviewOptions, VisaReviewStat } from '../src/types.ts'
 
 // ---- 가짜 데이터: src/types.ts 타입을 붙여서 실제 응답 모양과 어긋나면 tsc가 알려 준다 ----
 
@@ -53,11 +53,45 @@ const fakeComments: Comment[] = [
   { id: 1, postId: 1, content: '첫 댓글', createdAt: '2026-01-01T01:00:00Z', author: { id: 3, nickname: '글쓴이B' } },
 ]
 
+// ---- 비자 화면 장면용 기본 가짜 데이터 (선택지·후기·통계) ----
+// docs/api.md 17번: 비자 후기 선택지 (고정값)
+const fakeVisaOptions: VisaReviewOptions = {
+  visaTypes: [{ code: 'D_2', name: 'D-2 유학' }],
+  applicationTypes: [{ code: 'EXTENSION', name: '체류기간 연장' }],
+  results: [{ code: 'APPROVED', name: '승인' }],
+}
+// docs/api.md 20번: 비자 후기 목록 (후기 한 건)
+const fakeVisaReviews: VisaReview[] = [
+  {
+    id: 1,
+    author: { id: 2, nickname: '글쓴이A' },
+    school: postSchool,
+    visaType: fakeVisaOptions.visaTypes[0],
+    applicationType: fakeVisaOptions.applicationTypes[0],
+    receivedDate: '2026-01-01',
+    resultDate: '2026-01-11',
+    result: fakeVisaOptions.results[0],
+    processingDays: 10,
+    content: '후기 내용',
+    createdAt: '2026-01-12T00:00:00Z',
+  },
+]
+// docs/api.md 23번: 비자 후기 통계
+const fakeVisaStats: VisaReviewStat[] = [
+  {
+    school: postSchool,
+    visaType: fakeVisaOptions.visaTypes[0],
+    applicationType: fakeVisaOptions.applicationTypes[0],
+    count: 1,
+    avgDays: 10,
+  },
+]
+
 // ---- 가짜 응답을 만드는 도우미 ----
 
 // 한 요청에 대한 가짜 응답. status는 상태코드, body는 JSON으로 내려갈 값(없으면 본문 없이 보낸다)
 // { abort: true }는 응답 없이 연결이 끊긴 것처럼 만든다 (서버 꺼짐 같은 네트워크 오류 장면용)
-export type MockResponse = { status: number; body?: unknown } | { abort: true }
+export type MockResponse = { status: number; body?: unknown } | { abort: true; status?: never }
 // 키는 "메서드 경로"(예: "GET /posts"). 경로는 /api를 뗀 것이고 ?뒤 쿼리는 뺀다
 export type MockHandlers = Record<string, MockResponse | (() => MockResponse)>
 
@@ -81,6 +115,10 @@ function defaultHandlers(state: { loggedIn: boolean }): MockHandlers {
     'GET /posts/1/comments': { status: 200, body: fakeComments },
     // 로그인한 사람이 글 상세를 열면 "내가 공감했는지"를 확인한다 (docs/api.md 5-9)
     'GET /posts/1/likes/me': { status: 200, body: { liked: false } },
+    // 비자 후기 화면: 선택지·목록·통계 (docs/api.md 17·20·23번)
+    'GET /visa-review-options': { status: 200, body: fakeVisaOptions },
+    'GET /visa-reviews': { status: 200, body: fakeVisaReviews },
+    'GET /visa-reviews/stats': { status: 200, body: fakeVisaStats },
   }
 }
 
@@ -141,9 +179,10 @@ export async function mockApi(page: Page, options: { loggedIn?: boolean } = {}) 
 // 테스트에서 쓰는 test: 매 테스트마다 가짜 API를 자동으로 켜고, 끝나면 "준비 안 한 요청이 없었는지" 검사한다
 export const test = base.extend<{ api: Awaited<ReturnType<typeof mockApi>> }>({
   api: [
-    async ({ page }, use) => {
+    // 인자 이름을 provide로 쓴 이유: Playwright 문서는 use라 부르지만, use는 React 19의 훅 이름이라 lint 규칙(react-hooks)이 훅 호출로 오해한다
+    async ({ page }, provide) => {
       const api = await mockApi(page)
-      await use(api)
+      await provide(api)
       await api.waitIdle()
       // 하나라도 있으면 실패: 화면이 예상 못 한 주소를 불렀다는 뜻
       expect(api.unhandled, '준비하지 않은 /api 요청이 있었다').toEqual([])

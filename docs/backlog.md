@@ -85,6 +85,12 @@
     - [x] UI2-b-2. CI에 e2e 작업 추가(실패하면 이미지 push 막기)
     - [x] UI2-b-3. 에러 문구 화면 테스트(UI3 지킴이)
 - [ ] UI3. 프론트 공통 에러 문구표 (404 같은 문구를 화면마다 따로 쓰는 중복을 한 곳으로 모은다. 모양·동작 변화 없음, UI2 테스트가 지켜 준다)
+  - 결정(2026-11-10): errorMessage.ts에 문구 사전 객체 `ERROR_MESSAGES` 하나, 2곳 이상 중복된 문구만(1곳짜리는 화면에 둠), 글자 변경 0, 표 조립 헬퍼는 안 함, 기존 상수(CSRF·NETWORK·RELOGIN)는 그대로
+  - [x] UI3-a. 지킴이 보강: 옮길 문구 e2e 장면 추가(삭제 403 두 갈래·404, 가입 403, 상세 500, 목록 400, 드롭다운 실패, 후기 목록 404·통계 400, 재발급 끊김) + mockApi 정리(가짜 응답 도구 정리). src 변경 0
+  - [ ] UI3-b-1. 글·댓글·공감·신고·목록 화면 문구를 사전으로
+  - [ ] UI3-b-2. 비자 후기·로그인·가입·내 정보 화면 문구를 사전으로
+  - [ ] UI3-c. EC2 배포(S11 리뷰 수정 포함)
+  - 나중(문구 자체 변경): CSRF 403과 학교 인증 403 문구 섞임(서버가 구분 안 함), 어미 통일(~습니다/~어요), 학교 인증 403 변형 3종 통일, 수정 403의 CSRF 미고려(PostEditPage·CommentSection)
 - [ ] S12. 비자 할 일과 자동 알림
 - [ ] S13. 글 번역
 - [ ] (나중, 알려진 한계) 여러 탭이 동시에 재발급하면 같은 리프레시 토큰을 두 번 써서 모든 탭이 로그아웃될 수 있다. 탭 하나 안에서는 재발급을 하나로 모으지만 탭끼리는 못 모은다. 해결 후보: 백엔드에서 방금 회전한 토큰을 몇 초 봐주기, 또는 BroadcastChannel로 탭끼리 알리기 (Web Locks는 HTTPS 필요)
@@ -168,4 +174,5 @@
 | 2026-11-10 | UI2-a | 프론트 단위 테스트 도입: Vitest 5.1.0(devDependency, Vite 설정 그대로 씀), `npm test`=vitest run(node 환경, src/**/*.test.ts만). 에러 문구(describeError 6분기·errorText 표 적중·빈 문자열 문구·공용 상수 3개), 날짜(formatDay·formatDate 가짜 시계, TZ=UTC도 같음), isAdmin·canActInSchool 고정 25개. 기존 src 코드 변경 0줄. CI frontend 작업에 린트→단위 테스트→빌드. 문구·401 분기·시간대를 일부러 망가뜨리면 빨간불 확인. 이 PC는 보안 정책으로 oxlint 로컬 실행 불가(CI에서 확인) | (이 커밋) |
 | 2026-11-10 | UI2-b-1 | 브라우저 시운전 도입: @playwright/test 1.65(devDependency), `npm run test:e2e`(e2e/*.spec.ts만, Vite 서버를 5174 전용 포트로 직접 띄움). 서버 응답은 page.route 가짜 응답(mockApi: docs/api.md 모양·types.ts 타입, api.override로 상태코드 덮어쓰기, 준비 안 한 /api 요청은 진행 중 요청이 끝난 뒤 검사해 실패). 비로그인 목록·로그인·상세 3개, 백엔드 없이 약 6초. 이 PC는 보안 정책이 Playwright가 내려받은 Chromium을 막아 로컬은 정식 Edge(channel msedge), CI는 기본 Chromium. 일부러 문구·요청·작성자 표시를 망가뜨리면 빨간불 확인. 기존 src 변경 0줄 | (이 커밋) |
 | 2026-11-10 | UI2-b-2 | CI에 e2e 작업 추가: Node 24, npm ci → playwright install --with-deps chromium → test:e2e(CI=true라 기본 Chromium·재시도 2), 실패 시 frontend/playwright-report 업로드, images의 needs에 e2e를 넣어 e2e가 실패하면 이미지 push 막음. YAML 파싱·로컬 일반/CI 모드 3개 통과·일부러 망가뜨리면 종료 코드 1 확인. 실제 러너 동작은 push 후 Actions에서 확인 | 390ec33 |
-| 2026-11-10 | UI2-b-3 | 에러 문구 e2e 8개(error-messages.spec.ts): 글 404·목록 500/404(학교 999 쿼리 확인)·요청 끊김·로그인 401/403·본인 글 삭제 401+재발급 401 "다시 로그인"(주소 유지)·후기 404. 문구는 src import 없이 문자열 고정, role=alert 전체 일치(앞뒤 글자 붙어도 실패, alert 둘이면 실패). mockApi에 {abort: true}(연결 끊김), 본문 없는 응답, likes/me 기본 응답. core-flow 작성자 셀렉터를 article 안으로. 문구 4곳·접두어 붙이기·기본 응답 삭제로 빨간불 확인. e2e 11·단위 25. UI2 완료, CLAUDE.md 명령어에 npm test·test:e2e | (이 커밋) |
+| 2026-11-10 | UI2-b-3 | 에러 문구 e2e 8개(error-messages.spec.ts): 글 404·목록 500/404(학교 999 쿼리 확인)·요청 끊김·로그인 401/403·본인 글 삭제 401+재발급 401 "다시 로그인"(주소 유지)·후기 404. 문구는 src import 없이 문자열 고정, role=alert 전체 일치(앞뒤 글자 붙어도 실패, alert 둘이면 실패). mockApi에 {abort: true}(연결 끊김), 본문 없는 응답, likes/me 기본 응답. core-flow 작성자 셀렉터를 article 안으로. 문구 4곳·접두어 붙이기·기본 응답 삭제로 빨간불 확인. e2e 11·단위 25. UI2 완료, CLAUDE.md 명령어에 npm test·test:e2e | 9db33a4 |
+| 2026-11-10 | UI3-a | 옮길 에러 문구 지킴이 보강: e2e 18→34장면(전체 37). 삭제 403 두 갈래·404·500, 가입 403, 글 상세 500, 글 목록 400, 드롭다운·선택지 실패, 비자 목록·통계 404/400, 후기 상세 500, 댓글 403(학교 인증)·삭제 404, 공감 409, 글 수정 500/400, 신고 404(글·댓글), 비자 작성 400, 재발급 끊김(로그인 유지). 모두 role=alert 전체 일치, src 변경 0. 도우미 minePost·loginVerified, mockApi 정리(provide 이름·abort 타입·비자 기본 응답). 문구·재발급 분기 8곳을 일부러 바꾸면 해당 장면만 실패 확인 | (이 커밋) |
