@@ -14,6 +14,7 @@ import com.example.demo.auth.service.AccessGuard;
 import com.example.demo.common.ApiErrors;
 import com.example.demo.common.ConstraintViolations;
 import com.example.demo.user.domain.User;
+import com.example.demo.visa.domain.VisaPlan;
 import com.example.demo.visa.dto.VisaPlanRequest;
 import com.example.demo.visa.dto.VisaPlanResponse;
 import com.example.demo.visa.repository.VisaPlanRepository;
@@ -40,9 +41,10 @@ public class VisaPlanService {
     @Transactional(readOnly = true)
     public VisaPlanResponse get(LoginUser loginUser) {
         User user = accessGuard.requireUser(loginUser);
-        return visaPlanRepository.findByUserId(user.getId())
-                .map(VisaPlanResponse::from)
-                .orElseGet(VisaPlanResponse::empty);
+        // "오늘"은 요청당 한 번만 구해 응답 계산에 넘긴다 (서울 기준)
+        LocalDate today = LocalDate.now(clock);
+        LocalDate expiry = visaPlanRepository.findByUserId(user.getId()).map(VisaPlan::getExpiryDate).orElse(null);
+        return VisaPlanResponse.of(expiry, today);
     }
 
     // 일정 등록 또는 덮어쓰기(회원당 1행). 검사 순서는 후기 작성과 같다:
@@ -50,7 +52,8 @@ public class VisaPlanService {
     @Transactional
     public VisaPlanResponse save(LoginUser loginUser, VisaPlanRequest request) {
         User user = accessGuard.requireVerified(loginUser);
-        validateExpiryDate(request.expiryDate());
+        LocalDate today = LocalDate.now(clock); // 검증과 응답 계산이 같은 "오늘"을 쓰게 한 번만 구함
+        validateExpiryDate(request.expiryDate(), today);
         try {
             // "없으면 INSERT, 있으면 UPDATE"를 SQL 한 문장으로 처리 -> 동시 PUT도 안전
             visaPlanRepository.upsert(user.getId(), request.expiryDate());
@@ -61,7 +64,8 @@ public class VisaPlanService {
             }
             throw e;
         }
-        return new VisaPlanResponse(request.expiryDate());
+        // upsert 뒤 엔티티를 다시 읽지 않고(영속성 컨텍스트의 옛 값 문제 회피) 요청 값으로 바로 계산
+        return VisaPlanResponse.of(request.expiryDate(), today);
     }
 
     // 일정 삭제. 지울 게 없으면 404. 학교 인증은 요구하지 않는다(이미 있는 일정을 치우는 것이므로).
@@ -75,8 +79,7 @@ public class VisaPlanService {
 
     // 만료일은 서울 오늘 이상, 오늘+5년 이하. 어기면 400. 경계(오늘, 오늘+5년 정확히)는 통과.
     // LocalDate.now()가 아니라 clock을 쓰는 이유: 서버는 UTC라 서울 밤에 "오늘"이 하루 어긋난다.
-    private void validateExpiryDate(LocalDate expiryDate) {
-        LocalDate today = LocalDate.now(clock);
+    private void validateExpiryDate(LocalDate expiryDate, LocalDate today) {
         if (expiryDate.isBefore(today)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "만료일은 오늘 이후여야 합니다.");
         }

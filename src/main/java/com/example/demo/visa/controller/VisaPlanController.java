@@ -28,7 +28,7 @@ public class VisaPlanController {
 
     private final VisaPlanService visaPlanService;
 
-    // 조회: 200. 일정이 없으면 {expiryDate: null}
+    // 조회: 200. 일정이 없으면 {expiryDate, daysLeft, stage 모두 null, todos []}
     @GetMapping
     public VisaPlanResponse get(@AuthenticationPrincipal Jwt jwt) {
         return visaPlanService.get(LoginUser.from(jwt));

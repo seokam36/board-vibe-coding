@@ -45,7 +45,8 @@ import jakarta.servlet.http.Cookie;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-// S12-a 완료 조건 검사: 내 비자 일정 조회·등록(덮어쓰기)·삭제 (/users/me/visa-plan), 탈퇴 연동.
+// S12-a·b 완료 조건 검사: 내 비자 일정 조회·등록(덮어쓰기)·삭제 (/users/me/visa-plan), 탈퇴 연동(S12-a),
+// 응답의 daysLeft·stage·todos 계산(S12-b).
 // 시계(Clock)는 가짜로 바꿔 "오늘"을 서울 2026-11-09로 고정한다(후기 테스트와 같은 설정 -> 스프링 컨텍스트를 같이 쓴다).
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
@@ -355,5 +356,160 @@ class VisaPlanApiTests {
 				() -> jdbc.update("delete from users where id = ?", uid));
 		assertThat(status).isEqualTo(401);
 		assertThat(행수()).isZero();
+	}
+
+	// ============ S12-b: daysLeft · stage · todos ============
+
+	// 서울 오늘(2026-11-09)에서 n일 뒤 날짜 문자열
+	private static String 오늘_플러스(int n) {
+		return java.time.LocalDate.of(2026, 11, 9).plusDays(n).toString();
+	}
+
+	@Test
+	void 만료일이_오늘_플러스_200이면_할일_3개_오름차순_단계는_null이다() throws Exception {
+		저장(본문(오늘_플러스(200)), 쿠키);
+		JsonNode body = json(조회(쿠키));
+		assertThat(body.get("daysLeft").asInt()).isEqualTo(200);
+		assertThat(body.get("stage").isNull()).isTrue();
+		JsonNode todos = body.get("todos");
+		assertThat(todos.size()).isEqualTo(3);
+		// 만료일 - 120/30/7일, 이른 날짜부터
+		java.time.LocalDate 만료 = java.time.LocalDate.parse(오늘_플러스(200));
+		assertThat(todos.get(0).get("dueDate").asString()).isEqualTo(만료.minusDays(120).toString());
+		assertThat(todos.get(1).get("dueDate").asString()).isEqualTo(만료.minusDays(30).toString());
+		assertThat(todos.get(2).get("dueDate").asString()).isEqualTo(만료.minusDays(7).toString());
+		assertThat(todos.get(0).get("code").asString()).isEqualTo("PREPARE");
+		assertThat(todos.get(1).get("code").asString()).isEqualTo("CHECK");
+		assertThat(todos.get(2).get("code").asString()).isEqualTo("URGENT");
+		// 각 할 일에 code·title·dueDate·daysLeft가 모두 있고, 오늘 기준 남은 일수가 맞다(80, 170, 193)
+		for (JsonNode t : todos) {
+			assertThat(t.get("code").asString()).isNotBlank();
+			assertThat(t.get("title").asString()).isNotBlank();
+			assertThat(t.hasNonNull("dueDate")).isTrue();
+			assertThat(t.hasNonNull("daysLeft")).isTrue();
+		}
+		assertThat(todos.get(0).get("daysLeft").asInt()).isEqualTo(80);
+		assertThat(todos.get(1).get("daysLeft").asInt()).isEqualTo(170);
+		assertThat(todos.get(2).get("daysLeft").asInt()).isEqualTo(193);
+	}
+
+	@Test
+	void 남은_일수별_단계_경계가_맞다() throws Exception {
+		// {남은 일수, 기대 단계(null이면 단계 없음)}
+		Object[][] 경우 = {
+				{121, null}, {120, "PREPARE"}, {31, "PREPARE"}, {30, "CHECK"}, {8, "CHECK"}, {7, "URGENT"}, {0, "URGENT"} };
+		for (Object[] c : 경우) {
+			int n = (Integer) c[0];
+			assertThat(저장(본문(오늘_플러스(n)), 쿠키).getStatus()).isEqualTo(200);
+			JsonNode body = json(조회(쿠키));
+			assertThat(body.get("daysLeft").asInt()).as("daysLeft %d", n).isEqualTo(n);
+			if (c[1] == null) {
+				assertThat(body.get("stage").isNull()).as("stage %d", n).isTrue();
+			} else {
+				assertThat(body.get("stage").asString()).as("stage %d", n).isEqualTo(c[1]);
+			}
+		}
+	}
+
+	@Test
+	void 만료일이_지나면_EXPIRED이고_daysLeft와_지난_할일은_음수다() throws Exception {
+		// 저장은 오늘 이후만 받으므로 jdbc로 어제 날짜를 직접 넣는다(시간이 흘러 지난 날짜가 된 상황)
+		jdbc.update("insert into visa_plans (user_id, expiry_date, created_at, updated_at) values (?, ?, now(), now())", 회원.getId(),
+				java.sql.Date.valueOf("2026-11-08"));
+		JsonNode body = json(조회(쿠키));
+		assertThat(body.get("stage").asString()).isEqualTo("EXPIRED");
+		assertThat(body.get("daysLeft").asInt()).isEqualTo(-1);
+		// 지난 할 일도 목록에서 빠지지 않고 daysLeft가 음수
+		assertThat(body.get("todos").size()).isEqualTo(3);
+		for (JsonNode t : body.get("todos")) {
+			assertThat(t.get("daysLeft").asInt()).isNegative();
+		}
+	}
+
+	@Test
+	void 저장_뒤_시계를_앞으로_돌리면_EXPIRED가_된다() throws Exception {
+		assertThat(저장(본문("2026-11-20"), 쿠키).getStatus()).isEqualTo(200);
+		// 서울 2026-11-25 12:00
+		Mockito.when(clock.instant()).thenReturn(Instant.parse("2026-11-25T03:00:00Z"));
+		JsonNode body = json(조회(쿠키));
+		assertThat(body.get("stage").asString()).isEqualTo("EXPIRED");
+		assertThat(body.get("daysLeft").asInt()).isEqualTo(-5);
+	}
+
+	@Test
+	void 서울_00시30분이면_daysLeft는_서울_날짜_기준이다() throws Exception {
+		assertThat(저장(본문("2026-11-20"), 쿠키).getStatus()).isEqualTo(200);
+		// UTC 2026-11-09 15:30 = 서울 2026-11-10 00:30. UTC 날짜(11-09)로 세면 11, 서울(11-10)이면 10
+		Mockito.when(clock.instant()).thenReturn(Instant.parse("2026-11-09T15:30:00Z"));
+		assertThat(json(조회(쿠키)).get("daysLeft").asInt()).isEqualTo(10);
+	}
+
+	@Test
+	void 일정이_없으면_네_키가_있고_daysLeft_stage는_null_todos는_빈_배열이다() throws Exception {
+		JsonNode body = json(조회(쿠키));
+		// get(...)이 null이면 "키 없음", NullNode면 "null로 옴" -> has()로 키 존재를 따로 확인
+		for (String k : new String[] { "expiryDate", "daysLeft", "stage", "todos" }) {
+			assertThat(body.has(k)).as("키 %s", k).isTrue();
+		}
+		assertThat(body.get("expiryDate").isNull()).isTrue();
+		assertThat(body.get("daysLeft").isNull()).isTrue();
+		assertThat(body.get("stage").isNull()).isTrue();
+		assertThat(body.get("todos").isArray()).isTrue();
+		assertThat(body.get("todos").size()).isZero();
+	}
+
+	@Test
+	void PUT_응답도_네_키와_같은_값을_가진다() throws Exception {
+		JsonNode body = json(저장(본문(오늘_플러스(25)), 쿠키));
+		for (String k : new String[] { "expiryDate", "daysLeft", "stage", "todos" }) {
+			assertThat(body.has(k)).as("키 %s", k).isTrue();
+		}
+		assertThat(body.get("expiryDate").asString()).isEqualTo(오늘_플러스(25));
+		assertThat(body.get("daysLeft").asInt()).isEqualTo(25);
+		assertThat(body.get("stage").asString()).isEqualTo("CHECK");
+		assertThat(body.get("todos").size()).isEqualTo(3);
+		// 200일 남은 경우: 단계 없음은 키는 있고 값만 null
+		JsonNode far = json(저장(본문(오늘_플러스(200)), 쿠키));
+		assertThat(far.has("stage")).isTrue();
+		assertThat(far.get("stage").isNull()).isTrue();
+		assertThat(far.get("daysLeft").asInt()).isEqualTo(200);
+	}
+
+	@Test
+	void 만료_전이어도_지난_할일은_빠지지_않고_음수_daysLeft로_온다() throws Exception {
+		// 남은 일수 25 -> PREPARE 시점(만료-120)은 95일 지났고, CHECK 시점(만료-30)도 5일 지났다
+		저장(본문(오늘_플러스(25)), 쿠키);
+		JsonNode todos = json(조회(쿠키)).get("todos");
+		assertThat(todos.size()).isEqualTo(3);
+		assertThat(todos.get(0).get("daysLeft").asInt()).isEqualTo(-95); // 25-120
+		assertThat(todos.get(1).get("daysLeft").asInt()).isEqualTo(-5);  // 25-30
+		assertThat(todos.get(2).get("daysLeft").asInt()).isEqualTo(18);  // 25-7
+		assertThat(todos.get(0).get("dueDate").asString()).isEqualTo(오늘_플러스(-95));
+	}
+
+	@Test
+	void 만료일이_지난_뒤_할일_값이_정확하다() throws Exception {
+		jdbc.update("insert into visa_plans (user_id, expiry_date, created_at, updated_at) values (?, ?, now(), now())", 회원.getId(),
+				java.sql.Date.valueOf("2026-11-08")); // daysLeft -1
+		JsonNode todos = json(조회(쿠키)).get("todos");
+		assertThat(todos.get(0).get("daysLeft").asInt()).isEqualTo(-121);
+		assertThat(todos.get(1).get("daysLeft").asInt()).isEqualTo(-31);
+		assertThat(todos.get(2).get("daysLeft").asInt()).isEqualTo(-8);
+		for (JsonNode t : todos) {
+			assertThat(t.get("code").asString()).isNotBlank();
+			assertThat(t.get("title").asString()).isNotBlank();
+			assertThat(t.hasNonNull("dueDate")).isTrue();
+		}
+	}
+
+	@Test
+	void 서울_00시30분에도_할일_daysLeft는_서울_날짜_기준이다() throws Exception {
+		assertThat(저장(본문("2026-12-31"), 쿠키).getStatus()).isEqualTo(200);
+		// 서울 2026-11-10 00:30 -> 만료까지 51일, CHECK 할 일(12-01)까지 21일
+		Mockito.when(clock.instant()).thenReturn(Instant.parse("2026-11-09T15:30:00Z"));
+		JsonNode body = json(조회(쿠키));
+		assertThat(body.get("daysLeft").asInt()).isEqualTo(51);
+		assertThat(body.get("todos").get(1).get("daysLeft").asInt()).isEqualTo(21);
+		assertThat(body.get("stage").asString()).isEqualTo("PREPARE");
 	}
 }
