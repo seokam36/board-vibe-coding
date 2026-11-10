@@ -84,15 +84,15 @@
     - [x] UI2-b-1. Playwright 설치 + 핵심 흐름 3개(가짜 응답, 로컬)
     - [x] UI2-b-2. CI에 e2e 작업 추가(실패하면 이미지 push 막기)
     - [x] UI2-b-3. 에러 문구 화면 테스트(UI3 지킴이)
-- [ ] UI3. 프론트 공통 에러 문구표 (404 같은 문구를 화면마다 따로 쓰는 중복을 한 곳으로 모은다. 모양·동작 변화 없음, UI2 테스트가 지켜 준다)
+- [x] UI3. 프론트 공통 에러 문구표 (404 같은 문구를 화면마다 따로 쓰는 중복을 한 곳으로 모은다. 모양·동작 변화 없음, UI2 테스트가 지켜 준다)
   - 결정(2026-11-10): errorMessage.ts에 문구 사전 객체 `ERROR_MESSAGES` 하나, 2곳 이상 중복된 문구만(1곳짜리는 화면에 둠), 글자 변경 0, 표 조립 헬퍼는 안 함, 기존 상수(CSRF·NETWORK·RELOGIN)는 그대로
   - [x] UI3-a. 지킴이 보강: 옮길 문구 e2e 장면 추가(삭제 403 두 갈래·404, 가입 403, 상세 500, 목록 400, 드롭다운 실패, 후기 목록 404·통계 400, 재발급 끊김) + mockApi 정리(가짜 응답 도구 정리). src 변경 0
   - [x] UI3-b-1. 글·댓글·공감·신고·목록 화면 문구를 사전으로
   - [x] UI3-b-2. 비자 후기·로그인·가입·내 정보 화면 문구를 사전으로
-  - [ ] UI3-c. EC2 배포(S11 리뷰 수정 포함)
+  - [x] UI3-c. EC2 배포 → S12 배포 때 같이 하기로(2026-11-10 결정). S11 리뷰 수정(1900년 접수일 등 날짜 하한)도 그때 운영 반영
   - 나중(문구 자체 변경): CSRF 403과 학교 인증 403 문구 섞임(서버가 구분 안 함), 어미 통일(~습니다/~어요), 학교 인증 403 변형 3종 통일, 수정 403의 CSRF 미고려(PostEditPage·CommentSection)
   - 나중(UI3 리뷰): "본인 글/댓글/후기만 수정할 수 있습니다" 3형제를 alreadyDeleted처럼 함수 하나로(라벨만 다른 문구는 함수형 사전 허용으로 원칙 정하기), errorMessage.ts 맨 위에 파일 안내 주석, SignupPage의 '가입하지 못했습니다' 2번을 지역 상수로
-- [ ] S12. 비자 할 일과 자동 알림
+- [ ] S12. 비자 할 일과 자동 알림 (배포 때 S11 리뷰 수정·UI2·UI3도 같이 나감)
 - [ ] S13. 글 번역
 - [ ] (나중, 알려진 한계) 여러 탭이 동시에 재발급하면 같은 리프레시 토큰을 두 번 써서 모든 탭이 로그아웃될 수 있다. 탭 하나 안에서는 재발급을 하나로 모으지만 탭끼리는 못 모은다. 해결 후보: 백엔드에서 방금 회전한 토큰을 몇 초 봐주기, 또는 BroadcastChannel로 탭끼리 알리기 (Web Locks는 HTTPS 필요)
 
@@ -178,4 +178,4 @@
 | 2026-11-10 | UI2-b-3 | 에러 문구 e2e 8개(error-messages.spec.ts): 글 404·목록 500/404(학교 999 쿼리 확인)·요청 끊김·로그인 401/403·본인 글 삭제 401+재발급 401 "다시 로그인"(주소 유지)·후기 404. 문구는 src import 없이 문자열 고정, role=alert 전체 일치(앞뒤 글자 붙어도 실패, alert 둘이면 실패). mockApi에 {abort: true}(연결 끊김), 본문 없는 응답, likes/me 기본 응답. core-flow 작성자 셀렉터를 article 안으로. 문구 4곳·접두어 붙이기·기본 응답 삭제로 빨간불 확인. e2e 11·단위 25. UI2 완료, CLAUDE.md 명령어에 npm test·test:e2e | 9db33a4 |
 | 2026-11-10 | UI3-a | 옮길 에러 문구 지킴이 보강: 에러 문구 e2e 8→31장면(전체 e2e 11→34). 삭제 403 두 갈래·404·500, 가입 403, 글 상세 500, 글 목록 400, 드롭다운·선택지 실패, 비자 목록·통계 404/400, 후기 상세 500, 댓글 403(학교 인증)·삭제 404, 공감 409, 글 수정 500/400, 신고 404(글·댓글), 비자 작성 400, 재발급 끊김(로그인 유지). 모두 role=alert 전체 일치, src 변경 0. 도우미 minePost·loginVerified, mockApi 정리(provide 이름·abort 타입·비자 기본 응답). 문구·재발급 분기 8곳을 일부러 바꾸면 해당 장면만 실패 확인 | e46f96a |
 | 2026-11-10 | UI3-b-1 | 글·댓글·공감·신고·목록 화면(8개 파일)의 중복 에러 문구를 errorMessage.ts의 ERROR_MESSAGES 사전으로: POST_NOT_FOUND·POST_LOAD_FAILED·POST_FIELDS_INVALID·SAVE_FAILED·SCHOOL_NOT_FOUND·SCHOOL_GATE_POST_ACTION·DELETE_RETRY_AFTER_RELOAD·DELETE_FORBIDDEN·DELETE_FAILED·POST_ALREADY_LIKED·ACTION_FAILED + 함수 alreadyDeleted(label). 글자 변경 0(지운 문구 18개 대조, e2e 34개 수정 없이 통과), 1곳짜리·글자가 다른 문구는 화면에 둠, 분기·동작 변경 0. errorMessage.test.ts가 사전 전체를 글자 그대로 고정(26개). 사전 값을 바꾸면 Vitest·e2e 빨간불 확인. build 보고에 입문자용 쉬운 설명 칸 추가 | 2adf68f |
-| 2026-11-10 | UI3-b-2 | 비자 후기·로그인·가입 화면(8개 파일)의 중복 에러 문구를 사전으로: 새 키 REVIEW_NOT_FOUND·REVIEW_LOAD_FAILED·REVIEW_FIELDS_INVALID·REVIEW_FILTER_INVALID·REVIEW_OPTIONS_LOAD_FAILED, 기존 SCHOOL_NOT_FOUND·SAVE_FAILED·DELETE_*·alreadyDeleted('후기') 재사용, 로그인·가입 403 리터럴 → CSRF_MESSAGE. 내 정보·학교 인증 화면은 1곳짜리뿐이라 그대로. 글자 변경 0(지운 문구 13개 대조, e2e 34개 수정 없이 통과), 사전 값을 바꾸면 Vitest·e2e 빨간불 확인. 이제 2곳 이상 같은 글자인 에러 문구는 errorMessage.ts에만 있음 | (이 커밋) |
+| 2026-11-10 | UI3-b-2 | 비자 후기·로그인·가입 화면(8개 파일)의 중복 에러 문구를 사전으로: 새 키 REVIEW_NOT_FOUND·REVIEW_LOAD_FAILED·REVIEW_FIELDS_INVALID·REVIEW_FILTER_INVALID·REVIEW_OPTIONS_LOAD_FAILED, 기존 SCHOOL_NOT_FOUND·SAVE_FAILED·DELETE_*·alreadyDeleted('후기') 재사용, 로그인·가입 403 리터럴 → CSRF_MESSAGE. 내 정보·학교 인증 화면은 1곳짜리뿐이라 그대로. 글자 변경 0(지운 문구 13개 대조, e2e 34개 수정 없이 통과), 사전 값을 바꾸면 Vitest·e2e 빨간불 확인. 이제 2곳 이상 같은 글자인 에러 문구는 errorMessage.ts에만 있음 | 2d748d9 |

@@ -2,31 +2,33 @@
 
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 
-마지막 갱신: 2026-11-10
+마지막 갱신: 2026-11-10 (UI2·UI3 끝낸 PC)
 
 ## 지금 어디까지
 - **S0~S11 + UI1 완료·배포됨.** 운영은 S11-f(커밋 1ebeb84) 이미지, V7까지 적용.
-- **S11 파트 리뷰 수정(ea0db23)은 push만 되고 운영 미반영** → 다음 Deploy 때 같이 나간다(급하지 않음). 내용: 후기 날짜 하한(접수일은 서울 오늘 기준 최근 5년 이내, 처리 기간 365일 이하, 작성·수정 모두 400) + 탈퇴 후 통계 유지 테스트 + users FK 감시 테스트. 테스트 708개.
+- **UI2(프론트 자동 테스트)·UI3(에러 문구 사전) 완료, push됨, 운영 미반영.** CI 전부 초록(2d748d9).
+  - UI2: Vitest 26개(`src/**/*.test.ts`), Playwright 34개(`e2e/core-flow.spec.ts` 3 + `e2e/error-messages.spec.ts` 31, role=alert 전체 일치로 에러 문구 고정). CI에 `e2e` 작업, e2e 실패면 images push 막힘.
+  - UI3: 2곳 이상 같은 글자인 에러 문구는 `frontend/src/errorMessage.ts`의 `ERROR_MESSAGES` 사전에만 있다(POST_*, REVIEW_*, SCHOOL_*, DELETE_*, SAVE_FAILED, ACTION_FAILED, alreadyDeleted(label)). 1곳짜리·글자가 다른 문구는 화면에 둠. 화면 글자 변경 0.
+- **배포는 S12 끝날 때 한 번에(2026-11-10 결정).** 그때 S11 리뷰 수정(ea0db23: 후기 접수일 최근 5년·처리 365일 이하, 1900년 접수일로 통계 평균이 튀던 문제)과 UI2·UI3가 같이 나간다. 배포 후 확인 목록에 "1900년 접수일 400", "글 404 문구 그대로"를 넣을 것.
 - S11 요약: 별개 표 visa_reviews, 정해진 칸 + 선택 본문, 읽기 누구나·쓰기 인증 회원(학교는 인증 학교 복사), 수정 본인·삭제 본인/관리자, 통계는 네이티브 group by 1번. 결정 전부 backlog S11 항목.
 - 사이트 컨셉: **같은 학교 유학생 선배들의 경험이 쌓이는 외국인 유학생 커뮤니티.** 로드맵과 결정은 docs/backlog.md.
 - S10 요약: 미인증은 읽기만, 글쓰기·댓글·공감·신고는 인증한 학교 글에만(`AccessGuard.requireVerified`/`requireSameSchool`, 매번 DB). 메일은 Gmail SMTP(`MAIL_MODE=smtp`), 원문 저장 없이 해시만.
-- Notion: S11 카드에 S11-a~d, S11-f, "S11 전체 정리와 코드 리뷰" 페이지 완료. 진행 현황 S11 체크됨. 다음 파트는 새 카드(번호 13). **UI2·UI3는 프론트만이라 Notion에 안 쓴다.**
-- 순서(2026-11-10 결정): **UI2 프론트 자동 테스트 → UI3 공통 에러 문구표 → S12.** UI2-a(Vitest, 897f944)·UI2-b-1(Playwright, 3b99fbd) 끝, push됨. 배포 불필요(운영 화면 변화 없음). 실제 배포는 UI3 끝에 한 번(그때 ea0db23도 같이).
+- Notion: S11까지 학습 기록 완료. 다음 파트(S12)는 새 카드(번호 13). UI2·UI3는 프론트만이라 단계 기록 없음. **새로 "도구 사전" 페이지**(바이브 코딩 아래): Docker·AWS·Actions·nginx·Flyway·Redis·Testcontainers·Vitest·Playwright 8장. 처음 쓰는 도구는 분야 상관없이 여기에 한 장씩 추가(docs/notion-guide.md "도구 사전").
 
 ## 다음에 할 일
-- **UI2-b-2 build 시작**: `.github/workflows/ci.yml`에 `e2e` 작업 추가(Node 24, working-directory frontend, `npm ci` → `npx playwright install --with-deps chromium` → `npm run test:e2e`, timeout-minutes, 실패 시 `frontend/playwright-report` artifact 업로드, **`images`의 needs에 e2e 넣기**). 그다음 UI2-b-3(에러 문구 화면 6장면), 끝나면 CLAUDE.md 명령어 줄에 `npm test`·`npm run test:e2e` 추가(승인됨).
+- **S12(비자 할 일과 자동 알림) planner 시작.** backlog S12 항목 확인 → planner → 승인. S12 끝나면 Deploy(S11 리뷰 수정·UI2·UI3 포함).
 
 ## 진행 중인 단계
-- **UI2** (UI2-a, UI2-b-1 완료 / b-2, b-3 남음). 승인된 결정: Playwright는 가짜 응답(진짜 백엔드 방식은 나중 후보), e2e 실패면 이미지 push 막기, isAdmin·canActInSchool도 단위 테스트, e2e 화면 서버 5174, UI2는 build가 테스트를 쓰고 tester는 "돌리기 + 일부러 망가뜨려 빨간불 확인".
-- UI2-b-3 계획(planner): 글 404 "글을 찾을 수 없습니다", 목록 500 "목록을 불러오지 못했습니다"·404 "존재하지 않는 학교입니다", 요청 끊김 "서버에 연결할 수 없습니다", 로그인 401 "아이디 또는 비밀번호가 틀렸습니다"·403 CSRF 문구, 본인 글 삭제 401+refresh 401 → "다시 로그인해 주세요"(주소 그대로), 후기 404 "후기를 찾을 수 없습니다". 문구는 실제 화면 코드에서 확인 후 고정.
-- UI2-b-3 때 챙길 것(b-1 리뷰 "나중"): 요청 끊김은 `route.abort()` 지원 필요(MockResponse에 없음) · body 없을 때도 `json: {}`를 보내 204에 본문 붙음 · 가짜 /csrf가 쿠키를 안 줘서 CSRF 흐름은 검사 안 됨 · e2e에서 src 파일 import 시 tsconfig.node(nodenext)라 확장자 없는 상대 import가 있는 파일은 tsc -b가 깨질 수 있음(errorMessage.ts는 OK) · 상세 작성자 셀렉터 `.first()` 대신 article 안으로 좁히기 · fixture를 `async ({ page }, use) =>` 꼴로 추가하면 oxlint `react/rules-of-hooks`에 걸릴 수 있음.
+- 없음.
 - 커밋 안 된 변경: `.claude/launch.json`(컴퓨터마다 다른 실행 설정, 일부러 커밋 안 함)
+- 미룬 것(UI3 리뷰): "본인 글/댓글/후기만 수정할 수 있습니다" 3형제를 함수 하나로(라벨만 다른 문구는 함수형 사전 허용으로 원칙 정하기) · errorMessage.ts 맨 위 파일 안내 주석 · SignupPage '가입하지 못했습니다' 2번 지역 상수 · 문구 자체 변경(CSRF 403과 학교 인증 403 섞임, 어미 통일, 학교 인증 403 변형 3종, 수정 403의 CSRF 미고려) — backlog UI3 "나중"
+- 미룬 것(UI2 리뷰): CI e2e 리포트가 실패 때만 올라가 재시도로 통과한 불안정 테스트는 안 보임(`if: !cancelled()` 후보) · Chromium 캐시 · 관리자 남의 글 삭제 장면이 `.first()`(글 삭제 버튼이 댓글보다 먼저라는 DOM 순서에 기댐)
 - 미룬 것(S11 파트 리뷰 "나중"): 날짜를 숫자·배열(`0`, `[2026,9,1]`)로 보내도 Jackson이 받아 줄 수 있음(확인 안 함, 받으면 명세에 적거나 문자열만) · 1건짜리 통계도 "평균"으로 보임(화면은 건수 같이 표시) · 한 회원 중복 작성은 backlog 알려진 한계
 - 미룬 것(S11-e 리뷰): 목록·통계 화면의 요청·에러 문구 중복을 훅으로(세 번째 사용처 생길 때) · 탭이 주소 쿼리를 통째로 붙임(쿼리 늘면 필터 3개만) · PostCreatePage·VisaReviewCreatePage의 같은 6줄 → useVerifiedSchool 훅 · 상세에서 삭제 후 목록으로 갈 때 필터 사라짐(글도 같음) · "목록으로"도 필터 안 들고 감
 - 미룬 것(S11 리뷰): 후기 수정 중 다른 쪽이 삭제하면 500(글 수정과 같은 한계) · 테스트의 `@MockitoBean Clock`이 컨텍스트를 따로 띄움(느려지면 공용 MutableClock) · RecordingSender를 공용 테스트 설정으로 · SecurityConfig `/visa-reviews/stats` 명시 matcher는 `{id}` 규칙과 중복(의도 표시용)
 - 미룬 것(S10 리뷰 "나중"): 메일 해시가 소금 없는 SHA-256(Redis·DB 털리면 사전 역산 가능 → 나중에 HMAC로 둘 다) · Redis Cluster로 가면 인증 Lua 키(5개)가 한 슬롯에 안 묶임 · 인증 테스트 헬퍼(RecordingSender·sha256) 중복 · 409 "다른 계정이 쓴 메일"이 존재 여부를 조금 알려 줌 · Gmail 하루 약 500통 한도(근본 해결은 도메인 + AWS SES) · SMTP 장애 중 연타하면 요청마다 최대 ~25초 스레드 점유 · 운영 gmail.com 임시 도메인 테스트 뒤 그 시간대 인증 계정 수 확인 단계 · 인증 설정값 @Validated · api.md 400·410 문구는 실제 본문에 없음 · 운영 MAIL_MODE 빠지면 조용히 log 모드
 - 미룬 것(S9 리뷰 "나중"): 관리자 목록 페이징 · 기각된 신고는 같은 사람이 재신고 불가 · 관리자 삭제로 처리하면 신고 이력 없음 · 서버 에러 message가 브라우저에 안 감(include-message never, 화면은 상태코드로 문구 — S10도 이 전제로 400/410 등으로 나눔) · SecurityConfig `BearerTokenResolver` deprecated 경고 · JPQL enum 전체 경로 리터럴 · `ReportResponse.ReasonInfo` 중복 DTO · 유령 토큰의 글·댓글 수정은 401이 아니라 403.
-- 미룬 것(UI1 리뷰): 글쓰기·공감·신고의 CSRF 403 안내 문구가 학교 인증 403과 같은 문구로 섞임 · `describeError` 프론트 단위 테스트 없음 · /admin/reports 비로그인 시 /login 대신 안내만 · Google Fonts 대신 셀프 호스팅.
+- 미룬 것(UI1 리뷰): (CSRF 403 문구 섞임은 backlog UI3 "나중"으로 옮김) · /admin/reports 비로그인 시 /login 대신 안내만 · Google Fonts 대신 셀프 호스팅.
 - 미룬 것(S8 이전): 글 목록 페이징 + 목록 응답에서 본문 빼기 · 댓글 수정 중 글이 CASCADE로 사라지면 500 · `Location: /comments/{id}`인데 단건 GET 없음 · 학교·말머리 목록 중복 코드 훅으로 · `.gitattributes` 줄바꿈 규칙(서브에이전트가 LF로 저장해 CRLF 경고가 계속 뜸, 내용엔 영향 없음).
 - 선택 정리(급하지 않음): EC2 콘솔 옛 `demo-key` 삭제, IAM 옛 키 태그 삭제, 노트북 `~/.ssh/deploy-actions` 개인키 삭제.
 
@@ -64,8 +66,11 @@
 - 로컬 `docker compose up -d`는 postgres + redis만(app은 `profiles: prod`). Docker Desktop이 꺼져 있으면 먼저 켠다. **꺼진 채 `./gradlew test`를 돌리면 Testcontainers가 못 떠서 테스트 대부분(650개+)이 컨텍스트 로딩 실패**한다(코드 문제 아님). 이 컴퓨터의 Docker Desktop은 `%LOCALAPPDATA%\Programs\DockerDesktop\Docker Desktop.exe`(Program Files 아님).
 - `./gradlew bootRun`은 `.env`를 자동으로 읽지 않는다. PowerShell에서 환경변수로 넣고 실행.
 - 프론트 로컬 실행: `frontend`에서 `npm install` 후 `npm run dev` → http://localhost:5173(반드시 5173으로).
-- **프론트 테스트**: 단위 `npm test`(Vitest 5.1, `src/**/*.test.ts`만, node 환경) / 브라우저 `npm run test:e2e`(Playwright 1.65, `e2e/*.spec.ts`만, Vite를 **5174** `--strictPort`로 직접 띄움, 백엔드 불필요). 서버 응답은 `e2e/mockApi.ts` 가짜 응답: 테스트에서 `api.override({'GET /posts': {status: 500}})`·`api.setLoggedIn(true)`로 바꾸고, **준비 안 한 /api 요청이 있으면 테스트 실패**(새 화면이 새 주소를 부르면 mockApi에 추가). 새 PC는 `npx playwright install chromium` 한 번(수백 MB). `tsconfig.node.json`이 e2e도 타입 검사해서 e2e 타입 오류는 `npm run build`·Docker 이미지 빌드도 막는다(가짜 데이터가 types.ts와 어긋나면 잡으려는 의도).
-- **2026-11-10 작업한 PC는 Windows 보안 정책(앱 제어)이 내려받은 실행 파일을 막는다**: `npm run lint`(oxlint 네이티브 파일)와 Playwright가 내려받은 chrome-headless-shell이 `spawn UNKNOWN`으로 안 뜬다. 우회하지 말 것. lint는 CI에서 확인, Playwright는 로컬에서 정식 Edge(`channel: 'msedge'`, `PW_CHANNEL=chrome`으로 변경 가능), CI는 기본 Chromium. 다른 PC는 막히는지 확인해 이 줄 갱신.
+- **프론트 테스트**: 단위 `npm test`(Vitest 5.1, `src/**/*.test.ts`만, node 환경) / 브라우저 `npm run test:e2e`(Playwright 1.65, `e2e/*.spec.ts`만, Vite를 **5174** `--strictPort`로 직접 띄움, 백엔드 불필요). 서버 응답은 `e2e/mockApi.ts` 가짜 응답: 테스트에서 `api.override({'GET /posts': {status: 500}})`·`api.setLoggedIn(true)`로 바꾸고, **준비 안 한 /api 요청이 있으면 테스트 실패**(새 화면이 새 주소를 부르면 mockApi에 추가). 새 PC는 `npx playwright install chromium` 한 번(수백 MB). `tsconfig.node.json`이 e2e도 타입 검사해서 e2e 타입 오류는 `npm run build`·Docker 이미지 빌드도 막는다(가짜 데이터가 types.ts와 어긋나면 잡으려는 의도). 도우미: `minePost()`(작성자가 로그인 사용자인 글), `loginVerified(api)`(학교 인증 회원으로 로그인). 에러 문구는 `getByRole('alert')` + `toHaveText('전체 문구')`로 검사(부분 일치 금지).
+- **에러 문구를 고치거나 새로 쓸 때**: 2곳 이상 같은 글자면 `errorMessage.ts`의 `ERROR_MESSAGES`에 넣고 `errorMessage.test.ts`의 사전 전체 `toEqual`에도 한 줄 추가(안 하면 테스트 실패). 문구 글자를 바꾸면 `e2e/error-messages.spec.ts` 기대 문구도 같이 바꿔야 CI가 통과한다.
+- **Windows 보안 정책(앱 제어)이 내려받은 실행 파일을 막는 PC가 있다**(UI2 시작한 PC): `npm run lint`와 Playwright가 내려받은 chrome-headless-shell이 `spawn UNKNOWN`. 우회하지 말 것. 그 PC는 lint를 CI에서 확인, Playwright는 로컬에서 정식 Edge(`channel: 'msedge'`, `PW_CHANNEL=chrome`으로 변경 가능), CI는 기본 Chromium. **UI2·UI3를 끝낸 PC는 막히지 않음**(lint 정상, `CI=true`로 내려받은 Chromium도 실행됨). 새 PC는 `npm install` 후 `npx playwright install chromium` 한 번.
+- **커밋 안 된 파일을 테스트로 일부러 망가뜨릴 때 `git checkout --`로 되돌리지 말 것**(커밋 안 된 작업까지 날아감). 먼저 임시 폴더에 복사해 두고 그 복사본으로 되돌린다.
+- 프론트만 바꾸는 단계는 `refactor:`가 아니라 CLAUDE.md 형식(feat/fix/test/chore) 중 하나로 커밋(2adf68f만 `refactor:`로 잘못 달림).
 - 자동 보안 검사(security-guidance 플러그인)가 커밋 뒤 네트워크 문제로 못 끝나는 일이 있다(897f944·3b99fbd). 로그 `~/.claude/security/log.txt`.
 - 서브에이전트가 띄운 테스트 서버가 8080·5173을 잡고 있을 수 있다. 막히면 작업 관리자에서 끄거나 재부팅.
 - 테스트(Gradle + Testcontainers) 도는 동안 CPU·메모리가 크게 오른다(정상). 편집기 Java 분석기(JDT)는 롬복을 못 알아봐서 "getId() 없음" 같은 가짜 빨간 줄을 띄운다 — `./gradlew test`가 기준.
