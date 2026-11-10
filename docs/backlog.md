@@ -82,7 +82,7 @@
   - [x] UI2-a. Vitest: 작은 부품(에러 문구 함수 describeError, 날짜 표시 등) 단위 테스트 + CI에서 같이 돌리기
   - [ ] UI2-b. Playwright: 실제 브라우저로 핵심 흐름(로그인 → 글 목록 → 글 보기 등) 확인
     - [x] UI2-b-1. Playwright 설치 + 핵심 흐름 3개(가짜 응답, 로컬)
-    - [ ] UI2-b-2. CI에 e2e 작업 추가(실패하면 이미지 push 막기)
+    - [x] UI2-b-2. CI에 e2e 작업 추가(실패하면 이미지 push 막기)
     - [ ] UI2-b-3. 에러 문구 화면 테스트(UI3 지킴이)
 - [ ] UI3. 프론트 공통 에러 문구표 (404 같은 문구를 화면마다 따로 쓰는 중복을 한 곳으로 모은다. 모양·동작 변화 없음, UI2 테스트가 지켜 준다)
 - [ ] S12. 비자 할 일과 자동 알림
@@ -167,3 +167,4 @@
 | 2026-11-10 | S11 리뷰 | 파트 전체 리뷰 필수 반영: 후기 날짜 하한(접수일은 서울 오늘 기준 최근 5년 이내, 처리 기간 365일 이하, 작성·수정 모두 400) — 1900년 접수일 한 건으로 통계 평균이 수만 일로 튀거나 음수 연도가 DB 범위를 넘어 500 나던 문제. 권장 반영: 탈퇴 후 통계 건수·평균 유지 테스트, users를 가리키는 FK가 ON DELETE 또는 탈퇴 시 비우기로 전부 처리되는지 감시 테스트. 중복 작성은 알려진 한계로. api.md 18·21번. 재배포 안 함(다음 Deploy에 포함). 테스트 708개 | (이 커밋) |
 | 2026-11-10 | UI2-a | 프론트 단위 테스트 도입: Vitest 5.1.0(devDependency, Vite 설정 그대로 씀), `npm test`=vitest run(node 환경, src/**/*.test.ts만). 에러 문구(describeError 6분기·errorText 표 적중·빈 문자열 문구·공용 상수 3개), 날짜(formatDay·formatDate 가짜 시계, TZ=UTC도 같음), isAdmin·canActInSchool 고정 25개. 기존 src 코드 변경 0줄. CI frontend 작업에 린트→단위 테스트→빌드. 문구·401 분기·시간대를 일부러 망가뜨리면 빨간불 확인. 이 PC는 보안 정책으로 oxlint 로컬 실행 불가(CI에서 확인) | (이 커밋) |
 | 2026-11-10 | UI2-b-1 | 브라우저 시운전 도입: @playwright/test 1.65(devDependency), `npm run test:e2e`(e2e/*.spec.ts만, Vite 서버를 5174 전용 포트로 직접 띄움). 서버 응답은 page.route 가짜 응답(mockApi: docs/api.md 모양·types.ts 타입, api.override로 상태코드 덮어쓰기, 준비 안 한 /api 요청은 진행 중 요청이 끝난 뒤 검사해 실패). 비로그인 목록·로그인·상세 3개, 백엔드 없이 약 6초. 이 PC는 보안 정책이 Playwright가 내려받은 Chromium을 막아 로컬은 정식 Edge(channel msedge), CI는 기본 Chromium. 일부러 문구·요청·작성자 표시를 망가뜨리면 빨간불 확인. 기존 src 변경 0줄 | (이 커밋) |
+| 2026-11-10 | UI2-b-2 | CI에 e2e 작업 추가: Node 24, npm ci → playwright install --with-deps chromium → test:e2e(CI=true라 기본 Chromium·재시도 2), 실패 시 frontend/playwright-report 업로드, images의 needs에 e2e를 넣어 e2e가 실패하면 이미지 push 막음. YAML 파싱·로컬 일반/CI 모드 3개 통과·일부러 망가뜨리면 종료 코드 1 확인. 실제 러너 동작은 push 후 Actions에서 확인 | (이 커밋) |
