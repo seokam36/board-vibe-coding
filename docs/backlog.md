@@ -93,6 +93,13 @@
   - 나중(문구 자체 변경): CSRF 403과 학교 인증 403 문구 섞임(서버가 구분 안 함), 어미 통일(~습니다/~어요), 학교 인증 403 변형 3종 통일, 수정 403의 CSRF 미고려(PostEditPage·CommentSection)
   - 나중(UI3 리뷰): "본인 글/댓글/후기만 수정할 수 있습니다" 3형제를 alreadyDeleted처럼 함수 하나로(라벨만 다른 문구는 함수형 사전 허용으로 원칙 정하기), errorMessage.ts 맨 위에 파일 안내 주석, SignupPage의 '가입하지 못했습니다' 2번을 지역 상수로
 - [ ] S12. 비자 할 일과 자동 알림 (배포 때 S11 리뷰 수정·UI2·UI3도 같이 나감)
+  - 결정(2026-11-10): 학교 인증 회원이 체류 만료일 하나를 등록하면 할 일 목록(날짜 + 하이코리아 링크, 개인별 판단 없음)을 보여 주고, 알림은 **사이트 안 알림**(로그인하면 상단 띠)으로. 메일 알림은 안 함(사용자가 메일을 잘 안 봄, 메일 원문 저장·주인 확인·Gmail 한도 문제도 없앰). 브라우저 푸시는 HTTPS가 필요해서 나중
+  - 결정(planner 후): 새 표 visa_plans(회원당 1개, 만료일만, 탈퇴 시 ON DELETE CASCADE). 만료일은 서울 오늘 ≤ 만료일 ≤ 오늘+5년. 시점 120·30·7일 전(숫자는 VisaMilestone enum 한 곳, 하이코리아 확인 후 조정 가능). 띠 단계 D120/D30/D7/EXPIRED는 서버가 서울 날짜로 계산. API는 /users/me/visa-plan GET·PUT·DELETE, 일정이 없으면 GET은 404가 아니라 200 + expiryDate null(띠 때문에 매번 부르므로, "내 일정 비어 있음"으로 봄), DELETE는 없으면 404. 띠는 120일 이내부터, 만료 후엔 중립 문구, X로 닫기(localStorage에 회원·만료일·단계, 단계가 바뀌면 다시 뜸, 7일 이내도 닫기 가능), 미등록 회원 권유 띠 없음, /visa-plan 안에서는 숨김, GET 실패 시 띠만 숨김. 띠는 role=status(alert 아님). 완료 체크 저장·일정 여러 개·자정 넘김 자동 갱신 없음
+  - [x] S12-a. V8(visa_plans) + 일정 등록·조회·삭제 API
+  - [ ] S12-b. 할 일 목록 + 띠 단계 계산(todos·daysLeft·stage)
+  - [ ] S12-c. 화면: /visa-plan 페이지 + 상단바 링크
+  - [ ] S12-d. 화면: 상단 띠
+  - [ ] S12-e. EC2 배포(S11 리뷰 수정·UI2·UI3 묶음 확인)
 - [ ] S13. 글 번역
 - [ ] (나중, 알려진 한계) 여러 탭이 동시에 재발급하면 같은 리프레시 토큰을 두 번 써서 모든 탭이 로그아웃될 수 있다. 탭 하나 안에서는 재발급을 하나로 모으지만 탭끼리는 못 모은다. 해결 후보: 백엔드에서 방금 회전한 토큰을 몇 초 봐주기, 또는 BroadcastChannel로 탭끼리 알리기 (Web Locks는 HTTPS 필요)
 
@@ -179,3 +186,4 @@
 | 2026-11-10 | UI3-a | 옮길 에러 문구 지킴이 보강: 에러 문구 e2e 8→31장면(전체 e2e 11→34). 삭제 403 두 갈래·404·500, 가입 403, 글 상세 500, 글 목록 400, 드롭다운·선택지 실패, 비자 목록·통계 404/400, 후기 상세 500, 댓글 403(학교 인증)·삭제 404, 공감 409, 글 수정 500/400, 신고 404(글·댓글), 비자 작성 400, 재발급 끊김(로그인 유지). 모두 role=alert 전체 일치, src 변경 0. 도우미 minePost·loginVerified, mockApi 정리(provide 이름·abort 타입·비자 기본 응답). 문구·재발급 분기 8곳을 일부러 바꾸면 해당 장면만 실패 확인 | e46f96a |
 | 2026-11-10 | UI3-b-1 | 글·댓글·공감·신고·목록 화면(8개 파일)의 중복 에러 문구를 errorMessage.ts의 ERROR_MESSAGES 사전으로: POST_NOT_FOUND·POST_LOAD_FAILED·POST_FIELDS_INVALID·SAVE_FAILED·SCHOOL_NOT_FOUND·SCHOOL_GATE_POST_ACTION·DELETE_RETRY_AFTER_RELOAD·DELETE_FORBIDDEN·DELETE_FAILED·POST_ALREADY_LIKED·ACTION_FAILED + 함수 alreadyDeleted(label). 글자 변경 0(지운 문구 18개 대조, e2e 34개 수정 없이 통과), 1곳짜리·글자가 다른 문구는 화면에 둠, 분기·동작 변경 0. errorMessage.test.ts가 사전 전체를 글자 그대로 고정(26개). 사전 값을 바꾸면 Vitest·e2e 빨간불 확인. build 보고에 입문자용 쉬운 설명 칸 추가 | 2adf68f |
 | 2026-11-10 | UI3-b-2 | 비자 후기·로그인·가입 화면(8개 파일)의 중복 에러 문구를 사전으로: 새 키 REVIEW_NOT_FOUND·REVIEW_LOAD_FAILED·REVIEW_FIELDS_INVALID·REVIEW_FILTER_INVALID·REVIEW_OPTIONS_LOAD_FAILED, 기존 SCHOOL_NOT_FOUND·SAVE_FAILED·DELETE_*·alreadyDeleted('후기') 재사용, 로그인·가입 403 리터럴 → CSRF_MESSAGE. 내 정보·학교 인증 화면은 1곳짜리뿐이라 그대로. 글자 변경 0(지운 문구 13개 대조, e2e 34개 수정 없이 통과), 사전 값을 바꾸면 Vitest·e2e 빨간불 확인. 이제 2곳 이상 같은 글자인 에러 문구는 errorMessage.ts에만 있음 | 2d748d9 |
+| 2026-11-10 | S12-a | V8(visa_plans: 회원당 1행 uk_visa_plans_user, FK ON DELETE CASCADE) + /users/me/visa-plan GET(없으면 200 null)·PUT(인증 회원, 서울 오늘~+5년, ON CONFLICT upsert로 동시 저장 500 없음, 저장 중 탈퇴 FK 위반 → 401)·DELETE(없으면 404). 탈퇴 시 일정 자동 삭제. api.md 24~26·공통 인증 규칙·탈퇴 절. VisaPlanApiTests 22개(서울 자정 경계·동시 PUT·탈퇴 경쟁 포함), 전체 729 통과. 알려진 한계: 배열·숫자 날짜도 받아짐(후기와 함께 나중에) | (이 커밋) |
