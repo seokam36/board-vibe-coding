@@ -2,28 +2,36 @@
 
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 
-마지막 갱신: 2026-11-10 (UI2·UI3 끝낸 PC)
+마지막 갱신: 2026-11-10 (집 PC, S12-a~d 끝냄)
 
 ## 지금 어디까지
 - **S0~S11 + UI1 완료·배포됨.** 운영은 S11-f(커밋 1ebeb84) 이미지, V7까지 적용.
-- **UI2(프론트 자동 테스트)·UI3(에러 문구 사전) 완료, push됨, 운영 미반영.** CI 전부 초록(2d748d9).
+- **S12(비자 할 일과 사이트 안 알림) a~d 완료, push됨(73be98b), 운영 미반영.** push 직후 CI 진행 중이었음 → 먼저 Actions에서 초록인지 확인.
+  - 결정 전부 backlog S12 항목. 메일 알림은 안 함(사용자가 메일을 잘 안 봄) → 로그인 화면 상단 띠.
+  - S12-a: V8 `visa_plans`(회원당 1행, 만료일만, FK ON DELETE CASCADE) + `/users/me/visa-plan` GET(없으면 200 + null)·PUT(인증 회원, 서울 오늘~+5년, `ON CONFLICT` upsert)·DELETE(없으면 404).
+  - S12-b: 응답에 `daysLeft`·`stage`(PREPARE 120일 이내/CHECK 30/URGENT 7/EXPIRED/121일↑ null)·`todos`. 기준 숫자·문구는 `VisaMilestone` 한 곳(숫자는 하이코리아 확인 후 바꿀 수 있음, 이름은 숫자 없이), `VisaPlanStage`가 마일스톤을 필드로 연결.
+  - S12-c: `/visa-plan` 화면(D-111/D-Day/D+3 = `formatDDay`, 할 일 3줄, 변경·삭제), 상단바 "비자 일정" 링크(인증 회원만).
+  - S12-d: 상단 띠(`VisaPlanBanner`, 문구는 `src/visa/visaBanner.ts` 한 곳) + 보관소 `VisaPlanProvider`(인증 회원만 GET 1번, 띠와 /visa-plan이 공유). X 닫기 기록은 localStorage `visaBannerClosed:{회원id}` = `단계:만료일해시`.
+- **UI2(프론트 자동 테스트)·UI3(에러 문구 사전) 완료, push됨, 운영 미반영.**
   - UI2: Vitest 26개(`src/**/*.test.ts`), Playwright 34개(`e2e/core-flow.spec.ts` 3 + `e2e/error-messages.spec.ts` 31, role=alert 전체 일치로 에러 문구 고정). CI에 `e2e` 작업, e2e 실패면 images push 막힘.
   - UI3: 2곳 이상 같은 글자인 에러 문구는 `frontend/src/errorMessage.ts`의 `ERROR_MESSAGES` 사전에만 있다(POST_*, REVIEW_*, SCHOOL_*, DELETE_*, SAVE_FAILED, ACTION_FAILED, alreadyDeleted(label)). 1곳짜리·글자가 다른 문구는 화면에 둠. 화면 글자 변경 0.
-- **배포는 S12 끝날 때 한 번에(2026-11-10 결정).** 그때 S11 리뷰 수정(ea0db23: 후기 접수일 최근 5년·처리 365일 이하, 1900년 접수일로 통계 평균이 튀던 문제)과 UI2·UI3가 같이 나간다. 배포 후 확인 목록에 "1900년 접수일 400", "글 404 문구 그대로"를 넣을 것.
+- **다음 배포(S12-e)에 같이 나가는 것:** S11 리뷰 수정(ea0db23: 후기 접수일 최근 5년·처리 365일 이하), UI2, UI3, S12 전체. 새 환경변수·compose 변경 없음, V8 자동 적용.
 - S11 요약: 별개 표 visa_reviews, 정해진 칸 + 선택 본문, 읽기 누구나·쓰기 인증 회원(학교는 인증 학교 복사), 수정 본인·삭제 본인/관리자, 통계는 네이티브 group by 1번. 결정 전부 backlog S11 항목.
 - 사이트 컨셉: **같은 학교 유학생 선배들의 경험이 쌓이는 외국인 유학생 커뮤니티.** 로드맵과 결정은 docs/backlog.md.
 - S10 요약: 미인증은 읽기만, 글쓰기·댓글·공감·신고는 인증한 학교 글에만(`AccessGuard.requireVerified`/`requireSameSchool`, 매번 DB). 메일은 Gmail SMTP(`MAIL_MODE=smtp`), 원문 저장 없이 해시만.
-- Notion: S11까지 학습 기록 완료. 다음 파트(S12)는 새 카드(번호 13). UI2·UI3는 프론트만이라 단계 기록 없음. **새로 "도구 사전" 페이지**(바이브 코딩 아래): Docker·AWS·Actions·nginx·Flyway·Redis·Testcontainers·Vitest·Playwright 8장. 처음 쓰는 도구는 분야 상관없이 여기에 한 장씩 추가(docs/notion-guide.md "도구 사전").
+- Notion: S12 카드(번호 13 "비자 할 일과 사이트 안 알림")에 S12-a·b 단계 페이지까지 씀. S12-c·d는 프론트라 안 씀. 배포(S12-e) 뒤 배포 단계 페이지 + 파트 전체 정리·코드 리뷰 페이지, 진행 현황 S12 체크가 남음. UI2·UI3는 프론트만이라 단계 기록 없음. **새로 "도구 사전" 페이지**(바이브 코딩 아래): Docker·AWS·Actions·nginx·Flyway·Redis·Testcontainers·Vitest·Playwright 8장. 처음 쓰는 도구는 분야 상관없이 여기에 한 장씩 추가(docs/notion-guide.md "도구 사전").
 
 ## 다음에 할 일
-- **S12(비자 할 일과 자동 알림) planner 시작.** backlog S12 항목 확인 → planner → 승인. S12 끝나면 Deploy(S11 리뷰 수정·UI2·UI3 포함).
+- **S12-e 배포.** Actions에서 main CI(73be98b 이후)가 images까지 초록 확인 → EC2 켜기 → Deploy 버튼 → 운영 확인(아래 목록) → backlog S12-e 체크 → S12 파트 백엔드 흐름·코드 리뷰 정리 + Notion.
+- 운영 확인 목록: 기록장 version 8 success · 테스트 계정 `wntjrdka`로 만료일 등록(오늘+20일 정도) → /visa-plan D-n·할 일 → 글 목록에 띠 → X 닫기 후 새로고침해도 안 뜸 → 삭제 후 띠 없음(테스트 일정은 꼭 삭제) · 후기 접수일 1900년 400 · 글 404 문구 그대로("글을 찾을 수 없습니다" 류) · 미인증 계정엔 "비자 일정" 링크 없음.
 
 ## 진행 중인 단계
-- 없음.
-- 커밋 안 된 변경: `.claude/launch.json`(컴퓨터마다 다른 실행 설정, 일부러 커밋 안 함)
+- S12-e(배포)만 남음. a~d는 build → tester → review → (필수·권장 수정) 끝, 커밋·push 완료.
+- 커밋 안 된 변경: `.claude/launch.json`(컴퓨터마다 다른 실행 설정, 일부러 커밋 안 함). docs/deploy.md의 V8 되돌리기 메모는 이 handoff 커밋에 같이 넣음.
+- 미룬 것(S12): backlog S12 항목의 "나중(S12-c 리뷰)"·"나중(S12-d 리뷰)" 줄 · S12-a 리뷰: 배열·숫자 날짜(`[2026,12,31]`, `20818`)도 LocalDate로 받아짐(후기 날짜와 함께 Jackson 설정 한 곳에서 막기) · upsert `@Modifying`에 clearAutomatically 없음(upsert 뒤 다시 읽는 코드가 생기면) · "오늘 이후여야 합니다" 400 문구(오늘도 허용) · 덮어쓰기 때 created_at 유지 단언 · FlywayExistingBaselineTests가 V8 성공 행을 직접 단언하지 않음 · S12-b: 계산 로직이 DTO(VisaPlanResponse.of) 안(두 번째 사용처 생기면 domain으로) · 띠 자정 넘김 자동 갱신 없음(새로고침하면 반영)
 - 미룬 것(UI3 리뷰): "본인 글/댓글/후기만 수정할 수 있습니다" 3형제를 함수 하나로(라벨만 다른 문구는 함수형 사전 허용으로 원칙 정하기) · errorMessage.ts 맨 위 파일 안내 주석 · SignupPage '가입하지 못했습니다' 2번 지역 상수 · 문구 자체 변경(CSRF 403과 학교 인증 403 섞임, 어미 통일, 학교 인증 403 변형 3종, 수정 403의 CSRF 미고려) — backlog UI3 "나중"
 - 미룬 것(UI2 리뷰): CI e2e 리포트가 실패 때만 올라가 재시도로 통과한 불안정 테스트는 안 보임(`if: !cancelled()` 후보) · Chromium 캐시 · 관리자 남의 글 삭제 장면이 `.first()`(글 삭제 버튼이 댓글보다 먼저라는 DOM 순서에 기댐)
-- 미룬 것(S11 파트 리뷰 "나중"): 날짜를 숫자·배열(`0`, `[2026,9,1]`)로 보내도 Jackson이 받아 줄 수 있음(확인 안 함, 받으면 명세에 적거나 문자열만) · 1건짜리 통계도 "평균"으로 보임(화면은 건수 같이 표시) · 한 회원 중복 작성은 backlog 알려진 한계
+- 미룬 것(S11 파트 리뷰 "나중"): 날짜를 숫자·배열로 보내도 Jackson이 받아 줌(S12-a에서 확인됨, 위 S12 항목과 함께 처리) · 1건짜리 통계도 "평균"으로 보임(화면은 건수 같이 표시) · 한 회원 중복 작성은 backlog 알려진 한계
 - 미룬 것(S11-e 리뷰): 목록·통계 화면의 요청·에러 문구 중복을 훅으로(세 번째 사용처 생길 때) · 탭이 주소 쿼리를 통째로 붙임(쿼리 늘면 필터 3개만) · PostCreatePage·VisaReviewCreatePage의 같은 6줄 → useVerifiedSchool 훅 · 상세에서 삭제 후 목록으로 갈 때 필터 사라짐(글도 같음) · "목록으로"도 필터 안 들고 감
 - 미룬 것(S11 리뷰): 후기 수정 중 다른 쪽이 삭제하면 500(글 수정과 같은 한계) · 테스트의 `@MockitoBean Clock`이 컨텍스트를 따로 띄움(느려지면 공용 MutableClock) · RecordingSender를 공용 테스트 설정으로 · SecurityConfig `/visa-reviews/stats` 명시 matcher는 `{id}` 규칙과 중복(의도 표시용)
 - 미룬 것(S10 리뷰 "나중"): 메일 해시가 소금 없는 SHA-256(Redis·DB 털리면 사전 역산 가능 → 나중에 HMAC로 둘 다) · Redis Cluster로 가면 인증 Lua 키(5개)가 한 슬롯에 안 묶임 · 인증 테스트 헬퍼(RecordingSender·sha256) 중복 · 409 "다른 계정이 쓴 메일"이 존재 여부를 조금 알려 줌 · Gmail 하루 약 500통 한도(근본 해결은 도메인 + AWS SES) · SMTP 장애 중 연타하면 요청마다 최대 ~25초 스레드 점유 · 운영 gmail.com 임시 도메인 테스트 뒤 그 시간대 인증 계정 수 확인 단계 · 인증 설정값 @Validated · api.md 400·410 문구는 실제 본문에 없음 · 운영 MAIL_MODE 빠지면 조용히 log 모드
@@ -34,7 +42,7 @@
 
 ## 주의할 점
 - 새 컴퓨터에서는 먼저 `git pull`. 끝나면 커밋·push.
-- **표(테이블)를 바꾸는 기능은 새 V 파일**(다음은 `V8__...sql`)로. 커밋된 V 파일은 고치지 않는다. ddl-auto는 validate 유지.
+- **표(테이블)를 바꾸는 기능은 새 V 파일**(다음은 `V9__...sql`)로. 커밋된 V 파일은 고치지 않는다. ddl-auto는 validate 유지.
 - **FK·UNIQUE·CHECK 제약에는 반드시 이름**을 지어라. 서비스가 제약 이름으로 404/401/409를 구분한다(`ConstraintViolations`). V1의 `posts.author_id` FK만 해시 이름이라 글쓰기는 "23503이면 401".
 - **DB 오류 메시지 언어는 영어(기본값) 유지.** `lc_messages`를 바꾸면 경쟁 상황에서 500(docs/deploy.md).
 - 경쟁 조건 테스트는 `LockRaceSupport`, 유령 토큰은 `TestLogin.행없는_회원_토큰(jwtEncoder)`, 인증 회원은 `TestLogin.인증된_사용자(...)`·`학교_인증_처리(jdbc, username, 학교명)`. 글쓰기·댓글·공감·신고 테스트는 **인증 회원 + 같은 학교 글**이어야 한다.
@@ -52,7 +60,7 @@
 - **운영 테스트 계정 = `wntjrdka`(연세대 인증, 2026-11-10 SQL로 지정).** 배포 후 인증 회원이 필요한 확인은 이 계정으로 로그인만 하면 된다(가입·메일 인증 반복 X, 비밀번호는 사용자만 앎). 테스트로 쓴 글·후기는 확인 뒤 삭제해 통계 오염 방지. 다른 계정을 인증시키려면 [서버] `UPDATE users SET verified_school_id = (SELECT id FROM schools WHERE name = '연세대학교'), verified_at = now() WHERE username = '...';` 후 재로그인.
 - 실제 메일 인증 흐름까지 운영에서 봐야 할 때만(S10-h 방법): gmail.com을 잠깐 연세대 도메인으로 INSERT → 인증 → **꼭 DELETE**. 그 사이엔 누구나 gmail로 연세대 인증 가능하니 짧게.
 - 글쓰기 화면은 학교를 고르지 않고 인증한 학교로 고정(S10-f 설계). "다른 학교 글쓰기 막힘"은 화면에서 확인 불가, 테스트가 지킨다.
-- 집 PC 로컬 DB: V7까지 적용됨. 연습 계정 `visa_me`(경희대 인증)·`visa_other`(고려대 인증)·`visa_new`(미인증)·`visa_admin`(관리자)과 연습 후기 몇 개가 있다(로컬 전용). 비밀번호는 세션 임시 폴더에만 적어 둬서 사라짐 → 필요하면 새로 가입 후 SQL로 `verified_school_id`·`role` 지정. 회원가입 API는 CSRF 필요(`GET /csrf` 쿠키 → `X-XSRF-TOKEN` 헤더).
+- 집 PC 로컬 DB: V8까지 적용됨. 연습 계정 `visa_me`(경희대 인증)·`visa_other`(고려대 인증)·`visa_new`(미인증)·`visa_admin`(관리자)·`visa_plan01`(경희대 인증, 비자 일정 2026-12-08 등록됨)과 연습 후기 몇 개가 있다(로컬 전용). 비밀번호는 세션 임시 폴더에만 적어 둬서 사라짐 → 필요하면 새로 가입 후 SQL로 `verified_school_id`·`role` 지정. 회원가입 API는 CSRF 필요(`GET /csrf` 쿠키 → `X-XSRF-TOKEN` 헤더).
 - 브라우저 확인 요령: 로그인 풀림은 페이지 JS로 `/api/auth/logout`을 먼저 부르고 저장을 누르면 재현된다. 콘솔 에러는 탭에 계속 쌓이니 파일 버전(`?t=` 숫자)으로 옛 기록인지 구분.
 - **비자 후기 "오늘"은 `Clock` 빈(ClockConfig, Asia/Seoul) 기준.** 서버는 UTC라 `LocalDate.now()`·`@PastOrPresent`를 쓰면 서울 밤에 오늘이 미래로 판정된다. 후기 테스트는 `@MockitoBean Clock`으로 서울 2026-11-09 12:00 고정(VisaReviewApiTests·VisaReviewListUpdateDeleteTests와 같은 설정을 써야 컨텍스트를 같이 씀).
 - 후기 날짜 규칙: 결과일 ≥ 접수일, 둘 다 ≤ 서울 오늘, **접수일 ≥ 오늘-5년, 처리 ≤ 365일**(테스트 시계 기준 5년 경계 = 2021-11-09).
@@ -60,10 +68,15 @@
 - 후기 작성 테스트는 **인증 회원**이어야 한다(`TestLogin.인증된_사용자`·`학교_인증_처리`). 수정·삭제는 인증 불필요. 탈퇴는 `UserService.withdraw`가 posts·comments·visa_reviews 작성자를 비운 뒤 회원 삭제(작성자 FK에 ON DELETE 없음).
 - SecurityConfig의 `GET /visa-reviews/{id}` 공개 규칙은 `/visa-reviews/` 아래 한 칸짜리 GET을 전부 공개로 만든다(`/stats`도 명시해 둠). 로그인 전용 GET을 그 아래 두려면 따로 막아야 한다.
 - **Vite 옛 파일 문제가 이번에도 여러 번 났다**(서브에이전트가 고친 직후 화면이 하얗게 비고 `xxx is not defined`). build가 프론트를 고친 뒤에는 브라우저 확인 전에 frontend 서버를 항상 껐다 켠다.
-- Flyway 테스트 `FlywayExistingBaselineTests`는 "새로 적용되는 V 파일 수"를 하드코딩한다 → V8을 만들면 같이 고쳐야 한다.
+- Flyway 테스트 `FlywayExistingBaselineTests`는 "새로 적용되는 V 파일 수"를 하드코딩한다(지금 7개·기록장 8행) → V9를 만들면 같이 고쳐야 한다.
+- **tester가 이제 `frontend/e2e/`에도 쓸 수 있다**(`.claude/agents/tester.md` 허용 경로, 2026-11-10). 에이전트 설정은 세션 시작 때만 읽혀서, 바꾼 그 세션에서는 반영 안 됐다(그래서 S12-c·d e2e는 메인 대화가 씀). 화면 코드 `frontend/src/`는 여전히 못 씀.
+- **build 보고를 그대로 믿지 말 것**: S12-c에서 build가 "npm run build 통과"라고 했는데 실제로는 e2e 파일 import 확장자(`'./mockApi'` → `'./mockApi.ts'`)로 tsc가 실패했다. 커밋 전에 메인이 `npm test`·`npm run build`·`npm run lint`·`npm run test:e2e`를 직접 한 번 돌린다.
+- **e2e에서 날짜를 입력하는 장면은 브라우저 시계를 고정**한다: `test.beforeEach(async ({ page }) => { await page.clock.setFixedTime(new Date('2026-11-10T03:00:00Z')) })`(visa-plan·visa-banner spec). 날짜 칸에 `min=오늘`이 있어서 고정 안 하면 날짜가 지나면서 테스트가 깨진다.
+- e2e 도우미: `loginVerified(api)`는 이제 `e2e/mockApi.ts`에서 export(두 spec 중복 제거). mockApi 기본 응답에 `/users/me/visa-plan` GET·PUT(일정 없음)·DELETE(204)가 있다. 인증 회원으로 로그인하는 모든 장면에서 보관소가 GET을 부른다.
+- 테스트가 진짜로 지키는지 볼 때는 고친 줄을 잠깐 바꿔 실패를 확인한다(S12에서 여러 번 함). 원본은 꼭 임시 폴더에 복사해 두고 복사본으로 되돌린다(`git checkout --` 금지).
 - 노트북 로컬 DB: 이제 기록장이 있고 V6까지 적용됨. 연습 계정 `mailtest01`(연세대 인증), `koreauser`(고려대 인증, 가짜 해시), `newbie`(미인증), 비밀번호는 연습용. 글 3개(연세대·고려대·학교 미지정).
 - `.env`는 git에 없다. `.env.example`을 복사해 채운다. 필요한 키: DB_*, POSTGRES_*, JWT_SECRET, REDIS_PASSWORD, (선택) MAIL_*. **`.env`는 캡처해서 공유하지 말 것.**
-- 로컬 `docker compose up -d`는 postgres + redis만(app은 `profiles: prod`). Docker Desktop이 꺼져 있으면 먼저 켠다. **꺼진 채 `./gradlew test`를 돌리면 Testcontainers가 못 떠서 테스트 대부분(650개+)이 컨텍스트 로딩 실패**한다(코드 문제 아님). 이 컴퓨터의 Docker Desktop은 `%LOCALAPPDATA%\Programs\DockerDesktop\Docker Desktop.exe`(Program Files 아님).
+- 로컬 `docker compose up -d`는 postgres + redis만(app은 `profiles: prod`). Docker Desktop이 꺼져 있으면 먼저 켠다. **꺼진 채 `./gradlew test`를 돌리면 Testcontainers가 못 떠서 테스트 대부분(650개+)이 컨텍스트 로딩 실패**한다(코드 문제 아님). Docker Desktop 위치는 PC마다 다르다: 한 PC는 `%LOCALAPPDATA%\Programs\DockerDesktop\Docker Desktop.exe`, 집 PC는 `C:\Program Files\Docker\Docker\Docker Desktop.exe`.
 - `./gradlew bootRun`은 `.env`를 자동으로 읽지 않는다. PowerShell에서 환경변수로 넣고 실행.
 - 프론트 로컬 실행: `frontend`에서 `npm install` 후 `npm run dev` → http://localhost:5173(반드시 5173으로).
 - **프론트 테스트**: 단위 `npm test`(Vitest 5.1, `src/**/*.test.ts`만, node 환경) / 브라우저 `npm run test:e2e`(Playwright 1.65, `e2e/*.spec.ts`만, Vite를 **5174** `--strictPort`로 직접 띄움, 백엔드 불필요). 서버 응답은 `e2e/mockApi.ts` 가짜 응답: 테스트에서 `api.override({'GET /posts': {status: 500}})`·`api.setLoggedIn(true)`로 바꾸고, **준비 안 한 /api 요청이 있으면 테스트 실패**(새 화면이 새 주소를 부르면 mockApi에 추가). 새 PC는 `npx playwright install chromium` 한 번(수백 MB). `tsconfig.node.json`이 e2e도 타입 검사해서 e2e 타입 오류는 `npm run build`·Docker 이미지 빌드도 막는다(가짜 데이터가 types.ts와 어긋나면 잡으려는 의도). 도우미: `minePost()`(작성자가 로그인 사용자인 글), `loginVerified(api)`(학교 인증 회원으로 로그인). 에러 문구는 `getByRole('alert')` + `toHaveText('전체 문구')`로 검사(부분 일치 금지).
