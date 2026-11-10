@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import api from '../api'
-import { describeError } from '../errorMessage'
+import { describeError, ERROR_MESSAGES } from '../errorMessage'
 import { useAuth } from '../auth/useAuth'
 import { isAdmin } from '../auth/isAdmin'
 import { formatDate } from '../formatDate'
@@ -97,7 +97,7 @@ export default function AdminReportsPage() {
       setNotice('처리했습니다')
       await fetchList() // 목록을 다시 읽을 때까지 버튼을 계속 막는다
     } catch (err: unknown) {
-      await handleFail(err, '삭제하지 못했습니다', `이미 삭제된 ${what}입니다`)
+      await handleFail(err, ERROR_MESSAGES.DELETE_FAILED, ERROR_MESSAGES.alreadyDeleted(what))
     } finally {
       setBusy(false)
     }
@@ -110,7 +110,7 @@ export default function AdminReportsPage() {
       setNotice('처리했습니다')
       await fetchList()
     } catch (err: unknown) {
-      await handleFail(err, '처리하지 못했습니다', '이미 처리됐거나 사라진 신고입니다')
+      await handleFail(err, ERROR_MESSAGES.ACTION_FAILED, '이미 처리됐거나 사라진 신고입니다')
     } finally {
       setBusy(false)
     }

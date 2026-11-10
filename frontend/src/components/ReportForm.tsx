@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import api from '../api'
-import { describeError, errorText } from '../errorMessage'
+import { describeError, errorText, ERROR_MESSAGES } from '../errorMessage'
 import type { ReportReason } from '../types'
 import Loading from './Loading'
 import Notice from './Notice'
@@ -65,8 +65,8 @@ export default function ReportForm({
         err,
         {
           409: `이미 신고한 ${label}입니다`,
-          404: `이미 삭제된 ${label}입니다`,
-          403: '학교 인증이 필요하거나 인증한 학교의 글이 아니에요. 계속 안 되면 새로고침 후 다시 시도해 주세요',
+          404: ERROR_MESSAGES.alreadyDeleted(label),
+          403: ERROR_MESSAGES.SCHOOL_GATE_POST_ACTION,
           400: '내용을 확인해 주세요 (자기 것은 신고할 수 없고, 사유는 필수입니다)',
         },
         '신고하지 못했습니다',

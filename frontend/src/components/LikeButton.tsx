@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import api from '../api'
-import { describeError } from '../errorMessage'
+import { describeError, ERROR_MESSAGES } from '../errorMessage'
 import { useAuth } from '../auth/useAuth'
 import Notice from './Notice'
 import ReloginNotice from './ReloginNotice'
@@ -60,19 +60,23 @@ export default function LikeButton({ postId, initialCount, canLike, describedBy 
       setLiked(res.data.liked)
     } catch (err: unknown) {
       // 네트워크 오류·401·표에 없는 코드는 공용 함수가 정한다. 409/404는 화면 상태를 맞추는 일이 붙어 status로 따로 처리한다
-      const info = describeError(err, {
-          409: '이미 공감한 글입니다',
-          404: '글을 찾을 수 없습니다',
+      const info = describeError(
+        err,
+        {
+          409: ERROR_MESSAGES.POST_ALREADY_LIKED,
+          404: ERROR_MESSAGES.POST_NOT_FOUND,
           // 취소(DELETE)의 403은 CSRF뿐이다. 누르기(POST)의 403만 학교 인증 문제
           403: liked
             ? '취소하지 못했습니다. 새로고침 후 다시 시도해 주세요'
-            : '학교 인증이 필요하거나 인증한 학교의 글이 아니에요. 계속 안 되면 새로고침 후 다시 시도해 주세요',
-        }, '처리하지 못했습니다')
+            : ERROR_MESSAGES.SCHOOL_GATE_POST_ACTION,
+        },
+        ERROR_MESSAGES.ACTION_FAILED,
+      )
       if (info.kind === 'needLogin') setNeedLogin(true)
       else if (info.status === 409) {
         // 이미 눌려 있었음: 화면 상태만 '공감함'으로 맞춘다
         setLiked(true)
-        setMessage('이미 공감한 글입니다')
+        setMessage(ERROR_MESSAGES.POST_ALREADY_LIKED)
       } else if (info.status === 404 && liked) {
         // 취소하려는데 눌러 둔 적이 없음: '공감 안 함'으로 맞춘다
         setLiked(false)

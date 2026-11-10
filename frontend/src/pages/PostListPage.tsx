@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import api from '../api'
-import { errorText } from '../errorMessage'
+import { errorText, ERROR_MESSAGES } from '../errorMessage'
 import Loading from '../components/Loading'
 import { LOADING_TEXT } from '../components/loadingText'
 import Notice from '../components/Notice'
@@ -75,7 +75,7 @@ export default function PostListPage() {
         if (ignore) return
         const error = errorText(
           e,
-          { 404: '존재하지 않는 학교입니다', 400: '잘못된 조건입니다. 학교와 말머리를 다시 골라 주세요' },
+          { 404: ERROR_MESSAGES.SCHOOL_NOT_FOUND, 400: '잘못된 조건입니다. 학교와 말머리를 다시 골라 주세요' },
           '목록을 불러오지 못했습니다',
         )
         setResult({ key: queryKey, posts: [], error })

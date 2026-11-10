@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import api from '../api'
-import { describeError } from '../errorMessage'
+import { describeError, ERROR_MESSAGES } from '../errorMessage'
 import Notice from '../components/Notice'
 import ReloginNotice from '../components/ReloginNotice'
 import { useAuth } from '../auth/useAuth'
@@ -68,10 +68,10 @@ export default function PostCreatePage() {
       const info = describeError(
         err,
         {
-          400: '제목, 내용, 말머리를 확인해 주세요 (제목은 최대 100자)',
+          400: ERROR_MESSAGES.POST_FIELDS_INVALID,
           403: '학교 인증이 필요하거나 인증한 학교 게시판이 아니에요. 계속 안 되면 새로고침 후 다시 시도해 주세요',
         },
-        '저장하지 못했습니다',
+        ERROR_MESSAGES.SAVE_FAILED,
       )
       if (info.kind === 'needLogin') setNeedLogin(true)
       else setError(info.message)

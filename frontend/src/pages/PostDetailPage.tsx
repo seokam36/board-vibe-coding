@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import api from '../api'
-import { describeError, errorText } from '../errorMessage'
+import { describeError, errorText, ERROR_MESSAGES } from '../errorMessage'
 import { isAdmin } from '../auth/isAdmin'
 import { canActInSchool } from '../auth/canActInSchool'
 import Loading from '../components/Loading'
@@ -52,7 +52,13 @@ export default function PostDetailPage() {
       .catch((e: unknown) => {
         if (ignore) return
         setPost(null)
-        setError(errorText(e, { 404: '글을 찾을 수 없습니다', 400: '글을 찾을 수 없습니다' }, '글을 불러오지 못했습니다'))
+        setError(
+          errorText(
+            e,
+            { 404: ERROR_MESSAGES.POST_NOT_FOUND, 400: ERROR_MESSAGES.POST_NOT_FOUND },
+            ERROR_MESSAGES.POST_LOAD_FAILED,
+          ),
+        )
       })
       .finally(() => {
         if (!ignore) setLoading(false)
@@ -77,10 +83,10 @@ export default function PostDetailPage() {
       const info = describeError(
         err,
         {
-          403: isMine ? '삭제하지 못했습니다. 새로고침 후 다시 시도해 주세요' : '삭제할 권한이 없습니다',
-          404: '이미 삭제된 글입니다',
+          403: isMine ? ERROR_MESSAGES.DELETE_RETRY_AFTER_RELOAD : ERROR_MESSAGES.DELETE_FORBIDDEN,
+          404: ERROR_MESSAGES.alreadyDeleted('글'),
         },
-        '삭제하지 못했습니다',
+        ERROR_MESSAGES.DELETE_FAILED,
       )
       if (info.kind === 'needLogin') setNeedLogin(true)
       else setDeleteError(info.message)

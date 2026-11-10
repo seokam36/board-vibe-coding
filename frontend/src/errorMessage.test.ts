@@ -2,6 +2,7 @@ import { AxiosError } from 'axios'
 import { describe, it, expect } from 'vitest'
 import {
   CSRF_MESSAGE,
+  ERROR_MESSAGES,
   NETWORK_ERROR_MESSAGE,
   RELOGIN_MESSAGE,
   describeError,
@@ -91,5 +92,28 @@ describe('공용 문구 상수', () => {
     expect(NETWORK_ERROR_MESSAGE).toBe('서버에 연결할 수 없습니다')
     expect(CSRF_MESSAGE).toBe('보안 토큰이 없습니다. 새로고침 후 다시 시도해 주세요')
     expect(RELOGIN_MESSAGE).toBe('다시 로그인해 주세요')
+  })
+})
+
+// 문구 사전: 화면에 보이는 글자가 그대로인지 한 글자씩 고정한다 (함수는 예시 인자로)
+describe('ERROR_MESSAGES 문구 사전', () => {
+  it('글자가 바뀌지 않는다', () => {
+    const { alreadyDeleted, ...texts } = ERROR_MESSAGES
+    expect(texts).toEqual({
+      POST_NOT_FOUND: '글을 찾을 수 없습니다',
+      POST_LOAD_FAILED: '글을 불러오지 못했습니다',
+      POST_FIELDS_INVALID: '제목, 내용, 말머리를 확인해 주세요 (제목은 최대 100자)',
+      SAVE_FAILED: '저장하지 못했습니다',
+      SCHOOL_NOT_FOUND: '존재하지 않는 학교입니다',
+      SCHOOL_GATE_POST_ACTION:
+        '학교 인증이 필요하거나 인증한 학교의 글이 아니에요. 계속 안 되면 새로고침 후 다시 시도해 주세요',
+      DELETE_RETRY_AFTER_RELOAD: '삭제하지 못했습니다. 새로고침 후 다시 시도해 주세요',
+      DELETE_FORBIDDEN: '삭제할 권한이 없습니다',
+      DELETE_FAILED: '삭제하지 못했습니다',
+      POST_ALREADY_LIKED: '이미 공감한 글입니다',
+      ACTION_FAILED: '처리하지 못했습니다',
+    })
+    expect(alreadyDeleted('글')).toBe('이미 삭제된 글입니다')
+    expect(alreadyDeleted('댓글')).toBe('이미 삭제된 댓글입니다')
   })
 })

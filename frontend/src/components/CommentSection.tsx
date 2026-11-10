@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router'
 import api from '../api'
-import { describeError, errorText } from '../errorMessage'
+import { describeError, errorText, ERROR_MESSAGES } from '../errorMessage'
 import type { ErrorInfo } from '../errorMessage'
 import { useAuth } from '../auth/useAuth'
 import { isAdmin } from '../auth/isAdmin'
@@ -93,8 +93,9 @@ export default function CommentSection({ postId, canComment }: { postId: string;
           err,
           {
             400: CONTENT_ERROR,
-            403: '학교 인증이 필요하거나 인증한 학교의 글이 아니에요. 계속 안 되면 새로고침 후 다시 시도해 주세요',
-            404: '글을 찾을 수 없습니다' },
+            403: ERROR_MESSAGES.SCHOOL_GATE_POST_ACTION,
+            404: ERROR_MESSAGES.POST_NOT_FOUND,
+          },
           '댓글을 등록하지 못했습니다',
         ),
       )
@@ -119,7 +120,7 @@ export default function CommentSection({ postId, canComment }: { postId: string;
     } catch (err: unknown) {
       const info = describeError(
         err,
-        { 400: CONTENT_ERROR, 403: '본인 댓글만 수정할 수 있습니다', 404: '이미 삭제된 댓글입니다' },
+        { 400: CONTENT_ERROR, 403: '본인 댓글만 수정할 수 있습니다', 404: ERROR_MESSAGES.alreadyDeleted('댓글') },
         '수정하지 못했습니다',
       )
       showError(info)
@@ -147,10 +148,10 @@ export default function CommentSection({ postId, canComment }: { postId: string;
       const info = describeError(
         err,
         {
-          403: mine ? '삭제하지 못했습니다. 새로고침 후 다시 시도해 주세요' : '삭제할 권한이 없습니다',
-          404: '이미 삭제된 댓글입니다',
+          403: mine ? ERROR_MESSAGES.DELETE_RETRY_AFTER_RELOAD : ERROR_MESSAGES.DELETE_FORBIDDEN,
+          404: ERROR_MESSAGES.alreadyDeleted('댓글'),
         },
-        '삭제하지 못했습니다',
+        ERROR_MESSAGES.DELETE_FAILED,
       )
       showError(info)
       if (info.kind === 'message' && info.status === 404) setComments((prev) => (prev ?? []).filter((x) => x.id !== c.id))

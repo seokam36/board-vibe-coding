@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import api from '../api'
-import { describeError, errorText } from '../errorMessage'
+import { describeError, errorText, ERROR_MESSAGES } from '../errorMessage'
 import Loading from '../components/Loading'
 import Notice from '../components/Notice'
 import ReloginNotice from '../components/ReloginNotice'
@@ -47,7 +47,13 @@ export default function PostEditPage() {
       })
       .catch((e: unknown) => {
         if (ignore) return
-        setLoadError(errorText(e, { 404: '글을 찾을 수 없습니다', 400: '글을 찾을 수 없습니다' }, '글을 불러오지 못했습니다'))
+        setLoadError(
+          errorText(
+            e,
+            { 404: ERROR_MESSAGES.POST_NOT_FOUND, 400: ERROR_MESSAGES.POST_NOT_FOUND },
+            ERROR_MESSAGES.POST_LOAD_FAILED,
+          ),
+        )
       })
       .finally(() => {
         if (!ignore) setLoading(false)
@@ -96,10 +102,10 @@ export default function PostEditPage() {
         err,
         {
           403: '본인 글만 수정할 수 있습니다',
-          400: '제목, 내용, 말머리를 확인해 주세요 (제목은 최대 100자)',
-          404: '글을 찾을 수 없습니다',
+          400: ERROR_MESSAGES.POST_FIELDS_INVALID,
+          404: ERROR_MESSAGES.POST_NOT_FOUND,
         },
-        '저장하지 못했습니다',
+        ERROR_MESSAGES.SAVE_FAILED,
       )
       if (info.kind === 'needLogin') setNeedLogin(true)
       else setError(info.message)

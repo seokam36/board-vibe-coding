@@ -40,3 +40,40 @@ export function errorText(error: unknown, table: MessageTable, fallback: string)
   const info = describeError(error, table, fallback)
   return info.kind === 'message' ? info.message : fallback
 }
+
+// 화면 여러 곳에서 겹쳐 쓰는 에러 문구 사전. 이름은 "무엇을 못 했는지"로 짓는다.
+// 글자(띄어쓰기·마침표 포함)를 바꾸면 화면 문구가 바뀌니 errorMessage.test.ts가 그대로인지 지켜 준다.
+export const ERROR_MESSAGES = {
+  // --- 글 ---
+  // 글이 없을 때(404). 상세·수정 불러오기는 id가 이상한 400에도 같은 문구. 공감·댓글 등록의 404에도 씀
+  POST_NOT_FOUND: '글을 찾을 수 없습니다',
+  // 글 상세·수정 화면에서 글을 불러오다 실패했을 때의 기본 문구
+  POST_LOAD_FAILED: '글을 불러오지 못했습니다',
+  // 글 작성·수정에서 제목/내용/말머리 입력이 잘못됐을 때(400)
+  POST_FIELDS_INVALID: '제목, 내용, 말머리를 확인해 주세요 (제목은 최대 100자)',
+  // 글 작성·수정 저장 실패 기본 문구
+  SAVE_FAILED: '저장하지 못했습니다',
+
+  // --- 학교 ---
+  // 글 목록의 학교 필터가 없는 학교일 때(404)
+  SCHOOL_NOT_FOUND: '존재하지 않는 학교입니다',
+  // 댓글·공감·신고 403: 학교 인증을 안 했거나 다른 학교의 글일 때
+  SCHOOL_GATE_POST_ACTION:
+    '학교 인증이 필요하거나 인증한 학교의 글이 아니에요. 계속 안 되면 새로고침 후 다시 시도해 주세요',
+
+  // --- 삭제 ---
+  // 삭제 403인데 내 것(권한이 있어야 하는데 거부됨)일 때: 새로고침 안내
+  DELETE_RETRY_AFTER_RELOAD: '삭제하지 못했습니다. 새로고침 후 다시 시도해 주세요',
+  // 삭제 403인데 남의 것일 때
+  DELETE_FORBIDDEN: '삭제할 권한이 없습니다',
+  // 삭제 실패 기본 문구
+  DELETE_FAILED: '삭제하지 못했습니다',
+
+  // --- 댓글 · 공감 · 신고 ---
+  // 공감 버튼: 이미 공감한 글(409 응답, 그리고 화면에서 직접 막을 때)
+  POST_ALREADY_LIKED: '이미 공감한 글입니다',
+  // "처리" 동작의 기본 실패 문구 (공감 버튼, 관리자 신고 처리)
+  ACTION_FAILED: '처리하지 못했습니다',
+  // 이미 지워진 글/댓글 404 (글 삭제, 댓글 수정·삭제, 신고, 관리자 삭제). label은 '글' 또는 '댓글'
+  alreadyDeleted: (label: string) => `이미 삭제된 ${label}입니다`,
+} as const
