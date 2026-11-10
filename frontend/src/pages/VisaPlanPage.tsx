@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router'
 import api from '../api'
@@ -11,6 +11,8 @@ import { useConfirm } from '../components/confirmContext'
 import { addYears, formatDDay } from '../dday'
 import { formatDay, seoulToday } from '../formatDate'
 import type { School, VisaPlan } from '../types'
+import { BANNER_TEXT } from '../visa/visaBanner'
+import { useVisaPlan } from '../visa/visaPlanContext'
 import { HIKOREA_URL } from '../visaOfficialLink'
 
 // 일정이 없는 상태. 서버도 일정이 없으면 이 모양으로 준다
@@ -59,45 +61,55 @@ export default function VisaPlanPage() {
 // 인증 회원용 본체: 불러오기 → (없음 | 있음) 분기
 function VisaPlanView() {
   const confirm = useConfirm() // 삭제 전 확인 창
-  const [plan, setPlan] = useState<VisaPlan | null>(null) // null = 아직 모름(불러오는 중이거나 실패)
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [needLogin, setNeedLogin] = useState(false) // 불러오기·저장·삭제 중 401(재발급까지 실패)
+  // 일정은 앱 보관소(VisaPlanProvider)가 한 번 불러와 둔 것을 쓴다. 저장·삭제 성공 때 보관소를 갱신하면 상단 띠도 바로 바뀐다
+  const { status, plan: storePlan, errorMessage, needLogin: storeNeedLogin, loadedDay, setPlan, reload } = useVisaPlan()
+  // 마지막으로 본 일정. 저장 중 로그인이 풀려 보관소가 비워져도 화면(폼)을 지키려고 기억해 둔다
+  const [lastPlan, setLastPlan] = useState<VisaPlan | null>(null)
+  if (status === 'ready' && storePlan && storePlan !== lastPlan) setLastPlan(storePlan) // 렌더 중 갱신(허용되는 패턴)
+  // 보관소가 ready면 보관소 값, 아니면(로그인 풀림 등) 마지막으로 본/저장한 값. null = 아직 모름(불러오는 중이거나 실패)
+  const plan = status === 'ready' ? storePlan : lastPlan
+  const [writeOk, setWriteOk] = useState(false) // 가장 최근 저장·삭제가 성공했는지 (로그인이 풀려 있어도 성공했으면 재로그인 안내를 내린다)
+  const loading = status === 'loading'
+  const loadError = status === 'failed' ? errorMessage : null
+  const [saveNeedLogin, setSaveNeedLogin] = useState(false) // 저장·삭제 중 401(재발급까지 실패)
+  // 불러오기 중 401이거나 로그인이 풀려 보관소가 비워진(idle) 경우도 같은 안내
+  const needLogin = saveNeedLogin || (status === 'idle' && !writeOk) || (status === 'failed' && storeNeedLogin)
   const [date, setDate] = useState('') // 날짜 입력칸 값 (저장에 실패해도 그대로 둔다)
+  const [dateFilled, setDateFilled] = useState(false)
+  if (!dateFilled && plan) {
+    // 일정이 처음 확인되면 변경 폼에 현재 값을 한 번 채운다 (렌더 중 갱신)
+    setDateFilled(true)
+    setDate(plan.expiryDate ?? '')
+  }
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const today = seoulToday()
 
+  // 들어온 순간의 상태만 본다 (이후 상태 변화를 따라가면 첫 GET 실패 직후 또 GET이 나간다)
+  // 실패 상태였거나 받은 날짜가 오늘과 다르면(자정 넘김) 한 번 다시 부르고, 불러오는 중이면 기다리기만
+  const entry = useRef({ status, loadedDay, handled: false })
   useEffect(() => {
-    let ignore = false // 화면이 사라진 뒤 늦게 온 응답을 버리기 위한 플래그
-    api
-      .get<VisaPlan>('/users/me/visa-plan')
-      .then((res) => {
-        if (ignore) return
-        setPlan(res.data)
-        setDate(res.data.expiryDate ?? '') // 일정이 있으면 변경 폼에 현재 값을 채운다
-      })
-      .catch((e: unknown) => {
-        if (ignore) return
-        const info = describeError(e, {}, '일정을 불러오지 못했습니다')
-        if (info.kind === 'needLogin') setNeedLogin(true)
-        else setLoadError(info.message)
-      })
-      .finally(() => {
-        if (!ignore) setLoading(false)
-      })
-    return () => {
-      ignore = true
-    }
-  }, [])
+    const e = entry.current
+    if (e.handled) return
+    e.handled = true
+    if (e.status === 'failed' || (e.status === 'ready' && e.loadedDay !== null && e.loadedDay !== seoulToday())) reload()
+  }, [reload])
+
+  // 저장·삭제 성공을 화면에 반영: 보관소(띠)와 로컬 기억을 같이 갱신한다. 로그인이 풀려 보관소가 idle이어도 화면은 바뀐다
+  function commit(next: VisaPlan) {
+    setPlan(next)
+    setLastPlan(next)
+    setWriteOk(true)
+  }
 
   async function handleSave(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSaveError(null)
     setDeleteError(null) // 이전 삭제 실패 문구가 저장 성공 뒤에도 남지 않게
-    setNeedLogin(false)
+    setSaveNeedLogin(false)
+    setWriteOk(false)
     if (!date) {
       setSaveError('만료일을 입력해 주세요') // 빈 값은 서버에 보내지 않는다
       return
@@ -105,7 +117,7 @@ function VisaPlanView() {
     setSaving(true)
     try {
       const res = await api.put<VisaPlan>('/users/me/visa-plan', { expiryDate: date })
-      setPlan(res.data) // 응답으로 바로 화면을 바꾼다 (다시 GET 하지 않음)
+      commit(res.data) // 응답으로 바로 갱신한다 (다시 GET 하지 않음)
     } catch (err: unknown) {
       const info = describeError(
         err,
@@ -115,7 +127,7 @@ function VisaPlanView() {
         },
         ERROR_MESSAGES.SAVE_FAILED,
       )
-      if (info.kind === 'needLogin') setNeedLogin(true)
+      if (info.kind === 'needLogin') setSaveNeedLogin(true)
       else setSaveError(info.message) // 입력값(date)은 그대로 남는다
     } finally {
       setSaving(false)
@@ -127,20 +139,21 @@ function VisaPlanView() {
     if (!(await confirm({ message: '등록한 비자 일정을 삭제할까요?', confirmLabel: '삭제', danger: true }))) return
     setDeleting(true)
     setDeleteError(null)
-    setNeedLogin(false)
+    setSaveNeedLogin(false)
+    setWriteOk(false)
     try {
       await api.delete('/users/me/visa-plan')
-      setPlan(EMPTY_PLAN) // 빈 상태로
+      commit(EMPTY_PLAN) // 빈 상태로
       setDate('')
       setSaveError(null)
     } catch (err: unknown) {
       const info = describeError(err, { 404: ERROR_MESSAGES.alreadyDeleted('일정') }, ERROR_MESSAGES.DELETE_FAILED)
-      if (info.kind === 'needLogin') setNeedLogin(true)
+      if (info.kind === 'needLogin') setSaveNeedLogin(true)
       else {
         setDeleteError(info.message)
         if (info.status === 404) {
           // 이미 없는 일정이니 화면도 빈 상태로 맞춘다
-          setPlan(EMPTY_PLAN)
+          commit(EMPTY_PLAN)
           setDate('')
         }
       }
@@ -164,7 +177,7 @@ function VisaPlanView() {
           <p className={`visa-dday visa-dday-${plan.stage ?? 'NONE'}`}>{formatDDay(plan.daysLeft ?? 0)}</p>
           <p className="meta">체류 만료일 {formatDay(plan.expiryDate ?? '')}</p>
           {plan.stage === 'EXPIRED' && (
-            <Notice kind="info">등록한 체류 만료일이 지났습니다 — 날짜를 새로 등록하거나 지워 주세요</Notice>
+            <Notice kind="info">{BANNER_TEXT.EXPIRED}</Notice>
           )}
           {plan.todos.length > 0 && (
             <>

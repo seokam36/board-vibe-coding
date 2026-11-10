@@ -1,5 +1,4 @@
-import { expect, fakePosts, fakeUser, test } from './mockApi.ts'
-import type { MockHandlers } from './mockApi.ts'
+import { expect, fakePosts, fakeUser, loginVerified, test } from './mockApi.ts'
 import type { Comment, ReportReason } from '../src/types.ts'
 
 // 에러 문구 화면 테스트: 서버가 실패했을 때 화면이 보여 주는 한국어 문구를 고정한다.
@@ -16,17 +15,6 @@ import type { Comment, ReportReason } from '../src/types.ts'
 // (로그인은 api.setLoggedIn(true)로 따로 켠다. 작성자 id가 로그인한 사람과 같아야 앱이 내 글로 본다)
 function minePost() {
   return { ...fakePosts[1], author: { id: fakeUser.id, nickname: fakeUser.nickname } }
-}
-
-// 글 1번의 학교(가짜대학교, id 1)에 학교 인증을 마친 로그인 사용자. 댓글·공감·신고가 열린다
-function verifiedUser() {
-  return { ...fakeUser, verifiedSchool: { id: 1, name: '가짜대학교' } }
-}
-
-// 로그인 + 학교 인증을 켠다 (글 1번은 작성자가 다른 사람이라 "남의 글" 상태가 된다)
-function loginVerified(api: { setLoggedIn: (v: boolean) => void; override: (h: MockHandlers) => void }) {
-  api.setLoggedIn(true)
-  api.override({ 'GET /auth/me': { status: 200, body: verifiedUser() } })
 }
 
 test('글 상세가 404면 "글을 찾을 수 없습니다"가 보인다', async ({ page, api }) => {

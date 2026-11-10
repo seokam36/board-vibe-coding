@@ -3,6 +3,7 @@ import { useAuth } from './auth/useAuth'
 import Loading from './components/Loading'
 import NavBar from './components/NavBar'
 import RequireLogin from './components/RequireLogin'
+import VisaPlanBanner from './components/VisaPlanBanner'
 import LoginPage from './pages/LoginPage'
 import PostListPage from './pages/PostListPage'
 import PostCreatePage from './pages/PostCreatePage'
@@ -27,6 +28,7 @@ export default function App() {
   return (
     <>
       <NavBar />
+      <VisaPlanBanner />
       {/* page: 본문 틀(최대 720px 가운데) */}
       <main className="page">
         <Routes>

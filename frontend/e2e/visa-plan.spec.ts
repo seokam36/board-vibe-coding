@@ -1,15 +1,8 @@
-import { test, expect, fakeUser } from './mockApi.ts'
-import type { MockHandlers } from './mockApi.ts'
+import { test, expect, loginVerified } from './mockApi.ts'
 import type { Page } from '@playwright/test'
 import type { VisaPlan } from '../src/types.ts'
 
 // S12-c: /visa-plan 화면과 상단바 "비자 일정" 링크. 서버 응답은 mockApi 가짜 응답이다
-
-// 학교 인증을 마친 로그인 사용자로 만든다 (상단바 "비자 일정" 링크와 /visa-plan 폼이 열린다)
-function loginVerified(api: { setLoggedIn: (v: boolean) => void; override: (h: MockHandlers) => void }) {
-  api.setLoggedIn(true)
-  api.override({ 'GET /auth/me': { status: 200, body: { ...fakeUser, verifiedSchool: { id: 1, name: '가짜대학교' } } } })
-}
 
 // 화면이 보낸 /api/users/me/visa-plan 요청을 메서드별로 센다 (몇 번 나갔는지, 무엇을 보냈는지 확인용)
 function recordPlanRequests(page: Page) {
@@ -356,4 +349,49 @@ test('미인증 화면에도 일반 안내와 하이코리아 링크가 있다',
   await expect(page.getByText('비자 일정은 학교 인증 후에 등록할 수 있어요')).toBeVisible()
   await expect(page.getByText('일반 안내이며 개인 상황은 하이코리아나 관할 출입국·외국인청에서 확인하세요')).toBeVisible()
   await expect(page.getByRole('link', { name: '하이코리아' })).toHaveAttribute('href', 'https://www.hikorea.go.kr/')
+})
+
+// ---- S12-d review 보강: 보관소로 바뀐 뒤의 페이지 동작 ----
+
+test('일정 화면에 바로 들어와 불러오기가 실패하면 다시 부르지 않는다 (GET 1번)', async ({ page, api }) => {
+  loginVerified(api)
+  api.override({ 'GET /users/me/visa-plan': { status: 500 } })
+  const reqs = recordPlanRequests(page)
+  await page.goto('/visa-plan')
+  await expect(page.getByRole('alert')).toHaveText('일정을 불러오지 못했습니다')
+  await api.waitIdle()
+  expect(reqs.count('GET')).toBe(1)
+})
+
+test('일정이 있을 때 저장 중 로그인이 풀려도 D-n과 폼이 남는다', async ({ page, api }) => {
+  loginVerified(api)
+  api.override({
+    'GET /users/me/visa-plan': { status: 200, body: plan },
+    'PUT /users/me/visa-plan': { status: 401 },
+    'POST /auth/refresh': { status: 401 },
+  })
+  await page.goto('/visa-plan')
+  await page.getByLabel('체류 만료일').fill('2027-03-31')
+  await page.getByRole('button', { name: '만료일 변경' }).click()
+  await expect(page.getByRole('alert')).toHaveText(RELOGIN)
+  await expect(page.locator('.visa-dday')).toHaveText('D-111')
+  await expect(page.getByLabel('체류 만료일')).toHaveValue('2027-03-31')
+})
+
+test('로그인이 풀린 뒤 다른 탭에서 다시 로그인하고 저장하면 화면이 새 일정으로 바뀐다', async ({ page, api }) => {
+  // review [필수]: 풀린 화면에서 다시 저장이 성공해도 옛 화면과 재로그인 안내가 남던 문제
+  loginVerified(api)
+  api.override({
+    'PUT /users/me/visa-plan': { status: 401 },
+    'POST /auth/refresh': { status: 401 },
+  })
+  await page.goto('/visa-plan')
+  await page.getByLabel('체류 만료일').fill('2027-03-01')
+  await page.getByRole('button', { name: '저장' }).click()
+  await expect(page.getByRole('alert')).toHaveText(RELOGIN)
+  // 다른 탭에서 다시 로그인해 쿠키가 살아났다 → 이 탭에서 다시 저장하면 성공
+  api.override({ 'PUT /users/me/visa-plan': { status: 200, body: plan } })
+  await page.getByRole('button', { name: '저장' }).click()
+  await expect(page.locator('.visa-dday')).toHaveText('D-111')
+  await expect(page.getByRole('alert')).toHaveCount(0)
 })

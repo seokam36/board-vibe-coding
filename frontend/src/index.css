@@ -659,3 +659,32 @@ label textarea {
 .visa-todo-past {
   color: var(--muted);
 }
+
+/* ---------- 상단 비자 일정 띠 ---------- */
+/* 상단바 바로 아래 한 줄. 안내색(info)이고 빨강은 쓰지 않는다. 좁은 화면에서는 링크가 다음 줄로 */
+.visa-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--page-pad);
+  background: var(--info-soft);
+  color: var(--ink);
+  font-size: var(--fs-small2);
+  line-height: 1.5;
+}
+.visa-banner-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.visa-banner-close {
+  min-width: 40px;
+  min-height: 40px;
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: var(--fs-row); /* 17px, 글꼴 단계표 값 */
+  line-height: 1;
+  cursor: pointer;
+}

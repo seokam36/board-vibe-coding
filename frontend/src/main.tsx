@@ -5,6 +5,7 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './auth/AuthContext'
 import { ConfirmProvider } from './components/ConfirmDialog'
+import { VisaPlanProvider } from './visa/VisaPlanProvider'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -14,7 +15,10 @@ createRoot(document.getElementById('root')!).render(
       <AuthProvider>
         {/* ConfirmProvider: 삭제 같은 동작 전에 뜨는 확인 창을 앱 맨 위에서 한 번만 그린다 */}
         <ConfirmProvider>
-          <App />
+          {/* VisaPlanProvider: 내 비자 일정을 앱 전체에서 한 번만 불러와 상단 띠와 일정 화면이 같이 쓴다 (로그인 정보가 필요해 AuthProvider 안쪽) */}
+          <VisaPlanProvider>
+            <App />
+          </VisaPlanProvider>
         </ConfirmProvider>
       </AuthProvider>
     </BrowserRouter>

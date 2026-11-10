@@ -198,4 +198,10 @@ export const test = base.extend<{ api: Awaited<ReturnType<typeof mockApi>> }>({
   ],
 })
 
+// 로그인 + 학교 인증(가짜대학교)을 켠다. 여러 spec이 같이 쓴다 (페이지를 열기 전에 호출)
+export function loginVerified(api: { setLoggedIn: (v: boolean) => void; override: (h: MockHandlers) => void }) {
+  api.setLoggedIn(true)
+  api.override({ 'GET /auth/me': { status: 200, body: { ...fakeUser, verifiedSchool: { id: 1, name: '가짜대학교' } } } })
+}
+
 export { expect }
