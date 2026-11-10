@@ -2,29 +2,23 @@
 
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 
-마지막 갱신: 2026-11-09 늦은 밤 (집 PC)
+마지막 갱신: 2026-11-10
 
 ## 지금 어디까지
-- **S0~S10 + UI1 완료·배포됨.**
-- **S11 비자 후기와 학교별 통계: a~e 전부 커밋됨, 배포(S11-f)만 남음.** 백엔드 테스트 699개 통과. 운영 서버는 아직 S10 상태(V7 미적용).
-  - S11-a V7(`visa_reviews` 표 + 인덱스) + `GET /visa-review-options`
-  - S11-b `POST /visa-reviews`(인증 회원만, 학교 자동) + `GET /visa-reviews/{id}` + 탈퇴 시 후기 작성자 null
-  - S11-c `GET /visa-reviews?…` 거르기 + `PUT`(본인만) + `DELETE`(본인·관리자)
-  - S11-d `GET /visa-reviews/stats`(조합별 count·avgDays, 네이티브 group by 1번, 정렬은 자바에서) — push됨
-  - S11-e-1 목록·상세 화면 / e-2 작성·수정·삭제 화면 / e-3 통계 화면(후기·통계 탭) — 로컬 커밋, push 전
-  - fix: 글쓰기(PostCreatePage) 중 로그인이 풀리면 입력이 사라지던 버그(비자 후기 작성과 같은 lastSchool 방식)
-- S11 결정(backlog S11 항목에 전부): 별개 표, 정해진 칸 + 선택 본문(2000자), 결과 난 후기만(승인·불허), 접수일 ≤ 결과일 ≤ 서울 오늘, 처리 일수는 계산(저장 X), 통계는 숨기지 않고 건수와 함께, 공식 링크는 하이코리아 하나(화면 상수), 읽기 누구나·쓰기 인증 회원, 학교는 작성 시점 인증 학교 복사, 탈퇴 후 재인증 허용(알려진 한계).
+- **S0~S11 + UI1 완료·배포됨.** 운영은 S11-f(커밋 1ebeb84) 이미지, V7까지 적용.
+- **S11 파트 리뷰 수정(ea0db23)은 push만 되고 운영 미반영** → 다음 Deploy 때 같이 나간다(급하지 않음). 내용: 후기 날짜 하한(접수일은 서울 오늘 기준 최근 5년 이내, 처리 기간 365일 이하, 작성·수정 모두 400) + 탈퇴 후 통계 유지 테스트 + users FK 감시 테스트. 테스트 708개.
+- S11 요약: 별개 표 visa_reviews, 정해진 칸 + 선택 본문, 읽기 누구나·쓰기 인증 회원(학교는 인증 학교 복사), 수정 본인·삭제 본인/관리자, 통계는 네이티브 group by 1번. 결정 전부 backlog S11 항목.
 - 사이트 컨셉: **같은 학교 유학생 선배들의 경험이 쌓이는 외국인 유학생 커뮤니티.** 로드맵과 결정은 docs/backlog.md.
-- S10 요약: 미인증은 읽기만, 글쓰기·댓글·공감·신고는 인증한 학교 글에만(`AccessGuard.requireVerified`/`requireSameSchool`, 매번 DB). 메일은 Gmail SMTP(`MAIL_MODE=smtp`), 원문 저장 없이 해시만. 자세한 건 backlog S10·docs/api.md.
-- Notion: **S11 카드(번호 12)에 S11-a·b·c·d 기록 완료**(단계 S11-a~d), 진행 현황 S11 줄은 "남은 것: 화면·배포"(미체크). S11-e는 프론트 단계라 Notion에 안 씀.
+- S10 요약: 미인증은 읽기만, 글쓰기·댓글·공감·신고는 인증한 학교 글에만(`AccessGuard.requireVerified`/`requireSameSchool`, 매번 DB). 메일은 Gmail SMTP(`MAIL_MODE=smtp`), 원문 저장 없이 해시만.
+- Notion: S11 카드에 S11-a~d, S11-f, "S11 전체 정리와 코드 리뷰" 페이지 완료. 진행 현황 S11 체크됨. 다음 파트는 새 카드(번호 13).
 
 ## 다음에 할 일
-- **S11-f 배포.** 먼저 `git push`(로컬 커밋 4개) → Actions CI가 images까지 초록 확인 → EC2 켜기 → Deploy. deploy가 docs/deploy.md에 "V7 후 S10 이미지로 되돌리기" 메모 추가(V7은 새 표·인덱스만이라 되돌려도 뜰 것 — 확인). 배포 후 운영에서 후기 작성·통계 확인(인증 회원 필요 → handoff "학교 메일 없이 운영에서 인증 테스트" 방법).
-- 배포 끝나면: Notion S11-f 기록 + 진행 현황 S11 체크, **S11 파트 전체 백엔드 로직 정리 + 코드 리뷰**(사용자 선호)를 채팅과 Notion에.
-- 사용자와 이야기한 후보(아직 backlog에 안 올림, 올릴지 물어보기): ① 프론트 기본 에러 문구표(화면마다 겹치는 404 등 줄이기) ② 프론트 자동 테스트(Vitest → Playwright, 매번 손으로 브라우저 확인하는 걸 줄이기).
+- **S12 비자 할 일과 자동 알림 시작**: backlog S12 항목을 구체화해 사용자에게 보여 주고 → planner.
+- S12 전에 물어보기: 아직 backlog에 안 올린 후보 ① 프론트 기본 에러 문구표(화면마다 겹치는 404 등 줄이기) ② 프론트 자동 테스트(Vitest → Playwright). 올릴지.
 
 ## 진행 중인 단계
-- S11(a~e 커밋, f 남음). 커밋 안 된 변경: `.claude/launch.json`(컴퓨터마다 다른 실행 설정, 일부러 커밋 안 함)
+- 없음. 커밋 안 된 변경: `.claude/launch.json`(컴퓨터마다 다른 실행 설정, 일부러 커밋 안 함)
+- 미룬 것(S11 파트 리뷰 "나중"): 날짜를 숫자·배열(`0`, `[2026,9,1]`)로 보내도 Jackson이 받아 줄 수 있음(확인 안 함, 받으면 명세에 적거나 문자열만) · 1건짜리 통계도 "평균"으로 보임(화면은 건수 같이 표시) · 한 회원 중복 작성은 backlog 알려진 한계
 - 미룬 것(S11-e 리뷰): 목록·통계 화면의 요청·에러 문구 중복을 훅으로(세 번째 사용처 생길 때) · 탭이 주소 쿼리를 통째로 붙임(쿼리 늘면 필터 3개만) · PostCreatePage·VisaReviewCreatePage의 같은 6줄 → useVerifiedSchool 훅 · 상세에서 삭제 후 목록으로 갈 때 필터 사라짐(글도 같음) · "목록으로"도 필터 안 들고 감
 - 미룬 것(S11 리뷰): 후기 수정 중 다른 쪽이 삭제하면 500(글 수정과 같은 한계) · 테스트의 `@MockitoBean Clock`이 컨텍스트를 따로 띄움(느려지면 공용 MutableClock) · RecordingSender를 공용 테스트 설정으로 · SecurityConfig `/visa-reviews/stats` 명시 matcher는 `{id}` 규칙과 중복(의도 표시용)
 - 미룬 것(S10 리뷰 "나중"): 메일 해시가 소금 없는 SHA-256(Redis·DB 털리면 사전 역산 가능 → 나중에 HMAC로 둘 다) · Redis Cluster로 가면 인증 Lua 키(5개)가 한 슬롯에 안 묶임 · 인증 테스트 헬퍼(RecordingSender·sha256) 중복 · 409 "다른 계정이 쓴 메일"이 존재 여부를 조금 알려 줌 · Gmail 하루 약 500통 한도(근본 해결은 도메인 + AWS SES) · SMTP 장애 중 연타하면 요청마다 최대 ~25초 스레드 점유 · 운영 gmail.com 임시 도메인 테스트 뒤 그 시간대 인증 계정 수 확인 단계 · 인증 설정값 @Validated · api.md 400·410 문구는 실제 본문에 없음 · 운영 MAIL_MODE 빠지면 조용히 log 모드
@@ -42,7 +36,7 @@
 - 테스트에서 메일 발송 결과를 보려면 `@Primary` 가짜 `VerificationMailSender`(SchoolEmailCodeApiTests의 RecordingSender 참고). 인증 Redis 키는 `email-verify*`(코드·cooldown·daily·pair·target), 테스트 전후 정리.
 - 인증 관련 Redis 키 이름·막혔을 때 운영자가 푸는 법은 docs/deploy.md "학교 인증 코드가 막혔다는 문의가 오면".
 - 로컬에서 실제 메일 확인하려면 `.env`에 MAIL_* + `MAIL_MODE=smtp`. 학교 도메인만 허용이라 개인 Gmail로 받으려면 **로컬 DB에만** `insert into school_email_domains (school_id, domain) select id,'gmail.com' from schools where name='연세대학교';` 후 테스트, 끝나면 delete. 화면 확인은 `MAIL_MODE=log`로 켜고 서버 로그의 `[가짜 메일 발송] ... code=`를 읽는다.
-- 옛 이미지로 되돌리기: V3·V4·V5·V6은 칸 추가(NULL/DEFAULT)·새 표만이라 되돌려도 뜬다(docs/deploy.md (b)). V2 되돌리기 주의도 같은 곳.
+- 옛 이미지로 되돌리기: V3~V7은 칸 추가(NULL/DEFAULT)·새 표만이라 되돌려도 뜬다(docs/deploy.md (b)). 단 V7 후 S10 이미지면 **후기 쓴 회원 탈퇴가 500**. V2 되돌리기 주의도 같은 곳.
 - 관리자는 운영 DB SQL로만 지정(docs/deploy.md "관리자 지정·해제"). 지정 후 다시 로그인해야 토큰에 반영.
 - **Jackson 3 설정 이름 함정**: 숫자 enum 막기는 `spring.jackson.datatype.enum.fail-on-numbers-for-enums`(옛 이름이면 앱이 안 뜸).
 - 집 PC PowerShell은 `npm.ps1`을 막는다. `.claude/launch.json`의 frontend는 `npm.cmd`. 노트북 launch.json의 powershell은 전체 경로(`C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`)여야 preview가 찾는다.
@@ -50,18 +44,21 @@
 - 백엔드를 끈 채 화면을 열면 Vite 프록시 502 → 각 화면의 기본 실패 문구(정상).
 - **Windows Git Bash `curl -d`에 한글 JSON을 넣으면 400.** UTF-8 파일로 만들어 `--data-binary @파일`로 보낸다. psql에 한글 SQL도 파일로(`docker cp` 후 `-f`).
 - PostgreSQL 컨테이너의 정렬이 한글 가나다순과 달라 학교 이름 순서는 서버 코드에서 정렬.
-- **학교 메일 없이 운영에서 인증 테스트**(S10-h 때 한 방법): [서버] psql에서 `INSERT INTO school_email_domains (school_id, domain) SELECT school_id, 'gmail.com' FROM school_email_domains WHERE domain = 'yonsei.ac.kr';` → 테스트 계정 새로 가입 → campuscode4 Gmail 주소로 인증(자기한테 보냄, 스팸함 확인) → 글쓰기 확인·삭제 → **`DELETE FROM school_email_domains WHERE domain = 'gmail.com';` 꼭** → 테스트 계정 탈퇴(회원 줄이 지워져 메일 해시도 사라짐). 그 사이엔 누구나 gmail로 연세대 인증 가능하니 짧게.
+- **운영 테스트 계정 = `wntjrdka`(연세대 인증, 2026-11-10 SQL로 지정).** 배포 후 인증 회원이 필요한 확인은 이 계정으로 로그인만 하면 된다(가입·메일 인증 반복 X, 비밀번호는 사용자만 앎). 테스트로 쓴 글·후기는 확인 뒤 삭제해 통계 오염 방지. 다른 계정을 인증시키려면 [서버] `UPDATE users SET verified_school_id = (SELECT id FROM schools WHERE name = '연세대학교'), verified_at = now() WHERE username = '...';` 후 재로그인.
+- 실제 메일 인증 흐름까지 운영에서 봐야 할 때만(S10-h 방법): gmail.com을 잠깐 연세대 도메인으로 INSERT → 인증 → **꼭 DELETE**. 그 사이엔 누구나 gmail로 연세대 인증 가능하니 짧게.
 - 글쓰기 화면은 학교를 고르지 않고 인증한 학교로 고정(S10-f 설계). "다른 학교 글쓰기 막힘"은 화면에서 확인 불가, 테스트가 지킨다.
 - 집 PC 로컬 DB: V7까지 적용됨. 연습 계정 `visa_me`(경희대 인증)·`visa_other`(고려대 인증)·`visa_new`(미인증)·`visa_admin`(관리자)과 연습 후기 몇 개가 있다(로컬 전용). 비밀번호는 세션 임시 폴더에만 적어 둬서 사라짐 → 필요하면 새로 가입 후 SQL로 `verified_school_id`·`role` 지정. 회원가입 API는 CSRF 필요(`GET /csrf` 쿠키 → `X-XSRF-TOKEN` 헤더).
 - 브라우저 확인 요령: 로그인 풀림은 페이지 JS로 `/api/auth/logout`을 먼저 부르고 저장을 누르면 재현된다. 콘솔 에러는 탭에 계속 쌓이니 파일 버전(`?t=` 숫자)으로 옛 기록인지 구분.
 - **비자 후기 "오늘"은 `Clock` 빈(ClockConfig, Asia/Seoul) 기준.** 서버는 UTC라 `LocalDate.now()`·`@PastOrPresent`를 쓰면 서울 밤에 오늘이 미래로 판정된다. 후기 테스트는 `@MockitoBean Clock`으로 서울 2026-11-09 12:00 고정(VisaReviewApiTests·VisaReviewListUpdateDeleteTests와 같은 설정을 써야 컨텍스트를 같이 씀).
+- 후기 날짜 규칙: 결과일 ≥ 접수일, 둘 다 ≤ 서울 오늘, **접수일 ≥ 오늘-5년, 처리 ≤ 365일**(테스트 시계 기준 5년 경계 = 2021-11-09).
+- **users를 가리키는 FK를 새로 만들면** `UsersForeignKeyGuardTests`가 실패한다(의도). ON DELETE를 주거나 `UserService.withdraw`에 clearAuthor를 추가하고 테스트의 허용 목록도 갱신.
 - 후기 작성 테스트는 **인증 회원**이어야 한다(`TestLogin.인증된_사용자`·`학교_인증_처리`). 수정·삭제는 인증 불필요. 탈퇴는 `UserService.withdraw`가 posts·comments·visa_reviews 작성자를 비운 뒤 회원 삭제(작성자 FK에 ON DELETE 없음).
 - SecurityConfig의 `GET /visa-reviews/{id}` 공개 규칙은 `/visa-reviews/` 아래 한 칸짜리 GET을 전부 공개로 만든다(`/stats`도 명시해 둠). 로그인 전용 GET을 그 아래 두려면 따로 막아야 한다.
 - **Vite 옛 파일 문제가 이번에도 여러 번 났다**(서브에이전트가 고친 직후 화면이 하얗게 비고 `xxx is not defined`). build가 프론트를 고친 뒤에는 브라우저 확인 전에 frontend 서버를 항상 껐다 켠다.
 - Flyway 테스트 `FlywayExistingBaselineTests`는 "새로 적용되는 V 파일 수"를 하드코딩한다 → V8을 만들면 같이 고쳐야 한다.
 - 노트북 로컬 DB: 이제 기록장이 있고 V6까지 적용됨. 연습 계정 `mailtest01`(연세대 인증), `koreauser`(고려대 인증, 가짜 해시), `newbie`(미인증), 비밀번호는 연습용. 글 3개(연세대·고려대·학교 미지정).
 - `.env`는 git에 없다. `.env.example`을 복사해 채운다. 필요한 키: DB_*, POSTGRES_*, JWT_SECRET, REDIS_PASSWORD, (선택) MAIL_*. **`.env`는 캡처해서 공유하지 말 것.**
-- 로컬 `docker compose up -d`는 postgres + redis만(app은 `profiles: prod`). Docker Desktop이 꺼져 있으면 먼저 켠다.
+- 로컬 `docker compose up -d`는 postgres + redis만(app은 `profiles: prod`). Docker Desktop이 꺼져 있으면 먼저 켠다. **꺼진 채 `./gradlew test`를 돌리면 Testcontainers가 못 떠서 테스트 대부분(650개+)이 컨텍스트 로딩 실패**한다(코드 문제 아님). 이 컴퓨터의 Docker Desktop은 `%LOCALAPPDATA%\Programs\DockerDesktop\Docker Desktop.exe`(Program Files 아님).
 - `./gradlew bootRun`은 `.env`를 자동으로 읽지 않는다. PowerShell에서 환경변수로 넣고 실행.
 - 프론트 로컬 실행: `frontend`에서 `npm install` 후 `npm run dev` → http://localhost:5173(반드시 5173으로).
 - 프론트에는 자동 테스트 도구가 없다(lint·build + 메인 대화가 preview 도구로 브라우저 확인).
