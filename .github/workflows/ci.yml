@@ -71,6 +71,10 @@ jobs:
       - name: 린트
         run: npm run lint
 
+      # 순수 함수 단위 테스트(Vitest)를 돌린다.
+      - name: 단위 테스트
+        run: npm test
+
       # 타입 검사 + 프로덕션 빌드가 되는지 확인한다.
       - name: 빌드
         run: npm run build

@@ -1,9 +1,15 @@
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // 단위 테스트 설정: 화면(브라우저) 없이 순수 함수만 검사하니 node 환경이면 충분하다.
+  // include로 src 안의 *.test.ts만 돌린다 (나중에 e2e/*.spec.ts(Playwright)와 섞이지 않게).
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.ts'],
+  },
   server: {
     // 개발 서버(5173)가 /api 로 시작하는 요청을 백엔드(8080)에 대신 전달한다.
     // 이유: 브라우저 입장에서 화면과 API가 같은 주소(5173)가 되어, 쿠키(refresh_token의 Path=/api/auth 포함)가
