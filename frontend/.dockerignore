@@ -10,3 +10,7 @@ npm-debug.log*
 .DS_Store
 Dockerfile
 .dockerignore
+# Playwright 결과물 (이미지에 필요 없음)
+test-results
+playwright-report
+blob-report

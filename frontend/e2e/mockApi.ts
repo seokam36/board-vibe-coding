@@ -1,0 +1,148 @@
+import { test as base, expect } from '@playwright/test'
+import type { Page } from '@playwright/test'
+import type { AuthUser } from '../src/auth/useAuth.ts'
+import type { Category, Comment, Post, School } from '../src/types.ts'
+
+// ---- 가짜 데이터: src/types.ts 타입을 붙여서 실제 응답 모양과 어긋나면 tsc가 알려 준다 ----
+
+export const fakeUser: AuthUser = {
+  id: 1,
+  username: 'tester01',
+  nickname: '테스터',
+  verifiedSchool: null,
+  role: 'USER',
+}
+
+// docs/api.md 기준: GET /schools 에는 emailDomains가 있고, 글 응답의 school에는 id·name만 있다
+const fakeSchools: School[] = [{ id: 1, name: '가짜대학교', emailDomains: ['fake.ac.kr'] }]
+const postSchool: School = { id: 1, name: '가짜대학교' }
+// 말머리 코드는 실제와 같게 CHAT·QUESTION·CAMPUS_LIFE
+const fakeCategories: Category[] = [
+  { code: 'CHAT', name: '잡담' },
+  { code: 'QUESTION', name: '질문' },
+  { code: 'CAMPUS_LIFE', name: '학교생활' },
+]
+
+// 목록은 최신순(id 내림차순)이라 id 2가 먼저다
+export const fakePosts: Post[] = [
+  {
+    id: 2,
+    title: '두 번째 가짜 글',
+    content: '두 번째 글의 내용입니다.',
+    author: { id: 3, nickname: '글쓴이B' },
+    school: postSchool,
+    category: fakeCategories[1],
+    createdAt: '2026-01-02T00:00:00Z',
+    commentCount: 0,
+    likeCount: 0,
+  },
+  {
+    id: 1,
+    title: '첫 번째 가짜 글',
+    content: '첫 번째 글의 내용입니다.',
+    author: { id: 2, nickname: '글쓴이A' },
+    school: postSchool,
+    category: fakeCategories[0],
+    createdAt: '2026-01-01T00:00:00Z',
+    commentCount: 1,
+    likeCount: 3,
+  },
+]
+
+const fakeComments: Comment[] = [
+  { id: 1, postId: 1, content: '첫 댓글', createdAt: '2026-01-01T01:00:00Z', author: { id: 3, nickname: '글쓴이B' } },
+]
+
+// ---- 가짜 응답을 만드는 도우미 ----
+
+// 한 요청에 대한 가짜 응답. status는 상태코드, body는 JSON으로 내려갈 값
+export interface MockResponse {
+  status: number
+  body?: unknown
+}
+// 키는 "메서드 경로"(예: "GET /posts"). 경로는 /api를 뗀 것이고 ?뒤 쿼리는 뺀다
+export type MockHandlers = Record<string, MockResponse | (() => MockResponse)>
+
+// 기본 가짜 응답 모음. 로그인 여부는 state.loggedIn 으로 정한다
+function defaultHandlers(state: { loggedIn: boolean }): MockHandlers {
+  return {
+    // docs/api.md: GET /csrf 는 헤더 이름을 돌려준다 (쿠키 설정은 서버가 하니 여기선 본문만)
+    'GET /csrf': { status: 200, body: { headerName: 'X-XSRF-TOKEN' } },
+    // 로그인 전에는 401, 로그인 뒤에는 내 정보
+    'GET /auth/me': () => (state.loggedIn ? { status: 200, body: fakeUser } : { status: 401 }),
+    // 앱은 me가 401이면 refresh를 시도한다. 비로그인이니 이것도 401
+    'POST /auth/refresh': () => (state.loggedIn ? { status: 200, body: fakeUser } : { status: 401 }),
+    'POST /auth/login': () => {
+      state.loggedIn = true
+      return { status: 200, body: fakeUser }
+    },
+    'GET /schools': { status: 200, body: fakeSchools },
+    'GET /categories': { status: 200, body: fakeCategories },
+    'GET /posts': { status: 200, body: fakePosts },
+    'GET /posts/1': { status: 200, body: fakePosts[1] },
+    'GET /posts/1/comments': { status: 200, body: fakeComments },
+  }
+}
+
+// page.route로 /api 요청을 가로채 가짜 응답을 준다. 준비 안 된 요청은 unhandled에 기록하고 404로 막는다
+export async function mockApi(page: Page, options: { loggedIn?: boolean } = {}) {
+  const state = { loggedIn: options.loggedIn ?? false }
+  // 요청이 올 때마다 이 객체에서 찾는다(요청 시점 조회). 그래서 나중에 override로 바꿔도 바로 반영된다
+  const handlers = defaultHandlers(state)
+  const unhandled: string[] = []
+  let pending = 0 // 아직 끝나지 않은 /api 요청 수
+
+  const isApi = (url: string) => new URL(url).pathname.startsWith('/api/')
+  page.on('request', (r) => isApi(r.url()) && pending++)
+  page.on('requestfinished', (r) => isApi(r.url()) && pending--)
+  page.on('requestfailed', (r) => isApi(r.url()) && pending--)
+
+  // 주소가 /api/ 로 시작하는 요청만 가로챈다 (/src/api.ts 같은 소스 파일 요청은 건드리지 않는다)
+  await page.route(
+    (url) => url.pathname.startsWith('/api/'),
+    async (route) => {
+      const req = route.request()
+      const path = new URL(req.url()).pathname.replace(/^\/api/, '')
+      const key = `${req.method()} ${path}`
+      const handler = handlers[key]
+      if (!handler) {
+        unhandled.push(key)
+        await route.fulfill({ status: 404, json: { message: `mock 없음: ${key}` } })
+        return
+      }
+      const res = typeof handler === 'function' ? handler() : handler
+      await route.fulfill({ status: res.status, json: res.body ?? {} })
+    },
+  )
+  return {
+    unhandled,
+    // 일부 주소의 가짜 응답을 갈아 끼운다 (예: override({ 'GET /posts': { status: 500 } }))
+    override(next: MockHandlers) {
+      Object.assign(handlers, next)
+    },
+    // 로그인 상태를 바꾼다 (페이지를 열기 전에 호출)
+    setLoggedIn(value: boolean) {
+      state.loggedIn = value
+    },
+    // 진행 중인 /api 요청이 0이 될 때까지 기다린다 (늦게 온 요청이 검사에서 빠지지 않게)
+    async waitIdle() {
+      await expect.poll(() => pending, { intervals: [20, 50, 100], timeout: 3000 }).toBe(0)
+    },
+  }
+}
+
+// 테스트에서 쓰는 test: 매 테스트마다 가짜 API를 자동으로 켜고, 끝나면 "준비 안 한 요청이 없었는지" 검사한다
+export const test = base.extend<{ api: Awaited<ReturnType<typeof mockApi>> }>({
+  api: [
+    async ({ page }, use) => {
+      const api = await mockApi(page)
+      await use(api)
+      await api.waitIdle()
+      // 하나라도 있으면 실패: 화면이 예상 못 한 주소를 불렀다는 뜻
+      expect(api.unhandled, '준비하지 않은 /api 요청이 있었다').toEqual([])
+    },
+    { auto: true },
+  ],
+})
+
+export { expect }
