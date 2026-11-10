@@ -55,11 +55,9 @@ const fakeComments: Comment[] = [
 
 // ---- 가짜 응답을 만드는 도우미 ----
 
-// 한 요청에 대한 가짜 응답. status는 상태코드, body는 JSON으로 내려갈 값
-export interface MockResponse {
-  status: number
-  body?: unknown
-}
+// 한 요청에 대한 가짜 응답. status는 상태코드, body는 JSON으로 내려갈 값(없으면 본문 없이 보낸다)
+// { abort: true }는 응답 없이 연결이 끊긴 것처럼 만든다 (서버 꺼짐 같은 네트워크 오류 장면용)
+export type MockResponse = { status: number; body?: unknown } | { abort: true }
 // 키는 "메서드 경로"(예: "GET /posts"). 경로는 /api를 뗀 것이고 ?뒤 쿼리는 뺀다
 export type MockHandlers = Record<string, MockResponse | (() => MockResponse)>
 
@@ -81,6 +79,8 @@ function defaultHandlers(state: { loggedIn: boolean }): MockHandlers {
     'GET /posts': { status: 200, body: fakePosts },
     'GET /posts/1': { status: 200, body: fakePosts[1] },
     'GET /posts/1/comments': { status: 200, body: fakeComments },
+    // 로그인한 사람이 글 상세를 열면 "내가 공감했는지"를 확인한다 (docs/api.md 5-9)
+    'GET /posts/1/likes/me': { status: 200, body: { liked: false } },
   }
 }
 
@@ -111,7 +111,14 @@ export async function mockApi(page: Page, options: { loggedIn?: boolean } = {}) 
         return
       }
       const res = typeof handler === 'function' ? handler() : handler
-      await route.fulfill({ status: res.status, json: res.body ?? {} })
+      // 연결 끊김: 화면은 response 없는 에러를 받는다
+      if ('abort' in res) {
+        await route.abort('failed')
+        return
+      }
+      // body가 없으면 본문 없이 보낸다 (204 같은 응답에 본문이 붙지 않게). body가 있으면 JSON으로 보낸다
+      if (res.body === undefined) await route.fulfill({ status: res.status })
+      else await route.fulfill({ status: res.status, json: res.body })
     },
   )
   return {

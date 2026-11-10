@@ -11,6 +11,7 @@
 
 ## 명령어
 - 빌드 `./gradlew build` / 테스트 `./gradlew test` / 실행 `./gradlew bootRun` / DB `docker compose up -d`
+- 프론트(frontend 폴더): 단위 테스트 `npm test`(Vitest) / 브라우저 테스트 `npm run test:e2e`(Playwright, 백엔드 불필요)
 
 ## 코드 규칙
 - 패키지: com.example.demo.{도메인}.{controller|service|repository|domain|dto}

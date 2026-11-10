@@ -31,5 +31,6 @@ test('목록에서 글 제목을 누르면 상세 화면에 제목·내용·작�
   await expect(page).toHaveURL('/posts/1')
   await expect(page.getByRole('heading', { name: post.title })).toBeVisible()
   await expect(page.getByText(post.content)).toBeVisible()
-  await expect(page.getByText(post.author!.nickname, { exact: true }).first()).toBeVisible()
+  // 작성자 이름은 댓글 작성자로도 나올 수 있어서, 글 본문 영역(article) 안으로 좁혀 찾는다
+  await expect(page.getByRole('article').getByText(post.author!.nickname, { exact: true })).toBeVisible()
 })
