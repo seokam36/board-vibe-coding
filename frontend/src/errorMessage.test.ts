@@ -117,9 +117,11 @@ describe('ERROR_MESSAGES 문구 사전', () => {
       REVIEW_FIELDS_INVALID: '날짜를 확인해 주세요 (접수일은 결과일과 같거나 앞서야 하고, 둘 다 오늘까지. 본문은 2000자까지)',
       REVIEW_FILTER_INVALID: '잘못된 조건입니다. 학교·비자 종류·신청 종류를 다시 골라 주세요',
       REVIEW_OPTIONS_LOAD_FAILED: '선택지 목록을 불러오지 못했습니다',
+      VISA_SCHOOL_REQUIRED_RETRY: '학교 인증이 필요해요. 계속 안 되면 새로고침 후 다시 시도해 주세요',
     })
     expect(alreadyDeleted('글')).toBe('이미 삭제된 글입니다')
     expect(alreadyDeleted('댓글')).toBe('이미 삭제된 댓글입니다')
     expect(alreadyDeleted('후기')).toBe('이미 삭제된 후기입니다')
+    expect(alreadyDeleted('일정')).toBe('이미 삭제된 일정입니다')
   })
 })

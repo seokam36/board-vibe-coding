@@ -98,7 +98,8 @@
   - [x] S12-a. V8(visa_plans) + 일정 등록·조회·삭제 API
   - 결정(S12-b 리뷰 후, 2026-11-10): 상태값(stage)·할 일 code는 숫자 없는 이름 PREPARE(120일 이내)·CHECK(30일 이내)·URGENT(7일 이내)·EXPIRED(지남) — 기준 숫자를 바꿔도 이름이 안 어긋나게. 상태값은 화면이 띠를 띄울지·문구·닫은 뒤 다시 띄울지 판단하는 데만 쓰고, 사용자에게는 daysLeft로 D-111 / D-Day / D+3을 보여 준다(S12-c·d). 할 일 문구는 연장뿐 아니라 자격 변경도 포함, 기관 이름은 "출입국·외국인청"
   - [x] S12-b. 할 일 목록 + 띠 단계 계산(todos·daysLeft·stage)
-  - [ ] S12-c. 화면: /visa-plan 페이지 + 상단바 링크
+  - [x] S12-c. 화면: /visa-plan 페이지 + 상단바 링크
+  - 나중(S12-c 리뷰): 고정 안내문(PlanGuide·VisaDisclaimer)이 Notice info라 role=status(Notice에 role 없는 고정 안내 종류 두기) · e2e가 .visa-dday 등 클래스 셀렉터에 의존(region·listitem 역할로) · mockApi PUT 기본 응답이 "일정 없음"(현실적인 일정으로 또는 기본 빼기) · loginVerified가 두 spec에 중복(S12-d에서 mockApi로 옮겨 export) · hasPlan 뒤에도 ?? 필요(일정 있음/없음 타입 분리) · 만료된 일정은 지난 날짜가 폼에 채워져 그대로 누르면 브라우저 기본 말풍선
   - [ ] S12-d. 화면: 상단 띠
   - [ ] S12-e. EC2 배포(S11 리뷰 수정·UI2·UI3 묶음 확인)
 - [ ] S13. 글 번역
@@ -189,3 +190,4 @@
 | 2026-11-10 | UI3-b-2 | 비자 후기·로그인·가입 화면(8개 파일)의 중복 에러 문구를 사전으로: 새 키 REVIEW_NOT_FOUND·REVIEW_LOAD_FAILED·REVIEW_FIELDS_INVALID·REVIEW_FILTER_INVALID·REVIEW_OPTIONS_LOAD_FAILED, 기존 SCHOOL_NOT_FOUND·SAVE_FAILED·DELETE_*·alreadyDeleted('후기') 재사용, 로그인·가입 403 리터럴 → CSRF_MESSAGE. 내 정보·학교 인증 화면은 1곳짜리뿐이라 그대로. 글자 변경 0(지운 문구 13개 대조, e2e 34개 수정 없이 통과), 사전 값을 바꾸면 Vitest·e2e 빨간불 확인. 이제 2곳 이상 같은 글자인 에러 문구는 errorMessage.ts에만 있음 | 2d748d9 |
 | 2026-11-10 | S12-a | V8(visa_plans: 회원당 1행 uk_visa_plans_user, FK ON DELETE CASCADE) + /users/me/visa-plan GET(없으면 200 null)·PUT(인증 회원, 서울 오늘~+5년, ON CONFLICT upsert로 동시 저장 500 없음, 저장 중 탈퇴 FK 위반 → 401)·DELETE(없으면 404). 탈퇴 시 일정 자동 삭제. api.md 24~26·공통 인증 규칙·탈퇴 절. VisaPlanApiTests 22개(서울 자정 경계·동시 PUT·탈퇴 경쟁 포함), 전체 729 통과. 알려진 한계: 배열·숫자 날짜도 받아짐(후기와 함께 나중에) | (이 커밋) |
 | 2026-11-10 | S12-b | 비자 일정 응답에 daysLeft(서울 오늘 기준)·stage(PREPARE 120일 이내/CHECK 30/URGENT 7/EXPIRED 지남/121일 이상 null)·todos(만료 120·30·7일 전 할 일, dueDate 오름차순, 지난 것도 음수로 유지) 계산 추가, 저장 없이 VisaPlanResponse.of(만료일, 오늘)에서 계산. 기준 숫자·문구는 VisaMilestone 한 곳, VisaPlanStage는 마일스톤을 필드로 연결. 이름은 숫자 없이(사용자 결정: 화면은 daysLeft로 D-n/D-Day/D+n, stage는 띠 판단용). 문구는 연장·자격 변경 포함, 출입국·외국인청. 경계 121/120/31/30/8/7/0·서울 00:30·키 유지·리터럴 검사기 테스트, 전체 746 통과 | (이 커밋) |
+| 2026-11-10 | S12-c | /visa-plan 화면 + 상단바 "비자 일정" 링크(학교 인증 회원만). 일정 없음 안내·만료일 입력(min 오늘·max 5년), 큰 D-n(daysLeft로 D-111/D-Day/D+3, formatDDay), 할 일 3줄(지난 것은 흐리게 + "지남" 글자), 만료일 변경·삭제(확인 창), EXPIRED 중립 안내, 일반 안내 + 하이코리아 링크. 미인증은 GET 없이 안내만, 불러오기 실패 시 폼 숨김, 저장·삭제 중 상대 버튼 잠금, 저장 시 이전 삭제 에러 지움. VISA_SCHOOL_REQUIRED_RETRY 사전 이동(글자 0 변경), seoulToday를 formatDate.ts로 합침, design.md에 D-n 규칙. tester 쓰기 허용에 frontend/e2e/ 추가. e2e visa-plan 24개(시계 고정 2026-11-10)·후기 403 회귀 1개, 전체 e2e 59·단위 32 통과, 실제 서버로 저장·375px 확인 | (이 커밋) |

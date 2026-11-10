@@ -16,6 +16,7 @@ import VisaReviewStatsPage from './pages/VisaReviewStatsPage'
 import VisaReviewDetailPage from'./pages/VisaReviewDetailPage'
 import VisaReviewCreatePage from './pages/VisaReviewCreatePage'
 import VisaReviewEditPage from './pages/VisaReviewEditPage'
+import VisaPlanPage from './pages/VisaPlanPage'
 
 // 주소별로 어떤 페이지를 보여줄지 정하는 곳
 export default function App() {
@@ -81,6 +82,15 @@ export default function App() {
             element={
               <RequireLogin>
                 <VisaReviewEditPage />
+              </RequireLogin>
+            }
+          />
+          {/* 내 비자 일정: 로그인한 사람만 (학교 인증 여부는 페이지 안에서 안내) */}
+          <Route
+            path="/visa-plan"
+            element={
+              <RequireLogin>
+                <VisaPlanPage />
               </RequireLogin>
             }
           />

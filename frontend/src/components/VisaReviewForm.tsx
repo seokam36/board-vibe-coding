@@ -2,15 +2,11 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router'
 import { describeError, ERROR_MESSAGES } from '../errorMessage'
+import { seoulToday } from '../formatDate'
 import type { MessageTable } from '../errorMessage'
 import Notice from './Notice'
 import ReloginNotice from './ReloginNotice'
 import type { VisaOption, VisaReviewOptions, VisaReviewRequest } from '../types'
-
-// 서울 기준 오늘(yyyy-MM-dd). 브라우저 시간대가 아니라 Asia/Seoul로 계산한다 (en-CA 형식이 yyyy-MM-dd)
-function seoulToday(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date())
-}
 
 // 받은 선택지 + (목록에 없거나 못 받았으면) 후기가 원래 가진 값. 글 수정의 말머리와 같은 패턴
 function withCurrent(list: VisaOption[] | undefined, current: VisaOption | undefined): VisaOption[] {

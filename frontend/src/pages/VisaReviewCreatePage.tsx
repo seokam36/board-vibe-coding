@@ -6,7 +6,7 @@ import VisaDisclaimer from '../components/VisaDisclaimer'
 import VisaReviewForm from '../components/VisaReviewForm'
 import { useVisaReviewOptions } from '../components/useVisaReviewOptions'
 import { useAuth } from '../auth/useAuth'
-import type { School, VisaReview,VisaReviewRequest } from '../types'
+import type { School, VisaReview, VisaReviewRequest } from '../types'
 
 // 비자 후기 작성. 학교 인증을 마친 회원만 쓸 수 있다 (학교는 서버가 인증 학교로 정한다)
 export default function VisaReviewCreatePage() {
@@ -50,7 +50,7 @@ export default function VisaReviewCreatePage() {
         onSave={save}
         errorTable={{
           400: ERROR_MESSAGES.REVIEW_FIELDS_INVALID,
-          403: '학교 인증이 필요해요. 계속 안 되면 새로고침 후 다시 시도해 주세요',
+          403: ERROR_MESSAGES.VISA_SCHOOL_REQUIRED_RETRY,
         }}
         cancelTo="/visa-reviews"
         cancelLabel="목록으로"

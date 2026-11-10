@@ -1,7 +1,7 @@
 import { test as base, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import type { AuthUser } from '../src/auth/useAuth.ts'
-import type { Category, Comment, Post, School, VisaReview, VisaReviewOptions, VisaReviewStat } from '../src/types.ts'
+import type { Category, Comment, Post, School, VisaPlan, VisaReview, VisaReviewOptions, VisaReviewStat } from '../src/types.ts'
 
 // ---- 가짜 데이터: src/types.ts 타입을 붙여서 실제 응답 모양과 어긋나면 tsc가 알려 준다 ----
 
@@ -87,6 +87,9 @@ const fakeVisaStats: VisaReviewStat[] = [
   },
 ]
 
+// docs/api.md 24번: 내 비자 일정. 기본은 일정 없음(200 + null들)
+const fakeEmptyVisaPlan: VisaPlan = { expiryDate: null, daysLeft: null, stage: null, todos: [] }
+
 // ---- 가짜 응답을 만드는 도우미 ----
 
 // 한 요청에 대한 가짜 응답. status는 상태코드, body는 JSON으로 내려갈 값(없으면 본문 없이 보낸다)
@@ -119,6 +122,10 @@ function defaultHandlers(state: { loggedIn: boolean }): MockHandlers {
     'GET /visa-review-options': { status: 200, body: fakeVisaOptions },
     'GET /visa-reviews': { status: 200, body: fakeVisaReviews },
     'GET /visa-reviews/stats': { status: 200, body: fakeVisaStats },
+    // 내 비자 일정 (docs/api.md 24~26번): 조회·저장은 일정 없음, 삭제는 204
+    'GET /users/me/visa-plan': { status: 200, body: fakeEmptyVisaPlan },
+    'PUT /users/me/visa-plan': { status: 200, body: fakeEmptyVisaPlan },
+    'DELETE /users/me/visa-plan': { status: 204 },
   }
 }
 

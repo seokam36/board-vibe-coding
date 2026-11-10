@@ -40,6 +40,8 @@ export default function NavBar() {
                   <span className="sr-only"> ({user.verifiedSchool.name} 인증 회원)</span>
                 </span>
               )}
+              {/* 비자 일정은 학교 인증 회원에게만 보인다 */}
+              {user.verifiedSchool && <Link to="/visa-plan">비자 일정</Link>}
               <Link to="/me">내 정보</Link>
               {/* 관리자에게만 보이는 메뉴 */}
               {isAdmin(user) && <Link to="/admin/reports">신고 관리</Link>}

@@ -388,3 +388,18 @@ test('비자 후기 작성이 400이면 날짜 확인 안내가 보인다', asyn
     '날짜를 확인해 주세요 (접수일은 결과일과 같거나 앞서야 하고, 둘 다 오늘까지. 본문은 2000자까지)',
   )
 })
+
+test('비자 후기 작성이 403이면 학교 인증 안내 문구가 보인다', async ({ page, api }) => {
+  // S12-c에서 이 문구를 문구 사전(VISA_SCHOOL_REQUIRED_RETRY)으로 옮겼다. 글자가 그대로인지 지킨다
+  loginVerified(api)
+  api.override({ 'POST /visa-reviews': { status: 403 } })
+  await page.goto('/visa-reviews/new')
+  await page.getByLabel('비자 종류').selectOption('D_2')
+  await page.getByLabel('신청 종류').selectOption('EXTENSION')
+  await page.getByLabel('결과', { exact: true }).selectOption('APPROVED')
+  await page.getByLabel('접수일').fill('2026-01-01')
+  await page.getByLabel('결과일').fill('2026-01-11')
+  await page.getByRole('button', { name: '저장' }).click()
+
+  await expect(page.getByRole('alert')).toHaveText('학교 인증이 필요해요. 계속 안 되면 새로고침 후 다시 시도해 주세요')
+})

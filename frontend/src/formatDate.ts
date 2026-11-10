@@ -23,3 +23,8 @@ export function formatDay(day: string): string {
   if (!m) return '' // 모르는 모양이면 빈 값
   return `${Number(m[1])}년 ${Number(m[2])}월 ${Number(m[3])}일`
 }
+
+// 서울 기준 오늘(yyyy-MM-dd). 브라우저 시간대가 아니라 Asia/Seoul로 계산한다 (en-CA 형식이 yyyy-MM-dd)
+export function seoulToday(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(now)
+}

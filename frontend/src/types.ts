@@ -126,3 +126,19 @@ export interface VisaReviewRequest {
   result: string // code
   content: string // 최대 2000자, 안 써도 된다
 }
+
+// 내 비자 일정의 할 일 한 줄 (GET·PUT /users/me/visa-plan 응답의 todos)
+export interface VisaTodo {
+  code: string // PREPARE / CHECK / URGENT (만료 며칠 전 시점의 이름)
+  title: string // 화면에 보여 줄 할 일 문구
+  dueDate: string // yyyy-MM-dd
+  daysLeft: number // 오늘(서울)부터 남은 일수. 지났으면 음수
+}
+
+// 내 비자 일정 (GET·PUT /users/me/visa-plan). 일정이 없으면 expiryDate·daysLeft·stage가 null, todos는 []
+export interface VisaPlan {
+  expiryDate: string | null // yyyy-MM-dd. 화면에는 formatDay를 거쳐서만 보여준다
+  daysLeft: number | null // 만료일까지 남은 일수 (지났으면 음수)
+  stage: 'PREPARE' | 'CHECK' | 'URGENT' | 'EXPIRED' | null // 120일 이내부터 값이 생긴다
+  todos: VisaTodo[]
+}

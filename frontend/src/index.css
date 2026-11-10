@@ -597,7 +597,7 @@ label textarea {
   margin: var(--space-3) 0 0;
   font-weight: 500;
 }
-/* 본문이 비었을 때의 회색 문구 */
+/* 본문이 비었을 때·일정 없음 상태의 회색 문구 */
 .visa-empty {
   color: var(--muted);
 }
@@ -615,4 +615,47 @@ label textarea {
 }
 .date-row input {
   width: 100%;
+}
+
+/* ---------- 비자 일정 (/visa-plan) ---------- */
+/* 큰 D-n: 이 화면에서 가장 큰 글자. 평소엔 본문색, 30일 이내는 청자 포인트, 지났으면 흐리게 (빨강은 쓰지 않는다) */
+.visa-dday {
+  margin: 0;
+  font-size: var(--fs-board);
+  font-weight: 700;
+  line-height: 1.2;
+}
+.visa-dday-CHECK,
+.visa-dday-URGENT {
+  color: var(--celadon);
+}
+.visa-dday-EXPIRED {
+  color: var(--muted);
+}
+/* 할 일 한 줄: D-n · 날짜 · 문구. 좁은 화면에서는 문구가 다음 줄로 */
+/* "할 일" 제목: 위의 만료일 줄과 떨어뜨린다 */
+.visa-todos-heading {
+  margin-top: var(--space-5);
+}
+.visa-todos {
+  margin-top: var(--space-2);
+}
+.visa-todo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  padding-left: 0;
+  padding-right: 0;
+}
+.visa-todo-dday {
+  min-width: 4.5em;
+  font-weight: 700;
+}
+.visa-todo-title {
+  flex: 1 1 100%;
+}
+/* 이미 지난 할 일은 흐리게 */
+.visa-todo-past {
+  color: var(--muted);
 }
