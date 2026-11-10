@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../auth/useAuth'
-import { describeError } from '../errorMessage'
+import { CSRF_MESSAGE, describeError } from '../errorMessage'
 import Notice from '../components/Notice'
 
 export default function LoginPage() {
@@ -31,7 +31,7 @@ export default function LoginPage() {
         {
           401: '아이디 또는 비밀번호가 틀렸습니다',
           400: '아이디와 비밀번호를 입력해 주세요',
-          403: '보안 토큰이 없습니다. 새로고침 후 다시 시도해 주세요',
+          403: CSRF_MESSAGE,
         },
         '로그인하지 못했습니다',
       )

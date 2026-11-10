@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import api from '../api'
 import { useAuth } from '../auth/useAuth'
-import { errorText } from '../errorMessage'
+import { errorText, ERROR_MESSAGES } from '../errorMessage'
 import Loading from '../components/Loading'
 import Notice from '../components/Notice'
 import VisaDisclaimer from '../components/VisaDisclaimer'
@@ -52,8 +52,8 @@ export default function VisaReviewListPage() {
         const error = errorText(
           e,
           {
-            404: '존재하지 않는 학교입니다',
-            400: '잘못된 조건입니다. 학교·비자 종류·신청 종류를 다시 골라 주세요',
+            404: ERROR_MESSAGES.SCHOOL_NOT_FOUND,
+            400: ERROR_MESSAGES.REVIEW_FILTER_INVALID,
           },
           '후기 목록을 불러오지 못했습니다',
         )
@@ -91,7 +91,9 @@ export default function VisaReviewListPage() {
         </button>
       </div>
       {/* 어느 한쪽이라도 실패하면 안내 */}
-      {(schoolsFailed || optionsFailed) &&<Notice kind="error">선택지 목록을 불러오지 못했습니다</Notice>}
+      {(schoolsFailed || optionsFailed) && (
+        <Notice kind="error">{ERROR_MESSAGES.REVIEW_OPTIONS_LOAD_FAILED}</Notice>
+      )}
       {/* 후기 목록: 글 목록처럼 판 하나 안의 행들 */}
       <div className="panel panel-flush">
         {loading && <Loading />}

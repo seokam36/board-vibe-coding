@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import api from '../api'
+import { ERROR_MESSAGES } from '../errorMessage'
 import VisaDisclaimer from '../components/VisaDisclaimer'
 import VisaReviewForm from '../components/VisaReviewForm'
 import { useVisaReviewOptions } from '../components/useVisaReviewOptions'
@@ -48,7 +49,7 @@ export default function VisaReviewCreatePage() {
         optionsFailed={optionsFailed}
         onSave={save}
         errorTable={{
-          400: '날짜를 확인해 주세요 (접수일은 결과일과 같거나 앞서야 하고, 둘 다 오늘까지. 본문은 2000자까지)',
+          400: ERROR_MESSAGES.REVIEW_FIELDS_INVALID,
           403: '학교 인증이 필요해요. 계속 안 되면 새로고침 후 다시 시도해 주세요',
         }}
         cancelTo="/visa-reviews"

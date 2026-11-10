@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import api from '../api'
-import { describeError } from '../errorMessage'
+import { CSRF_MESSAGE, describeError } from '../errorMessage'
 import Notice from '../components/Notice'
 
 export default function SignupPage() {
@@ -31,7 +31,7 @@ export default function SignupPage() {
         {
           409: '아이디 또는 닉네임이 이미 사용 중입니다',
           400: '아이디는 영문 소문자·숫자·_ 4~20자, 닉네임은 한글(완성형)·영문·숫자·_ 2~20자(공백·자음/모음만은 불가), 비밀번호는 8~64자로 입력해 주세요',
-          403: '보안 토큰이 없습니다. 새로고침 후 다시 시도해 주세요',
+          403: CSRF_MESSAGE,
         },
         '가입하지 못했습니다',
       )

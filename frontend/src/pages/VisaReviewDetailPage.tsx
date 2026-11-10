@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import api from '../api'
-import { describeError, errorText } from '../errorMessage'
+import { describeError, errorText, ERROR_MESSAGES } from '../errorMessage'
 import { isAdmin } from '../auth/isAdmin'
 import { useAuth } from '../auth/useAuth'
 import ReloginNotice from '../components/ReloginNotice'
@@ -44,7 +44,13 @@ export default function VisaReviewDetailPage() {
       .catch((e: unknown) => {
         if (ignore) return
         setReview(null)
-        setError(errorText(e, { 400: '후기를 찾을 수 없습니다', 404: '후기를 찾을 수 없습니다' }, '후기를 불러오지 못했습니다'))
+        setError(
+          errorText(
+            e,
+            { 400: ERROR_MESSAGES.REVIEW_NOT_FOUND, 404: ERROR_MESSAGES.REVIEW_NOT_FOUND },
+            ERROR_MESSAGES.REVIEW_LOAD_FAILED,
+          ),
+        )
       })
       .finally(() => {
         if (!ignore) setLoading(false)
@@ -69,10 +75,10 @@ export default function VisaReviewDetailPage() {
       const info = describeError(
         err,
         {
-          403: isMine ? '삭제하지 못했습니다. 새로고침 후 다시 시도해 주세요' : '삭제할 권한이 없습니다',
-          404: '이미 삭제된 후기입니다',
+          403: isMine ? ERROR_MESSAGES.DELETE_RETRY_AFTER_RELOAD : ERROR_MESSAGES.DELETE_FORBIDDEN,
+          404: ERROR_MESSAGES.alreadyDeleted('후기'),
         },
-        '삭제하지 못했습니다',
+        ERROR_MESSAGES.DELETE_FAILED,
       )
       if (info.kind === 'needLogin') setNeedLogin(true)
       else setDeleteError(info.message)

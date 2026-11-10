@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router'
-import { describeError } from '../errorMessage'
+import { describeError, ERROR_MESSAGES } from '../errorMessage'
 import type { MessageTable } from '../errorMessage'
 import Notice from './Notice'
 import ReloginNotice from './ReloginNotice'
@@ -78,7 +78,7 @@ export default function VisaReviewForm({
       // 미래 날짜는 input의 max가 막고(직접 타이핑하면 브라우저 검증이 막는다), 접수일≤결과일 순서만 서버의 400에 맡긴다. schoolId는 보내지 않는다
       await onSave({ visaType, applicationType, receivedDate, resultDate, result, content })
     } catch (err: unknown) {
-      const info = describeError(err, errorTable, '저장하지 못했습니다')
+      const info = describeError(err, errorTable, ERROR_MESSAGES.SAVE_FAILED)
       if (info.kind === 'needLogin') setNeedLogin(true)
       else setError(info.message)
       setSaving(false) // 실패했을 때만 버튼을 되살린다 (성공하면 페이지가 바뀐다)
@@ -120,7 +120,7 @@ export default function VisaReviewForm({
       </div>
       {optionsFailed && (
         <Notice kind="error">
-          {current ? '선택지 목록을 불러오지 못했습니다. 지금 값으로만 저장할 수 있습니다' : '선택지 목록을 불러오지 못했습니다'}
+          {current ? '선택지 목록을 불러오지 못했습니다. 지금 값으로만 저장할 수 있습니다' : ERROR_MESSAGES.REVIEW_OPTIONS_LOAD_FAILED}
         </Notice>
       )}
       {/* 접수일·결과일: 나란히(좁으면 세로). 둘 다 오늘(서울)까지만. 빈 값 검사는 required 대신 위 제출 검사에서 한다 */}

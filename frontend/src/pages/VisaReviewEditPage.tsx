@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import api from '../api'
-import { errorText } from '../errorMessage'
+import { errorText, ERROR_MESSAGES } from '../errorMessage'
 import Loading from '../components/Loading'
 import Notice from '../components/Notice'
 import VisaDisclaimer from '../components/VisaDisclaimer'
@@ -35,7 +35,13 @@ export default function VisaReviewEditPage() {
       .catch((e: unknown) => {
         if (ignore) return
         setReview(null)
-        setLoadError(errorText(e, { 400: '후기를 찾을 수 없습니다', 404: '후기를 찾을 수 없습니다' }, '후기를 불러오지 못했습니다'))
+        setLoadError(
+          errorText(
+            e,
+            { 400: ERROR_MESSAGES.REVIEW_NOT_FOUND, 404: ERROR_MESSAGES.REVIEW_NOT_FOUND },
+            ERROR_MESSAGES.REVIEW_LOAD_FAILED,
+          ),
+        )
       })
       .finally(() => {
         if (!ignore) setLoading(false)
@@ -75,10 +81,10 @@ export default function VisaReviewEditPage() {
           current={{ visaType: review.visaType, applicationType: review.applicationType, result: review.result }}
           onSave={save}
           errorTable={{
-            400: '날짜를 확인해 주세요 (접수일은 결과일과 같거나 앞서야 하고, 둘 다 오늘까지. 본문은 2000자까지)',
+            400: ERROR_MESSAGES.REVIEW_FIELDS_INVALID,
             // 본인 후기인데 403이면 CSRF 토큰 오류일 수 있다 (상세 화면 삭제와 같은 방식)
             403: isMine ? '저장하지 못했습니다. 새로고침 후 다시 시도해 주세요' : '본인 후기만 수정할 수 있습니다',
-            404: '후기를 찾을 수 없습니다',
+            404: ERROR_MESSAGES.REVIEW_NOT_FOUND,
           }}
           cancelTo={`/visa-reviews/${safeId}`}
           cancelLabel="취소"

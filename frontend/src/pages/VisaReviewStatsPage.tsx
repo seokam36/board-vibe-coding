@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import api from '../api'
-import { errorText } from '../errorMessage'
+import { errorText, ERROR_MESSAGES } from '../errorMessage'
 import Loading from '../components/Loading'
 import Notice from '../components/Notice'
 import VisaDisclaimer from '../components/VisaDisclaimer'
@@ -45,8 +45,8 @@ export default function VisaReviewStatsPage() {
         const error = errorText(
           e,
           {
-            404: '존재하지 않는 학교입니다',
-            400: '잘못된 조건입니다. 학교·비자 종류·신청 종류를 다시 골라 주세요',
+            404: ERROR_MESSAGES.SCHOOL_NOT_FOUND,
+            400: ERROR_MESSAGES.REVIEW_FILTER_INVALID,
           },
           '통계를 불러오지 못했습니다',
         )
@@ -78,7 +78,9 @@ export default function VisaReviewStatsPage() {
           optionsFailed={optionsFailed}
         />
       </div>
-      {(schoolsFailed || optionsFailed) && <Notice kind="error">선택지 목록을 불러오지 못했습니다</Notice>}
+      {(schoolsFailed || optionsFailed) && (
+        <Notice kind="error">{ERROR_MESSAGES.REVIEW_OPTIONS_LOAD_FAILED}</Notice>
+      )}
       <div className="panel panel-flush">
         {loading && <Loading />}
         {error && (
