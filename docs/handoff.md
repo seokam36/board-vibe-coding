@@ -2,32 +2,25 @@
 
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 
-마지막 갱신: 2026-11-10 (집 PC, S12-a~d 끝냄)
+마지막 갱신: 2026-11-11 (S13-a~d 끝냄)
 
 ## 지금 어디까지
-- **S0~S11 + UI1 완료·배포됨.** 운영은 S11-f(커밋 1ebeb84) 이미지, V7까지 적용.
-- **S12(비자 할 일과 사이트 안 알림) a~d 완료, push됨(73be98b), 운영 미반영.** push 직후 CI 진행 중이었음 → 먼저 Actions에서 초록인지 확인.
-  - 결정 전부 backlog S12 항목. 메일 알림은 안 함(사용자가 메일을 잘 안 봄) → 로그인 화면 상단 띠.
-  - S12-a: V8 `visa_plans`(회원당 1행, 만료일만, FK ON DELETE CASCADE) + `/users/me/visa-plan` GET(없으면 200 + null)·PUT(인증 회원, 서울 오늘~+5년, `ON CONFLICT` upsert)·DELETE(없으면 404).
-  - S12-b: 응답에 `daysLeft`·`stage`(PREPARE 120일 이내/CHECK 30/URGENT 7/EXPIRED/121일↑ null)·`todos`. 기준 숫자·문구는 `VisaMilestone` 한 곳(숫자는 하이코리아 확인 후 바꿀 수 있음, 이름은 숫자 없이), `VisaPlanStage`가 마일스톤을 필드로 연결.
-  - S12-c: `/visa-plan` 화면(D-111/D-Day/D+3 = `formatDDay`, 할 일 3줄, 변경·삭제), 상단바 "비자 일정" 링크(인증 회원만).
-  - S12-d: 상단 띠(`VisaPlanBanner`, 문구는 `src/visa/visaBanner.ts` 한 곳) + 보관소 `VisaPlanProvider`(인증 회원만 GET 1번, 띠와 /visa-plan이 공유). X 닫기 기록은 localStorage `visaBannerClosed:{회원id}` = `단계:만료일해시`.
-- **UI2(프론트 자동 테스트)·UI3(에러 문구 사전) 완료, push됨, 운영 미반영.**
-  - UI2: Vitest 26개(`src/**/*.test.ts`), Playwright 34개(`e2e/core-flow.spec.ts` 3 + `e2e/error-messages.spec.ts` 31, role=alert 전체 일치로 에러 문구 고정). CI에 `e2e` 작업, e2e 실패면 images push 막힘.
-  - UI3: 2곳 이상 같은 글자인 에러 문구는 `frontend/src/errorMessage.ts`의 `ERROR_MESSAGES` 사전에만 있다(POST_*, REVIEW_*, SCHOOL_*, DELETE_*, SAVE_FAILED, ACTION_FAILED, alreadyDeleted(label)). 1곳짜리·글자가 다른 문구는 화면에 둠. 화면 글자 변경 0.
-- **다음 배포(S12-e)에 같이 나가는 것:** S11 리뷰 수정(ea0db23: 후기 접수일 최근 5년·처리 365일 이하), UI2, UI3, S12 전체. 새 환경변수·compose 변경 없음, V8 자동 적용.
-- S11 요약: 별개 표 visa_reviews, 정해진 칸 + 선택 본문, 읽기 누구나·쓰기 인증 회원(학교는 인증 학교 복사), 수정 본인·삭제 본인/관리자, 통계는 네이티브 group by 1번. 결정 전부 backlog S11 항목.
-- 사이트 컨셉: **같은 학교 유학생 선배들의 경험이 쌓이는 외국인 유학생 커뮤니티.** 로드맵과 결정은 docs/backlog.md.
-- S10 요약: 미인증은 읽기만, 글쓰기·댓글·공감·신고는 인증한 학교 글에만(`AccessGuard.requireVerified`/`requireSameSchool`, 매번 DB). 메일은 Gmail SMTP(`MAIL_MODE=smtp`), 원문 저장 없이 해시만.
-- Notion: S12 카드(번호 13 "비자 할 일과 사이트 안 알림")에 S12-a·b 단계 페이지까지 씀. S12-c·d는 프론트라 안 씀. 배포(S12-e) 뒤 배포 단계 페이지 + 파트 전체 정리·코드 리뷰 페이지, 진행 현황 S12 체크가 남음. UI2·UI3는 프론트만이라 단계 기록 없음. **새로 "도구 사전" 페이지**(바이브 코딩 아래): Docker·AWS·Actions·nginx·Flyway·Redis·Testcontainers·Vitest·Playwright 8장. 처음 쓰는 도구는 분야 상관없이 여기에 한 장씩 추가(docs/notion-guide.md "도구 사전").
+- **S0~S12 + UI1~UI3 완료·배포됨.** 운영은 S12-e(2026-11-11) 이미지, V8까지 적용. S12 리뷰 수정(21741e0)은 push됐지만 운영 미반영(다음 배포에 같이 나감).
+- **방향 결정(2026-11-11):** 이 프로젝트는 학습·포트폴리오(A)가 중심, 실제 사용자(B)는 되면 좋은 것. 비자 일정 캘린더(.ics)는 보류. 다음 큰 기능은 **S13 중고거래·나눔 → S14 쪽지 → S15 글 번역**. **S13과 S14를 다 만든 뒤 한 번에 배포**(쪽지가 없으면 연락 수단이 없어서).
+- **S13(중고거래·나눔) a~d 완료, push됨(f8071ad), 운영 미반영.** 결정 전부 backlog S13 항목.
+  - S13-a: V9 `market_items`(판매자 FK ON DELETE CASCADE, CHECK 거래 방식·상태·가격(나눔 0 / 판매 1~10,000,000)) + `POST /market-items`(학교 인증 회원, 학교는 인증 학교 복사) · `GET /market-items/{id}`(공개).
+  - S13-b: `GET /market-items`(공개, schoolId·tradeType·status 필터) · `PUT /{id}`(본인만, 관리자도 403) · `DELETE /{id}`(본인·관리자).
+  - S13-c: `PUT /{id}/status`(본인만). 전환 규칙은 `ItemStatus.canChangeTo` 한 곳(ON_SALE↔RESERVED, →DONE, DONE에서 못 나감). 상태 변경·내용 수정 모두 **조건부 UPDATE**(where status=from / status<>DONE), 0행이면 existsById로 404/409. status는 `updatable=false`, 엔티티에 내용·상태 바꾸는 메서드 없음(일부러). 완료 글은 내용 수정 409, 삭제만.
+  - S13-d: 화면 `/market`·`/market/:id`·`/market/new`·`/market/:id/edit`, 상단바 "중고·나눔". 판매자만 갈 수 있는 상태 버튼, [거래 완료] 확인 창, 관리자는 남의 글에 [삭제]만.
+- Notion: S13 카드(번호 14 "중고거래·나눔 게시판")에 S13-a·b·c·d 단계 페이지, 진행 현황 S13 줄(+S14·S15) 있음.
 
 ## 다음에 할 일
-- **S12-e 배포.** Actions에서 main CI(73be98b 이후)가 images까지 초록 확인 → EC2 켜기 → Deploy 버튼 → 운영 확인(아래 목록) → backlog S12-e 체크 → S12 파트 백엔드 흐름·코드 리뷰 정리 + Notion.
-- 운영 확인 목록: 기록장 version 8 success · 테스트 계정 `wntjrdka`로 만료일 등록(오늘+20일 정도) → /visa-plan D-n·할 일 → 글 목록에 띠 → X 닫기 후 새로고침해도 안 뜸 → 삭제 후 띠 없음(테스트 일정은 꼭 삭제) · 후기 접수일 1900년 400 · 글 404 문구 그대로("글을 찾을 수 없습니다" 류) · 미인증 계정엔 "비자 일정" 링크 없음.
+- **S13-e 신고 연결** 시작. 규칙대로 build 전에 무엇을 만드는지 쉬운 말로 설명하고 OK 받기. 내용(planner 계획): `POST /market-items/{id}/reports`, 관리자 신고 목록에 MARKET_ITEM, **V10**으로 `reports`에 `market_item_id`(FK CASCADE, UNIQUE) 추가 + `ck_reports_target`을 "셋 중 정확히 하나"로 교체. 다른 학교 글 신고 막을지는 사용자 확인.
+- 그다음 S13-f 제목 검색 → S13-g 사진(research 먼저: 저장 위치 EC2 디스크 vs S3, nginx `client_max_body_size`, 백업에 사진 없음) → S14 쪽지 → 배포.
 
 ## 진행 중인 단계
-- S12-e(배포)만 남음. a~d는 build → tester → review → (필수·권장 수정) 끝, 커밋·push 완료.
-- 커밋 안 된 변경: `.claude/launch.json`(컴퓨터마다 다른 실행 설정, 일부러 커밋 안 함). docs/deploy.md의 V8 되돌리기 메모는 이 handoff 커밋에 같이 넣음.
+- 없음(S13-d까지 커밋·push 끝). 커밋 안 된 변경: `.claude/launch.json`(컴퓨터마다 다른 실행 설정, 일부러 커밋 안 함).
+- 미룬 것(S13): backlog S13 항목의 "나중(S13-a 리뷰)"·"나중(S13-b 리뷰)"·"나중(S13-c 리뷰)"·"나중(S13-d 리뷰)" 줄(가격 5000.9·"5000" 문자열 받아짐 확인, 비자 후기 수정 중 삭제 500, 학교별 머리말, 가격 굵기 등).
 - 미룬 것(S12): backlog S12 항목의 "나중(S12-c 리뷰)"·"나중(S12-d 리뷰)" 줄 · S12-a 리뷰: 배열·숫자 날짜(`[2026,12,31]`, `20818`)도 LocalDate로 받아짐(후기 날짜와 함께 Jackson 설정 한 곳에서 막기) · upsert `@Modifying`에 clearAutomatically 없음(upsert 뒤 다시 읽는 코드가 생기면) · "오늘 이후여야 합니다" 400 문구(오늘도 허용) · 덮어쓰기 때 created_at 유지 단언 · FlywayExistingBaselineTests가 V8 성공 행을 직접 단언하지 않음 · S12-b: 계산 로직이 DTO(VisaPlanResponse.of) 안(두 번째 사용처 생기면 domain으로) · 띠 자정 넘김 자동 갱신 없음(새로고침하면 반영)
 - 미룬 것(UI3 리뷰): "본인 글/댓글/후기만 수정할 수 있습니다" 3형제를 함수 하나로(라벨만 다른 문구는 함수형 사전 허용으로 원칙 정하기) · errorMessage.ts 맨 위 파일 안내 주석 · SignupPage '가입하지 못했습니다' 2번 지역 상수 · 문구 자체 변경(CSRF 403과 학교 인증 403 섞임, 어미 통일, 학교 인증 403 변형 3종, 수정 403의 CSRF 미고려) — backlog UI3 "나중"
 - 미룬 것(UI2 리뷰): CI e2e 리포트가 실패 때만 올라가 재시도로 통과한 불안정 테스트는 안 보임(`if: !cancelled()` 후보) · Chromium 캐시 · 관리자 남의 글 삭제 장면이 `.first()`(글 삭제 버튼이 댓글보다 먼저라는 DOM 순서에 기댐)
@@ -42,7 +35,7 @@
 
 ## 주의할 점
 - 새 컴퓨터에서는 먼저 `git pull`. 끝나면 커밋·push.
-- **표(테이블)를 바꾸는 기능은 새 V 파일**(다음은 `V9__...sql`)로. 커밋된 V 파일은 고치지 않는다. ddl-auto는 validate 유지.
+- **표(테이블)를 바꾸는 기능은 새 V 파일**(다음은 `V10__...sql`)로. 커밋된 V 파일은 고치지 않는다. ddl-auto는 validate 유지.
 - **FK·UNIQUE·CHECK 제약에는 반드시 이름**을 지어라. 서비스가 제약 이름으로 404/401/409를 구분한다(`ConstraintViolations`). V1의 `posts.author_id` FK만 해시 이름이라 글쓰기는 "23503이면 401".
 - **DB 오류 메시지 언어는 영어(기본값) 유지.** `lc_messages`를 바꾸면 경쟁 상황에서 500(docs/deploy.md).
 - 경쟁 조건 테스트는 `LockRaceSupport`, 유령 토큰은 `TestLogin.행없는_회원_토큰(jwtEncoder)`, 인증 회원은 `TestLogin.인증된_사용자(...)`·`학교_인증_처리(jdbc, username, 학교명)`. 글쓰기·댓글·공감·신고 테스트는 **인증 회원 + 같은 학교 글**이어야 한다.
@@ -68,7 +61,7 @@
 - 후기 작성 테스트는 **인증 회원**이어야 한다(`TestLogin.인증된_사용자`·`학교_인증_처리`). 수정·삭제는 인증 불필요. 탈퇴는 `UserService.withdraw`가 posts·comments·visa_reviews 작성자를 비운 뒤 회원 삭제(작성자 FK에 ON DELETE 없음).
 - SecurityConfig의 `GET /visa-reviews/{id}` 공개 규칙은 `/visa-reviews/` 아래 한 칸짜리 GET을 전부 공개로 만든다(`/stats`도 명시해 둠). 로그인 전용 GET을 그 아래 두려면 따로 막아야 한다.
 - **Vite 옛 파일 문제가 이번에도 여러 번 났다**(서브에이전트가 고친 직후 화면이 하얗게 비고 `xxx is not defined`). build가 프론트를 고친 뒤에는 브라우저 확인 전에 frontend 서버를 항상 껐다 켠다.
-- Flyway 테스트 `FlywayExistingBaselineTests`는 "새로 적용되는 V 파일 수"를 하드코딩한다(지금 7개·기록장 8행) → V9를 만들면 같이 고쳐야 한다.
+- Flyway 테스트 `FlywayExistingBaselineTests`는 "새로 적용되는 V 파일 수"를 하드코딩한다(지금 8개·기록장 9행) → V10을 만들면 같이 고쳐야 한다.
 - **tester가 이제 `frontend/e2e/`에도 쓸 수 있다**(`.claude/agents/tester.md` 허용 경로, 2026-11-10). 에이전트 설정은 세션 시작 때만 읽혀서, 바꾼 그 세션에서는 반영 안 됐다(그래서 S12-c·d e2e는 메인 대화가 씀). 화면 코드 `frontend/src/`는 여전히 못 씀.
 - **build 보고를 그대로 믿지 말 것**: S12-c에서 build가 "npm run build 통과"라고 했는데 실제로는 e2e 파일 import 확장자(`'./mockApi'` → `'./mockApi.ts'`)로 tsc가 실패했다. 커밋 전에 메인이 `npm test`·`npm run build`·`npm run lint`·`npm run test:e2e`를 직접 한 번 돌린다.
 - **e2e에서 날짜를 입력하는 장면은 브라우저 시계를 고정**한다: `test.beforeEach(async ({ page }) => { await page.clock.setFixedTime(new Date('2026-11-10T03:00:00Z')) })`(visa-plan·visa-banner spec). 날짜 칸에 `min=오늘`이 있어서 고정 안 하면 날짜가 지나면서 테스트가 깨진다.
@@ -106,3 +99,8 @@
 - Boot 4는 Jackson 3라 import가 `tools.jackson.databind`. postgresql 드라이버는 runtimeOnly라 `PSQLException`을 main 코드에서 못 쓴다.
 - Docker Hub 429면 AWS 미러: `docker pull public.ecr.aws/docker/library/redis:8.10.3-alpine` → `docker tag ... redis:8.10.3-alpine`(postgres도 같은 방식).
 - 사용자 선호: 입문자라 새 도구는 비유 한 줄씩. 백엔드에 관심. 정리는 **실제 코드 5~20줄 + 한 줄 해설**(채팅·Notion), 흐름도는 ASCII 코드 블록. 보고는 짧게. **도구 쓰기 전 설명 문장까지 전부 한국어**(영어 섞으면 지적받음). **명령어를 치라고 할 때는 왜 치는지 + 조각별 뜻을 같이**(2026-11-09 요청). S번호가 끝나면 백엔드 로직 정리 + 전체 코드 리뷰를 같이 보여주고 Notion 카드에도 남긴다. **프론트만 바꾸는 단계는 Notion에 쓰지 않는다.** 화면 작업은 frontend-design 스킬 + docs/design.md.
+- **build 전에 "이번 단계에서 무엇을 만드는지" 쉬운 말로 설명하고 OK를 받는다**(큰 계획 OK는 단계 build 승인이 아님. 2026-11-11 지적받음).
+- **테스트가 진짜로 버그를 잡는지 확인하는 법(S13에서 3번 씀):** 고친 줄을 잠깐 빼고 그 테스트만 돌려 실패하는지 본다. 원본은 임시 폴더에 복사 → 복사본으로 되돌리고 `cmp`로 같은지 확인.
+- 로컬 백엔드 띄우기: `.claude/launch.json`의 backend는 `.env`를 환경변수로 넣고 `gradlew.bat bootRun`을 부르는 ps1을 가리킨다. 그 ps1은 세션 임시 폴더에 있어서 새 세션에선 없음 → 다시 만들기. **PowerShell 5.1 스크립트 안에 한글 경로를 쓰면 깨진다**(경로는 `(Get-Location).Path`로, .env는 `[IO.File]::ReadAllLines(..., UTF8)`로 읽기).
+- 이 PC 로컬 DB: V9까지 적용. 연습 계정 `market_seller1`(고려대 인증, 중고 글 1개 DONE). 비밀번호는 세션 임시 폴더에만 있음. 새 계정 인증은 `MAIL_MODE=log`로 띄우고 서버 로그의 `[가짜 메일 발송] ... code=`를 읽는다.
+- 중고 글 수정·상태 변경은 **조건부 UPDATE**만 쓴다. 엔티티 값을 바꿔 저장(dirty checking)하면 모든 칸을 UPDATE해서 상태가 옛 값으로 돌아간다(S13-b 리뷰에서 발견). 비자 후기 수정에는 아직 "수정 중 삭제 → 500" 빈틈이 남아 있음.
