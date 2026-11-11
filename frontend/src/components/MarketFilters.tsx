@@ -1,9 +1,14 @@
+import { useEffect, useRef } from 'react'
+import type { FormEvent } from 'react'
 import { useSearchParams } from 'react-router'
 import type { School } from '../types'
 import { LOADING_TEXT } from './loadingText'
 
 // 주소 쿼리에 두는 거르기 값의 이름
 type FilterName = 'schoolId' | 'tradeType' | 'status'
+
+// 제목 검색어 최대 글자 수 (서버와 같은 50자)
+const MAX_SEARCH_LENGTH = 50
 
 // 판매/나눔, 상태의 고정 선택지 (value는 서버가 받는 값, name은 화면 글자)
 const TRADE_TYPES = [
@@ -47,7 +52,7 @@ function Select({
   )
 }
 
-// 학교·판매/나눔·상태 드롭다운 3개. 값의 "진짜 위치"는 주소 쿼리다(새로고침·뒤로 가기가 자연스럽게 맞는다)
+// 학교·판매/나눔·상태 드롭다운 3개 + 제목 검색창. 값의 "진짜 위치"는 주소 쿼리다(새로고침·뒤로 가기가 자연스럽게 맞는다)
 export default function MarketFilters({ schools, schoolsFailed }: { schools: School[] | null; schoolsFailed: boolean }) {
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -56,6 +61,24 @@ export default function MarketFilters({ schools, schoolsFailed }: { schools: Sch
     const next = new URLSearchParams(searchParams)
     if (value) next.set(name, value)
     else next.delete(name) // "전체"는 주소에서 뺀다
+    setSearchParams(next)
+  }
+
+  const q = searchParams.get('q') ?? ''
+
+  // 검색 입력칸(uncontrolled). 주소의 q가 바뀌면 값만 맞춘다
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (inputRef.current) inputRef.current.value = q
+  }, [q])
+
+  // 검색어 제출: 앞뒤 공백을 뺀 값을 주소 q에 넣는다. 비면 q를 주소에서 뺀다
+  function submitSearch(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const value = String(new FormData(e.currentTarget).get('q') ?? '').trim()
+    const next = new URLSearchParams(searchParams)
+    if (value) next.set('q', value)
+    else next.delete('q')
     setSearchParams(next)
   }
 
@@ -85,6 +108,22 @@ export default function MarketFilters({ schools, schoolsFailed }: { schools: Sch
         pending={false}
         onChange={(v) => change('status', v)}
       />
+      {/* 제목 검색: 제출(검색 버튼·Enter)하면 주소의 q만 바꾸고 다른 필터는 그대로 둔다.
+          주소의 q가 바뀌면(뒤로 가기 등) useEffect가 입력칸 값만 맞춘다. 칸을 다시 만들지 않아 Enter 뒤에도 포커스가 남는다 */}
+      <form role="search" className="filters" onSubmit={submitSearch}>
+        <input
+          ref={inputRef}
+          name="q"
+          type="search"
+          aria-label="제목 검색어"
+          placeholder="제목으로 검색"
+          maxLength={MAX_SEARCH_LENGTH}
+          defaultValue={q}
+        />
+        <button type="submit" className="btn">
+          검색
+        </button>
+      </form>
     </div>
   )
 }

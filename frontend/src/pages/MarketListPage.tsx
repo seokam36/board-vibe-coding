@@ -25,8 +25,9 @@ export default function MarketListPage() {
   const schoolId = searchParams.get('schoolId') ?? ''
   const tradeType = searchParams.get('tradeType') ?? ''
   const status = searchParams.get('status') ?? ''
+  const q = searchParams.get('q') ?? ''
   // 요청 조건을 한 문자열로 묶은 것. 결과가 "지금 조건의 것"인지 비교하는 데 쓴다
-  const queryKey = `${schoolId}|${tradeType}|${status}`
+  const queryKey = `${schoolId}|${tradeType}|${status}|${q}`
 
   const [result, setResult] = useState<ListResult | null>(null)
   const [schools, setSchools] = useState<School[] | null>(null)
@@ -57,6 +58,7 @@ export default function MarketListPage() {
     if (schoolId) params.schoolId = schoolId
     if (tradeType) params.tradeType = tradeType
     if (status) params.status = status
+    if (q) params.q = q
     api
       .get<MarketItem[]>('/market-items', { params })
       .then((res) => {
@@ -66,7 +68,12 @@ export default function MarketListPage() {
         if (ignore) return
         const error = errorText(
           e,
-          { 404: ERROR_MESSAGES.SCHOOL_NOT_FOUND, 400: '잘못된 조건입니다. 학교·판매/나눔·상태를 다시 골라 주세요' },
+          {
+            404: ERROR_MESSAGES.SCHOOL_NOT_FOUND,
+            400: q
+              ? '잘못된 조건입니다. 학교·판매/나눔·상태를 다시 고르고 검색어는 50자 이하로 써 주세요'
+              : '잘못된 조건입니다. 학교·판매/나눔·상태를 다시 골라 주세요',
+          },
           '글 목록을 불러오지 못했습니다',
         )
         setResult({ key: queryKey, items: [], error })
@@ -74,7 +81,7 @@ export default function MarketListPage() {
     return () => {
       ignore = true
     }
-  }, [schoolId, tradeType, status, queryKey])
+  }, [schoolId, tradeType, status, q, queryKey])
 
   // 저장된 결과가 지금 조건의 것이 아니면 아직 불러오는 중이다
   const loading = result?.key !== queryKey
@@ -104,7 +111,10 @@ export default function MarketListPage() {
             <Notice kind="error">{error}</Notice>
           </div>
         )}
-        {!loading && !error && items.length === 0 && <p className="panel-state">아직 올라온 글이 없습니다</p>}
+        {/* 검색어가 있는데 0건이면 "글이 없다"가 아니라 "검색 결과가 없다"로 알려 준다 */}
+        {!loading && !error && items.length === 0 && (
+          <p className="panel-state">{q ? '검색 결과가 없습니다' : '아직 올라온 글이 없습니다'}</p>
+        )}
         <ul className="rows">
           {items.map((it) => (
             <li key={it.id} className="row">

@@ -35,6 +35,7 @@ public class MarketItemService {
     private static final String SELLER_FK = "fk_market_items_seller";
 
     private static final int MAX_PRICE = 10_000_000; // 판매 가격 상한(원). DB CHECK와 같은 값
+    private static final int MAX_SEARCH_LENGTH = 50; // 제목 검색어 최대 글자 수
 
     private final MarketItemRepository marketItemRepository;
     private final SchoolRepository schoolRepository; // 목록의 학교 조건이 실제 있는 학교인지 확인
@@ -69,18 +70,39 @@ public class MarketItemService {
                 .orElseThrow(ApiErrors::marketItemNotFound));
     }
 
-    // 목록을 최신순(id 내림차순)으로 조회 (페이징 없음). schoolId·tradeType·status는 선택이며, 넘긴 조건만 AND로 건다.
+    // 목록을 최신순(id 내림차순)으로 조회 (페이징 없음). schoolId·tradeType·status·q는 선택이며, 넘긴 조건만 AND로 건다.
+    // q(제목 검색어)는 앞뒤 공백을 빼고, 비면 조건 없음, 50자(코드포인트 기준)를 넘거나 NUL 문자가 있으면 400. 입력 400을 학교 404보다 먼저 본다.
     // 없는 학교면 404(학교 확인 쿼리 +1). 판매자·학교는 repository의 EntityGraph가 join으로 같이 읽으므로
     // 글 수와 무관하게 목록 쿼리는 1번이다(N+1 없음).
     @Transactional(readOnly = true)
-    public List<MarketItemResponse> getAll(Long schoolId, TradeType tradeType, ItemStatus status) {
+    public List<MarketItemResponse> getAll(Long schoolId, TradeType tradeType, ItemStatus status, String q) {
+        String title = checkedSearchTerm(q);
         if (schoolId != null && !schoolRepository.existsById(schoolId)) {
             throw ApiErrors.schoolNotFound();
         }
-        MarketItemFilter filter = new MarketItemFilter(schoolId, tradeType, status);
+        MarketItemFilter filter = new MarketItemFilter(schoolId, tradeType, status, title);
         return marketItemRepository.findAll(filter.toSpecification(), Sort.by(Sort.Direction.DESC, "id")).stream()
                 .map(MarketItemResponse::from)
                 .toList();
+    }
+
+    // 검색어를 다듬는다: null·공백뿐이면 null(조건 없음), 앞뒤 공백 제거 후 50자(코드포인트) 초과면 400
+    private String checkedSearchTerm(String q) {
+        if (q == null) {
+            return null;
+        }
+        String term = q.strip();
+        if (term.isEmpty()) {
+            return null;
+        }
+        // PostgreSQL은 NUL(\u0000) 문자를 처리하지 못해 500이 나므로 미리 400으로 막는다 (글 DTO와 같은 이유)
+        if (term.indexOf('\u0000') >= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "검색어에 쓸 수 없는 문자가 있습니다.");
+        }
+        if (term.codePointCount(0, term.length()) > MAX_SEARCH_LENGTH) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "검색어는 50자 이하여야 합니다.");
+        }
+        return term;
     }
 
     // 글 수정(판매자 본인만). 검사 순서는 비자 후기 수정과 같다: 입력 400(가격 규칙) -> 없는 id 404 -> 본인 아님 403.

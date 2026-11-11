@@ -49,12 +49,13 @@ public class MarketItemController {
         return marketItemService.get(id);
     }
 
-    // 목록 조회 (최신순, 공개). 세 파라미터는 선택 필터. 숫자·코드 형식이 틀리면 스프링이 400을 돌려준다.
+    // 목록 조회 (최신순, 공개). 네 파라미터는 선택 필터(q = 제목 검색어). 숫자·코드 형식이 틀리면 스프링이 400을 돌려준다.
     @GetMapping
     public List<MarketItemResponse> getAll(@RequestParam(required = false) Long schoolId,
             @RequestParam(required = false) TradeType tradeType,
-            @RequestParam(required = false) ItemStatus status) {
-        return marketItemService.getAll(schoolId, tradeType, status);
+            @RequestParam(required = false) ItemStatus status,
+            @RequestParam(required = false) String q) {
+        return marketItemService.getAll(schoolId, tradeType, status, q);
     }
 
     // 수정: 제목·본문·거래 방식·가격을 새 값으로 바꾸고 200 + 수정된 글을 돌려준다 (판매자 본인만)

@@ -1304,7 +1304,7 @@ CSRF 헤더 필요. `refresh_token` 쿠키가 있으면 서버(Redis)의 리프�
 
 ## 중고거래·나눔 (Market item)
 
-물건 글 표(`market_items`)는 S13-a에서 만들었다. API는 올리기(27)·한 건 보기(28)·목록(29)·수정(30)·삭제(31)·상태 바꾸기(32)다. 사진·검색·페이징은 아직 없다.
+물건 글 표(`market_items`)는 S13-a에서 만들었다. API는 올리기(27)·한 건 보기(28)·목록(29)·수정(30)·삭제(31)·상태 바꾸기(32)다. 사진·페이징은 아직 없다(제목 검색은 29번 `q`).
 
 ### 27. 물건 글 올리기 `POST /market-items`
 
@@ -1386,10 +1386,11 @@ CSRF 헤더 필요. `refresh_token` 쿠키가 있으면 서버(Redis)의 리프�
 | `schoolId` | 그 학교의 글만 |
 | `tradeType` | `SALE`(판매) / `FREE`(나눔) |
 | `status` | `ON_SALE` / `RESERVED` / `DONE` |
+| `q` | 제목 검색어. 제목만 보며(본문 제외), 대소문자를 가리지 않는 부분 일치. `%`·`_`·`\`는 와일드카드가 아니라 글자 그대로 찾는다. 앞뒤 공백은 무시하고, 비었거나 공백뿐이면 조건을 안 건 것과 같다. 앞뒤 공백을 뺀 길이가 50자(글자 기준)를 넘거나 NUL 문자가 있으면 400 |
 
 - 파라미터 없이 부르면 전체. 값이 비어 있으면(`?status=`) 조건을 안 건 것과 같다.
 - 존재하는 학교인데 글이 없으면 `200`과 `[]`.
-- 예: `GET /market-items?schoolId=1&tradeType=SALE&status=ON_SALE`
+- 예: `GET /market-items?schoolId=1&tradeType=SALE&status=ON_SALE`, `GET /market-items?q=자전거`
 
 성공 응답 `200 OK`: 28번 응답 객체의 배열.
 
@@ -1398,7 +1399,7 @@ CSRF 헤더 필요. `refresh_token` 쿠키가 있으면 서버(Redis)의 리프�
 | 상태코드 | 언제 |
 |----------|------|
 | 404 | 없는 학교 id (예: `?schoolId=999`) |
-| 400 | `schoolId`가 숫자가 아님, 모르는 `tradeType`·`status` 값 |
+| 400 | `schoolId`가 숫자가 아님, 모르는 `tradeType`·`status` 값, 공백을 뺀 `q`가 50자 초과 또는 `q`에 NUL 문자 포함 (`q`의 400이 학교 404보다 먼저) |
 
 ### 30. 물건 글 수정 `PUT /market-items/{id}`
 
