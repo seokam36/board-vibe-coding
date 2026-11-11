@@ -294,7 +294,8 @@ label textarea {
   color: var(--badge-chat-ink);
   background: var(--badge-chat-bg);
 }
-.badge-QUESTION {
+.badge-QUESTION,
+.badge-MARKET_ITEM {
   color: var(--badge-question-ink);
   background: var(--badge-question-bg);
 }

@@ -43,6 +43,7 @@
 상단 비자 일정 띠(`.visa-banner`): 상단바 바로 아래 한 줄, 로그인한 인증 회원 화면에서만 뜨고 /visa-plan에서는 숨긴다. `--info-soft` 배경 + `--ink` 글자 14px, 빨강은 쓰지 않는다. 닫기 버튼(×)은 눌리는 영역 40px, 글리프는 17px(글꼴 단계표 값). 375px에서는 문구·링크가 줄바꿈된다.
 
 물건 글 상태 뱃지(`.badge-ON_SALE` / `.badge-RESERVED` / `.badge-DONE`): 판매중은 청자(`--celadon-ink` / `--celadon-soft`), 예약중은 질문 말머리와 같은 파랑(`--badge-question-ink` / `--badge-question-bg`), 거래완료는 잡담 뱃지와 같은 회색(`--badge-chat-ink` / `--badge-chat-bg`). 빨강은 쓰지 않는다.
+신고 대상 뱃지(`.badge-POST` / `.badge-COMMENT` / `.badge-MARKET_ITEM`): 글은 청자, 댓글은 잡담 뱃지와 같은 회색, 중고 글("중고")은 질문 말머리와 같은 파랑(`--badge-question-ink` / `--badge-question-bg`). 빨강은 쓰지 않는다.
 
 말머리 뱃지(글자색 / 배경): 잡담 `--muted` / `#262F2C`, 질문 `#A9C2F0` / `#1F2B42`, 학교생활 `--celadon-ink` / `--celadon-soft`.
 

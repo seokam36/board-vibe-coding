@@ -51,4 +51,12 @@ public class ReportController {
             @Valid @RequestBody ReportCreateRequest request) {
         return reportService.reportComment(id, LoginUser.from(jwt), request);
     }
+
+    // 중고 글 신고: 201
+    @PostMapping("/market-items/{id}/reports")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ReportResponse reportMarketItem(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
+            @Valid @RequestBody ReportCreateRequest request) {
+        return reportService.reportMarketItem(id, LoginUser.from(jwt), request);
+    }
 }

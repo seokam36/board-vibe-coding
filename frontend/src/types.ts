@@ -67,9 +67,9 @@ export type ReportStatus = 'PENDING' | 'DISMISSED'
 export interface Report {
   id: number
   target: {
-    type: 'POST' | 'COMMENT' // 글 신고인지 댓글 신고인지
-    id: number // 글 id 또는 댓글 id
-    postId: number // 어느 글로 가야 하는지 (댓글이어도 글 id)
+    type: 'POST' | 'COMMENT' | 'MARKET_ITEM' // 글·댓글·중고 글 중 무엇의 신고인지
+    id: number // 글 id 또는 댓글 id 또는 중고 글 id
+    postId: number | null // 글·댓글이면 이동할 글 id, 중고 글이면 null
     preview: string // 내용 미리보기
     author: { id: number; nickname: string } | null
   }

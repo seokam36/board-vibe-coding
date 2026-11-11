@@ -22,12 +22,16 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     // 이 회원이 이 댓글을 이미 신고했는지
     boolean existsByCommentIdAndReporterId(Long commentId, Long reporterId);
 
-    // 관리자 목록용: 화면에 필요한 연관(글·댓글·댓글의 글·신고자·대상 작성자)을 한 번의 쿼리로 같이 읽는다(N+1 방지).
-    // 모두 nullable(글 신고면 comment 없음, 탈퇴하면 reporter·author 없음)이라 반드시 LEFT JOIN.
+    // 이 회원이 이 중고 글을 이미 신고했는지
+    boolean existsByMarketItemIdAndReporterId(Long marketItemId, Long reporterId);
+
+    // 관리자 목록용: 화면에 필요한 연관(글·댓글·중고 글·판매자·댓글의 글·신고자·대상 작성자)을 한 번의 쿼리로 같이 읽는다(N+1 방지).
+    // 모두 nullable(글 신고면 comment·marketItem 없음, 탈퇴하면 reporter·author 없음)이라 반드시 LEFT JOIN.
     // 쿼리 수는 신고 수와 상관없이 1번.
     @Query("select r from Report r "
             + "left join fetch r.post p left join fetch p.author "
             + "left join fetch r.comment c left join fetch c.post left join fetch c.author "
+            + "left join fetch r.marketItem m left join fetch m.seller "
             + "left join fetch r.reporter "
             + "where r.status = :status order by r.id asc")
     List<Report> findAllForAdmin(@Param("status") ReportStatus status);
@@ -36,6 +40,7 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     @Query("select r from Report r "
             + "left join fetch r.post p left join fetch p.author "
             + "left join fetch r.comment c left join fetch c.post left join fetch c.author "
+            + "left join fetch r.marketItem m left join fetch m.seller "
             + "left join fetch r.reporter "
             + "where r.id = :id")
     Optional<Report> findDetailById(@Param("id") Long id);

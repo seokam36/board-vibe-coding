@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
 import com.example.demo.comment.domain.Comment;
+import com.example.demo.market.domain.MarketItem;
 import com.example.demo.post.domain.Post;
 import com.example.demo.user.domain.User;
 
@@ -23,7 +24,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// 신고 한 건 (reports 테이블). 대상은 글 또는 댓글 중 하나만 채운다(DB의 CHECK가 보장).
+// 신고 한 건 (reports 테이블). 대상은 글·댓글·중고 글 중 하나만 채운다(DB의 CHECK가 보장).
 // 대상이 지워지면 DB(ON DELETE CASCADE)가, 신고자가 탈퇴하면 DB(ON DELETE SET NULL)가 처리하므로 엔티티 쪽 cascade 설정은 없다.
 @Entity
 @Table(name = "reports")
@@ -44,6 +45,11 @@ public class Report {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "comment_id", updatable = false)
     private Comment comment;
+
+    // 신고된 중고 글 (글/댓글 신고면 null)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "market_item_id", updatable = false)
+    private MarketItem marketItem;
 
     // 신고자. 탈퇴하면 DB가 null로 비우므로 nullable. updatable = false: 수정 때 옛 값을 다시 써서 FK 위반이 나는 걸 막는다.
     @ManyToOne(fetch = FetchType.LAZY)
@@ -66,9 +72,10 @@ public class Report {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    private Report(Post post, Comment comment, User reporter, ReportReason reason, String detail) {
+    private Report(Post post, Comment comment, MarketItem marketItem, User reporter, ReportReason reason, String detail) {
         this.post = post;
         this.comment = comment;
+        this.marketItem = marketItem;
         this.reporter = reporter;
         this.reason = reason;
         this.detail = detail;
@@ -77,12 +84,17 @@ public class Report {
 
     // 글 신고 만들기
     public static Report ofPost(Post post, User reporter, ReportReason reason, String detail) {
-        return new Report(post, null, reporter, reason, detail);
+        return new Report(post, null, null, reporter, reason, detail);
     }
 
     // 댓글 신고 만들기
     public static Report ofComment(Comment comment, User reporter, ReportReason reason, String detail) {
-        return new Report(null, comment, reporter, reason, detail);
+        return new Report(null, comment, null, reporter, reason, detail);
+    }
+
+    // 중고 글 신고 만들기
+    public static Report ofMarketItem(MarketItem marketItem, User reporter, ReportReason reason, String detail) {
+        return new Report(null, null, marketItem, reporter, reason, detail);
     }
 
     // 저장 직전에 신고 시각 기록 (DB 정밀도인 마이크로초로 맞춘다)

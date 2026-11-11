@@ -9,7 +9,7 @@ import Notice from './Notice'
 const DETAIL_MAX = 300
 
 // 글·댓글 아래에 붙는 "신고" 버튼 + 펼쳐지는 신고 양식.
-// url: 신고를 보낼 주소(/posts/{id}/reports 또는 /comments/{id}/reports), label: '글' 또는 '댓글'(안내 문구용)
+// url: 신고를 보낼 주소(/posts/{id}/reports 또는 /comments/{id}/reports, /market-items/{id}/reports), label: '글'·'댓글'·'중고 글'(안내 문구용)
 // onNeedLogin: 401(재발급까지 실패)이면 부모가 로그인 안내를 띄우게 알린다
 // (로그인이 풀리면 이 컴포넌트가 사라지므로 안내를 여기서 띄우면 안 보인다)
 export default function ReportForm({
@@ -18,7 +18,7 @@ export default function ReportForm({
   onNeedLogin,
 }: {
   url: string
-  label: '글' | '댓글'
+  label: '글' | '댓글' | '중고 글'
   onNeedLogin: () => void
 }) {
   const [open, setOpen] = useState(false)

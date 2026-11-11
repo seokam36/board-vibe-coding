@@ -3,8 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router'
 import api from '../api'
 import { describeError, errorText, ERROR_MESSAGES } from '../errorMessage'
 import { isAdmin } from '../auth/isAdmin'
+import { canActInSchool } from '../auth/canActInSchool'
 import { useAuth } from '../auth/useAuth'
 import { useConfirm } from '../components/confirmContext'
+import ReportForm from '../components/ReportForm'
 import Loading from '../components/Loading'
 import Notice from '../components/Notice'
 import ReloginNotice from '../components/ReloginNotice'
@@ -52,6 +54,7 @@ export default function MarketDetailPage() {
   const { user } = useAuth()
   const confirm = useConfirm() // 거래 완료·삭제 전 확인 창 (비자 후기 삭제와 같은 방식)
   const isMine = !!user && item?.seller.id === user.id // 내 글인지 (판매자 본인)
+  const canAct = canActInSchool(user, item?.school.id) // 신고는 인증한 학교의 글에만 (서버 규칙과 같다)
 
   useEffect(() => {
     // 응답이 오기 전에 화면이 사라지거나 id가 바뀌면 늦게 온 응답을 버리기 위한 플래그
@@ -188,6 +191,19 @@ export default function MarketDetailPage() {
           <button type="button" className="btn btn-sm btn-danger" onClick={handleDelete} disabled={locked}>
             {busy === 'delete' ? '삭제 중...' : '삭제'}
           </button>
+        </div>
+      )}
+      {/* 신고는 로그인했고 내 글이 아니고 인증한 학교의 글일 때만 (PostDetailPage와 같은 조건) */}
+      {item && user && !isMine && canAct && (
+        <div className="actions">
+          <ReportForm
+            url={`/market-items/${safeId}/reports`}
+            label="중고 글"
+            onNeedLogin={() => {
+              setActionError(null)
+              setNeedLogin(true) // 로그인 안내는 아래 user 조건 밖에서 보여 준다
+            }}
+          />
         </div>
       )}
       {/* 실패 안내는 버튼 영역 밖에 둔다(로그인이 풀려 버튼이 사라져도 안내가 남게) */}

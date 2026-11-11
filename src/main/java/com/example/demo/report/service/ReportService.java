@@ -12,6 +12,8 @@ import com.example.demo.comment.domain.Comment;
 import com.example.demo.comment.repository.CommentRepository;
 import com.example.demo.common.ApiErrors;
 import com.example.demo.common.ConstraintViolations;
+import com.example.demo.market.domain.MarketItem;
+import com.example.demo.market.repository.MarketItemRepository;
 import com.example.demo.post.domain.Post;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.report.domain.Report;
@@ -31,6 +33,7 @@ public class ReportService {
     private final ReportRepository reportRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final MarketItemRepository marketItemRepository;
     private final AccessGuard accessGuard;
 
     // 글 신고
@@ -67,6 +70,22 @@ public class ReportService {
         return save(Report.ofComment(comment, reporter, request.reason(), normalize(request.detail())));
     }
 
+    // 중고 글 신고 (글 신고와 같은 순서: 인증 -> 대상 404 -> 같은 학교 -> 자기 글 400 -> 중복 409)
+    @Transactional
+    public ReportResponse reportMarketItem(Long itemId, LoginUser loginUser, ReportCreateRequest request) {
+        User reporter = accessGuard.requireVerified(loginUser);
+        // findById가 판매자·학교를 같이 읽어 온다(EntityGraph)
+        MarketItem item = marketItemRepository.findById(itemId).orElseThrow(ApiErrors::marketItemNotFound);
+        accessGuard.requireSameSchool(reporter, item.getSchool());
+        if (item.isSoldBy(reporter.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "자기 중고 글은 신고할 수 없습니다.");
+        }
+        if (reportRepository.existsByMarketItemIdAndReporterId(itemId, reporter.getId())) {
+            throw alreadyReported();
+        }
+        return save(Report.ofMarketItem(item, reporter, request.reason(), normalize(request.detail())));
+    }
+
     // 저장하고, 동시 요청·삭제와 겹쳐 생기는 DB 제약 위반을 알맞은 상태코드로 바꾼다
     private ReportResponse save(Report report) {
         try {
@@ -87,6 +106,9 @@ public class ReportService {
             }
             if (constraint.equals("fk_reports_comment")) {
                 throw ApiErrors.commentNotFound();
+            }
+            if (constraint.equals("fk_reports_market_item")) {
+                throw ApiErrors.marketItemNotFound();
             }
             throw e; // 다른 제약 위반은 숨기지 않는다
         }

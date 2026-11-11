@@ -63,17 +63,17 @@ class FlywayExistingBaselineTests {
 	}
 
 	// 기록장에 BASELINE 1행만 있는 운영과 같은 상태에서 migrate하면
-	// V2(S7-a)·V3(S8-a)·V4(S9-a)·V5(S9-b)·V6(S10-a)·V7(S11-a)·V8(S12-a)·V9(S13-a)가 성공으로 8행 추가되고, 기존 데이터는 그대로 유지되며 V2의 채우기 규칙이 적용된다.
+	// V2(S7-a)·V3(S8-a)·V4(S9-a)·V5(S9-b)·V6(S10-a)·V7(S11-a)·V8(S12-a)·V9(S13-a)·V10(S13-e)가 성공으로 9행 추가되고, 기존 데이터는 그대로 유지되며 V2의 채우기 규칙이 적용된다.
 	// (처음엔 "할 일 없음"을 확인했고 V 파일이 늘 때마다 기대값을 올려 왔다. 운영 상태 재현이라는 의도는 그대로다.)
 	@Test
-	void 기록장에_BASELINE이_있는_운영_상태는_migrate하면_V2부터_V9_여덟_개가_성공으로_추가되고_데이터가_유지된다() throws SQLException {
+	void 기록장에_BASELINE이_있는_운영_상태는_migrate하면_V2부터_V10_아홉_개가_성공으로_추가되고_데이터가_유지된다() throws SQLException {
 		MigrateResult result = newFlyway().migrate();
 
-		// V2~V9 여덟 개가 새로 실행되어야 한다 (V1은 BASELINE으로 인정되어 다시 실행되지 않는다)
-		assertThat(result.migrationsExecuted).as("새로 실행된 마이그레이션 수").isEqualTo(8);
+		// V2~V10 아홉 개가 새로 실행되어야 한다 (V1은 BASELINE으로 인정되어 다시 실행되지 않는다)
+		assertThat(result.migrationsExecuted).as("새로 실행된 마이그레이션 수").isEqualTo(9);
 
-		// 기록장: BASELINE 1행 + V2~V9 성공 8행 = 9행
-		assertThat(count("SELECT count(*) FROM flyway_schema_history")).as("기록장 행 수").isEqualTo(9);
+		// 기록장: BASELINE 1행 + V2~V10 성공 9행 = 10행
+		assertThat(count("SELECT count(*) FROM flyway_schema_history")).as("기록장 행 수").isEqualTo(10);
 		assertThat(count("SELECT count(*) FROM flyway_schema_history WHERE version = '3' AND type = 'SQL' AND success = true"))
 				.as("version 3 성공 행 수").isEqualTo(1);
 		assertThat(count("SELECT count(*) FROM flyway_schema_history WHERE version = '1' AND type = 'BASELINE'"))

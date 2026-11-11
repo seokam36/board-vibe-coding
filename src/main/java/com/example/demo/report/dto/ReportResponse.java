@@ -8,7 +8,7 @@ import com.example.demo.report.domain.Report;
 public record ReportResponse(Long id, Target target, ReasonInfo reason, String detail, String status,
         Instant createdAt) {
 
-    // 신고 대상. type은 POST/COMMENT, id는 그 대상의 id, postId는 대상 글의 id(글이면 id와 같다)
+    // 신고 대상. type은 POST/COMMENT/MARKET_ITEM, id는 그 대상의 id, postId는 대상 글의 id(글이면 id와 같다, 중고 글이면 null)
     public record Target(String type, Long id, Long postId) {
     }
 
@@ -16,11 +16,16 @@ public record ReportResponse(Long id, Target target, ReasonInfo reason, String d
     public record ReasonInfo(String code, String name) {
     }
 
-    // 엔티티에서 응답을 만든다 (글/댓글 중 채워진 쪽을 본다)
+    // 엔티티에서 응답을 만든다 (글/댓글/중고 글 중 채워진 쪽을 본다)
     public static ReportResponse from(Report report) {
-        Target target = report.getPost() != null
-                ? new Target("POST", report.getPost().getId(), report.getPost().getId())
-                : new Target("COMMENT", report.getComment().getId(), report.getComment().getPost().getId());
+        Target target;
+        if (report.getPost() != null) {
+            target = new Target("POST", report.getPost().getId(), report.getPost().getId());
+        } else if (report.getMarketItem() != null) {
+            target = new Target("MARKET_ITEM", report.getMarketItem().getId(), null);
+        } else {
+            target = new Target("COMMENT", report.getComment().getId(), report.getComment().getPost().getId());
+        }
         return new ReportResponse(report.getId(), target,
                 new ReasonInfo(report.getReason().name(), report.getReason().getLabel()),
                 report.getDetail(), report.getStatus().name(), report.getCreatedAt());

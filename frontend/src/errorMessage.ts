@@ -74,7 +74,7 @@ export const ERROR_MESSAGES = {
   POST_ALREADY_LIKED: '이미 공감한 글입니다',
   // "처리" 동작의 기본 실패 문구 (공감 버튼, 관리자 신고 처리)
   ACTION_FAILED: '처리하지 못했습니다',
-  // 이미 지워진 글/댓글 404 (글 삭제, 댓글 수정·삭제, 신고, 관리자 삭제). label은 '글' 또는 '댓글'
+  // 이미 지워진 글/댓글 404 (글 삭제, 댓글 수정·삭제, 신고, 관리자 삭제). label은 '글', '댓글', '중고 글'
   alreadyDeleted: (label: string) => `이미 삭제된 ${label}입니다`,
 
   // --- 비자 후기 ---

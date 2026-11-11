@@ -13,6 +13,16 @@ import type { Report, ReportStatus } from '../types'
 
 const ADMIN_ONLY = '관리자만 볼 수 있습니다'
 
+// 신고 대상 종류별 문구·삭제 주소 (중고 글은 관리자도 DELETE /market-items/{id}로 지울 수 있다)
+type TargetType = Report['target']['type']
+const TARGET_LABEL: Record<TargetType, string> = { POST: '글', COMMENT: '댓글', MARKET_ITEM: '중고 글' }
+const BADGE_LABEL: Record<TargetType, string> = { POST: '글', COMMENT: '댓글', MARKET_ITEM: '중고' }
+const DELETE_PATH: Record<TargetType, (id: number) => string> = {
+  POST: (id) => `/posts/${id}`,
+  COMMENT: (id) => `/comments/${id}`,
+  MARKET_ITEM: (id) => `/market-items/${id}`,
+}
+
 // 관리자 전용 신고 관리 화면: 미처리 / 기각 탭, 미처리 신고에는 "삭제"·"문제 없음" 버튼
 export default function AdminReportsPage() {
   const { user } = useAuth()
@@ -88,12 +98,12 @@ export default function AdminReportsPage() {
   }
 
   async function handleDelete(r: Report) {
-    const what = r.target.type === 'POST' ? '글' : '댓글'
+    const what = TARGET_LABEL[r.target.type]
     // 되돌릴 수 없는 동작이라 먼저 확인한다
     if (!(await confirm({ message: `신고된 ${what}을(를) 삭제할까요?`, confirmLabel: '삭제', danger: true }))) return
     startAction()
     try {
-      await api.delete(r.target.type === 'POST' ? `/posts/${r.target.id}` : `/comments/${r.target.id}`)
+      await api.delete(DELETE_PATH[r.target.type](r.target.id))
       setNotice('처리했습니다')
       await fetchList() // 목록을 다시 읽을 때까지 버튼을 계속 막는다
     } catch (err: unknown) {
@@ -161,8 +171,9 @@ export default function AdminReportsPage() {
             {reports.map((r) => (
               <li key={r.id} className="row">
                 <div className="row-title">
-                  <span className={`badge badge-${r.target.type}`}>{r.target.type === 'POST' ? '글' : '댓글'}</span>
-                  <Link to={`/posts/${r.target.postId}`}>글로 가기</Link>
+                  <span className={`badge badge-${r.target.type}`}>{BADGE_LABEL[r.target.type]}</span>
+                  {/* 중고 글은 postId가 없고 /market/{id}로 간다 */}
+                  <Link to={r.target.type === 'MARKET_ITEM' ? `/market/${r.target.id}` : `/posts/${r.target.postId}`}>글로 가기</Link>
                 </div>
                 {/* pre-wrap: 줄바꿈을 그대로. 텍스트로만 출력하므로 HTML이 실행되지 않는다 */}
                 <p className="pre-wrap-break">{r.target.preview}</p>

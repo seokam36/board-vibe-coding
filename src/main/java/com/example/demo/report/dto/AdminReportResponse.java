@@ -3,6 +3,7 @@ package com.example.demo.report.dto;
 import java.time.Instant;
 
 import com.example.demo.comment.domain.Comment;
+import com.example.demo.market.domain.MarketItem;
 import com.example.demo.post.domain.Post;
 import com.example.demo.report.domain.Report;
 import com.example.demo.user.domain.User;
@@ -15,8 +16,8 @@ public record AdminReportResponse(Long id, Target target, AuthorResponse reporte
     // 댓글 미리보기 최대 글자 수
     static final int PREVIEW_MAX = 100;
 
-    // 신고 대상. preview = 글이면 제목, 댓글이면 내용 앞 100자(넘으면 "…"을 붙인다).
-    // author = 대상 작성자(탈퇴했거나 작성자 없는 옛 글이면 null)
+    // 신고 대상. preview = 글·중고 글이면 제목, 댓글이면 내용 앞 100자(넘으면 "…"을 붙인다).
+    // postId = 중고 글이면 null. author = 대상 작성자(중고 글이면 판매자, 탈퇴했거나 작성자 없는 옛 글이면 null)
     public record Target(String type, Long id, Long postId, String preview, AuthorResponse author) {
     }
 
@@ -26,6 +27,9 @@ public record AdminReportResponse(Long id, Target target, AuthorResponse reporte
         Post post = report.getPost();
         if (post != null) {
             target = new Target("POST", post.getId(), post.getId(), post.getTitle(), author(post.getAuthor()));
+        } else if (report.getMarketItem() != null) {
+            MarketItem item = report.getMarketItem();
+            target = new Target("MARKET_ITEM", item.getId(), null, item.getTitle(), author(item.getSeller()));
         } else {
             Comment comment = report.getComment();
             target = new Target("COMMENT", comment.getId(), comment.getPost().getId(), preview(comment.getContent()),
