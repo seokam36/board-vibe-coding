@@ -39,6 +39,11 @@ public final class ApiErrors {
         return new ResponseStatusException(HttpStatus.NOT_FOUND, "비자 일정을 찾을 수 없습니다.");
     }
 
+    // 없는 물건 글(중고거래·나눔) -> 404
+    public static ResponseStatusException marketItemNotFound() {
+        return new ResponseStatusException(HttpStatus.NOT_FOUND, "물건 글을 찾을 수 없습니다.");
+    }
+
     // 로그인 안 됨(토큰은 유효하지만 회원이 없는 경우 포함) -> 401
     public static ResponseStatusException loginRequired() {
         return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");

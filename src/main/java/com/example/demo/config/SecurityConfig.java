@@ -72,6 +72,10 @@ public class SecurityConfig {
                 m.matcher(HttpMethod.GET, "/visa-reviews/stats"),
                 // 비자 후기 목록 읽기도 공개
                 m.matcher(HttpMethod.GET, "/visa-reviews"),
+                // 물건 글(중고거래·나눔) 단건 읽기도 공개 (올리기는 로그인 필요라 여기 넣지 않는다)
+                // 주의: {id}는 한 칸 아무 글자라 /market-items/ 아래 한 칸짜리 GET(예: /mine)도 이 규칙으로 공개가 된다.
+                // 로그인 전용 GET을 /market-items/ 아래에 두려면 이 규칙보다 먼저 따로 막아야 한다.
+                m.matcher(HttpMethod.GET, "/market-items/{id}"),
                 m.matcher("/actuator/health"),
                 m.matcher("/error"));
     }
