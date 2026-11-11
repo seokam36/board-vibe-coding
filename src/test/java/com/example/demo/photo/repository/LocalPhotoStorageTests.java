@@ -31,8 +31,8 @@ class LocalPhotoStorageTests {
 
         var stored = storage.get("market/1/a.jpg");
         assertThat(stored).isPresent();
-        assertThat(stored.get().bytes()).isEqualTo(jpegLike);
-        assertThat(stored.get().contentType()).isEqualTo("image/jpeg");
+        // get은 바이트만 돌려준다: content-type은 DB 값만 믿는 약속이다
+        assertThat(stored.get()).isEqualTo(jpegLike);
 
         storage.delete("market/1/a.jpg");
         assertThat(storage.get("market/1/a.jpg")).isEmpty();
@@ -52,7 +52,19 @@ class LocalPhotoStorageTests {
         storage.put("a.png", new byte[] {1}, "image/png");
         storage.put("a.png", new byte[] {2, 3}, "image/png");
 
-        assertThat(storage.get("a.png").orElseThrow().bytes()).containsExactly(2, 3);
+        assertThat(storage.get("a.png").orElseThrow()).containsExactly(2, 3);
+    }
+
+    @Test
+    void 파일_읽기_쓰기_실패는_PhotoStorageException으로_감싸진다() throws Exception {
+        LocalPhotoStorage storage = storage();
+        // 폴더가 있는 자리를 파일 키로 쓰면 읽기·쓰기가 IOException으로 실패한다 (구현이 IOException을 그대로 내보내지 않는지 확인)
+        storage.put("dir/a.png", new byte[] {1}, "image/png");
+        // 파일을 "폴더 자리"로 쓰려는 키: dir/a.png 아래에 또 만들 수 없다
+        assertThatThrownBy(() -> storage.put("dir/a.png/b.png", new byte[] {1}, "image/png"))
+                .isInstanceOf(PhotoStorageException.class);
+        // 폴더를 파일처럼 읽으려는 키
+        assertThatThrownBy(() -> storage.get("dir")).isInstanceOf(PhotoStorageException.class);
     }
 
     @ParameterizedTest

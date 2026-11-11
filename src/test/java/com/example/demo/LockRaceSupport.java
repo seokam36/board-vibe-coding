@@ -51,15 +51,20 @@ public final class LockRaceSupport {
 
 	// 다른 커넥션이 락 때문에 기다리는 중(pg_stat_activity wait_event_type='Lock')이 될 때까지 최대 5초 폴링한다.
 	public static void 락대기_기다리기(JdbcTemplate jdbc) throws InterruptedException {
+		락대기_기다리기(jdbc, 1);
+	}
+
+	// 락 때문에 기다리는 다른 커넥션이 최소 minWaiters개가 될 때까지 최대 5초 폴링한다 (동시에 여러 요청이 줄 서는 경쟁용, S13-g2).
+	public static void 락대기_기다리기(JdbcTemplate jdbc, int minWaiters) throws InterruptedException {
 		long deadline = System.currentTimeMillis() + 5000;
 		while (System.currentTimeMillis() < deadline) {
 			Long n = jdbc.queryForObject("select count(*) from pg_stat_activity where datname = current_database() "
 					+ "and wait_event_type = 'Lock' and pid <> pg_backend_pid()", Long.class);
-			if (n != null && n > 0) {
+			if (n != null && n >= minWaiters) {
 				return;
 			}
 			Thread.sleep(20);
 		}
-		throw new AssertionError("5초 안에 락 대기가 생기지 않았다");
+		throw new AssertionError("5초 안에 락 대기자가 " + minWaiters + "명이 되지 않았다");
 	}
 }

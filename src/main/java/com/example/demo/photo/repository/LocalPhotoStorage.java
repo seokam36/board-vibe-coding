@@ -1,7 +1,6 @@
 package com.example.demo.photo.repository;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.NoSuchFileException;
@@ -13,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 // 사진을 내 컴퓨터 폴더에 파일로 저장하는 구현 (개발·테스트용, S13-g6 전까지 유일한 구현).
 // key가 곧 폴더 안의 파일 경로다. 폴더 밖으로 나가는 key는 거부한다.
+// IO 실패는 PhotoStorageException으로 감싸 던진다 (PhotoStorage 약속).
 @Repository
 public class LocalPhotoStorage implements PhotoStorage {
 
@@ -25,26 +25,25 @@ public class LocalPhotoStorage implements PhotoStorage {
 
     @Override
     public void put(String key, byte[] bytes, String contentType) {
-        // contentType은 따로 저장하지 않는다: get()에서 파일 맨 앞 바이트(JPEG/PNG)로 다시 알아낸다
+        // contentType은 저장하지 않는다: 사진 종류는 DB 값만 믿는 약속이라 파일에서 다시 추측하지 않는다
         Path path = resolve(key);
         try {
             Files.createDirectories(path.getParent());
             Files.write(path, bytes);
         } catch (IOException e) {
-            throw new UncheckedIOException("사진 파일을 저장하지 못했습니다", e);
+            throw new PhotoStorageException("사진 파일을 저장하지 못했습니다", e);
         }
     }
 
     @Override
-    public Optional<StoredPhoto> get(String key) {
+    public Optional<byte[]> get(String key) {
         Path path = resolve(key);
         try {
-            byte[] bytes = Files.readAllBytes(path);
-            return Optional.of(new StoredPhoto(bytes, guessContentType(bytes)));
+            return Optional.of(Files.readAllBytes(path));
         } catch (NoSuchFileException e) {
             return Optional.empty();
         } catch (IOException e) {
-            throw new UncheckedIOException("사진 파일을 읽지 못했습니다", e);
+            throw new PhotoStorageException("사진 파일을 읽지 못했습니다", e);
         }
     }
 
@@ -54,7 +53,7 @@ public class LocalPhotoStorage implements PhotoStorage {
         try {
             Files.deleteIfExists(path); // 없어도 예외 없이 지나간다
         } catch (IOException e) {
-            throw new UncheckedIOException("사진 파일을 지우지 못했습니다", e);
+            throw new PhotoStorageException("사진 파일을 지우지 못했습니다", e);
         }
     }
 
@@ -77,15 +76,5 @@ public class LocalPhotoStorage implements PhotoStorage {
         } catch (InvalidPathException e) {
             throw new IllegalArgumentException("사진 key가 올바르지 않습니다", e);
         }
-    }
-
-    private String guessContentType(byte[] b) {
-        if (b.length >= 3 && (b[0] & 0xFF) == 0xFF && (b[1] & 0xFF) == 0xD8) {
-            return "image/jpeg";
-        }
-        if (b.length >= 4 && (b[0] & 0xFF) == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) {
-            return "image/png";
-        }
-        return "application/octet-stream";
     }
 }

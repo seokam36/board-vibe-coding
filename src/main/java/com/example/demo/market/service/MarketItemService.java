@@ -15,11 +15,13 @@ import com.example.demo.common.ApiErrors;
 import com.example.demo.common.ConstraintViolations;
 import com.example.demo.market.domain.ItemStatus;
 import com.example.demo.market.domain.MarketItem;
+import com.example.demo.market.domain.MarketItemPhoto;
 import com.example.demo.market.domain.TradeType;
 import com.example.demo.market.dto.MarketItemRequest;
 import com.example.demo.market.dto.MarketItemResponse;
 import com.example.demo.market.dto.MarketItemStatusRequest;
 import com.example.demo.market.repository.MarketItemFilter;
+import com.example.demo.market.repository.MarketItemPhotoRepository;
 import com.example.demo.market.repository.MarketItemRepository;
 import com.example.demo.school.repository.SchoolRepository;
 import com.example.demo.user.domain.User;
@@ -38,6 +40,7 @@ public class MarketItemService {
     private static final int MAX_SEARCH_LENGTH = 50; // 제목 검색어 최대 글자 수
 
     private final MarketItemRepository marketItemRepository;
+    private final MarketItemPhotoRepository photoRepository; // 한 건짜리 응답에 사진 목록을 붙인다 (S13-g2)
     private final SchoolRepository schoolRepository; // 목록의 학교 조건이 실제 있는 학교인지 확인
     private final AccessGuard accessGuard;
 
@@ -52,7 +55,7 @@ public class MarketItemService {
             // id가 IDENTITY라 save() 안에서 바로 INSERT가 나가므로 FK 위반을 여기서 잡을 수 있다
             MarketItem saved = marketItemRepository.save(new MarketItem(seller, seller.getVerifiedSchool(),
                     request.title(), request.content(), request.tradeType(), price));
-            return MarketItemResponse.from(saved);
+            return MarketItemResponse.from(saved, List.of()); // 방금 올린 글이라 사진은 아직 없다
         } catch (DataIntegrityViolationException e) {
             // 회원 조회 직후 탈퇴가 커밋되면 seller FK가 위반된다 -> "회원이 없음"과 같이 401.
             // 다른 제약 위반은 숨기지 않고 그대로 던진다.
@@ -63,11 +66,16 @@ public class MarketItemService {
         }
     }
 
-    // 물건 글 한 건 조회(누구나). 없으면 404
+    // 물건 글 한 건 조회(누구나). 없으면 404. 사진 목록(올린 순)을 같이 담는다 -> 쿼리 2번(글+판매자·학교 join 1번, 사진 1번)
     @Transactional(readOnly = true)
     public MarketItemResponse get(Long id) {
-        return MarketItemResponse.from(marketItemRepository.findById(id)
-                .orElseThrow(ApiErrors::marketItemNotFound));
+        return withPhotos(marketItemRepository.findById(id).orElseThrow(ApiErrors::marketItemNotFound));
+    }
+
+    // 글 하나를 사진 목록과 함께 응답으로 바꾼다 (한 건짜리 응답 전용. 목록에는 쓰지 않는다: 글마다 쿼리가 나가는 N+1)
+    private MarketItemResponse withPhotos(MarketItem item) {
+        List<MarketItemPhoto> photos = photoRepository.findByMarketItemIdOrderByIdAsc(item.getId());
+        return MarketItemResponse.from(item, photos);
     }
 
     // 목록을 최신순(id 내림차순)으로 조회 (페이징 없음). schoolId·tradeType·status·q는 선택이며, 넘긴 조건만 AND로 건다.
@@ -126,7 +134,7 @@ public class MarketItemService {
             throw doneItemConflict();
         }
         // 내가 고쳤다. 바뀐 글을 다시 읽어 돌려준다(그 사이 삭제됐으면 404).
-        return MarketItemResponse.from(marketItemRepository.findById(id).orElseThrow(ApiErrors::marketItemNotFound));
+        return withPhotos(marketItemRepository.findById(id).orElseThrow(ApiErrors::marketItemNotFound));
     }
 
     // 상태 바꾸기(판매자 본인만, 관리자도 남의 글은 못 바꾼다. 학교 인증 불필요).
@@ -151,7 +159,7 @@ public class MarketItemService {
             throw statusConflict();
         }
         // 내가 바꿨다. 바뀐 글을 다시 읽어 돌려준다(그 사이 삭제됐으면 404).
-        return MarketItemResponse.from(marketItemRepository.findById(id).orElseThrow(ApiErrors::marketItemNotFound));
+        return withPhotos(marketItemRepository.findById(id).orElseThrow(ApiErrors::marketItemNotFound));
     }
 
     private ResponseStatusException statusConflict() {

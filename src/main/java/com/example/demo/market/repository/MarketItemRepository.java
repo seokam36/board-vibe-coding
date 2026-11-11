@@ -8,6 +8,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,6 +19,8 @@ import com.example.demo.market.domain.ItemStatus;
 import com.example.demo.market.domain.MarketItem;
 import com.example.demo.market.domain.TradeType;
 
+import jakarta.persistence.LockModeType;
+
 // 물건 글 저장소. JpaSpecificationExecutor: 학교·거래 방식·상태 조건을 "있을 때만" 붙여 조합하려고 쓴다.
 public interface MarketItemRepository extends JpaRepository<MarketItem, Long>, JpaSpecificationExecutor<MarketItem> {
 
@@ -25,6 +28,15 @@ public interface MarketItemRepository extends JpaRepository<MarketItem, Long>, J
     @Override
     @EntityGraph(attributePaths = { "seller", "school" })
     Optional<MarketItem> findById(Long id);
+
+    // 사진 올리기용: 글 행을 잠그고 읽는다(PESSIMISTIC_WRITE. PostgreSQL에서 Hibernate는 FOR UPDATE 또는 FOR NO KEY UPDATE로 낸다 --
+    // 둘 다 다른 요청의 UPDATE·DELETE·같은 잠금과는 충돌한다). 같은 글에 사진을 동시에 올리는 요청, 상태 바꾸기(DONE)·삭제와
+    // 줄을 세워서 "사진 수 세기 -> 넣기"가 둘 사이에 끼어들지 못하게 한다. 잠금은 트랜잭션이 끝날 때 풀리므로 바깥 트랜잭션 없이 부르면 예외(MANDATORY).
+    // EntityGraph(join)를 안 쓴다: 잠금 쿼리에 join이 붙으면 PostgreSQL이 거절하거나 다른 표 행까지 잠글 수 있다.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Transactional(propagation = Propagation.MANDATORY)
+    @Query("select m from MarketItem m where m.id = :id")
+    Optional<MarketItem> findByIdForUpdate(@Param("id") Long id);
 
     // 조건 + 정렬 목록 조회. 판매자·학교를 join으로 같이 읽어 글마다 추가 쿼리가 나가는 N+1을 막는다
     @Override

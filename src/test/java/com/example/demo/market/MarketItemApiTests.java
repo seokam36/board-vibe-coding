@@ -344,7 +344,7 @@ class MarketItemApiTests {
 	}
 
 	@Test
-	void 권장4_단건_조회는_판매자와_학교를_같이_읽어_쿼리가_1번만_나간다() throws Exception {
+	void 권장4_단건_조회는_판매자와_학교를_같이_읽어_글_쿼리_1번에_사진_쿼리_1번만_나간다() throws Exception {
 		// 무엇: 한 건 조회의 SQL 수 / 왜: 판매자·학교를 따로 읽는 N+1이 생기지 않았는지 확인
 		long id = json(작성(판매("5000"), 쿠키, true)).get("id").asLong();
 		Statistics stats = emf.unwrap(SessionFactory.class).getStatistics();
@@ -354,7 +354,8 @@ class MarketItemApiTests {
 			MockHttpServletResponse res = 조회("" + id);
 			assertThat(res.getStatus()).isEqualTo(200);
 			assertThat(json(res).get("seller").get("nickname").asString()).isEqualTo("muser");
-			assertThat(stats.getPrepareStatementCount()).as("단건 조회 쿼리 수").isEqualTo(1);
+			// 글+판매자+학교 join 1번 + 사진 목록 1번(S13-g2). 판매자·학교를 따로 읽으면 3번 이상이 된다
+			assertThat(stats.getPrepareStatementCount()).as("단건 조회 쿼리 수").isEqualTo(2);
 		} finally {
 			stats.setStatisticsEnabled(false);
 		}
