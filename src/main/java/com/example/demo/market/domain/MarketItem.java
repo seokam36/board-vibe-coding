@@ -51,7 +51,7 @@ public class MarketItem {
 
     // enum 이름을 문자열로 저장한다(STRING). 순서 번호로 저장하면 enum 순서가 바뀔 때 데이터가 꼬인다.
     @Enumerated(EnumType.STRING)
-    @Column(name = "trade_type", nullable = false, length = 20, updatable = false)
+    @Column(name = "trade_type", nullable = false, length = 20)
     private TradeType tradeType;
 
     // 원 단위. 나눔은 0
@@ -74,6 +74,19 @@ public class MarketItem {
         this.tradeType = tradeType;
         this.price = price;
         this.status = ItemStatus.ON_SALE;
+    }
+
+    // 이 글의 판매자가 해당 회원인지 (수정·삭제 권한 확인용)
+    public boolean isSoldBy(Long userId) {
+        return seller != null && seller.getId().equals(userId);
+    }
+
+    // 수정: 제목·본문·거래 방식·가격만 바꾼다. 판매자·학교·상태·작성 시각은 이 메서드로 안 바뀐다.
+    public void update(String title, String content, TradeType tradeType, int price) {
+        this.title = title;
+        this.content = content;
+        this.tradeType = tradeType;
+        this.price = price;
     }
 
     // 저장 직전에 작성 시각 기록 (DB 정밀도인 마이크로초로 맞춘다)
