@@ -17,6 +17,7 @@ import com.example.demo.common.ApiErrors;
 import com.example.demo.market.domain.ItemStatus;
 import com.example.demo.market.domain.MarketItem;
 import com.example.demo.market.domain.MarketItemPhoto;
+import com.example.demo.market.dto.MarketItemPhotoContent;
 import com.example.demo.market.dto.MarketItemPhotoResponse;
 import com.example.demo.market.repository.MarketItemPhotoRepository;
 import com.example.demo.market.repository.MarketItemRepository;
@@ -91,6 +92,68 @@ public class MarketItemPhotoService {
             deleteQuietly(key, e);
             deleteQuietly(thumbKey, e);
             throw e;
+        }
+    }
+
+    // 사진 파일 보기 (S13-g3). 로그인 불필요. size: null=본 사진, "thumb"=썸네일, 그 외 400.
+    // 순서: size 400 -> 사진 없음/다른 글의 사진 404 -> 창고에 파일 없음 404.
+    // DB 조회만 읽기 전용 트랜잭션으로 짧게 하고, 파일 읽기는 트랜잭션 밖에서 한다(DB 연결 풀이 3개뿐이라 오래 잡지 않으려고).
+    public MarketItemPhotoContent getPhoto(Long itemId, Long photoId, String size) {
+        boolean thumb;
+        if (size == null) {
+            thumb = false;
+        } else if (size.equals("thumb")) {
+            thumb = true;
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "size는 비우거나 thumb만 쓸 수 있습니다.");
+        }
+
+        // 사진 번호와 글 번호가 둘 다 맞아야 한다 (남의 글 번호로 이 글 사진을 보는 일을 막는다)
+        TransactionTemplate readOnly = new TransactionTemplate(txManager);
+        readOnly.setReadOnly(true);
+        MarketItemPhoto photo = readOnly.execute(status -> photoRepository.findByIdAndMarketItemId(photoId, itemId)
+                .orElseThrow(MarketItemPhotoService::photoNotFound));
+
+        // 트랜잭션 밖: 창고에서 파일 읽기. 장부(DB)엔 있는데 파일이 없으면 404 (업로드 도중 비정상 종료 등 드문 경우)
+        byte[] bytes = photoStorage.get(thumb ? photo.getThumbKey() : photo.getStorageKey())
+                .orElseThrow(MarketItemPhotoService::photoNotFound);
+        return new MarketItemPhotoContent(bytes, photo.getContentType());
+    }
+
+    // 사진 지우기 (S13-g3). 순서: 글 없음 404 -> 본인 아님 403(관리자도) -> 거래완료 409 -> 이 글의 사진 아님 404 -> 장부 행 삭제.
+    // 글 행을 잠그고(FOR UPDATE) 확인하는 이유: 같은 글의 거래완료 전환·사진 올리기·글 삭제와 줄을 세우려고.
+    // 창고 파일은 DB 삭제가 "커밋된 뒤에" 지운다. 먼저 지우면 커밋이 실패했을 때 장부엔 있는데 파일이 없는 사진이 남는다.
+    // (거꾸로 파일 지우기가 실패하면 파일만 고아로 남지만 화면에는 영향이 없다. 정리는 S13-g4 몫)
+    public void deletePhoto(Long itemId, Long photoId, LoginUser loginUser) {
+        MarketItemPhoto removed = new TransactionTemplate(txManager).execute(status -> {
+            MarketItem item = marketItemRepository.findByIdForUpdate(itemId).orElseThrow(ApiErrors::marketItemNotFound);
+            if (!item.isSoldBy(loginUser.id())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인이 올린 글의 사진만 지울 수 있습니다.");
+            }
+            if (item.getStatus() == ItemStatus.DONE) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "거래완료된 글의 사진은 지울 수 없습니다.");
+            }
+            MarketItemPhoto photo = photoRepository.findByIdAndMarketItemId(photoId, itemId)
+                    .orElseThrow(MarketItemPhotoService::photoNotFound);
+            photoRepository.delete(photo);
+            return photo;
+        });
+
+        // 여기는 트랜잭션이 커밋된 뒤다. 파일 지우기가 실패해도 이미 장부에서 지워졌으니 204는 그대로 돌려준다(로그만 남김).
+        deleteFileAfterCommit(removed.getStorageKey());
+        deleteFileAfterCommit(removed.getThumbKey());
+    }
+
+    private static ResponseStatusException photoNotFound() {
+        return new ResponseStatusException(HttpStatus.NOT_FOUND, "사진을 찾을 수 없습니다.");
+    }
+
+    // 커밋 뒤 창고 파일 지우기. 실패는 로그만 남기고 삼킨다 (하나가 실패해도 다음 파일은 계속 지운다)
+    private void deleteFileAfterCommit(String key) {
+        try {
+            photoStorage.delete(key);
+        } catch (RuntimeException ex) {
+            log.warn("사진 삭제 뒤 창고 파일 정리에 실패했습니다: {}", key, ex);
         }
     }
 

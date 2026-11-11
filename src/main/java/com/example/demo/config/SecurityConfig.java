@@ -78,6 +78,9 @@ public class SecurityConfig {
                 m.matcher(HttpMethod.GET, "/market-items/{id}"),
                 // 물건 글 목록 읽기도 공개
                 m.matcher(HttpMethod.GET, "/market-items"),
+                // 물건 글 사진 파일 보기(S13-g3)도 공개. 이 한 주소의 GET만 연다: 올리기(POST)·지우기(DELETE)는 로그인 필요.
+                // {id}·{photoId}는 각각 한 칸이라 /market-items/1/photos 같은 다른 주소는 열리지 않는다.
+                m.matcher(HttpMethod.GET, "/market-items/{id}/photos/{photoId}"),
                 m.matcher("/actuator/health"),
                 m.matcher("/error"));
     }
