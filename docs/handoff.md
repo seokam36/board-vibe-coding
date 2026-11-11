@@ -2,7 +2,7 @@
 
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 
-마지막 갱신: 2026-11-11 (S13-a~d 끝냄)
+마지막 갱신: 2026-11-11 집 PC (S13-e·f 끝냄, S13-g 계획 승인)
 
 ## 지금 어디까지
 - **S0~S12 + UI1~UI3 완료·배포됨.** 운영은 S12-e(2026-11-11) 이미지, V8까지 적용. S12 리뷰 수정(21741e0)은 push됐지만 운영 미반영(다음 배포에 같이 나감).
@@ -12,14 +12,19 @@
   - S13-b: `GET /market-items`(공개, schoolId·tradeType·status 필터) · `PUT /{id}`(본인만, 관리자도 403) · `DELETE /{id}`(본인·관리자).
   - S13-c: `PUT /{id}/status`(본인만). 전환 규칙은 `ItemStatus.canChangeTo` 한 곳(ON_SALE↔RESERVED, →DONE, DONE에서 못 나감). 상태 변경·내용 수정 모두 **조건부 UPDATE**(where status=from / status<>DONE), 0행이면 existsById로 404/409. status는 `updatable=false`, 엔티티에 내용·상태 바꾸는 메서드 없음(일부러). 완료 글은 내용 수정 409, 삭제만.
   - S13-d: 화면 `/market`·`/market/:id`·`/market/new`·`/market/:id/edit`, 상단바 "중고·나눔". 판매자만 갈 수 있는 상태 버튼, [거래 완료] 확인 창, 관리자는 남의 글에 [삭제]만.
-- Notion: S13 카드(번호 14 "중고거래·나눔 게시판")에 S13-a·b·c·d 단계 페이지, 진행 현황 S13 줄(+S14·S15) 있음.
+  - S13-e(9f31e26): **V10** reports.market_item_id(FK CASCADE·UNIQUE) + ck_reports_target `num_nonnulls(...)=1`. `POST /market-items/{id}/reports`(같은 학교 인증 회원만), 관리자 목록 MARKET_ITEM("중고" 배지, postId null).
+  - S13-f(ee82020): `GET /market-items?q=` 제목 검색(대소문자 무시, %·_·\ 이스케이프, NUL·50자 초과 400, 표 변경 없음), /market 검색창.
+- Notion: S13 카드에 S13-a~f 단계 페이지, 진행 현황 S13 줄 "남은 것: 사진·배포".
 
 ## 다음에 할 일
-- **S13-e 신고 연결** 시작. 규칙대로 build 전에 무엇을 만드는지 쉬운 말로 설명하고 OK 받기. 내용(planner 계획): `POST /market-items/{id}/reports`, 관리자 신고 목록에 MARKET_ITEM, **V10**으로 `reports`에 `market_item_id`(FK CASCADE, UNIQUE) 추가 + `ck_reports_target`을 "셋 중 정확히 하나"로 교체. 다른 학교 글 신고 막을지는 사용자 확인.
-- 그다음 S13-f 제목 검색 → S13-g 사진(research 먼저: 저장 위치 EC2 디스크 vs S3, nginx `client_max_body_size`, 백업에 사진 없음) → S14 쪽지 → 배포.
+- **S13-g1 build 시작.** g1 설명은 이미 했고 사용자가 "g1 시작" 전에 마무리함 → 새 세션에서 g1 내용 한 번 더 짧게 확인받고 build. 내용: `ImageProcessor`(매직 바이트 JPEG·PNG만 → 헤더로 픽셀 상한 먼저 → EXIF 회전 반영 → 긴 변 2048 + 320 썸네일 → 형식 유지 재인코딩으로 GPS 제거) + `PhotoStorage` 인터페이스 + 로컬 디스크 구현(`./uploads`, `.gitignore`, 키 경로 탈출 막기). 의존성 metadata-extractor(Apache-2.0). API·DB 변화 없음. 핵심 테스트: Orientation=6+GPS 3000×2000 JPEG → 1365×2048, GPS 없음 / 투명 PNG 알파 유지.
+- 그다음 g2~g6(backlog S13-g 단계 목록) → S14 쪽지 → S13-h 배포(S13·S14 한 번에).
 
 ## 진행 중인 단계
-- 없음(S13-d까지 커밋·push 끝). 커밋 안 된 변경: `.claude/launch.json`(컴퓨터마다 다른 실행 설정, 일부러 커밋 안 함).
+- **S13-g(사진 업로드)**: research·planner 끝, 사용자가 S3 추천안 + planner 추천안 9개 전부 승인. 결정·단계(g1~g6)는 docs/backlog.md S13-g 결정 줄 2개에 전부 있음. build는 아직 0.
+  - research 요점: nginx.conf에 client_max_body_size 없음(기본 1m), Spring 멀티파트 기본 1MB/10MB → g2·g6에서 같이 올림. 크기 초과는 413(실제 포트 테스트로 확인, Tomcat max-swallow-size). LocalStack은 이제 토큰 필요·MinIO 공식 이미지 중단 → 테스트는 로컬 디스크 구현. EC2는 인스턴스 역할(액세스 키 X). nginx 설정 변경은 web 이미지에 들어가 scp 불필요, compose 변경은 scp 필요.
+  - g6 build 전에 사용자 AWS 콘솔 작업: S3 버킷(퍼블릭 차단 4개, SSE-S3, 버저닝 끔) + EC2용 IAM 역할(그 버킷만 Put/Get/Delete + ListBucket) 붙이기.
+- 커밋 안 된 변경: `docs/backlog.md`(S13-g 결정·단계, 이 handoff 커밋에 같이), `.claude/launch.json`(일부러 커밋 안 함).
 - 미룬 것(S13): backlog S13 항목의 "나중(S13-a 리뷰)"·"나중(S13-b 리뷰)"·"나중(S13-c 리뷰)"·"나중(S13-d 리뷰)" 줄(가격 5000.9·"5000" 문자열 받아짐 확인, 비자 후기 수정 중 삭제 500, 학교별 머리말, 가격 굵기 등).
 - 미룬 것(S12): backlog S12 항목의 "나중(S12-c 리뷰)"·"나중(S12-d 리뷰)" 줄 · S12-a 리뷰: 배열·숫자 날짜(`[2026,12,31]`, `20818`)도 LocalDate로 받아짐(후기 날짜와 함께 Jackson 설정 한 곳에서 막기) · upsert `@Modifying`에 clearAutomatically 없음(upsert 뒤 다시 읽는 코드가 생기면) · "오늘 이후여야 합니다" 400 문구(오늘도 허용) · 덮어쓰기 때 created_at 유지 단언 · FlywayExistingBaselineTests가 V8 성공 행을 직접 단언하지 않음 · S12-b: 계산 로직이 DTO(VisaPlanResponse.of) 안(두 번째 사용처 생기면 domain으로) · 띠 자정 넘김 자동 갱신 없음(새로고침하면 반영)
 - 미룬 것(UI3 리뷰): "본인 글/댓글/후기만 수정할 수 있습니다" 3형제를 함수 하나로(라벨만 다른 문구는 함수형 사전 허용으로 원칙 정하기) · errorMessage.ts 맨 위 파일 안내 주석 · SignupPage '가입하지 못했습니다' 2번 지역 상수 · 문구 자체 변경(CSRF 403과 학교 인증 403 섞임, 어미 통일, 학교 인증 403 변형 3종, 수정 403의 CSRF 미고려) — backlog UI3 "나중"
@@ -35,7 +40,7 @@
 
 ## 주의할 점
 - 새 컴퓨터에서는 먼저 `git pull`. 끝나면 커밋·push.
-- **표(테이블)를 바꾸는 기능은 새 V 파일**(다음은 `V10__...sql`)로. 커밋된 V 파일은 고치지 않는다. ddl-auto는 validate 유지.
+- **표(테이블)를 바꾸는 기능은 새 V 파일**(다음은 `V11__...sql`, S13-g2에서 사진 표)로. 커밋된 V 파일은 고치지 않는다. ddl-auto는 validate 유지.
 - **FK·UNIQUE·CHECK 제약에는 반드시 이름**을 지어라. 서비스가 제약 이름으로 404/401/409를 구분한다(`ConstraintViolations`). V1의 `posts.author_id` FK만 해시 이름이라 글쓰기는 "23503이면 401".
 - **DB 오류 메시지 언어는 영어(기본값) 유지.** `lc_messages`를 바꾸면 경쟁 상황에서 500(docs/deploy.md).
 - 경쟁 조건 테스트는 `LockRaceSupport`, 유령 토큰은 `TestLogin.행없는_회원_토큰(jwtEncoder)`, 인증 회원은 `TestLogin.인증된_사용자(...)`·`학교_인증_처리(jdbc, username, 학교명)`. 글쓰기·댓글·공감·신고 테스트는 **인증 회원 + 같은 학교 글**이어야 한다.
@@ -61,7 +66,7 @@
 - 후기 작성 테스트는 **인증 회원**이어야 한다(`TestLogin.인증된_사용자`·`학교_인증_처리`). 수정·삭제는 인증 불필요. 탈퇴는 `UserService.withdraw`가 posts·comments·visa_reviews 작성자를 비운 뒤 회원 삭제(작성자 FK에 ON DELETE 없음).
 - SecurityConfig의 `GET /visa-reviews/{id}` 공개 규칙은 `/visa-reviews/` 아래 한 칸짜리 GET을 전부 공개로 만든다(`/stats`도 명시해 둠). 로그인 전용 GET을 그 아래 두려면 따로 막아야 한다.
 - **Vite 옛 파일 문제가 이번에도 여러 번 났다**(서브에이전트가 고친 직후 화면이 하얗게 비고 `xxx is not defined`). build가 프론트를 고친 뒤에는 브라우저 확인 전에 frontend 서버를 항상 껐다 켠다.
-- Flyway 테스트 `FlywayExistingBaselineTests`는 "새로 적용되는 V 파일 수"를 하드코딩한다(지금 8개·기록장 9행) → V10을 만들면 같이 고쳐야 한다.
+- Flyway 테스트 `FlywayExistingBaselineTests`는 "새로 적용되는 V 파일 수"를 하드코딩한다(지금 9개·기록장 10행) → V11을 만들면 같이 고쳐야 한다.
 - **tester가 이제 `frontend/e2e/`에도 쓸 수 있다**(`.claude/agents/tester.md` 허용 경로, 2026-11-10). 에이전트 설정은 세션 시작 때만 읽혀서, 바꾼 그 세션에서는 반영 안 됐다(그래서 S12-c·d e2e는 메인 대화가 씀). 화면 코드 `frontend/src/`는 여전히 못 씀.
 - **build 보고를 그대로 믿지 말 것**: S12-c에서 build가 "npm run build 통과"라고 했는데 실제로는 e2e 파일 import 확장자(`'./mockApi'` → `'./mockApi.ts'`)로 tsc가 실패했다. 커밋 전에 메인이 `npm test`·`npm run build`·`npm run lint`·`npm run test:e2e`를 직접 한 번 돌린다.
 - **e2e에서 날짜를 입력하는 장면은 브라우저 시계를 고정**한다: `test.beforeEach(async ({ page }) => { await page.clock.setFixedTime(new Date('2026-11-10T03:00:00Z')) })`(visa-plan·visa-banner spec). 날짜 칸에 `min=오늘`이 있어서 고정 안 하면 날짜가 지나면서 테스트가 깨진다.
@@ -102,5 +107,9 @@
 - **build 전에 "이번 단계에서 무엇을 만드는지" 쉬운 말로 설명하고 OK를 받는다**(큰 계획 OK는 단계 build 승인이 아님. 2026-11-11 지적받음).
 - **테스트가 진짜로 버그를 잡는지 확인하는 법(S13에서 3번 씀):** 고친 줄을 잠깐 빼고 그 테스트만 돌려 실패하는지 본다. 원본은 임시 폴더에 복사 → 복사본으로 되돌리고 `cmp`로 같은지 확인.
 - 로컬 백엔드 띄우기: `.claude/launch.json`의 backend는 `.env`를 환경변수로 넣고 `gradlew.bat bootRun`을 부르는 ps1을 가리킨다. 그 ps1은 세션 임시 폴더에 있어서 새 세션에선 없음 → 다시 만들기. **PowerShell 5.1 스크립트 안에 한글 경로를 쓰면 깨진다**(경로는 `(Get-Location).Path`로, .env는 `[IO.File]::ReadAllLines(..., UTF8)`로 읽기).
-- 이 PC 로컬 DB: V9까지 적용. 연습 계정 `market_seller1`(고려대 인증, 중고 글 1개 DONE). 비밀번호는 세션 임시 폴더에만 있음. 새 계정 인증은 `MAIL_MODE=log`로 띄우고 서버 로그의 `[가짜 메일 발송] ... code=`를 읽는다.
+- 집 PC `.claude/launch.json`의 backend는 ps1 없이 `.env`를 읽어 `gradlew.bat bootRun`을 부르는 한 줄 명령(그대로 preview_start 가능). 집 PC 로컬 DB는 이제 V10까지, 연습 중고 글 4개(`visa_me`, "중고 자전거 팝니다"·"iPad 9세대 팝니다"·"50% 할인 책상"·"전기밥솥 나눔")가 있다.
+- **서브에이전트가 셸(perl·sed)로 파일을 고치면 템플릿 문자열 `${...}`가 지워진다**(S13-e에서 신고 주소가 `/market-items//reports`가 됨, e2e가 잡음). build·tester에게 "파일 수정은 Edit 도구로, 끝나면 git diff에서 `${` 확인"을 꼭 적어 준다.
+- **build 보고를 그대로 믿지 말 것(또 나옴)**: S13-e에서 "types.ts postId number|null로 고쳤다"고 했는데 안 고쳐져 있었다(review가 잡음). 중요한 주장은 메인이 grep으로 확인.
+- **Criteria에서 `cb.literal(값)`은 SQL에 값이 그대로 박힌다**(S13-f 로그로 확인). 사용자 입력은 `((HibernateCriteriaBuilder) cb).value(값)`로 바인딩.
+- 이 PC 로컬 DB(노트북?): V9까지 적용. 연습 계정 `market_seller1`(고려대 인증, 중고 글 1개 DONE). 비밀번호는 세션 임시 폴더에만 있음. 새 계정 인증은 `MAIL_MODE=log`로 띄우고 서버 로그의 `[가짜 메일 발송] ... code=`를 읽는다.
 - 중고 글 수정·상태 변경은 **조건부 UPDATE**만 쓴다. 엔티티 값을 바꿔 저장(dirty checking)하면 모든 칸을 UPDATE해서 상태가 옛 값으로 돌아간다(S13-b 리뷰에서 발견). 비자 후기 수정에는 아직 "수정 중 삭제 → 500" 빈틈이 남아 있음.
