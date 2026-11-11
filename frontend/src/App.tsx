@@ -18,6 +18,10 @@ import VisaReviewDetailPage from'./pages/VisaReviewDetailPage'
 import VisaReviewCreatePage from './pages/VisaReviewCreatePage'
 import VisaReviewEditPage from './pages/VisaReviewEditPage'
 import VisaPlanPage from './pages/VisaPlanPage'
+import MarketListPage from './pages/MarketListPage'
+import MarketDetailPage from './pages/MarketDetailPage'
+import MarketCreatePage from './pages/MarketCreatePage'
+import MarketEditPage from './pages/MarketEditPage'
 
 // 주소별로 어떤 페이지를 보여줄지 정하는 곳
 export default function App() {
@@ -93,6 +97,26 @@ export default function App() {
             element={
               <RequireLogin>
                 <VisaPlanPage />
+              </RequireLogin>
+            }
+          />
+          {/* 중고거래·나눔(보기는 로그인 없이 가능) */}
+          <Route path="/market" element={<MarketListPage />} />
+          {/* 글쓰기·수정은 로그인한 사람만. "/market/new"는 ":id"보다 구체적이라 먼저 잡힌다 */}
+          <Route
+            path="/market/new"
+            element={
+              <RequireLogin>
+                <MarketCreatePage />
+              </RequireLogin>
+            }
+          />
+          <Route path="/market/:id" element={<MarketDetailPage />} />
+          <Route
+            path="/market/:id/edit"
+            element={
+              <RequireLogin>
+                <MarketEditPage />
               </RequireLogin>
             }
           />

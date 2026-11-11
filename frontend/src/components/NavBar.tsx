@@ -30,6 +30,8 @@ export default function NavBar() {
         <span className="nav-menu">
           {/* 비자 후기는 로그인 여부와 무관하게 누구나 본다 */}
           <Link to="/visa-reviews">비자 후기</Link>
+          {/* 중고·나눔 목록도 공개라 로그인 여부와 무관하게 보인다 */}
+          <Link to="/market">중고·나눔</Link>
           {user ? (
             <>
               <span>{user.nickname} 님</span>

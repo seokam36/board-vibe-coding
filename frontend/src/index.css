@@ -696,3 +696,22 @@ label textarea {
   line-height: 1;
   cursor: pointer;
 }
+
+/* ---------- 중고거래·나눔 ---------- */
+/* 상태 뱃지: 판매중은 청자, 예약중은 질문 뱃지의 파랑, 거래완료는 회색(빨강은 쓰지 않는다) */
+.badge-ON_SALE {
+  color: var(--celadon-ink);
+  background: var(--celadon-soft);
+}
+.badge-RESERVED {
+  color: var(--badge-question-ink);
+  background: var(--badge-question-bg);
+}
+.badge-DONE {
+  color: var(--badge-chat-ink);
+  background: var(--badge-chat-bg);
+}
+/* 가격: 본문보다 살짝 강조 */
+.market-price {
+  font-weight: 700;
+}

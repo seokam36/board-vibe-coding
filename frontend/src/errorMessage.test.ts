@@ -118,6 +118,11 @@ describe('ERROR_MESSAGES 문구 사전', () => {
       REVIEW_FILTER_INVALID: '잘못된 조건입니다. 학교·비자 종류·신청 종류를 다시 골라 주세요',
       REVIEW_OPTIONS_LOAD_FAILED: '선택지 목록을 불러오지 못했습니다',
       VISA_SCHOOL_REQUIRED_RETRY: '학교 인증이 필요해요. 계속 안 되면 새로고침 후 다시 시도해 주세요',
+      MARKET_FIELDS_INVALID: '제목, 본문, 판매/나눔, 가격을 확인해 주세요 (판매 가격은 1~10,000,000원)',
+      MARKET_DONE_NOT_EDITABLE: '거래가 완료된 글은 수정할 수 없습니다.',
+      MARKET_STATUS_CONFLICT: '그 사이 상태가 바뀌었습니다. 새로고침해 주세요.',
+      MARKET_STATUS_RETRY: '상태를 바꾸지 못했습니다. 새로고침 후 다시 시도해 주세요',
+      MARKET_STATUS_FAILED: '상태를 바꾸지 못했습니다',
     })
     expect(alreadyDeleted('글')).toBe('이미 삭제된 글입니다')
     expect(alreadyDeleted('댓글')).toBe('이미 삭제된 댓글입니다')

@@ -142,3 +142,24 @@ export interface VisaPlan {
   stage: 'PREPARE' | 'CHECK' | 'URGENT' | 'EXPIRED' | null // 120일 이내부터 값이 생긴다
   todos: VisaTodo[]
 }
+
+// 중고거래·나눔 글 한 건 (GET /market-items, /market-items/{id}). code는 요청·주소에 쓰는 값, name은 서버가 준 한글 이름
+export interface MarketItem {
+  id: number
+  title: string
+  content: string
+  tradeType: { code: 'SALE' | 'FREE'; name: string } // 판매 / 나눔
+  price: number // 원 단위 정수. 나눔은 0
+  status: { code: 'ON_SALE' | 'RESERVED' | 'DONE'; name: string } // 판매중 / 예약중 / 거래완료
+  school: School
+  seller: { id: number; nickname: string } // 판매자 (탈퇴하면 글도 지워져 항상 값이 있다)
+  createdAt: string // ISO-8601 UTC 문자열 (formatDate로 표시)
+}
+
+// 중고거래·나눔 글을 올리거나 고칠 때 서버에 보내는 값 (POST·PUT /market-items). 학교·상태·판매자는 서버가 정한다
+export interface MarketItemRequest {
+  title: string
+  content: string
+  tradeType: 'SALE' | 'FREE' // 판매 / 나눔
+  price?: number // 판매일 때만 보낸다 (1~10,000,000). 나눔이면 아예 보내지 않는다
+}
