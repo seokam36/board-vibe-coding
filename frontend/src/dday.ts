@@ -6,6 +6,13 @@ export function formatDDay(daysLeft: number): string {
   return daysLeft > 0 ? `D-${daysLeft}` : `D+${-daysLeft}`
 }
 
+// 두 날짜(yyyy-MM-dd) 사이의 일수 (to - from). 시간대 영향이 없게 UTC 자정끼리 뺀다
+export function daysBetween(from: string, to: string): number {
+  const [fy, fm, fd] = from.split('-').map(Number)
+  const [ty, tm, td] = to.split('-').map(Number)
+  return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86_400_000)
+}
+
 // yyyy-MM-dd 에 연도를 더한다. 2월 29일이 없는 해로 넘어가면 그 달 마지막 날(2월 28일)로 맞춘다.
 // 날짜 입력칸의 max 힌트용이다. 진짜 범위 검사는 서버가 한다.
 export function addYears(day: string, years: number): string {

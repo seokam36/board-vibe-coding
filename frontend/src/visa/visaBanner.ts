@@ -15,9 +15,10 @@ export const BANNER_TEXT: Record<VisaStage, string> = {
 export const BANNER_LINK_TEXT = '비자 일정 보기'
 export const BANNER_CLOSE_LABEL = '띠 닫기'
 
-// 단계와 남은 일수로 띠 문구를 만든다
-export function bannerMessage(stage: VisaStage, daysLeft: number): string {
-  return BANNER_TEXT[stage].replace('{D}', formatDDay(daysLeft))
+// 단계와 남은 일수로 띠 문구를 만든다. 프론트가 모르는 stage(서버만 먼저 배포됐을 때 등)면 null: 띠를 그리지 않아 화면이 죽지 않게
+export function bannerMessage(stage: string, daysLeft: number): string | null {
+  const text = (BANNER_TEXT as Record<string, string | undefined>)[stage]
+  return text === undefined ? null : text.replace('{D}', formatDDay(daysLeft))
 }
 
 // 닫은 상태를 저장하는 localStorage 키: 회원당 하나. 값을 덮어쓰니 키가 쌓이지 않는다

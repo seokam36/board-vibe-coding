@@ -1228,12 +1228,12 @@ CSRF 헤더 필요. `refresh_token` 쿠키가 있으면 서버(Redis)의 리프�
 | todos | 할 일 체크리스트(일정이 없으면 빈 배열). 시점 3개 고정(만료 120·30·7일 전), `dueDate` 오름차순. 이미 지난 할 일도 빼지 않고 `daysLeft`를 음수로 둔다 |
 | todos[].code | 시점 코드 `PREPARE`·`CHECK`·`URGENT` (이름은 식별자라 기준 숫자를 바꿔도 그대로) |
 | todos[].title | 할 일 문구(확인을 안내하는 말투, 개인 사정에 대한 지시·판단 없음) |
-| todos[].dueDate | 만료일 − N일 |
+| todos[].dueDate | 만료일 − N일. 그 확인을 시작할 시점이지 마감이 아니다 |
 | todos[].daysLeft | dueDate − 서울 오늘 (지났으면 음수) |
 
 `daysLeft`·`stage`·`todos`는 DB에 저장하지 않고 요청 때마다 서울 오늘 기준으로 계산한다. 시점 숫자(120·30·7)와 문구는 서버의 `VisaMilestone` enum 한 곳에서만 바꾼다.
 
-화면 표시: 화면은 `daysLeft`로 D-n / D-Day / D+n을 보여 주고, `stage`는 띠(색·강조) 판단용으로만 쓴다.
+화면 표시: 화면은 `daysLeft`로 D-n / D-Day / D+n을 보여 주고, `stage`는 띠(색·강조) 판단용으로만 쓴다. 화면은 `todo.code === stage`인 할 일 줄을 "지금 확인할 때"로 강조한다.
 
 실패
 

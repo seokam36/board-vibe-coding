@@ -57,6 +57,12 @@ describe('bannerMessage', () => {
   })
 })
 
+describe('bannerMessage - 모르는 단계', () => {
+  it('프론트가 모르는 stage면 예외 없이 null을 돌려준다 (띠를 그리지 않게)', () => {
+    expect(bannerMessage('NEW_STAGE', 10)).toBeNull()
+  })
+})
+
 describe('저장 → 읽기', () => {
   it('저장한 값과 같으면 닫힘, 값이 바뀌면 다시 열림', () => {
     vi.stubGlobal('localStorage', fakeStorage())

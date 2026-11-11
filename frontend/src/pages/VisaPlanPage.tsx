@@ -8,7 +8,7 @@ import Loading from '../components/Loading'
 import Notice from '../components/Notice'
 import ReloginNotice from '../components/ReloginNotice'
 import { useConfirm } from '../components/confirmContext'
-import { addYears, formatDDay } from '../dday'
+import { addYears, daysBetween, formatDDay } from '../dday'
 import { formatDay, seoulToday } from '../formatDate'
 import type { School, VisaPlan } from '../types'
 import { BANNER_TEXT } from '../visa/visaBanner'
@@ -183,17 +183,34 @@ function VisaPlanView() {
             <>
               <h2 className="visa-todos-heading">할 일</h2>
               <ul className="rows visa-todos">
-                {plan.todos.map((t) => (
-                  <li key={t.code} className={`row visa-todo${t.daysLeft < 0 ? ' visa-todo-past' : ''}`}>
-                    <span className="visa-todo-dday">{formatDDay(t.daysLeft)}</span>
-                    {/* 날짜와 "지남"은 가운뎃점 대신 간격(.meta의 gap)으로 나눈다 */}
-                    <span className="meta">
-                      <span>{formatDay(t.dueDate)}</span>
-                      {t.daysLeft < 0 && <span>지남</span>}
-                    </span>
-                    <span className="visa-todo-title">{t.title}</span>
-                  </li>
-                ))}
+                {plan.todos.map((t) => {
+                  // 할 일의 날짜는 마감이 아니라 "확인을 시작할 시점"이다. 상태를 네 가지 글자로도 알린다(색만으로 알리지 않음)
+                  // 모르는 stage가 와도 단순 비교라 예외가 나지 않는다 (그냥 현재 단계 줄이 없을 뿐)
+                  const isCurrent = t.code === plan.stage // 지금 들어와 있는 단계
+                  const isPast = !isCurrent && t.daysLeft < 0 // 이미 지나간 단계 (EXPIRED면 전부)
+                  const status = isCurrent
+                    ? '지금 확인할 때'
+                    : t.daysLeft > 0
+                      ? `${t.daysLeft}일 뒤 시작`
+                      : t.daysLeft === 0
+                        ? '오늘 시작' // 서버 규칙상 도달 불가(0인 날은 stage가 그 code). 모르는 stage 대비
+                        : '지난 단계'
+                  return (
+                    <li
+                      key={t.code}
+                      className={`row visa-todo${isCurrent ? ' visa-todo-current' : ''}${isPast ? ' visa-todo-past' : ''}`}
+                    >
+                      {/* 위 큰 D-n(만료일 기준)과 섞이지 않게, 이 줄은 "만료 N일 전부터"로 쓴다 */}
+                      <span className="visa-todo-dday">만료 {daysBetween(t.dueDate, plan.expiryDate ?? '')}일 전부터</span>
+                      {/* 날짜(부터 없음)와 상태 글자는 따로 읽혀도 뜻이 서게 쓰고, 간격(.meta의 gap)으로 나눈다 */}
+                      <span className="meta">
+                        <span>{formatDay(t.dueDate)}</span>
+                        <span className={isCurrent ? 'visa-todo-status' : undefined}>{status}</span>
+                      </span>
+                      <span className="visa-todo-title">{t.title}</span>
+                    </li>
+                  )
+                })}
               </ul>
             </>
           )}

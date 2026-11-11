@@ -632,7 +632,7 @@ label textarea {
 .visa-dday-EXPIRED {
   color: var(--muted);
 }
-/* 할 일 한 줄: D-n · 날짜 · 문구. 좁은 화면에서는 문구가 다음 줄로 */
+/* 할 일 한 줄: 만료 N일 전부터 · 날짜 · 상태 글자, 문구는 다음 줄 (좁으면 칸이 줄바꿈) */
 /* "할 일" 제목: 위의 만료일 줄과 떨어뜨린다 */
 .visa-todos-heading {
   margin-top: var(--space-5);
@@ -649,13 +649,21 @@ label textarea {
   padding-right: 0;
 }
 .visa-todo-dday {
-  min-width: 4.5em;
+  min-width: 8.5em; /* "만료 120일 전부터" 기준: 줄마다 날짜 시작 위치를 맞춘다 */
   font-weight: 700;
 }
 .visa-todo-title {
   flex: 1 1 100%;
 }
-/* 이미 지난 할 일은 흐리게 */
+/* 지금 확인할 단계(stage와 같은 줄)는 흐리지 않게 청자색으로 강조. 글자("지금 확인할 때")도 같이 보인다 */
+.visa-todo-current .visa-todo-dday,
+.visa-todo-current .visa-todo-status {
+  color: var(--celadon);
+}
+.visa-todo-current .visa-todo-status {
+  font-weight: 500;
+}
+/* 이미 지난 단계는 흐리게 */
 .visa-todo-past {
   color: var(--muted);
 }

@@ -214,6 +214,24 @@ class VisaPlanApiTests {
 		assertThat(status).isEqualTo(403);
 	}
 
+	@Test
+	void CSRF_헤더_없는_DELETE는_403이다() throws Exception {
+		// 일정이 있어도(지울 수 있는 상황) CSRF 토큰이 없으면 막혀야 하고, 일정은 그대로 남는다
+		저장(본문("2026-12-31"), 쿠키);
+		int status = mockMvc.perform(delete(URL).cookie(쿠키)).andReturn().getResponse().getStatus();
+		assertThat(status).isEqualTo(403);
+		assertThat(행수()).isEqualTo(1);
+	}
+
+	@Test
+	void 학교_미인증_회원은_범위_밖_날짜여도_400이_아니라_403이다() throws Exception {
+		// 누가 할 수 있는지(권한)를 날짜가 맞는지(입력)보다 먼저 본다
+		Cookie c = TestLogin.쿠키(tokenService, TestLogin.사용자(userRepository, "unverified3"));
+		assertThat(저장(본문("2026-11-08"), c).getStatus()).isEqualTo(403); // 어제
+		assertThat(저장(본문("2032-11-09"), c).getStatus()).isEqualTo(403); // 6년 뒤
+		assertThat(행수()).isZero();
+	}
+
 	// ============ 날짜 검증 (오늘 = 서울 2026-11-09) ============
 
 	@Test

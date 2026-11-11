@@ -334,3 +334,39 @@ test('처음 불러오기에 실패해도 일정 화면에 들어가면 한 번 
   await expect(page.getByLabel('체류 만료일')).toHaveValue('2026-12-08')
   expect(gets()).toBe(2)
 })
+
+// ---- review 수정: 서버가 프론트가 모르는 stage를 보내도 화면이 죽지 않는다 ----
+
+test('서버가 모르는 stage(NEW_STAGE)를 보내도 글 목록은 정상이고 띠는 없으며 페이지 에러가 없다', async ({ page, api }) => {
+  // 서버만 먼저 새 단계를 배포한 상황. 전에는 undefined.replace 예외로 앱 전체가 하얗게 죽었다
+  const unknownPlan = {
+    expiryDate: '2026-12-08',
+    daysLeft: 28,
+    stage: 'NEW_STAGE',
+    todos: [
+      { code: 'PREPARE', title: '연장 준비를 시작하세요', dueDate: '2026-08-10', daysLeft: -92 },
+      { code: 'CHECK', title: '서류를 확인하세요', dueDate: '2026-11-08', daysLeft: -2 },
+      { code: 'URGENT', title: '체류 상태를 확인하세요', dueDate: '2026-12-01', daysLeft: 21 },
+    ],
+  } as unknown as VisaPlan // 타입에 없는 값이라 일부러 형 변환
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  loginVerified(api)
+  api.override({ 'GET /users/me/visa-plan': { status: 200, body: unknownPlan } })
+
+  // 글 목록: 제목이 보이고 띠만 없다
+  await page.goto('/')
+  await expect(page.getByText('두 번째 가짜 글')).toBeVisible()
+  await api.waitIdle()
+  await expect(banner(page)).toHaveCount(0)
+  await expect(page.locator('.visa-banner')).toHaveCount(0)
+
+  // 일정 화면: 죽지 않고 D-n과 할 일이 그려진다 (현재 단계 줄만 없다)
+  await page.goto('/visa-plan')
+  await expect(page.getByRole('heading', { name: '비자 일정' })).toBeVisible()
+  await expect(page.locator('.visa-dday')).toHaveText('D-28')
+  await expect(page.locator('.visa-todo')).toHaveCount(3)
+  await expect(page.getByText('지금 확인할 때')).toHaveCount(0)
+
+  expect(errors).toEqual([])
+})

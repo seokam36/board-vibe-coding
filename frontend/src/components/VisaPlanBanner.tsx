@@ -25,6 +25,8 @@ export default function VisaPlanBanner() {
   const stage = plan.stage
   const daysLeft = plan.daysLeft
   const userId = user.id
+  const message = bannerMessage(stage, daysLeft)
+  if (message === null) return null // 모르는 stage면 띠를 그리지 않는다 (예외로 전체 화면이 죽는 것 방지)
   const value = bannerDismissValue(plan.expiryDate, stage) // 단계 + 만료일 해시
   if (closedNow.includes(value) || isBannerDismissed(userId, value)) return null
 
@@ -35,7 +37,7 @@ export default function VisaPlanBanner() {
 
   return (
     <div className="visa-banner" role="status">
-      <span className="visa-banner-text">{bannerMessage(stage, daysLeft)}</span>
+      <span className="visa-banner-text">{message}</span>
       <Link to="/visa-plan">{BANNER_LINK_TEXT}</Link>
       <button type="button" className="visa-banner-close" aria-label={BANNER_CLOSE_LABEL} onClick={close}>
         ×
