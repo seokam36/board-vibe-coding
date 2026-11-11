@@ -18,7 +18,7 @@
 
 ## 다음에 할 일
 - **S13-g1 build 시작.** g1 설명은 이미 했고 사용자가 "g1 시작" 전에 마무리함 → 새 세션에서 g1 내용 한 번 더 짧게 확인받고 build. 내용: `ImageProcessor`(매직 바이트 JPEG·PNG만 → 헤더로 픽셀 상한 먼저 → EXIF 회전 반영 → 긴 변 2048 + 320 썸네일 → 형식 유지 재인코딩으로 GPS 제거) + `PhotoStorage` 인터페이스 + 로컬 디스크 구현(`./uploads`, `.gitignore`, 키 경로 탈출 막기). 의존성 metadata-extractor(Apache-2.0). API·DB 변화 없음. 핵심 테스트: Orientation=6+GPS 3000×2000 JPEG → 1365×2048, GPS 없음 / 투명 PNG 알파 유지.
-- 그다음 g2~g6(backlog S13-g 단계 목록) → S14 쪽지 → S13-h 배포(S13·S14 한 번에).
+- 그다음 g2~g6(backlog S13-g 단계 목록) → S14 쪽지 → S13-h 배포(S13·S14 한 번에) → **S16 화면을 React에서 Flutter(웹)로 교체**(2026-11-11 사용자 결정, research 먼저, backlog S16).
 
 ## 진행 중인 단계
 - **S13-g(사진 업로드)**: research·planner 끝, 사용자가 S3 추천안 + planner 추천안 9개 전부 승인. 결정·단계(g1~g6)는 docs/backlog.md S13-g 결정 줄 2개에 전부 있음. build는 아직 0.
