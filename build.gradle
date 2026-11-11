@@ -41,6 +41,8 @@ dependencies {
 	// 보일러플레이트(getter, 생성자) 자동 생성. 컴파일 시에만 필요하고 버전은 Boot BOM이 관리
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
+	// 사진의 EXIF 회전 정보(Orientation)를 읽기 위한 라이브러리 (S13-g1, Apache-2.0)
+	implementation 'com.drewnoakes:metadata-extractor:2.19.0'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	// 테스트에서 csrf() 같은 보안 헬퍼를 쓰기 위한 Spring Security 테스트 지원
 	testImplementation 'org.springframework.boot:spring-boot-starter-security-test'

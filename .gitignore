@@ -42,3 +42,6 @@ out/
 # 값이 빈 예시 파일은 커밋 대상이므로 무시에서 제외
 !.env.example
 *.pem
+
+### Uploads (S13-g, 로컬 사진 저장 폴더) ###
+uploads/
