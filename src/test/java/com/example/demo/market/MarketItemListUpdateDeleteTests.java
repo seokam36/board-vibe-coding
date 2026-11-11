@@ -27,18 +27,14 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import com.example.demo.LockRaceSupport;
 import com.example.demo.TestLogin;
 import com.example.demo.TestcontainersConfiguration;
 import com.example.demo.auth.service.TokenService;
-import com.example.demo.market.domain.MarketItem;
-import com.example.demo.market.repository.MarketItemRepository;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.domain.User;
 import com.example.demo.user.repository.UserRepository;
@@ -62,7 +58,6 @@ class MarketItemListUpdateDeleteTests {
 	@Autowired ObjectMapper om;
 	@Autowired EntityManagerFactory emf;
 	@Autowired PlatformTransactionManager txManager;
-	@Autowired MarketItemRepository marketItemRepository;
 
 	User 회원; // 연세대 인증 판매자
 	User 남; // 고려대 인증 다른 회원
@@ -318,19 +313,30 @@ class MarketItemListUpdateDeleteTests {
 
 	@Test
 	void 조건5_수정해도_상태_학교_판매자는_그대로이고_본문의_status_schoolId는_무시된다() throws Exception {
+		// 무엇: 판매중 글을 고치며 본문에 status/schoolId/sellerId를 끼워 보냄 / 왜: 내용 수정으로는 이 값들이 안 바뀌어야 해서
 		long id = 올리기(쿠키, "책상", "SALE", "1000");
-		상태바꾸기(id, "DONE");
 		String json = "{\"title\":\"새제목\",\"content\":\"새내용\",\"tradeType\":\"SALE\",\"price\":2000,"
-				+ "\"schoolId\":" + 학교id("고려대학교") + ",\"status\":\"ON_SALE\",\"sellerId\":" + 남.getId() + "}";
+				+ "\"schoolId\":" + 학교id("고려대학교") + ",\"status\":\"DONE\",\"sellerId\":" + 남.getId() + "}";
 		MockHttpServletResponse r = 수정(id, json, 쿠키, true);
 		assertThat(r.getStatus()).isEqualTo(200);
 		JsonNode b = om.readTree(r.getContentAsString());
-		assertThat(b.get("status").get("code").asString()).isEqualTo("DONE");
+		assertThat(b.get("status").get("code").asString()).isEqualTo("ON_SALE");
 		assertThat(b.get("school").get("name").asString()).isEqualTo("연세대학교");
 		assertThat(b.get("seller").get("id").asLong()).isEqualTo(회원.getId());
-		assertThat(jdbc.queryForObject("select status from market_items where id = ?", String.class, id)).isEqualTo("DONE");
+		assertThat(jdbc.queryForObject("select status from market_items where id = ?", String.class, id)).isEqualTo("ON_SALE");
 		assertThat(jdbc.queryForObject("select school_id from market_items where id = ?", Long.class, id)).isEqualTo(학교id("연세대학교"));
 		assertThat(jdbc.queryForObject("select seller_id from market_items where id = ?", Long.class, id)).isEqualTo(회원.getId());
+	}
+
+	@Test
+	void 조건5_거래완료_글_수정은_409이고_내용_상태는_그대로다() throws Exception {
+		// 무엇: DONE 글에 PUT / 왜: 사용자 결정(완료된 글은 수정 막음)에 따라 409, 제목·가격·상태가 안 바뀌어야 해서
+		long id = 올리기(쿠키, "책상", "SALE", "1000");
+		상태바꾸기(id, "DONE");
+		assertThat(수정(id, 새본문판매, 쿠키, true).getStatus()).isEqualTo(409);
+		assertThat(제목(id)).isEqualTo("책상");
+		assertThat(jdbc.queryForObject("select price from market_items where id = ?", Integer.class, id)).isEqualTo(1000);
+		assertThat(jdbc.queryForObject("select status from market_items where id = ?", String.class, id)).isEqualTo("DONE");
 	}
 
 	// ============ 조건 6: 수정 거절 ============
@@ -438,8 +444,8 @@ class MarketItemListUpdateDeleteTests {
 	void 리뷰A_수정하는_사이_다른_쪽이_글을_지우고_커밋하면_PUT은_404이다() throws Exception {
 		// 무엇: PUT이 글을 읽은 뒤 UPDATE 직전에 글이 삭제 커밋된 상황 / 왜: 0행 UPDATE가 500이 아니라 404여야 해서
 		// 재현 순서: (1) 다른 트랜잭션이 market_items 행을 FOR UPDATE로 잠금
-		//  (2) PUT 스레드 시작: findById(잠금 없는 일반 SELECT라 안 막힘, 글이 보임) -> 본인 확인 통과 -> saveAndFlush의 UPDATE가 행 잠금에서 대기
-		//  (3) 정말 대기 중인지 확인 (4) 잠근 쪽이 DELETE 하고 커밋 -> 깨어난 UPDATE는 0행 -> 서비스가 404로 바꿈
+		//  (2) PUT 스레드 시작: findById(잠금 없는 일반 SELECT라 안 막힘, 글이 보임) -> 본인 확인 통과 -> 조건부 UPDATE(updateContentIfNotDone)가 행 잠금에서 대기
+		//  (3) 정말 대기 중인지 확인 (4) 잠근 쪽이 DELETE 하고 커밋 -> 깨어난 UPDATE는 0행 -> existsById가 false라 서비스가 404로 바꿈
 		long id = 올리기(쿠키, "옛제목", "SALE", "1000");
 		int status = LockRaceSupport.잠그고_요청하고_삭제커밋(txManager, jdbc,
 				() -> jdbc.queryForList("select id from market_items where id = ? for update", id),
@@ -447,30 +453,6 @@ class MarketItemListUpdateDeleteTests {
 				() -> jdbc.update("delete from market_items where id = ?", id));
 		assertThat(status).isEqualTo(404);
 		assertThat(글수(id)).isZero();
-	}
-
-	@Test
-	void 리뷰A_가짜통과_확인_같은_순서에서_repository만_쓰면_낙관적_락_예외가_실제로_난다() throws Exception {
-		// 무엇: 위 경쟁을 service 없이 재현해 실제로 나는 예외 종류를 확인 / 왜: A 테스트가 가짜로 통과하는지(경쟁이 안 일어났는데 404인지) 판별
-		// (service의 try/catch가 없다면 이 예외가 그대로 올라가 500이 된다는 뜻)
-		long id = 올리기(쿠키, "옛제목", "SALE", "1000");
-		int result = LockRaceSupport.잠그고_요청하고_삭제커밋(txManager, jdbc,
-				() -> jdbc.queryForList("select id from market_items where id = ? for update", id),
-				() -> {
-					try {
-						new TransactionTemplate(txManager).execute(s -> {
-							MarketItem item = marketItemRepository.findById(id).orElseThrow();
-							item.update("새", "내용", com.example.demo.market.domain.TradeType.SALE, 5);
-							marketItemRepository.saveAndFlush(item);
-							return null;
-						});
-						return 0; // 예외 없음
-					} catch (ObjectOptimisticLockingFailureException e) {
-						return 1; // 0행 UPDATE의 실제 예외
-					}
-				},
-				() -> jdbc.update("delete from market_items where id = ?", id));
-		assertThat(result).as("1이면 ObjectOptimisticLockingFailureException 발생").isEqualTo(1);
 	}
 
 	// ============ 리뷰 반영 B: 묵은 토큰 ============

@@ -3,7 +3,6 @@ package com.example.demo.market.service;
 import java.util.List;
 
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -19,6 +18,7 @@ import com.example.demo.market.domain.MarketItem;
 import com.example.demo.market.domain.TradeType;
 import com.example.demo.market.dto.MarketItemRequest;
 import com.example.demo.market.dto.MarketItemResponse;
+import com.example.demo.market.dto.MarketItemStatusRequest;
 import com.example.demo.market.repository.MarketItemFilter;
 import com.example.demo.market.repository.MarketItemRepository;
 import com.example.demo.school.repository.SchoolRepository;
@@ -85,8 +85,9 @@ public class MarketItemService {
 
     // 글 수정(판매자 본인만). 검사 순서는 비자 후기 수정과 같다: 입력 400(가격 규칙) -> 없는 id 404 -> 본인 아님 403.
     // (본문 형식 400은 컨트롤러 @Valid가 이미 먼저 걸렀다.) 관리자도 남의 글은 못 고친다. 학교 인증은 요구하지 않는다(S10 규칙).
-    // 영속 상태 엔티티를 바꾸면 UPDATE 가 나간다(dirty checking). 상태·학교·판매자는 안 바뀐다.
-    // 읽은 뒤 UPDATE 가 나가기 전에 다른 쪽이 글을 지우고 커밋하면 UPDATE 가 0행이 된다 -> 404 (500 방지).
+    // 거래완료(DONE) 글은 내용을 못 고친다 -> 409. 검사 순서에서 본인 확인(403) 뒤에 본다.
+    // 엔티티를 고쳐 저장하면 status까지 옛 값으로 쓸 수 있어서, "DONE이 아닐 때만" 고치는 조건부 UPDATE 한 문장을 쓴다.
+    // 결과 행 수가 1이면 내가 고친 것, 0이면 그 사이 글이 지워졌거나(404) DONE이 된 것(409)이다.
     @Transactional
     public MarketItemResponse update(Long id, LoginUser loginUser, MarketItemRequest request) {
         int price = checkedPrice(request.tradeType(), request.price());
@@ -94,15 +95,49 @@ public class MarketItemService {
         if (!item.isSoldBy(loginUser.id())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인이 올린 글만 수정할 수 있습니다.");
         }
-        item.update(request.title(), request.content(), request.tradeType(), price);
-        try {
-            // 트랜잭션이 끝날 때까지 미루지 않고 지금 UPDATE 를 내보내서, 0행 예외를 여기서 잡을 수 있게 한다
-            marketItemRepository.saveAndFlush(item);
-        } catch (ObjectOptimisticLockingFailureException e) {
-            // 0행 UPDATE = 그 사이 글이 지워짐. 이 예외만 404로 바꾸고 다른 예외는 숨기지 않고 그대로 던진다.
-            throw ApiErrors.marketItemNotFound();
+        if (marketItemRepository.updateContentIfNotDone(id, request.title(), request.content(), request.tradeType(),
+                price) == 0) {
+            // 0행 = 없거나(읽은 뒤 삭제됨) 거래완료. 존재 여부로 404/409를 가른다.
+            if (!marketItemRepository.existsById(id)) {
+                throw ApiErrors.marketItemNotFound();
+            }
+            throw doneItemConflict();
         }
-        return MarketItemResponse.from(item);
+        // 내가 고쳤다. 바뀐 글을 다시 읽어 돌려준다(그 사이 삭제됐으면 404).
+        return MarketItemResponse.from(marketItemRepository.findById(id).orElseThrow(ApiErrors::marketItemNotFound));
+    }
+
+    // 상태 바꾸기(판매자 본인만, 관리자도 남의 글은 못 바꾼다. 학교 인증 불필요).
+    // 검사 순서: (CSRF 403, 로그인 401, 본문 400은 앞단에서 이미) -> 없는 id 404 -> 본인 아님 403 -> 전환 불가 409.
+    // 바꾸는 방법은 "지금 상태가 from일 때만 to로" 조건부 UPDATE. 동시에 두 번 눌러도 하나만 1행을 받고 나머지는 0행(409).
+    @Transactional
+    public MarketItemResponse changeStatus(Long id, LoginUser loginUser, MarketItemStatusRequest request) {
+        MarketItem item = marketItemRepository.findById(id).orElseThrow(ApiErrors::marketItemNotFound);
+        if (!item.isSoldBy(loginUser.id())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인이 올린 글만 상태를 바꿀 수 있습니다.");
+        }
+        ItemStatus from = item.getStatus();
+        ItemStatus to = request.status();
+        if (!from.canChangeTo(to)) {
+            throw statusConflict();
+        }
+        if (marketItemRepository.changeStatus(id, from, to) == 0) {
+            // 0행 = 없거나(삭제됨) 그 사이 다른 요청이 상태를 먼저 바꿈. 존재 여부로 404/409를 가른다.
+            if (!marketItemRepository.existsById(id)) {
+                throw ApiErrors.marketItemNotFound();
+            }
+            throw statusConflict();
+        }
+        // 내가 바꿨다. 바뀐 글을 다시 읽어 돌려준다(그 사이 삭제됐으면 404).
+        return MarketItemResponse.from(marketItemRepository.findById(id).orElseThrow(ApiErrors::marketItemNotFound));
+    }
+
+    private ResponseStatusException statusConflict() {
+        return new ResponseStatusException(HttpStatus.CONFLICT, "바꿀 수 없는 상태 전환입니다.");
+    }
+
+    private ResponseStatusException doneItemConflict() {
+        return new ResponseStatusException(HttpStatus.CONFLICT, "거래완료된 글은 수정할 수 없습니다.");
     }
 
     // 글 삭제(DB 행 제거). 없으면 404, 판매자도 관리자도 아니면 403. (비자 후기 삭제와 같은 패턴)

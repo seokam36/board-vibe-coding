@@ -21,6 +21,7 @@ import com.example.demo.market.domain.ItemStatus;
 import com.example.demo.market.domain.TradeType;
 import com.example.demo.market.dto.MarketItemRequest;
 import com.example.demo.market.dto.MarketItemResponse;
+import com.example.demo.market.dto.MarketItemStatusRequest;
 import com.example.demo.market.service.MarketItemService;
 
 import jakarta.validation.Valid;
@@ -61,6 +62,13 @@ public class MarketItemController {
     public MarketItemResponse update(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
             @Valid @RequestBody MarketItemRequest request) {
         return marketItemService.update(id, LoginUser.from(jwt), request);
+    }
+
+    // 상태 바꾸기: 본문 {status}로 판매중/예약중/거래완료를 바꾸고 200 + 바뀐 글을 돌려준다 (판매자 본인만)
+    @PutMapping("/{id}/status")
+    public MarketItemResponse changeStatus(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
+            @Valid @RequestBody MarketItemStatusRequest request) {
+        return marketItemService.changeStatus(id, LoginUser.from(jwt), request);
     }
 
     // 삭제: 성공하면 본문 없이 204 (판매자 본인 또는 관리자)

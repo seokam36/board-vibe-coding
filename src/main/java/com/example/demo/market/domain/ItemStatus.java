@@ -16,4 +16,14 @@ public enum ItemStatus {
     public String getLabel() {
         return label;
     }
+
+    // 상태를 바꿀 수 있는 길인지. 전환 규칙은 이 한 곳에만 둔다.
+    // 허용: 판매중<->예약중, 판매중->거래완료, 예약중->거래완료. 거래완료에서는 못 나가고, 같은 상태로도 못 바꾼다.
+    public boolean canChangeTo(ItemStatus next) {
+        return switch (this) {
+            case ON_SALE -> next == RESERVED || next == DONE;
+            case RESERVED -> next == ON_SALE || next == DONE;
+            case DONE -> false;
+        };
+    }
 }

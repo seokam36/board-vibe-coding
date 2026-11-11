@@ -14,7 +14,9 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.demo.market.domain.ItemStatus;
 import com.example.demo.market.domain.MarketItem;
+import com.example.demo.market.domain.TradeType;
 
 // 물건 글 저장소. JpaSpecificationExecutor: 학교·거래 방식·상태 조건을 "있을 때만" 붙여 조합하려고 쓴다.
 public interface MarketItemRepository extends JpaRepository<MarketItem, Long>, JpaSpecificationExecutor<MarketItem> {
@@ -28,6 +30,22 @@ public interface MarketItemRepository extends JpaRepository<MarketItem, Long>, J
     @Override
     @EntityGraph(attributePaths = { "seller", "school" })
     List<MarketItem> findAll(Specification<MarketItem> spec, Sort sort);
+
+    // 상태 바꾸기: "지금 상태가 from일 때만" to로 바꾸는 한 문장짜리 UPDATE. 바뀐 행 수를 돌려준다(1=내가 바꿈, 0=없거나 그새 상태가 바뀜).
+    // 두 요청이 동시에 와도 DB 행 잠금 때문에 하나만 1을 받는다. 바깥 트랜잭션 없이 부르면 예외(MANDATORY).
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional(propagation = Propagation.MANDATORY)
+    @Query("update MarketItem m set m.status = :to where m.id = :id and m.status = :from")
+    int changeStatus(@Param("id") Long id, @Param("from") ItemStatus from, @Param("to") ItemStatus to);
+
+    // 내용 수정: "거래완료가 아닐 때만" 제목·본문·거래 방식·가격을 바꾸는 한 문장짜리 UPDATE. status 칸은 건드리지 않는다.
+    // 읽은 뒤 다른 요청이 DONE으로 바꿔 커밋했으면 0행이 되어 내용이 안 바뀐다. 바깥 트랜잭션 없이 부르면 예외(MANDATORY).
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional(propagation = Propagation.MANDATORY)
+    @Query("update MarketItem m set m.title = :title, m.content = :content, m.tradeType = :tradeType, m.price = :price "
+            + "where m.id = :id and m.status <> com.example.demo.market.domain.ItemStatus.DONE")
+    int updateContentIfNotDone(@Param("id") Long id, @Param("title") String title, @Param("content") String content,
+            @Param("tradeType") TradeType tradeType, @Param("price") int price);
 
     // 글을 한 문장으로 지우고 지운 행 수를 돌려준다(1이면 내가 지움, 0이면 이미 없음).
     // 읽고 delete()하면 동시에 다른 쪽이 먼저 지웠을 때 예외(500)가 나서, 행 수로 판단하게 한다.

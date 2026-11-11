@@ -58,8 +58,10 @@ public class MarketItem {
     @Column(nullable = false)
     private int price;
 
+    // updatable=false: 엔티티 저장(UPDATE)이 status를 절대 쓰지 않는다.
+    // 상태는 repository의 조건부 UPDATE로만 바뀐다. (내용 수정이 옛 상태 값으로 덮어쓰는 경쟁을 막으려고)
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 20, updatable = false)
     private ItemStatus status;
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -81,13 +83,8 @@ public class MarketItem {
         return seller != null && seller.getId().equals(userId);
     }
 
-    // 수정: 제목·본문·거래 방식·가격만 바꾼다. 판매자·학교·상태·작성 시각은 이 메서드로 안 바뀐다.
-    public void update(String title, String content, TradeType tradeType, int price) {
-        this.title = title;
-        this.content = content;
-        this.tradeType = tradeType;
-        this.price = price;
-    }
+    // 내용·상태를 바꾸는 메서드는 일부러 두지 않는다. 엔티티 값을 바꿔 저장하면 "완료 글 수정 금지"·"상태 경쟁" 조건을 건너뛰게 되므로,
+    // 수정은 MarketItemRepository의 조건부 UPDATE(updateContentIfNotDone·changeStatus)로만 한다 (S9 신고 기각과 같은 방식).
 
     // 저장 직전에 작성 시각 기록 (DB 정밀도인 마이크로초로 맞춘다)
     @PrePersist
