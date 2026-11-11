@@ -1,5 +1,8 @@
 package com.example.demo.user.service;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -12,6 +15,7 @@ import com.example.demo.auth.service.AccessGuard;
 import com.example.demo.auth.service.RefreshTokenService;
 import com.example.demo.comment.repository.CommentRepository;
 import com.example.demo.common.ApiErrors;
+import com.example.demo.photo.service.PhotoDeleteQueue;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.school.dto.SchoolResponse;
 import com.example.demo.user.domain.User;
@@ -36,6 +40,7 @@ public class UserService {
     private final VisaReviewRepository visaReviewRepository;
     private final TransactionTemplate transactionTemplate;
     private final AccessGuard accessGuard;
+    private final PhotoDeleteQueue photoDeleteQueue; // 지울 사진 파일 대기 표 (S13-g4)
 
     // 회원가입. 아이디 또는 닉네임이 이미 있으면 409.
     // 메서드 전체에 @Transactional을 걸지 않는다: saveAndFlush()가 자기 트랜잭션에서 끝나야
@@ -128,6 +133,7 @@ public class UserService {
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비밀번호가 올바르지 않습니다.");
         }
+        List<String> photoKeys = new ArrayList<>(); // 이 회원 글의 사진 파일 이름 (트랜잭션이 끝난 뒤 파일을 지울 때 쓴다)
         Integer deleted = transactionTemplate.execute(status -> {
             // 1) 회원 행을 FOR UPDATE로 먼저 잠근다(READ COMMITTED에서 UPDATE와 DELETE 사이에 글·댓글·후기 INSERT가 끼는 것을 막기 위해).
             //    - 이미 글·댓글·후기 INSERT를 한 요청이 있으면: 그 커밋이 끝날 때까지 여기서 기다리고, 그 뒤 clearAuthor가 그것까지 비운다.
@@ -139,11 +145,17 @@ public class UserService {
             postRepository.clearAuthor(id); // 2) 글은 남기고 작성자만 null로
             commentRepository.clearAuthor(id); // 2-1) 댓글도 남기고 작성자만 null로
             visaReviewRepository.clearAuthor(id); // 2-2) 비자 후기도 남기고 작성자만 null로 (학교는 그대로)
+            // 2-3) 이 회원이 올린 중고 글들의 사진 파일 이름을 지울 파일 대기 표에 적는다 (S13-g4).
+            //      글·사진 행은 아래 회원 삭제 때 DB가 CASCADE로 지운다. 같은 트랜잭션이라 탈퇴가 롤백되면 이름 기록도 사라진다.
+            photoKeys.addAll(photoDeleteQueue.enqueueSellerPhotos(id));
             return userRepository.deleteUserById(id); // 3) 회원 삭제
         });
         if (deleted == null || deleted == 0) {
             throw ApiErrors.loginRequired(); // 읽은 뒤 다른 요청이 먼저 탈퇴시킴
         }
+        // 커밋 뒤: 사진 파일을 지우고 지운 키를 표에서 뺀다. 실패해도 예외 없이 표에 남아 청소부가 처리한다(응답은 그대로).
+        // Redis 토큰 삭제(실패하면 500) 앞에 두는 이유: 그 실패가 파일 정리를 건너뛰게 하지 않으려고
+        photoDeleteQueue.deleteFilesAndDequeue(photoKeys);
         refreshTokenService.revokeAll(id); // 모든 기기 로그아웃
     }
 

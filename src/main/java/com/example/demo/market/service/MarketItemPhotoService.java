@@ -1,6 +1,7 @@
 package com.example.demo.market.service;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -24,6 +25,7 @@ import com.example.demo.market.repository.MarketItemRepository;
 import com.example.demo.photo.repository.PhotoStorage;
 import com.example.demo.photo.service.ImageProcessor;
 import com.example.demo.photo.service.InvalidImageException;
+import com.example.demo.photo.service.PhotoDeleteQueue;
 import com.example.demo.photo.service.ProcessedImage;
 
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 //   3) 창고에 본 사진·썸네일 저장
 //   4) 짧은 트랜잭션: 글 행을 FOR UPDATE로 잠그고 1)을 다시 확인 + 10장 검사 + 사진 행 INSERT
 //   3)~4)가 실패하면 창고에 넣은 파일 2개를 지운다.
+//   (S13-g4) 3) 직전에 새 키 2개를 지울 파일 대기 표에 먼저 적고, 4)의 트랜잭션에서 사진 행 INSERT와 함께 뗀다.
 // 이미지 처리와 창고 저장은 오래 걸려서 트랜잭션(= DB 연결 점유) 밖에서 한다. 연결 풀이 3개뿐이라 특히 중요하다.
 @Slf4j
 @Service
@@ -48,6 +51,7 @@ public class MarketItemPhotoService {
     private final ImageProcessor imageProcessor;
     private final PhotoStorage photoStorage;
     private final PlatformTransactionManager txManager;
+    private final PhotoDeleteQueue photoDeleteQueue; // 지울 파일 대기 표 (S13-g4)
 
     // 이미지 처리 동시 2장 제한. 사진 하나를 처리하는 동안 메모리를 많이 쓰므로(디코딩된 픽셀) 작은 서버가 버티게 한다.
     // 대기는 최대 5초: 처리 한 장이 보통 1초 안쪽이라 몇 장 밀려도 기다릴 만하고, 그보다 길게 붙잡으면 요청 스레드만 쌓인다.
@@ -81,6 +85,10 @@ public class MarketItemPhotoService {
         String base = "market/" + itemId + "/" + UUID.randomUUID(); // 키는 UUID 기반이라 추측·충돌이 없다
         String key = base + "." + ext;
         String thumbKey = base + "_thumb." + ext;
+        List<String> keys = List.of(key, thumbKey);
+        // 창고에 넣기 "전에" 새 키 2개를 지울 파일 대기 표에 먼저 적는다(짧은 별도 트랜잭션으로 커밋).
+        // 파일을 넣다가/넣은 직후 서버가 죽어도 이름이 표에 남아, 청소부가 고아 파일을 찾아 지울 수 있다. 성공하면 4)에서 같이 뗀다.
+        photoDeleteQueue.enqueue(keys);
         try {
             photoStorage.put(key, image.main().data(), image.main().contentType());
             photoStorage.put(thumbKey, image.thumbnail().data(), image.thumbnail().contentType());
@@ -88,9 +96,9 @@ public class MarketItemPhotoService {
                     .execute(status -> insertLocked(itemId, loginUser, key, thumbKey, image));
             return MarketItemPhotoResponse.from(saved);
         } catch (RuntimeException | Error e) {
-            // 원래 예외(e)가 항상 우선이다: 지우기가 실패해도 그건 로그만 남기고 e를 덮지 않는다
-            deleteQuietly(key, e);
-            deleteQuietly(thumbKey, e);
+            // 파일을 바로 지워 보고, 지운 키는 표에서 뺀다. 못 지우면 표에 남아 청소부가 처리한다.
+            // 지우기 실패는 로그만 남기고(예외를 던지지 않음) 원래 예외(e)가 항상 우선이다.
+            photoDeleteQueue.deleteFilesAndDequeue(keys);
             throw e;
         }
     }
@@ -123,7 +131,7 @@ public class MarketItemPhotoService {
     // 사진 지우기 (S13-g3). 순서: 글 없음 404 -> 본인 아님 403(관리자도) -> 거래완료 409 -> 이 글의 사진 아님 404 -> 장부 행 삭제.
     // 글 행을 잠그고(FOR UPDATE) 확인하는 이유: 같은 글의 거래완료 전환·사진 올리기·글 삭제와 줄을 세우려고.
     // 창고 파일은 DB 삭제가 "커밋된 뒤에" 지운다. 먼저 지우면 커밋이 실패했을 때 장부엔 있는데 파일이 없는 사진이 남는다.
-    // (거꾸로 파일 지우기가 실패하면 파일만 고아로 남지만 화면에는 영향이 없다. 정리는 S13-g4 몫)
+    // 같은 트랜잭션에서 지울 파일 이름 2개를 대기 표에 적어 둔다(S13-g4): 커밋 뒤 파일 지우기가 실패하거나 서버가 죽어도 표에 남아 청소부가 지운다.
     public void deletePhoto(Long itemId, Long photoId, LoginUser loginUser) {
         MarketItemPhoto removed = new TransactionTemplate(txManager).execute(status -> {
             MarketItem item = marketItemRepository.findByIdForUpdate(itemId).orElseThrow(ApiErrors::marketItemNotFound);
@@ -136,25 +144,16 @@ public class MarketItemPhotoService {
             MarketItemPhoto photo = photoRepository.findByIdAndMarketItemId(photoId, itemId)
                     .orElseThrow(MarketItemPhotoService::photoNotFound);
             photoRepository.delete(photo);
+            photoDeleteQueue.enqueue(List.of(photo.getStorageKey(), photo.getThumbKey()));
             return photo;
         });
 
-        // 여기는 트랜잭션이 커밋된 뒤다. 파일 지우기가 실패해도 이미 장부에서 지워졌으니 204는 그대로 돌려준다(로그만 남김).
-        deleteFileAfterCommit(removed.getStorageKey());
-        deleteFileAfterCommit(removed.getThumbKey());
+        // 여기는 트랜잭션이 커밋된 뒤다. 파일 지우기가 실패해도 이미 장부에서 지워졌으니 204는 그대로 돌려준다(표에 남아 청소부가 처리).
+        photoDeleteQueue.deleteFilesAndDequeue(List.of(removed.getStorageKey(), removed.getThumbKey()));
     }
 
     private static ResponseStatusException photoNotFound() {
         return new ResponseStatusException(HttpStatus.NOT_FOUND, "사진을 찾을 수 없습니다.");
-    }
-
-    // 커밋 뒤 창고 파일 지우기. 실패는 로그만 남기고 삼킨다 (하나가 실패해도 다음 파일은 계속 지운다)
-    private void deleteFileAfterCommit(String key) {
-        try {
-            photoStorage.delete(key);
-        } catch (RuntimeException ex) {
-            log.warn("사진 삭제 뒤 창고 파일 정리에 실패했습니다: {}", key, ex);
-        }
     }
 
     // 4) 짧은 트랜잭션: 글을 잠그고(FOR UPDATE) 다시 확인한 뒤 사진 수를 세고 넣는다.
@@ -167,8 +166,12 @@ public class MarketItemPhotoService {
         if (photoRepository.countByMarketItemId(itemId) >= MAX_PHOTOS_PER_ITEM) {
             throw photoLimitExceeded();
         }
-        return photoRepository.save(new MarketItemPhoto(itemId, key, thumbKey, image.main().contentType(),
+        MarketItemPhoto saved = photoRepository.save(new MarketItemPhoto(itemId, key, thumbKey, image.main().contentType(),
                 image.main().width(), image.main().height(), image.thumbnail().width(), image.thumbnail().height()));
+        // 사진 행을 넣은 같은 트랜잭션에서 대기 표의 쪽지를 뗀다: 함께 커밋되거나 함께 롤백된다
+        // (커밋되면 "이 파일은 쓰는 중"이라 지우지 않고, 롤백되면 쪽지가 남아 파일이 청소 대상이 된다)
+        photoDeleteQueue.dequeue(List.of(key, thumbKey));
+        return saved;
     }
 
     // 본인 글인지(403), 거래완료가 아닌지(409) 확인한다 (관리자도 예외 없음)
@@ -226,13 +229,4 @@ public class MarketItemPhotoService {
         }
     }
 
-    // 창고 파일을 지우되, 실패해도 원래 예외(cause)를 덮지 않는다 (실패는 로그와 suppressed로만 남김)
-    private void deleteQuietly(String key, Throwable cause) {
-        try {
-            photoStorage.delete(key);
-        } catch (RuntimeException ex) {
-            log.warn("사진 업로드 실패 뒤 창고 파일 정리에 실패했습니다: {}", key, ex);
-            cause.addSuppressed(ex);
-        }
-    }
 }

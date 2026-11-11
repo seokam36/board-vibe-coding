@@ -49,6 +49,7 @@ import com.example.demo.auth.service.TokenService;
 import com.example.demo.market.service.MarketItemPhotoService;
 import com.example.demo.photo.repository.PhotoStorage;
 import com.example.demo.photo.repository.PhotoStorageException;
+import com.example.demo.photo.service.PhotoDeleteQueue;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.domain.User;
 import com.example.demo.user.repository.UserRepository;
@@ -74,6 +75,7 @@ class MarketItemPhotoViewDeleteTests {
 	@Autowired ObjectMapper om;
 	@Autowired PhotoStorage photoStorage;
 	@Autowired MarketItemPhotoService photoService;
+	@Autowired PhotoDeleteQueue photoDeleteQueue;
 	@Autowired PlatformTransactionManager txManager;
 	@Value("${app.photo.local-dir}") String uploadDir;
 
@@ -98,6 +100,7 @@ class MarketItemPhotoViewDeleteTests {
 	@AfterEach
 	void 정리() throws Exception {
 		jdbc.update("delete from market_items"); // 사진 행은 CASCADE로 같이 지워진다
+		jdbc.update("delete from photo_delete_queue");
 		postRepository.deleteAll();
 		userRepository.deleteAll();
 		FileSystemUtils.deleteRecursively(Path.of(uploadDir));
@@ -450,7 +453,8 @@ class MarketItemPhotoViewDeleteTests {
 		long photoId = 사진올리기(id);
 		String 본키 = 키(photoId, "storage_key");
 		String 썸키 = 키(photoId, "thumb_key");
-		PhotoStorage 진짜 = (PhotoStorage) ReflectionTestUtils.getField(photoService, "photoStorage");
+		// (S13-g4부터 파일 지우기는 PhotoDeleteQueue를 거치므로 바꿔 끼우는 곳도 거기다)
+		PhotoStorage 진짜 = (PhotoStorage) ReflectionTestUtils.getField(photoDeleteQueue, "photoStorage");
 		List<String> 시도한키 = new ArrayList<>();
 		PhotoStorage 안지워지는창고 = new PhotoStorage() {
 			@Override
@@ -469,11 +473,11 @@ class MarketItemPhotoViewDeleteTests {
 				throw new PhotoStorageException("일부러 실패", new RuntimeException("디스크 오류"));
 			}
 		};
-		ReflectionTestUtils.setField(photoService, "photoStorage", 안지워지는창고);
+		ReflectionTestUtils.setField(photoDeleteQueue, "photoStorage", 안지워지는창고);
 		try {
 			assertThat(지우기(id, photoId, 쿠키).getStatus()).isEqualTo(204);
 		} finally {
-			ReflectionTestUtils.setField(photoService, "photoStorage", 진짜);
+			ReflectionTestUtils.setField(photoDeleteQueue, "photoStorage", 진짜);
 		}
 
 		assertThat(사진수(id)).as("장부 행은 이미 삭제됨").isZero();

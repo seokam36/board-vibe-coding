@@ -7,6 +7,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.auth.dto.LoginUser;
@@ -23,6 +24,7 @@ import com.example.demo.market.dto.MarketItemStatusRequest;
 import com.example.demo.market.repository.MarketItemFilter;
 import com.example.demo.market.repository.MarketItemPhotoRepository;
 import com.example.demo.market.repository.MarketItemRepository;
+import com.example.demo.photo.service.PhotoDeleteQueue;
 import com.example.demo.school.repository.SchoolRepository;
 import com.example.demo.user.domain.User;
 
@@ -43,6 +45,8 @@ public class MarketItemService {
     private final MarketItemPhotoRepository photoRepository; // 한 건짜리 응답에 사진 목록을 붙인다 (S13-g2)
     private final SchoolRepository schoolRepository; // 목록의 학교 조건이 실제 있는 학교인지 확인
     private final AccessGuard accessGuard;
+    private final TransactionTemplate transactionTemplate; // 글 삭제의 트랜잭션 범위를 직접 정한다 (S13-g4)
+    private final PhotoDeleteQueue photoDeleteQueue; // 지울 사진 파일 대기 표 (S13-g4)
 
     // 물건 글을 저장하고 결과를 돌려준다. 판매자·학교는 요청 본문이 아니라 로그인 회원의 인증 정보에서만 가져온다.
     // 검사 순서(비자 후기와 같다): 회원 없음 401 -> 미인증 403 -> 가격 400.
@@ -171,15 +175,24 @@ public class MarketItemService {
     }
 
     // 글 삭제(DB 행 제거). 없으면 404, 판매자도 관리자도 아니면 403. (비자 후기 삭제와 같은 패턴)
-    @Transactional
+    // 사진 파일 정리 (S13-g4): 한 트랜잭션 안에서 [글 행 잠금 -> 권한 확인 -> 사진 파일 이름을 대기 표에 적기 -> 글 삭제(사진 행은 CASCADE)].
+    // 글 삭제가 0행이라 404가 되면 예외로 트랜잭션이 롤백되어 대기 표 기록도 같이 사라진다.
+    // 커밋 "뒤에" 파일을 지우고 지운 키를 표에서 뺀다. 실패해도 예외 없이 표에 남아 청소부가 처리하므로 응답(204)은 그대로다.
+    // 글 행을 먼저 잠그는 이유: 사진 올리기도 같은 잠금을 잡으므로, "이름을 적은 뒤 새 사진이 끼어들어" 파일이 고아로 남는 일을 막는다.
+    // TransactionTemplate을 쓰는 이유: 커밋이 끝난 뒤에 이어서 할 일(파일 지우기)이 있어서다 (UserService.withdraw와 같은 방식).
     public void delete(Long id, LoginUser loginUser) {
-        MarketItem item = marketItemRepository.findById(id).orElseThrow(ApiErrors::marketItemNotFound);
-        // 관리자 토큰이면 DB에서 role을 다시 확인한다(회원 없음 401, 강등 403)
-        accessGuard.checkOwnerOrAdmin(item.isSoldBy(loginUser.id()), loginUser, "본인이 올린 글만 삭제할 수 있습니다.");
-        // 권한 확인 뒤 동시에 다른 쪽이 먼저 지웠으면 0행이므로 404 (예외 500 방지)
-        if (marketItemRepository.deleteByIdReturningCount(id) == 0) {
-            throw ApiErrors.marketItemNotFound();
-        }
+        List<String> keys = transactionTemplate.execute(status -> {
+            MarketItem item = marketItemRepository.findByIdForUpdate(id).orElseThrow(ApiErrors::marketItemNotFound);
+            // 관리자 토큰이면 DB에서 role을 다시 확인한다(회원 없음 401, 강등 403)
+            accessGuard.checkOwnerOrAdmin(item.isSoldBy(loginUser.id()), loginUser, "본인이 올린 글만 삭제할 수 있습니다.");
+            List<String> photoKeys = photoDeleteQueue.enqueueItemPhotos(id);
+            // 권한 확인 뒤 동시에 다른 쪽이 먼저 지웠으면 0행이므로 404 (예외 500 방지)
+            if (marketItemRepository.deleteByIdReturningCount(id) == 0) {
+                throw ApiErrors.marketItemNotFound();
+            }
+            return photoKeys;
+        });
+        photoDeleteQueue.deleteFilesAndDequeue(keys);
     }
 
     // 거래 방식에 맞는 가격인지 확인하고 저장할 가격을 돌려준다.
