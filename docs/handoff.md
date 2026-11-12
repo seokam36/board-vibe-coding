@@ -2,7 +2,7 @@
 
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 
-마지막 갱신: 2026-11-12 (AWS 콘솔 S3 버킷·IAM 역할 완료, S13-g6-1·g6-2 끝냄)
+마지막 갱신: 2026-11-12 집 PC (S13-g6-3~g6-5 끝, S13-g 사진 전부 완료, Notion g5-1~g6-5 기록)
 
 ## 지금 어디까지
 - **S0~S12 + UI1~UI3 완료·배포됨.** 운영은 S12-e(2026-11-11) 이미지, V8까지 적용. S12 리뷰 수정(21741e0)은 push됐지만 운영 미반영(다음 배포에 같이 나감).
@@ -14,7 +14,10 @@
   - S13-d: 화면 `/market`·`/market/:id`·`/market/new`·`/market/:id/edit`, 상단바 "중고·나눔". 판매자만 갈 수 있는 상태 버튼, [거래 완료] 확인 창, 관리자는 남의 글에 [삭제]만.
   - S13-e(9f31e26): **V10** reports.market_item_id(FK CASCADE·UNIQUE) + ck_reports_target `num_nonnulls(...)=1`. `POST /market-items/{id}/reports`(같은 학교 인증 회원만), 관리자 목록 MARKET_ITEM("중고" 배지, postId null).
   - S13-f(ee82020): `GET /market-items?q=` 제목 검색(대소문자 무시, %·_·\ 이스케이프, NUL·50자 초과 400, 표 변경 없음), /market 검색창.
-- **S13-g 사진 g1~g5 완료 + g6-1·g6-2 완료, 운영 미반영.** g6-3~g6-5 남음.
+- **S13-g 사진 g1~g6 전부 완료, push됨(aa330ad), 운영 미반영.** S13에서 남은 건 S13-h 배포뿐(S14 쪽지 뒤 한 번에).
+  - g6-3(2e55f28): `S3PhotoStorage` + `S3ClientConfig`(`app.photo.storage=${PHOTO_STORAGE:local}`, s3일 때만 켜짐, 버킷·리전 비면 시작 실패, 시작 때 HeadBucket 실패면 시작 실패, apache5 풀 100·대기 3s·연결 3s·소켓 10s·attempt 30s·call 60s, 자격 증명은 기본 체인=EC2 IAM 역할). NoSuchKey → empty, SdkException → PhotoStorageException, open 실패 때 abort. key 검사는 공용 `PhotoKeys`. 의존성 AWS SDK BOM 2.57.13 + s3(netty exclude) + apache5-client. 테스트는 Mockito 가짜 S3Client(진짜 S3·LocalStack 안 씀).
+  - g6-4(f2d3358): `PhotoCleanupJob.scheduledRun`이 **처음 성공한 실행**에서 INFO "사진 청소부 첫 실행: n개 처리" 한 줄(실패면 WARN "첫 실행에 실패", 깃발 유지). bootRun `--app.photo.cleanup-interval=PT5S`로 실제 확인.
+  - g6-5(aa330ad): nginx 사진 올리기 전용 칸 `location ~ ^/api/market-items/[0-9]+/photos$`(11m·`proxy_read_timeout 150s`, 나머지 /api/는 기본 1m·60s). compose app에 `PHOTO_STORAGE: ${PHOTO_STORAGE:-s3}`·`PHOTO_S3_BUCKET: ${PHOTO_S3_BUCKET:-}`·`PHOTO_S3_REGION: ${PHOTO_S3_REGION:-ap-northeast-2}`. .env.example 사진 단락. **deploy.md "사진 저장 (S13-g6)"**: 배포 날 1~5단계(홉 제한·.env 버킷·compose scp 먼저·Deploy·확인), 실제 로그 글자 기준 시작 실패 표, 되돌리기 주의. 로컬에서 실제 web 이미지로 사진 3MB 통과·10.5MB 스프링 413·12MB nginx 413·글 3MB nginx 413 확인.
   - g6-1(b6274d9): 느린 올리기 vs 청소부 경합 → `PhotoDeleteQueue.dequeueIfUntouched`(delete … returning attempts, 쪽지 2줄·attempts 0일 때만 true)를 insertLocked에서 INSERT 전에, 아니면 log.warn + 503.
   - g6-2(1bda40e): 공개 사진 GET을 스트림으로. `StoredPhoto`(InputStream+길이), `PhotoStorage.open` **추상 메서드**(S3 구현도 반드시 구현), 컨트롤러 `ResponseEntity<InputStreamResource>`+Content-Length 직접. Range는 항상 200 전체. 풀 3개로 30개 동시 요청 전부 200 확인.
   - g1(3d6fa5c): `photo.service.ImageProcessor`(매직 바이트 JPEG·PNG → 헤더로 긴 변 10,000·총 4천만 상한 → **디코딩 때 건너뛰며 읽기 n=올림(긴 변/4096)** → 2048 + 썸네일 320 → 형식 유지 재인코딩으로 GPS 제거) + `photo.repository.PhotoStorage`·`LocalPhotoStorage`(./uploads, `app.photo.local-dir`). 의존성 metadata-extractor 2.19.0.
@@ -23,20 +26,20 @@
   - g4(7a92036): `PhotoDeleteQueue`(창고 delete는 전부 여기) + `PhotoCleanupJob`(@Scheduled 10분, 10분 지난 줄만 SKIP LOCKED 100개, 사진 행에 살아 있는 키는 줄만 삭제). 글 삭제·탈퇴·사진 지우기는 장부 삭제와 큐 INSERT를 한 트랜잭션, 올리기는 put 전에 큐 등록하고 성공 트랜잭션에서 뺌. `SchedulingConfig`(app.scheduling.enabled=false면 꺼짐).
   - g5-1(01f0442): `GET /market-items` 응답을 목록 전용 `MarketItemListResponse`로 분리(+ `coverPhoto` = id 최소 사진, 없으면 null). `findCoverPhotos`(min(id) group by) 글 1000개당 쿼리 1번. 화면: 목록 72px 썸네일, 상세 4:3 큰 사진 + 썸네일 버튼 줄.
   - g5-2(c81f651, 프론트만): 수정 화면 `MarketPhotoEditor`(즉시 올리기·지우기, useConfirm), 글쓰기는 미리보기 → 저장 = 글 POST → 사진 차례로 → 상세(일부 실패 안내는 router state, 읽은 뒤 replace로 지움). `marketPhotoUpload.ts`(사전 검사, 한 장씩, 401·403·404·409·네트워크·timeout 5분 중단 / 400·413·503 계속). 올리는 중 [저장]·[취소] 잠금, 저장 중 사진 영역 잠금.
-- Notion: S13 카드에 S13-a~g4 단계 페이지 + 도구 사전에 "ImageIO · metadata-extractor". 진행 현황 S13 줄은 그대로("남은 것: 사진·배포").
+- Notion: S13 카드에 S13-a~g4 + g5-1·g6-1~g6-5 단계 페이지(g5-2는 프론트만이라 안 씀), 도구 사전에 "ImageIO · metadata-extractor"·"AWS S3 · AWS SDK". 진행 현황 S13 줄 "남은 것: 배포(S14 쪽지와 함께)". **메인 페이지 아키텍처 그림에 S3는 S13-h 배포 때 추가.**
 
 ## 다음에 할 일
-- **S13-g6-3 설명 → OK → build.** S3 창고 구현(`S3PhotoStorage` + `S3ClientConfig`, `app.photo.storage=${PHOTO_STORAGE:local}`, 버킷·리전 환경변수, 시작 때 HeadBucket, 가짜 S3Client 테스트, 의존성 AWS SDK v2 BOM + s3). 그다음 g6-4(청소부 첫 실행 로그 1줄) → g6-5(nginx 11m·compose 환경변수·.env.example·deploy.md, 로컬 prod 구성으로 413 확인). 단계 계획은 아래 "g6 계획".
-- g6 끝나면 Notion S13 카드에 g5~g6 단계 페이지(g5-1은 서버 변경이 있었음).
+- **S14 쪽지 시작**: CLAUDE.md 흐름대로 메인이 docs/backlog.md에 S14 항목을 정리해 보여주고 → planner(완료 조건) → 승인.
+- S13-h 배포 전까지 사용자 콘솔 1분 작업: EC2 메타데이터 홉 제한 2 확인(아래 "진행 중인 단계"). 배포 날은 deploy.md "사진 저장 (S13-g6)" 1~5단계를 그대로 따른다.
 - (나중, 사용자 결정) 포트폴리오 트러블슈팅 정리: g6-1은 "옛 코드로 되돌리면 테스트 6개 실패" 재현 증거 있음. g6-2를 트러블슈팅으로 쓰려면 b6274d9(통째 읽기) vs 이후를 작은 힙으로 동시 요청해 메모리 전후 측정이 필요(지금은 "설계 개선"으로만 말할 수 있음).
 - 그다음 S14 쪽지 → S13-h 배포(S13·S14 한 번에) → S16 Flutter(웹) 교체.
 
 ## 진행 중인 단계
-- **S13-g(사진 업로드)**: g1~g6-2 끝(build·tester·review 모두). 리뷰 미룬 것은 backlog "나중(S13-g…리뷰)" 줄들(g6-1·g6-2 줄 새로 추가).
+- 진행 중인 단계 없음(S13-g 끝, S14는 아직 시작 전). 아래는 S13-h 배포 때 필요한 메모.
+  - 리뷰 미룬 것은 backlog "나중(S13-g…리뷰)" 줄들(g6-3·g6-4·g6-5 줄 새로 추가). **g6-5 줄의 "S13-h 배포 날 처음 확인" 목록**(nginx 거친 사진 201·실제 S3 왕복·삭제 실패 로그 0건·홉 제한·301/403 표 줄은 알려진 동작 기준)을 배포 날 체크리스트로 쓴다.
   - **AWS 콘솔 작업 끝(2026-11-12)**: 서울 리전 S3 버킷(범용·글로벌 네임스페이스, ACL 비활성, 퍼블릭 차단 4개, 버저닝 끔, SSE-S3) + IAM 정책 `board-market-photos-access`(그 버킷만 Put/Get/Delete + ListBucket) + IAM 역할 `board-ec2-role`(EC2 신뢰, 위 정책만) → EC2 `demo-server`에 연결함. 액세스 키는 안 만듦(앱은 기본 자격 증명 체인). **버킷 이름은 저장소가 공개라 코드·문서에 안 씀 → 사용자에게 물어서 EC2 `.env`의 `PHOTO_S3_BUCKET`에만.**
   - **남은 콘솔 1분 작업(S13-h 전까지)**: EC2 → demo-server → 작업 → 인스턴스 설정 → 인스턴스 메타데이터 옵션 수정 → "메타데이터 응답 홉 제한"이 2인지(1이면 2로). 컨테이너 안 앱이 역할 열쇠를 받으려면 2 이상 필요.
-  - **g6 계획(planner, 사용자가 추천안 10개 전부 승인)**: g6-1 경합 ✅ · g6-2 스트림 ✅ · g6-3 S3 구현(local/s3 설정 선택, 테스트는 가짜 S3Client(LocalStack·MinIO 안 씀), s3인데 버킷·리전 비면 시작 실패, HeadBucket 실패면 시작 실패, NoSuchKey → empty, 그 밖 SDK 예외 → PhotoStorageException, 호출 제한 시간, 키 검증은 로컬과 같은 규칙, S3 put 실패는 지금처럼 500, `get()`은 남김, 동기 클라이언트만·netty·CRT 빼기, S3 연결 풀 크기 확인) · g6-4 청소부 "처음 한 번 돌았다" INFO 1줄 + 주기 5초 bootRun 확인 · g6-5 nginx `client_max_body_size 11m`, compose app에 `PHOTO_STORAGE`·`PHOTO_S3_BUCKET`·`PHOTO_S3_REGION`(값은 EC2 .env에만), .env.example, deploy.md(deploy 에이전트: 키 3개, compose scp 먼저, IMDS 홉 제한, 배포 뒤 확인, 되돌리면 S3 사진 404), 로컬에서 nginx+app 컨테이너로 3MB 201·10.5MB 413 확인.
-  - 위험(사용자에게 알림): 실제 S3 왕복은 S13-h 배포 날 처음 해 봄.
+  - 위험(사용자에게 알림): 실제 S3 왕복은 S13-h 배포 날 처음 해 봄. compose를 바꿨으니 Deploy 전에 compose scp 필수(빼먹으면 조용히 local).
 - 커밋 안 된 변경: `docs/handoff.md`(이 커밋), `.claude/launch.json`(일부러 커밋 안 함).
 - 미룬 것(S13-g5): backlog S13 항목의 "나중(S13-g5-1 리뷰)"·"나중(S13-g5-2 리뷰)" 줄(키보드 Enter로 파일 선택 창이 실제로 열리는지 사람 확인, 아이폰 실기기 HEIC·48MP 확인, 글쓰기 401 뒤 재로그인 안내 등).
 - 미룬 것(S13): backlog S13 항목의 "나중(S13-a 리뷰)"·"나중(S13-b 리뷰)"·"나중(S13-c 리뷰)"·"나중(S13-d 리뷰)" 줄(가격 5000.9·"5000" 문자열 받아짐 확인, 비자 후기 수정 중 삭제 500, 학교별 머리말, 가격 굵기 등).
@@ -99,7 +102,7 @@
 - 자동 보안 검사(security-guidance 플러그인)가 커밋 뒤 네트워크 문제로 못 끝나는 일이 있다(897f944·3b99fbd). 로그 `~/.claude/security/log.txt`.
 - 서브에이전트가 띄운 테스트 서버가 8080·5173을 잡고 있을 수 있다. 막히면 작업 관리자에서 끄거나 재부팅.
 - 테스트(Gradle + Testcontainers) 도는 동안 CPU·메모리가 크게 오른다(정상). 편집기 Java 분석기(JDT)는 롬복을 못 알아봐서 "getId() 없음" 같은 가짜 빨간 줄을 띄운다 — `./gradlew test`가 기준.
-- 서브에이전트 쓰기 제한 훅(scripts/allow-only.sh)은 jq가 필요하다. deploy 에이전트는 docs/deploy.md도 쓸 수 있다.
+- 서브에이전트 쓰기 제한 훅(scripts/allow-only.sh)은 jq가 필요하다. deploy 에이전트는 docs/deploy.md도 쓸 수 있다. **deploy는 `frontend/nginx.conf`·`.env.example`을 못 쓴다**(g6-5에서 막혀 사용자 결정으로 메인이 직접 고침). 또 필요하면 허용 목록을 넓힐지 사용자에게 묻는다(에이전트 설정은 세션 시작 때만 읽힘).
 - Claude 앱이 대화마다 worktree를 만들 수 있다. 그 안의 커밋은 main에 합쳐야 IntelliJ(main)에 보인다.
 - 포맷한 Windows에서 Docker가 안 켜지면: 관리자 터미널에서 `dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart` → `wsl --install --no-distribution` → 재부팅.
 - 처음 git push할 때 Git Credential Manager 로그인 창이 뜬다(한 번 하면 저장).
@@ -121,13 +124,16 @@
 - **build 전에 "이번 단계에서 무엇을 만드는지" 쉬운 말로 설명하고 OK를 받는다**(큰 계획 OK는 단계 build 승인이 아님. 2026-11-11 지적받음).
 - **테스트가 진짜로 버그를 잡는지 확인하는 법(S13에서 3번 씀):** 고친 줄을 잠깐 빼고 그 테스트만 돌려 실패하는지 본다. 원본은 임시 폴더에 복사 → 복사본으로 되돌리고 `cmp`로 같은지 확인.
 - 로컬 백엔드 띄우기: `.claude/launch.json`의 backend는 `.env`를 환경변수로 넣고 `gradlew.bat bootRun`을 부르는 ps1을 가리킨다. 그 ps1은 세션 임시 폴더에 있어서 새 세션에선 없음 → 다시 만들기. **PowerShell 5.1 스크립트 안에 한글 경로를 쓰면 깨진다**(경로는 `(Get-Location).Path`로, .env는 `[IO.File]::ReadAllLines(..., UTF8)`로 읽기).
-- 집 PC `.claude/launch.json`의 backend는 ps1 없이 `.env`를 읽어 `gradlew.bat bootRun`을 부르는 한 줄 명령(그대로 preview_start 가능). 집 PC 로컬 DB는 이제 V10까지(V11은 다음 bootRun 때 적용됨), 연습 중고 글 4개(`visa_me`, "중고 자전거 팝니다"·"iPad 9세대 팝니다"·"50% 할인 책상"·"전기밥솥 나눔")가 있다.
+- 집 PC `.claude/launch.json`의 backend는 ps1 없이 `.env`를 읽어 `gradlew.bat bootRun`을 부르는 한 줄 명령(그대로 preview_start 가능). 집 PC 로컬 DB는 이제 V11까지(g6-4 bootRun 때 적용), 연습 중고 글 4개(`visa_me`, "중고 자전거 팝니다"·"iPad 9세대 팝니다"·"50% 할인 책상"·"전기밥솥 나눔")가 있다.
 - **서브에이전트가 셸(perl·sed)로 파일을 고치면 템플릿 문자열 `${...}`가 지워진다**(S13-e에서 신고 주소가 `/market-items//reports`가 됨, e2e가 잡음). build·tester에게 "파일 수정은 Edit 도구로, 끝나면 git diff에서 `${` 확인"을 꼭 적어 준다.
 - **build 보고를 그대로 믿지 말 것(또 나옴)**: S13-e에서 "types.ts postId number|null로 고쳤다"고 했는데 안 고쳐져 있었다(review가 잡음). 중요한 주장은 메인이 grep으로 확인.
 - **Criteria에서 `cb.literal(값)`은 SQL에 값이 그대로 박힌다**(S13-f 로그로 확인). 사용자 입력은 `((HibernateCriteriaBuilder) cb).value(값)`로 바인딩.
 - 노트북 로컬 DB(OneDrive\Desktop 경로인 PC): 이제 V11까지 적용. 연습 계정 `market_seller1`(고려대 인증, 중고 글 1개 DONE), `photo_check1`·`photo_check2`(연세대 인증, SQL로 지정, 사진 있는 연습 글 2개 + 사진 없는 글 1개). 비밀번호는 매번 임의로 만들어 남기지 않음 → 필요하면 새로 가입 + SQL 인증. 새 계정 인증은 `MAIL_MODE=log`로 띄우고 서버 로그의 `[가짜 메일 발송] ... code=`를 읽는다. 이 PC의 `.claude/launch.json` backend는 옛 세션 임시 폴더의 run-backend.ps1을 가리키는데 아직 남아 있어 그대로 동작함(없어지면 다시 만들기).
 - **사진 관련 테스트 설정**: 테스트 설정 파일(`src/test/resources/config/application.properties`)에 `app.photo.local-dir=임시 폴더`·`app.scheduling.enabled=false`. 청소부는 테스트에서 `PhotoCleanupJob.runOnce()`를 직접 부르고, 시간 경과는 큐 줄의 created_at을 SQL로 과거로 돌려 흉내 낸다(`@MockitoBean Clock`은 컨텍스트를 새로 띄움). 창고 실패 흉내는 `PhotoDeleteQueue`·서비스의 창고 필드를 ReflectionTestUtils로 바꿔 끼운다. 멀티파트 413·swallow는 MockMvc가 못 봐서 `MarketItemPhotoUploadLimitTests`(RANDOM_PORT)만 실제 포트.
-- **max-swallow-size 테스트는 설정을 지키지 못한다**: 설정을 빼도 로컬 RANDOM_PORT 테스트가 통과했다(연결 끊김 재현 안 됨). g5-2에서 실제 백엔드(Vite 프록시 경유)로 10.5MB 직접 POST → 413이 깔끔히 오고 다음 요청 200, 로그아웃 뒤 올리기 → 401 재로그인 안내까지 확인. **nginx 뒤 413은 g6에서 다시 확인.**
+- **max-swallow-size 테스트는 설정을 지키지 못한다**: 설정을 빼도 로컬 RANDOM_PORT 테스트가 통과했다(연결 끊김 재현 안 됨). g5-2에서 실제 백엔드(Vite 프록시 경유)로 10.5MB 직접 POST → 413이 깔끔히 오고 다음 요청 200, 로그아웃 뒤 올리기 → 401 재로그인 안내까지 확인. nginx 뒤 413은 g6-5에서 로컬 nginx+app 컨테이너로 확인함(운영은 S13-h).
+- **로컬에서 운영과 같은 nginx→app 구성 확인법(g6-5)**: 루트 Dockerfile·frontend/Dockerfile로 임시 태그 이미지를 빌드하고, 스크래치 폴더의 override compose로 이미지 태그·`PHOTO_STORAGE=local`·web 포트 18080을 바꿔 `--profile prod up --no-deps`. 응답 주체는 본문으로 구분(nginx HTML vs 스프링 JSON). 끝나면 컨테이너·임시 이미지 삭제. nginx 설정 문법은 `docker run --rm <web 이미지> nginx -t`.
+- **compose `:?`는 프로필과 상관없이 파일 전체를 해석해서** prod 전용 변수에 쓰면 로컬 `docker compose up`도 깨진다. 선택 값은 `:-`로. `docker compose --profile prod config | grep -c ...`로 값을 출력하지 않고 확인한다.
+- **Notion이 글 속 `deploy.md` 같은 파일 이름을 웹 링크(http://deploy.md)로, 표 칸의 ` + `를 `•`로 바꾼다.** 파일 이름은 `<code>`로 감싸고, 표 칸에서는 +를 피한다. 만든 뒤 fetch로 확인.
 - **e2e를 두 개 동시에 돌리지 말 것**: tester가 백그라운드로 `--repeat-each`를 돌리는 중에 메인이 `npm run test:e2e`를 돌려 16개가 실패했다(둘 다 5174 Vite를 씀). 끝난 뒤 다시 돌리면 전부 통과. 서브에이전트 보고에 "백그라운드로 넘어갔다"가 있으면 끝날 때까지 기다린다.
 - 브라우저 확인 중 Browser 창이 가려져 있으면(hidden) canvas `toBlob`·타이머가 느려져 javascript_tool이 45초 시간 초과가 난다. 스크립트는 실제로 끝났을 수 있으니 다시 돌리기 전에 화면 상태를 먼저 본다.
 - 브라우저에서 사진 올리기를 확인할 때: canvas로 PNG File을 만들고 `DataTransfer`로 `input[type=file]`에 넣은 뒤 change 이벤트를 보낸다(진짜 업로드 흐름 그대로). 413 확인은 화면이 10MB를 미리 막으니 fetch로 직접 보낸다.
