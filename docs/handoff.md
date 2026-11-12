@@ -2,7 +2,7 @@
 
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 
-마지막 갱신: 2026-11-12 노트북 (S13-g5-1·g5-2 끝냄, 사진 화면 완료)
+마지막 갱신: 2026-11-12 (AWS 콘솔 S3 버킷·IAM 역할 완료, S13-g6-1·g6-2 끝냄)
 
 ## 지금 어디까지
 - **S0~S12 + UI1~UI3 완료·배포됨.** 운영은 S12-e(2026-11-11) 이미지, V8까지 적용. S12 리뷰 수정(21741e0)은 push됐지만 운영 미반영(다음 배포에 같이 나감).
@@ -14,7 +14,9 @@
   - S13-d: 화면 `/market`·`/market/:id`·`/market/new`·`/market/:id/edit`, 상단바 "중고·나눔". 판매자만 갈 수 있는 상태 버튼, [거래 완료] 확인 창, 관리자는 남의 글에 [삭제]만.
   - S13-e(9f31e26): **V10** reports.market_item_id(FK CASCADE·UNIQUE) + ck_reports_target `num_nonnulls(...)=1`. `POST /market-items/{id}/reports`(같은 학교 인증 회원만), 관리자 목록 MARKET_ITEM("중고" 배지, postId null).
   - S13-f(ee82020): `GET /market-items?q=` 제목 검색(대소문자 무시, %·_·\ 이스케이프, NUL·50자 초과 400, 표 변경 없음), /market 검색창.
-- **S13-g 사진 g1~g5 완료, 전부 push됨(c81f651), 운영 미반영.** S3(g6)만 남음.
+- **S13-g 사진 g1~g5 완료 + g6-1·g6-2 완료, 운영 미반영.** g6-3~g6-5 남음.
+  - g6-1(b6274d9): 느린 올리기 vs 청소부 경합 → `PhotoDeleteQueue.dequeueIfUntouched`(delete … returning attempts, 쪽지 2줄·attempts 0일 때만 true)를 insertLocked에서 INSERT 전에, 아니면 log.warn + 503.
+  - g6-2(1bda40e): 공개 사진 GET을 스트림으로. `StoredPhoto`(InputStream+길이), `PhotoStorage.open` **추상 메서드**(S3 구현도 반드시 구현), 컨트롤러 `ResponseEntity<InputStreamResource>`+Content-Length 직접. Range는 항상 200 전체. 풀 3개로 30개 동시 요청 전부 200 확인.
   - g1(3d6fa5c): `photo.service.ImageProcessor`(매직 바이트 JPEG·PNG → 헤더로 긴 변 10,000·총 4천만 상한 → **디코딩 때 건너뛰며 읽기 n=올림(긴 변/4096)** → 2048 + 썸네일 320 → 형식 유지 재인코딩으로 GPS 제거) + `photo.repository.PhotoStorage`·`LocalPhotoStorage`(./uploads, `app.photo.local-dir`). 의존성 metadata-extractor 2.19.0.
   - g2(ee7f6af): **V11** `market_item_photos`(글 FK CASCADE, uk_ 키, content_type CHECK) + `photo_delete_queue`. `POST /market-items/{id}/photos`(판매자 본인, 관리자 403, DONE 409, 글당 10장, 싼 확인 → Semaphore(2) 5초 503 → 자리 얻은 뒤 바이트 읽기 → 창고 put(트랜잭션 밖) → 글 FOR UPDATE 안에서 재확인·10장·INSERT). 단건·수정·상태변경 응답에 `photos`, 목록엔 없음. multipart 10MB/11MB, max-swallow-size 11MB.
   - g3(1447777): `GET …/photos/{photoId}?size=thumb`(공개, SecurityConfig에 이 GET 한 줄만, 1년 immutable 캐시, nosniff), `DELETE` 같은 주소(글 잠금 안에서 장부 먼저, 파일은 커밋 뒤).
@@ -24,13 +26,17 @@
 - Notion: S13 카드에 S13-a~g4 단계 페이지 + 도구 사전에 "ImageIO · metadata-extractor". 진행 현황 S13 줄은 그대로("남은 것: 사진·배포").
 
 ## 다음에 할 일
-- **S13-g6(S3) 시작: 먼저 사용자가 AWS 콘솔 작업(아래 "g6 build 전"), 그다음 설명 → OK → build.** 사용자에게 콘솔 화면별로 하나씩 안내하기로 함. g6 끝나면 Notion S13 카드에 g5~g6 단계 페이지(g5-1은 서버 변경이 있었음).
+- **S13-g6-3 설명 → OK → build.** S3 창고 구현(`S3PhotoStorage` + `S3ClientConfig`, `app.photo.storage=${PHOTO_STORAGE:local}`, 버킷·리전 환경변수, 시작 때 HeadBucket, 가짜 S3Client 테스트, 의존성 AWS SDK v2 BOM + s3). 그다음 g6-4(청소부 첫 실행 로그 1줄) → g6-5(nginx 11m·compose 환경변수·.env.example·deploy.md, 로컬 prod 구성으로 413 확인). 단계 계획은 아래 "g6 계획".
+- g6 끝나면 Notion S13 카드에 g5~g6 단계 페이지(g5-1은 서버 변경이 있었음).
+- (나중, 사용자 결정) 포트폴리오 트러블슈팅 정리: g6-1은 "옛 코드로 되돌리면 테스트 6개 실패" 재현 증거 있음. g6-2를 트러블슈팅으로 쓰려면 b6274d9(통째 읽기) vs 이후를 작은 힙으로 동시 요청해 메모리 전후 측정이 필요(지금은 "설계 개선"으로만 말할 수 있음).
 - 그다음 S14 쪽지 → S13-h 배포(S13·S14 한 번에) → S16 Flutter(웹) 교체.
 
 ## 진행 중인 단계
-- **S13-g(사진 업로드)**: g1~g5-2 끝(build·tester·review 모두), g6만 남음. 결정은 docs/backlog.md S13-g "결정" 줄 2개, 리뷰 미룬 것은 "나중(S13-g1~g5-2 리뷰)" 줄 6개.
-  - **S13-h 배포 전에 반드시**: (1) 공개 사진 GET이 요청마다 파일 전체를 byte[]로 메모리에 올림(동시 제한 없음) → g6에서 스트리밍 등 결정(사진 GET마다 DB 연결 1개·풀 3개도 같이), (2) 느린 올리기(10분 초과) vs 청소부 경합 → insertLocked의 큐 줄 삭제를 `delete … returning attempts`로(g6 전. 화면 timeout이 5분이라 화면 쪽은 10분 전에 끊음), (3) 청소부가 운영에서 실제로 켜지는지 짧은 주기 bootRun 로그로 확인, (4) 운영 compose에 uploads 볼륨 없음(g6에서 S3로 해결), (5) **nginx `client_max_body_size` 기본 1m → 11m**(안 올리면 3MB 사진도 413·연결 끊김).
-  - g6 build 전에 사용자 AWS 콘솔 작업: S3 버킷(퍼블릭 차단 4개, SSE-S3, 버저닝 끔) + EC2용 IAM 역할(그 버킷만 Put/Get/Delete + ListBucket) 붙이기. nginx client_max_body_size(기본 1m)도 g6에서 11m로.
+- **S13-g(사진 업로드)**: g1~g6-2 끝(build·tester·review 모두). 리뷰 미룬 것은 backlog "나중(S13-g…리뷰)" 줄들(g6-1·g6-2 줄 새로 추가).
+  - **AWS 콘솔 작업 끝(2026-11-12)**: 서울 리전 S3 버킷(범용·글로벌 네임스페이스, ACL 비활성, 퍼블릭 차단 4개, 버저닝 끔, SSE-S3) + IAM 정책 `board-market-photos-access`(그 버킷만 Put/Get/Delete + ListBucket) + IAM 역할 `board-ec2-role`(EC2 신뢰, 위 정책만) → EC2 `demo-server`에 연결함. 액세스 키는 안 만듦(앱은 기본 자격 증명 체인). **버킷 이름은 저장소가 공개라 코드·문서에 안 씀 → 사용자에게 물어서 EC2 `.env`의 `PHOTO_S3_BUCKET`에만.**
+  - **남은 콘솔 1분 작업(S13-h 전까지)**: EC2 → demo-server → 작업 → 인스턴스 설정 → 인스턴스 메타데이터 옵션 수정 → "메타데이터 응답 홉 제한"이 2인지(1이면 2로). 컨테이너 안 앱이 역할 열쇠를 받으려면 2 이상 필요.
+  - **g6 계획(planner, 사용자가 추천안 10개 전부 승인)**: g6-1 경합 ✅ · g6-2 스트림 ✅ · g6-3 S3 구현(local/s3 설정 선택, 테스트는 가짜 S3Client(LocalStack·MinIO 안 씀), s3인데 버킷·리전 비면 시작 실패, HeadBucket 실패면 시작 실패, NoSuchKey → empty, 그 밖 SDK 예외 → PhotoStorageException, 호출 제한 시간, 키 검증은 로컬과 같은 규칙, S3 put 실패는 지금처럼 500, `get()`은 남김, 동기 클라이언트만·netty·CRT 빼기, S3 연결 풀 크기 확인) · g6-4 청소부 "처음 한 번 돌았다" INFO 1줄 + 주기 5초 bootRun 확인 · g6-5 nginx `client_max_body_size 11m`, compose app에 `PHOTO_STORAGE`·`PHOTO_S3_BUCKET`·`PHOTO_S3_REGION`(값은 EC2 .env에만), .env.example, deploy.md(deploy 에이전트: 키 3개, compose scp 먼저, IMDS 홉 제한, 배포 뒤 확인, 되돌리면 S3 사진 404), 로컬에서 nginx+app 컨테이너로 3MB 201·10.5MB 413 확인.
+  - 위험(사용자에게 알림): 실제 S3 왕복은 S13-h 배포 날 처음 해 봄.
 - 커밋 안 된 변경: `docs/handoff.md`(이 커밋), `.claude/launch.json`(일부러 커밋 안 함).
 - 미룬 것(S13-g5): backlog S13 항목의 "나중(S13-g5-1 리뷰)"·"나중(S13-g5-2 리뷰)" 줄(키보드 Enter로 파일 선택 창이 실제로 열리는지 사람 확인, 아이폰 실기기 HEIC·48MP 확인, 글쓰기 401 뒤 재로그인 안내 등).
 - 미룬 것(S13): backlog S13 항목의 "나중(S13-a 리뷰)"·"나중(S13-b 리뷰)"·"나중(S13-c 리뷰)"·"나중(S13-d 리뷰)" 줄(가격 5000.9·"5000" 문자열 받아짐 확인, 비자 후기 수정 중 삭제 500, 학교별 머리말, 가격 굵기 등).
@@ -129,4 +135,6 @@
 - **build가 "Edit만 쓰라"는 지시를 어기고 python·heredoc을 쓴 적이 있다**(S13-g2·g3). 매번 `git diff`에서 `${`·역슬래시 줄을 확인한다.
 - **PowerShell에서 `git commit -F -` + here-string이 안 먹는다**(메시지가 경로로 해석됨). 메시지를 스크래치패드 파일로 쓰고 `-F 파일경로`로, 또는 Bash 도구로 커밋. PowerShell 문자열 안의 `${`도 변수로 해석돼 깨지니 grep은 Bash 도구로.
 - **Notion에 긴 한국어 페이지를 만들면 글자가 가끔 깨진다**(몰 초·쫔고·잠깔·잔못되면 등). 만든 뒤 꼭 fetch로 다시 읽고 update_content로 고친다. 고친 단어가 또 깨질 수 있어 다른 말로 바꾸는 게 안전.
+- **사진 GET은 InputStreamResource라 Spring이 Range 처리를 건너뜀(항상 200 전체).** InputStreamResource를 상속한 클래스로 바꾸거나 ETag/304를 붙이면 스트림을 두 번 읽거나 안 닫힐 수 있다(컨트롤러 주석·MarketItemPhotoStreamTests가 지킴). 사진 GET 바로 뒤 Files.delete 성공 테스트가 Windows 핸들 누수를 잡는다.
+- DB 연결 풀을 줄여 확인할 때: bootRun 환경변수 `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=3`(g6-2에서 이걸로 동시 30개 확인).
 - 중고 글 수정·상태 변경은 **조건부 UPDATE**만 쓴다. 엔티티 값을 바꿔 저장(dirty checking)하면 모든 칸을 UPDATE해서 상태가 옛 값으로 돌아간다(S13-b 리뷰에서 발견). 비자 후기 수정에는 아직 "수정 중 삭제 → 500" 빈틈이 남아 있음.
