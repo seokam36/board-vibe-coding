@@ -179,3 +179,49 @@ export interface MarketItemRequest {
   tradeType: 'SALE' | 'FREE' // 판매 / 나눔
   price?: number // 판매일 때만 보낸다 (1~10,000,000). 나눔이면 아예 보내지 않는다
 }
+
+// ---- 쪽지 (docs/api.md 36~41) ----
+
+// 대화에 붙은 물건 글 정보. 글이 지워졌으면 id가 null, deleted가 true (title은 방을 만들 때 복사해 둔 제목)
+export interface ConversationItemRef {
+  id: number | null
+  title: string
+  deleted: boolean
+}
+
+// 대화 상대. 상대가 탈퇴했으면 응답에서 partner 자체가 null
+export interface ConversationPartner {
+  id: number
+  nickname: string
+}
+
+// 쪽지 한 통. mine = 내가 보낸 쪽지인가 (보낸 사람이 탈퇴해 비었으면 false)
+export interface ConversationMessage {
+  id: number
+  content: string
+  createdAt: string // ISO-8601 UTC 문자열 (formatDate로 표시)
+  mine: boolean
+}
+
+// 쪽지함 한 줄 (GET /conversations). 최근 쪽지가 있는 방부터 온다
+export interface ConversationSummary {
+  id: number
+  item: ConversationItemRef
+  partner: ConversationPartner | null
+  lastMessage: { content: string; createdAt: string; mine: boolean }
+  unreadCount: number // 안 읽은 쪽지 수 (숫자 표시는 S14-e)
+}
+
+// 대화 보기 (GET /conversations/{id}). messages는 오래된 것부터
+export interface ConversationDetail {
+  id: number
+  item: ConversationItemRef
+  partner: ConversationPartner | null
+  messages: ConversationMessage[]
+}
+
+// 판매자에게 첫 쪽지를 보낸 결과 (POST /market-items/{id}/conversations). 새 방이든 기존 방이든 같은 모양
+export interface StartConversationResponse {
+  conversationId: number
+  message: ConversationMessage
+}

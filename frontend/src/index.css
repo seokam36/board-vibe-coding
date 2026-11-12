@@ -443,6 +443,113 @@ label textarea {
   margin-top: var(--space-2);
 }
 
+/* ---------- 쪽지 (S14-d) ---------- */
+/* 상세의 "판매자에게 쪽지" 칸과 이유 한 줄 */
+.seller-message {
+  margin-top: var(--space-5);
+}
+.seller-message-hint {
+  margin: var(--space-4) 0;
+}
+/* 쪽지 쓰는 칸: 아래줄에 글자 수(왼쪽)와 보내기 버튼(오른쪽) */
+.message-form {
+  margin-top: var(--space-3);
+}
+.message-form-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: var(--space-2) 0 var(--space-3);
+}
+.message-count {
+  font-size: var(--fs-small);
+  color: var(--muted);
+}
+/* 쪽지함 한 줄: 줄 전체가 링크. 패딩을 링크로 옮겨 눌리는 영역을 줄 전체로 만든다 */
+.conv-row {
+  padding: 0;
+}
+.conv-link {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  color: var(--ink);
+  text-decoration: none;
+}
+.conv-link:hover {
+  background: var(--hover);
+}
+.conv-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.conv-partner {
+  font-size: var(--fs-row);
+  font-weight: 500;
+}
+.conv-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+/* 마지막 쪽지는 한 줄만 보이고 길면 줄임표 */
+.conv-last {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 대화 화면 머리: 상대 닉네임과 글 제목 */
+.conv-head .post-title {
+  margin-bottom: var(--space-1);
+}
+.conv-head .meta {
+  align-items: center;
+  gap: var(--space-2);
+}
+/* 말풍선: 내가 보낸 것은 오른쪽(청자 배경), 상대가 보낸 것은 왼쪽(--hover 배경) */
+.msg-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+  padding: 0;
+  list-style: none;
+}
+.msg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: 85%;
+}
+.msg-mine {
+  align-items: flex-end;
+  justify-self: end;
+}
+.msg-theirs {
+  align-items: flex-start;
+  justify-self: start;
+}
+.msg-bubble {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-panel);
+}
+.msg-mine .msg-bubble {
+  background: var(--celadon-soft);
+  color: var(--celadon-ink);
+}
+.msg-theirs .msg-bubble {
+  background: var(--hover);
+  color: var(--ink);
+}
+.msg-time {
+  font-size: var(--fs-small);
+  color: var(--muted);
+}
+
 /* 로그인·가입 카드 */
 .auth-card {
   max-width: 400px;

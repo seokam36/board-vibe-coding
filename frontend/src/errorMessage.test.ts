@@ -132,6 +132,9 @@ describe('ERROR_MESSAGES 문구 사전', () => {
       MARKET_PHOTO_BUSY: '서버가 바쁩니다. 잠시 뒤 다시 시도해 주세요',
       MARKET_PHOTO_UPLOAD_FAILED: '사진을 올리지 못했습니다',
       MARKET_PHOTO_DELETE_CONFLICT: '거래가 완료된 글의 사진은 지울 수 없습니다',
+      MESSAGE_CONTENT_INVALID: '쪽지 내용을 입력해 주세요 (최대 1000자)',
+      MESSAGE_SEND_FAILED: '쪽지를 보내지 못했습니다',
+      CONVERSATION_NOT_FOUND: '대화를 찾을 수 없습니다',
     })
     expect(alreadyDeleted('글')).toBe('이미 삭제된 글입니다')
     expect(alreadyDeleted('댓글')).toBe('이미 삭제된 댓글입니다')

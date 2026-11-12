@@ -10,6 +10,7 @@ import ReportForm from '../components/ReportForm'
 import Loading from '../components/Loading'
 import Notice from '../components/Notice'
 import ReloginNotice from '../components/ReloginNotice'
+import SellerMessageBox from '../components/SellerMessageBox'
 import { formatDate } from '../formatDate'
 import { formatPrice } from '../marketFormat'
 import { marketPhotoUrl } from '../marketPhotoUrl'
@@ -275,6 +276,8 @@ export default function MarketDetailPage() {
       {statusNotice && <Notice kind="success">{statusNotice}</Notice>}
       {actionError && <Notice kind="error">{actionError}</Notice>}
       {needLogin && <ReloginNotice />}
+      {/* 판매자에게 쪽지: 내 글이면 칸이 없고, 보낼 수 없는 사람에게는 이유 한 줄 (SellerMessageBox가 정한다) */}
+      {item && <SellerMessageBox key={item.id} item={item} />}
       <p>
         <Link to="/market" className="btn">
           목록으로

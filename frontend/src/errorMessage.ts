@@ -126,4 +126,12 @@ export const ERROR_MESSAGES = {
   MARKET_PHOTO_UPLOAD_FAILED: '사진을 올리지 못했습니다',
   // 사진 지우기 409: 거래가 완료된 글
   MARKET_PHOTO_DELETE_CONFLICT: '거래가 완료된 글의 사진은 지울 수 없습니다',
+
+  // --- 쪽지 ---
+  // 쪽지 보내기·답장 400: 비었거나 공백뿐이거나 1000자 초과
+  MESSAGE_CONTENT_INVALID: '쪽지 내용을 입력해 주세요 (최대 1000자)',
+  // 쪽지 보내기·답장 실패 기본 문구
+  MESSAGE_SEND_FAILED: '쪽지를 보내지 못했습니다',
+  // 대화 보기(404·주소가 이상한 400)와 답장 404: 없는 방이거나 내 방이 아님
+  CONVERSATION_NOT_FOUND: '대화를 찾을 수 없습니다',
 } as const

@@ -1,7 +1,7 @@
 import { test as base, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import type { AuthUser } from '../src/auth/useAuth.ts'
-import type { Category, Comment, MarketItemPhoto, MarketListItem, Post, School, VisaPlan, VisaReview, VisaReviewOptions, VisaReviewStat } from '../src/types.ts'
+import type { Category, Comment, ConversationDetail, ConversationMessage, ConversationSummary, MarketItemPhoto, MarketListItem, Post, School, VisaPlan, VisaReview, VisaReviewOptions, VisaReviewStat } from '../src/types.ts'
 
 // ---- 가짜 데이터: src/types.ts 타입을 붙여서 실제 응답 모양과 어긋나면 tsc가 알려 준다 ----
 
@@ -119,6 +119,25 @@ export const fakeMarketListItem: MarketListItem = {
   coverPhoto: { id: 7, width: 1365, height: 2048, thumbWidth: 213, thumbHeight: 320, contentType: 'image/jpeg' },
 }
 
+// 쪽지 가짜 데이터 (docs/api.md 36~39번). 대화 3번: 상대는 "판매자닉", 글 1번 "가짜 자전거"
+export const fakeMessages: ConversationMessage[] = [
+  { id: 10, content: '안녕하세요, 아직 있나요?', createdAt: '2026-01-02T03:00:00Z', mine: true },
+  { id: 11, content: '아직 있어요', createdAt: '2026-01-02T03:05:00Z', mine: false },
+]
+export const fakeConversationDetail: ConversationDetail = {
+  id: 3,
+  item: { id: 1, title: '가짜 자전거', deleted: false },
+  partner: { id: 7, nickname: '판매자닉' },
+  messages: fakeMessages,
+}
+export const fakeConversationSummary: ConversationSummary = {
+  id: 3,
+  item: fakeConversationDetail.item,
+  partner: fakeConversationDetail.partner,
+  lastMessage: { content: '아직 있어요', createdAt: '2026-01-02T03:05:00Z', mine: false },
+  unreadCount: 1,
+}
+
 // 기본 가짜 응답 모음. 로그인 여부는 state.loggedIn 으로 정한다
 function defaultHandlers(state: { loggedIn: boolean }): MockHandlers {
   let nextPhotoId = 100 // 사진 올리기 가짜 응답의 id (테스트마다 새로 시작)
@@ -154,6 +173,20 @@ function defaultHandlers(state: { loggedIn: boolean }): MockHandlers {
       body: { id: nextPhotoId++, width: 1365, height: 2048, thumbWidth: 213, thumbHeight: 320, contentType: 'image/jpeg' } satisfies MarketItemPhoto,
     }),
     'DELETE /market-items/*/photos/*': { status: 204 },
+    // 쪽지 (36~39번): 보내기는 201 + 대화 3번, 쪽지함은 비어 있고, 대화 보기는 3번 대화, 답장은 새 쪽지 하나
+    // (안 읽은 수·읽음 처리는 S14-e에서 화면이 부를 때 추가)
+    // 주소를 "*" 없이 정확히 적었다: 화면이 엉뚱한 번호나 아직 안 만든 주소(예: /conversations/unread-count)를 불러도 조용히 통과하지 않고 "준비하지 않은 요청"으로 실패하게 한다.
+    // 다른 글·대화 번호가 필요한 장면은 테스트에서 override로 그 주소를 준비한다 (정확한 키가 "*" 키보다 먼저 쓰이므로 override도 정확한 키로 쓴다)
+    'POST /market-items/1/conversations': {
+      status: 201,
+      body: { conversationId: 3, message: { id: 10, content: '안녕하세요, 아직 있나요?', createdAt: '2026-01-02T03:00:00Z', mine: true } },
+    },
+    'GET /conversations': { status: 200, body: [] satisfies ConversationSummary[] },
+    'GET /conversations/3': { status: 200, body: fakeConversationDetail },
+    'POST /conversations/3/messages': {
+      status: 201,
+      body: { id: 12, content: '답장입니다', createdAt: '2026-01-02T03:10:00Z', mine: true } satisfies ConversationMessage,
+    },
   }
 }
 

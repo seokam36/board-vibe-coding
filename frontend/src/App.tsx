@@ -22,6 +22,8 @@ import MarketListPage from './pages/MarketListPage'
 import MarketDetailPage from './pages/MarketDetailPage'
 import MarketCreatePage from './pages/MarketCreatePage'
 import MarketEditPage from './pages/MarketEditPage'
+import MessageListPage from './pages/MessageListPage'
+import ConversationPage from './pages/ConversationPage'
 
 // 주소별로 어떤 페이지를 보여줄지 정하는 곳
 export default function App() {
@@ -117,6 +119,23 @@ export default function App() {
             element={
               <RequireLogin>
                 <MarketEditPage />
+              </RequireLogin>
+            }
+          />
+          {/* 쪽지함·대화 화면: 로그인한 사람만 */}
+          <Route
+            path="/messages"
+            element={
+              <RequireLogin>
+                <MessageListPage />
+              </RequireLogin>
+            }
+          />
+          <Route
+            path="/messages/:id"
+            element={
+              <RequireLogin>
+                <ConversationPage />
               </RequireLogin>
             }
           />
