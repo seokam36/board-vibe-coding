@@ -618,6 +618,11 @@ class MarketItemPhotoApiTests {
 			}
 
 			@Override
+			public java.util.Optional<com.example.demo.photo.repository.StoredPhoto> open(String key) {
+				return 진짜.open(key);
+			}
+
+			@Override
 			public void delete(String key) {
 				진짜.delete(key);
 			}

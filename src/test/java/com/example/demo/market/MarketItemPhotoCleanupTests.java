@@ -49,6 +49,7 @@ import com.example.demo.config.SchedulingConfig;
 import com.example.demo.market.service.MarketItemPhotoService;
 import com.example.demo.photo.repository.PhotoStorage;
 import com.example.demo.photo.repository.PhotoStorageException;
+import com.example.demo.photo.repository.StoredPhoto;
 import com.example.demo.photo.service.PhotoCleanupJob;
 import com.example.demo.photo.service.PhotoDeleteQueue;
 import com.example.demo.post.repository.PostRepository;
@@ -122,6 +123,11 @@ class MarketItemPhotoCleanupTests {
 		@Override
 		public Optional<byte[]> get(String key) {
 			return 진짜.get(key);
+		}
+
+		@Override
+		public Optional<StoredPhoto> open(String key) {
+			return 진짜.open(key);
 		}
 
 		@Override

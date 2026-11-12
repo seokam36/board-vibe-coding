@@ -80,6 +80,33 @@ class LocalPhotoStorageTests {
         assertThatThrownBy(() -> storage.delete(key)).isInstanceOf(IllegalArgumentException.class);
     }
 
+    // S13-g6-2 완료 조건 5: open은 스트림과 길이를 돌려준다
+    @Test
+    void open은_있는_키의_길이와_내용이_파일과_일치한다() throws Exception {
+        LocalPhotoStorage storage = storage();
+        byte[] data = new byte[100_000];
+        new java.util.Random(7).nextBytes(data);
+        storage.put("market/1/open.jpg", data, "image/jpeg");
+
+        StoredPhoto stored = storage.open("market/1/open.jpg").orElseThrow();
+        try (var in = stored.stream()) {
+            assertThat(stored.length()).isEqualTo(data.length);
+            assertThat(in.readAllBytes()).isEqualTo(data);
+        }
+    }
+
+    @Test
+    void open은_없는_키면_빈_값이다() {
+        assertThat(storage().open("없음/none.png")).isEmpty();
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"../evil.txt", "a/../../evil.txt", "/etc/passwd", "..\\evil.txt", "C:/evil.txt", ".."})
+    void open은_폴더_밖으로_나가는_키를_거부한다(String key) {
+        assertThatThrownBy(() -> storage().open(key)).isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test
     void 거부된_키로는_폴더_밖에_파일이_만들어지지_않는다() throws Exception {
         Path root = tempDir.resolve("root");

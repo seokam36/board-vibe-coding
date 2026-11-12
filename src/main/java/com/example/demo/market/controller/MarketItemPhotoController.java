@@ -2,6 +2,7 @@ package com.example.demo.market.controller;
 
 import java.net.URI;
 
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -44,19 +45,33 @@ public class MarketItemPhotoController {
 
     // 사진 파일 보기 (공개). ?size=thumb 이면 썸네일, 없으면 본 사진, 그 외 값은 400.
     @GetMapping("/{photoId}")
-    public ResponseEntity<byte[]> view(@PathVariable Long id, @PathVariable Long photoId,
+    public ResponseEntity<InputStreamResource> view(@PathVariable Long id, @PathVariable Long photoId,
             @RequestParam(required = false) String size) {
         MarketItemPhotoContent content = photoService.getPhoto(id, photoId, size);
-        return ResponseEntity.ok()
-                // 종류는 DB에 적어 둔 값을 그대로 쓴다 (image/jpeg 또는 image/png)
-                .contentType(MediaType.parseMediaType(content.contentType()))
-                // 1년 동안 브라우저·중간 서버가 저장해 두고 다시 묻지 않아도 된다(immutable).
-                // 사진 id의 그림은 한 번 올리면 절대 바뀌지 않기 때문이다(고치려면 지우고 새로 올려 새 id를 받는다).
-                // 이 헤더를 직접 넣으면 Spring Security가 기본으로 붙이는 "no-cache" 계열 헤더는 붙지 않는다.
-                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
-                // 브라우저가 내용을 보고 종류를 멋대로 바꿔 읽지 못하게 한다
-                .header("X-Content-Type-Options", "nosniff")
-                .body(content.bytes()); // Content-Length는 본문 길이로 자동으로 붙는다
+        // 스트림이 이미 열린 상태다. 응답을 조립하다 예외가 나면 Spring이 닫아 주지 못하니 여기서 닫고 다시 던진다.
+        // (주의: ETag/304처럼 본문을 안 쓰는 응답을 추가하면 이 스트림을 직접 닫아야 한다.)
+        try {
+            return ResponseEntity.ok()
+                    // 종류는 DB에 적어 둔 값을 그대로 쓴다 (image/jpeg 또는 image/png)
+                    .contentType(MediaType.parseMediaType(content.contentType()))
+                    // 1년 동안 브라우저·중간 서버가 저장해 두고 다시 묻지 않아도 된다(immutable).
+                    // 사진 id의 그림은 한 번 올리면 절대 바뀌지 않기 때문이다(고치려면 지우고 새로 올려 새 id를 받는다).
+                    // 이 헤더를 직접 넣으면 Spring Security가 기본으로 붙이는 "no-cache" 계열 헤더는 붙지 않는다.
+                    .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
+                    // 브라우저가 내용을 보고 종류를 멋대로 바꿔 읽지 못하게 한다
+                    .header("X-Content-Type-Options", "nosniff")
+                    // 파일을 통째로 메모리에 올리지 않고 스트림으로 흘려보낸다. 길이는 창고가 알려 준 값을 직접 지정한다.
+                    // 정상이면 다 쓰고 나서 Spring(ResourceHttpMessageConverter)이 스트림을 닫는다.
+                    .contentLength(content.photo().length())
+                    .body(new InputStreamResource(content.photo().stream()));
+        } catch (RuntimeException | Error e) {
+            try {
+                content.photo().stream().close();
+            } catch (java.io.IOException closeError) {
+                e.addSuppressed(closeError); // 닫다 난 오류는 원래 예외에 덧붙인다
+            }
+            throw e;
+        }
     }
 
     // 사진 지우기: 판매자 본인만(관리자도 403). 성공하면 204

@@ -23,6 +23,7 @@ import com.example.demo.market.dto.MarketItemPhotoResponse;
 import com.example.demo.market.repository.MarketItemPhotoRepository;
 import com.example.demo.market.repository.MarketItemRepository;
 import com.example.demo.photo.repository.PhotoStorage;
+import com.example.demo.photo.repository.StoredPhoto;
 import com.example.demo.photo.service.ImageProcessor;
 import com.example.demo.photo.service.InvalidImageException;
 import com.example.demo.photo.service.PhotoDeleteQueue;
@@ -123,10 +124,11 @@ public class MarketItemPhotoService {
         MarketItemPhoto photo = readOnly.execute(status -> photoRepository.findByIdAndMarketItemId(photoId, itemId)
                 .orElseThrow(MarketItemPhotoService::photoNotFound));
 
-        // 트랜잭션 밖: 창고에서 파일 읽기. 장부(DB)엔 있는데 파일이 없으면 404 (업로드 도중 비정상 종료 등 드문 경우)
-        byte[] bytes = photoStorage.get(thumb ? photo.getThumbKey() : photo.getStorageKey())
+        // 트랜잭션 밖: 창고에서 파일을 스트림으로 연다(통째로 메모리에 올리지 않고 DB 연결도 쥐지 않음).
+        // 장부(DB)엔 있는데 파일이 없으면 404 (업로드 도중 비정상 종료 등 드문 경우)
+        StoredPhoto stored = photoStorage.open(thumb ? photo.getThumbKey() : photo.getStorageKey())
                 .orElseThrow(MarketItemPhotoService::photoNotFound);
-        return new MarketItemPhotoContent(bytes, photo.getContentType());
+        return new MarketItemPhotoContent(stored, photo.getContentType());
     }
 
     // 사진 지우기 (S13-g3). 순서: 글 없음 404 -> 본인 아님 403(관리자도) -> 거래완료 409 -> 이 글의 사진 아님 404 -> 장부 행 삭제.

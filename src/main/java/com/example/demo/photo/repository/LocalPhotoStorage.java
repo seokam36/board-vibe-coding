@@ -1,6 +1,7 @@
 package com.example.demo.photo.repository;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.NoSuchFileException;
@@ -44,6 +45,34 @@ public class LocalPhotoStorage implements PhotoStorage {
             return Optional.empty();
         } catch (IOException e) {
             throw new PhotoStorageException("사진 파일을 읽지 못했습니다", e);
+        }
+    }
+
+    // 파일을 스트림으로 연다(메모리에 통째로 올리지 않음). 없으면 empty, 폴더 밖 key는 IllegalArgumentException.
+    @Override
+    public Optional<StoredPhoto> open(String key) {
+        Path path = resolve(key);
+        InputStream in = null;
+        try {
+            in = Files.newInputStream(path);
+            long length = Files.size(path);
+            return Optional.of(new StoredPhoto(in, length));
+        } catch (NoSuchFileException e) {
+            closeQuietly(in); // 열기와 크기 확인 사이에 파일이 사라진 경우도 "없음"
+            return Optional.empty();
+        } catch (IOException e) {
+            closeQuietly(in);
+            throw new PhotoStorageException("사진 파일을 열지 못했습니다", e);
+        }
+    }
+
+    private static void closeQuietly(InputStream in) {
+        if (in != null) {
+            try {
+                in.close();
+            } catch (IOException ignored) {
+                // 닫기 실패는 원래 결과(없음/예외)보다 중요하지 않다
+            }
         }
     }
 
