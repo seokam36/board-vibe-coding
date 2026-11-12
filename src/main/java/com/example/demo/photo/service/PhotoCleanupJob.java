@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -21,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 // 청소부 (S13-g4): 주기적으로 대기 표(photo_delete_queue)에 남은 파일을 마저 지운다.
 // 남는 경우: 커밋 뒤 파일 삭제가 실패했거나, 업로드/삭제 도중 서버가 죽었을 때.
 // 스케줄은 app.scheduling.enabled=false 이면 켜지지 않는다(테스트 설정). 테스트는 runOnce()를 직접 부른다.
+// 처음 성공한 실행 때 INFO 한 줄을 남긴다(배포 뒤 스케줄 동작 확인용). 이후엔 처리한 게 있을 때만 로그.
 //
 // 트랜잭션 범위(중요): "꺼내기"만 짧은 트랜잭션이고, 파일 지우기(느릴 수 있음)는 트랜잭션 밖에서 한다.
 // 파일을 지우는 동안 DB 행 잠금과 연결(풀이 3개뿐)을 쥐고 있지 않으려는 것이다.
@@ -37,6 +39,7 @@ public class PhotoCleanupJob {
     private final TransactionTemplate tx;
     private final Clock clock;
     private final Duration minAge;
+    private final AtomicBoolean firstRun = new AtomicBoolean(true); // 아직 한 번도 성공 못 했는가 (스케줄러 스레드는 하나지만 안전하게 AtomicBoolean)
 
     public PhotoCleanupJob(NamedParameterJdbcTemplate jdbc, PhotoDeleteQueue queue, TransactionTemplate tx, Clock clock,
             @Value("${app.photo.cleanup-min-age:PT10M}") Duration minAge) {
@@ -53,11 +56,16 @@ public class PhotoCleanupJob {
     void scheduledRun() {
         try {
             int count = runOnce();
-            if (count > 0) {
+            // 처음으로 "성공"한 실행에서만 확인용 INFO를 찍고 깃발을 내린다(스케줄이 정말 도는지 알려는 것).
+            // 실패로 깃발을 먼저 내리면, 첫 시도가 실패한 뒤엔 성공해도 확인 로그가 영영 안 나오기 때문이다.
+            if (firstRun.compareAndSet(true, false)) {
+                log.info("사진 청소부 첫 실행: {}개 처리 (이후엔 처리한 게 있을 때만 로그)", count);
+            } else if (count > 0) {
                 log.info("사진 청소부: {}개 처리", count);
             }
         } catch (RuntimeException e) {
-            log.warn("사진 청소부 실행에 실패했습니다(다음 주기에 다시 합니다)", e);
+            // 깃발이 아직 서 있으면 "성공한 적 없음"이므로 문구에 "첫 "을 붙여 구분한다(깃발은 그대로 둠)
+            log.warn("사진 청소부 {}실행에 실패했습니다(다음 주기에 다시 합니다)", firstRun.get() ? "첫 " : "", e);
         }
     }
 
