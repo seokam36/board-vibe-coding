@@ -90,6 +90,14 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-}
+      # 사진 저장소(S13-g6). app은 운영(prod) 전용이라 기본값을 s3로 둔다
+      # (local이 되면 컨테이너 안에 사진이 쌓였다가 재배포 때 사라진다. 빈 값이어도 :-가 s3로 채운다)
+      PHOTO_STORAGE: ${PHOTO_STORAGE:-s3}
+      # 버킷 이름은 .env에서 읽는다. :? 는 prod 아닌 로컬 `docker compose up`의 변수 해석까지 깨뜨릴 수 있어 쓰지 않는다
+      # (비어 있으면 앱이 시작할 때 변수 이름을 알려 주며 실패한다)
+      PHOTO_S3_BUCKET: ${PHOTO_S3_BUCKET:-}
+      # 리전은 비밀이 아님 (서울). 자격 증명은 키 없이 EC2에 붙은 IAM 역할(board-ec2-role)을 쓴다
+      PHOTO_S3_REGION: ${PHOTO_S3_REGION:-ap-northeast-2}
     depends_on:
       postgres:
         # DB가 healthy가 된 뒤에 앱 시작
