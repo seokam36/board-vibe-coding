@@ -43,7 +43,7 @@ public class Message {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    // 읽은 시각 (S14-c에서 쓴다. 지금은 항상 null)
+    // 읽은 시각. 읽음 처리(MessageRepository.markRead)의 UPDATE 한 문장으로만 채운다
     @Column(name = "read_at")
     private Instant readAt;
 

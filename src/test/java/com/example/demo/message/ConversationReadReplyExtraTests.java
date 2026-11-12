@@ -127,7 +127,7 @@ class ConversationReadReplyExtraTests {
 		long 방 = 방_만들기(구매자쿠키, 글id, "문의");
 
 		JsonNode 목록항목 = json(목록(구매자쿠키)).get(0);
-		assertThat(키들(목록항목)).containsExactlyInAnyOrder("id", "item", "partner", "lastMessage");
+		assertThat(키들(목록항목)).containsExactlyInAnyOrder("id", "item", "partner", "lastMessage", "unreadCount");
 		assertThat(키들(목록항목.get("item"))).containsExactlyInAnyOrder("id", "title", "deleted");
 		assertThat(키들(목록항목.get("partner"))).containsExactlyInAnyOrder("id", "nickname");
 		assertThat(키들(목록항목.get("lastMessage"))).containsExactlyInAnyOrder("content", "createdAt", "mine");

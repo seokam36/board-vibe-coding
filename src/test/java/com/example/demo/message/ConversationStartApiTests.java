@@ -123,6 +123,10 @@ class ConversationStartApiTests {
 	void 같은_글에_다시_보내면_같은_방에_쪽지가_붙고_마지막_시각이_갱신된다() throws Exception {
 		JsonNode 첫째 = om.readTree(보내기(구매자쿠키, 글id, "첫째").getContentAsString());
 		long 방id = 첫째.get("conversationId").asLong();
+		// 연속 두 요청이 같은 시계 눈금에 찍히면 "더 늦을 때만 갱신"이라 시각이 안 바뀐다(Windows에서 불안정).
+		// 그래서 첫 쪽지와 방의 마지막 시각을 1시간 전으로 돌려 놓고 두 번째를 보낸다(sleep 없이 확실히 "뒤"가 됨).
+		jdbc.update("update messages set created_at = created_at - interval '1 hour' where conversation_id = ?", 방id);
+		jdbc.update("update conversations set last_message_at = last_message_at - interval '1 hour' where id = ?", 방id);
 		var 처음시각 = jdbc.queryForObject("select last_message_at from conversations where id = ?",
 				java.sql.Timestamp.class, 방id);
 
@@ -137,6 +141,10 @@ class ConversationStartApiTests {
 		var 나중시각 = jdbc.queryForObject("select last_message_at from conversations where id = ?",
 				java.sql.Timestamp.class, 방id);
 		assertThat(나중시각).isAfter(처음시각);
+		// 방의 마지막 시각은 두 번째 쪽지가 만들어진 시각과 같다
+		var 둘째쪽지시각 = jdbc.queryForObject("select created_at from messages where id = ?",
+				java.sql.Timestamp.class, 둘째.get("message").get("id").asLong());
+		assertThat(나중시각).isEqualTo(둘째쪽지시각);
 	}
 
 	@Test

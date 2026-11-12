@@ -227,7 +227,7 @@ class ConversationReadReplyTests {
 		}
 		long 여섯일때 = 목록_쿼리수();
 		assertThat(여섯일때).as("방 1개 vs 6개 쿼리 수").isEqualTo(하나일때);
-		assertThat(하나일때).isLessThanOrEqualTo(3);
+		assertThat(하나일때).as("회원 1 + 방 1 + 마지막 쪽지 1 + 안 읽은 수 1").isLessThanOrEqualTo(4);
 	}
 
 	private long 목록_쿼리수() throws Exception {

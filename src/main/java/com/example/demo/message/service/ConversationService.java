@@ -30,9 +30,11 @@ import com.example.demo.message.dto.ConversationStartResponse;
 import com.example.demo.message.dto.ConversationSummaryResponse;
 import com.example.demo.message.dto.LastMessageInfo;
 import com.example.demo.message.dto.MessageResponse;
+import com.example.demo.message.dto.UnreadCountResponse;
 import com.example.demo.message.repository.ConversationRepository;
 import com.example.demo.message.repository.LastMessageRow;
 import com.example.demo.message.repository.MessageRepository;
+import com.example.demo.message.repository.UnreadCountRow;
 import com.example.demo.user.domain.User;
 import com.example.demo.user.repository.UserRepository;
 
@@ -202,7 +204,7 @@ public class ConversationService {
     }
 
     // 내 대화 목록(최근 쪽지 순). 학교 인증은 필요 없다(읽기는 참가자면 된다). 회원이 DB에 없으면 401.
-    // 쿼리 수는 방 개수와 무관하게 고정: 회원 1 + 방(상대 닉네임 포함) 1 + 마지막 쪽지 1.
+    // 쿼리 수는 방 개수와 무관하게 고정: 회원 1 + 방(상대 닉네임 포함) 1 + 마지막 쪽지 1 + 안 읽은 수(group by) 1.
     @Transactional(readOnly = true)
     public List<ConversationSummaryResponse> list(LoginUser loginUser) {
         User me = accessGuard.requireUser(loginUser);
@@ -210,16 +212,19 @@ public class ConversationService {
         if (rooms.isEmpty()) {
             return List.of();
         }
-        Map<Long, LastMessageRow> lastByRoom = messageRepository
-                .findLastMessages(rooms.stream().map(Conversation::getId).toList()).stream()
+        List<Long> roomIds = rooms.stream().map(Conversation::getId).toList();
+        Map<Long, LastMessageRow> lastByRoom = messageRepository.findLastMessages(roomIds).stream()
                 .collect(Collectors.toMap(LastMessageRow::conversationId, Function.identity()));
+        // 안 읽은 게 없는 방은 줄이 없으니 getOrDefault로 0
+        Map<Long, Long> unreadByRoom = messageRepository.countUnreadByRoom(roomIds, me.getId()).stream()
+                .collect(Collectors.toMap(UnreadCountRow::conversationId, UnreadCountRow::count));
         return rooms.stream().map(room -> {
             LastMessageRow last = lastByRoom.get(room.getId());
             // 방은 만들 때 쪽지 1통이 같이 저장되므로 last가 없는 일은 없지만, 없어도 목록이 깨지지 않게 null로 둔다
             LastMessageInfo lastMessage = last == null ? null
                     : new LastMessageInfo(last.content(), last.createdAt(), me.getId().equals(last.senderId()));
             return new ConversationSummaryResponse(room.getId(), ConversationItemInfo.of(room),
-                    ConversationPartnerInfo.of(room, me.getId()), lastMessage);
+                    ConversationPartnerInfo.of(room, me.getId()), lastMessage, unreadByRoom.getOrDefault(room.getId(), 0L));
         }).toList();
     }
 
@@ -234,6 +239,50 @@ public class ConversationService {
         }
         return new ConversationDetailResponse(room.getId(), ConversationItemInfo.of(room),
                 ConversationPartnerInfo.of(room, me.getId()), messageRepository.findResponses(conversationId, me.getId()));
+    }
+
+    // 읽음 처리: 이 방에서 id <= lastMessageId 이고 상대가 보낸 안 읽은 쪽지에 읽은 시각을 찍는다. 학교 인증은 필요 없다(읽기 계열).
+    // 검사 순서(본문 400은 컨트롤러의 @Valid가 먼저 한다): 회원 없음 401 -> 방 없음/참가자 아님 404 -> (상대 회원 행 잠금) -> UPDATE.
+    // 몇 건이 바뀌었든(0건 포함) 204다.
+    //
+    // [잠금 순서 = 상대 회원 행(KEY SHARE) -> 쪽지 행(UPDATE)] 상대 회원 행만 먼저 잡고, 그 뒤 messages UPDATE 한 문장을 실행한다.
+    //   - 왜 상대 회원 행을 먼저 잡나: 탈퇴(UserService.withdraw)는 회원 행 FOR UPDATE를 맨 먼저 잡은 뒤 FK의 sender_id SET NULL로
+    //     그 사람이 보낸 쪽지 행들을 DB가 정한 순서(디스크 순서)로 잡는다. 읽음 UPDATE는 id 순서로 쪽지 행을 잡는다.
+    //     상대가 보낸 안 읽은 쪽지가 2통 이상이고 두 순서가 뒤집혀 있으면 서로 반대 순서로 잡아 교착(40P01 -> 500)이 날 수 있다.
+    //     그래서 회원 행을 먼저 잡는다: 탈퇴가 진행 중이면 우리는 아무것도 안 쥔 채 이 첫 잠금에서 기다릴 뿐이라 고리가 없고,
+    //     우리가 먼저 잡았으면 탈퇴가 자기 첫 잠금에서 우리 커밋을 기다린다.
+    //   - 내 회원 행은 안 잡아도 된다: UPDATE 대상은 "상대가 보낸" 쪽지(sender_id <> 나 또는 NULL)라, 내가 탈퇴하며 SET NULL하는
+    //     "내가 보낸" 쪽지(sender_id = 나)와 서로 다른 행이다. 그래서 같은 쪽지 행을 두고 기다릴 일이 없다.
+    //   - 상대가 이미 탈퇴한 방(partner == null)은 잡을 행이 없어 생략한다. 잠금을 잡으려는 그 순간 상대가 탈퇴를 커밋해 행이 없어졌어도
+    //     (결과 목록이 빈 값) 그대로 UPDATE를 진행한다: 그 쪽지들은 sender NULL이 되어 여전히 "상대가 보낸 것"이라 읽음 대상이다.
+    //   - 이 UPDATE는 read_at만 바꾸므로 FK 칸을 안 건드려 FK 검사(회원·방 행 잠금)가 없다. 잡는 잠금은 바꾸는 쪽지 행의 행 잠금뿐이다.
+    //     같은 쪽지 행을 동시에 건드리면 한쪽이 상대 커밋을 기다릴 뿐이고, 기다린 뒤 조건(read_at is null)을 다시 확인해 계속한다.
+    //   - 답장(reply/appendMessage): 회원 KEY SHARE -> 방 NO KEY UPDATE -> 쪽지 INSERT. 회원 KEY SHARE끼리는 서로 안 막고,
+    //     INSERT한 새 쪽지는 커밋 전엔 우리에게 안 보여서 서로 기다릴 행이 없다. 방 행은 우리가 안 잡으니 방 잠금과도 고리가 없다.
+    //   - 방 행을 잠글 필요도 없다: 읽음 처리는 방의 어떤 값도 바꾸지 않고, 한 문장이라 중간 상태를 남이 볼 일이 없다.
+    //     참가자 확인은 일반 SELECT로 한 번 하고, 그 뒤에 내가 탈퇴해도 UPDATE는 조건에 맞는 쪽지가 없거나 무해하게 끝난다.
+    @Transactional
+    public void markRead(Long conversationId, LoginUser loginUser, Long lastMessageId) {
+        User me = accessGuard.requireUser(loginUser);
+        Conversation room = conversationRepository.findWithParticipantsById(conversationId)
+                .orElseThrow(ApiErrors::conversationNotFound);
+        if (!room.hasParticipant(me.getId())) {
+            throw ApiErrors.conversationNotFound(); // 남의 방은 관리자도 없는 방과 똑같이 404
+        }
+        User partner = room.partnerOf(me.getId());
+        if (partner != null) {
+            // 결과(살아 있는 id 목록)는 쓰지 않는다. 비어 있어도(그새 탈퇴) 아래 UPDATE는 그대로 진행한다.
+            userRepository.lockForKeyShare(List.of(partner.getId()));
+        }
+        Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
+        messageRepository.markRead(conversationId, lastMessageId, me.getId(), now);
+    }
+
+    // 안 읽은 쪽지 수(내가 참가자인 모든 방 합계). 없으면 0. 회원이 DB에 없으면 401.
+    @Transactional(readOnly = true)
+    public UnreadCountResponse unreadCount(LoginUser loginUser) {
+        User me = accessGuard.requireUser(loginUser);
+        return new UnreadCountResponse(messageRepository.countUnread(me.getId()));
     }
 
     private ResponseStatusException partnerWithdrawn() {

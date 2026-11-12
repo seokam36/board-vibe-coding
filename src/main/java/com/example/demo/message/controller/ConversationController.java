@@ -8,6 +8,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -16,8 +17,10 @@ import com.example.demo.auth.dto.LoginUser;
 import com.example.demo.message.dto.ConversationDetailResponse;
 import com.example.demo.message.dto.ConversationStartResponse;
 import com.example.demo.message.dto.ConversationSummaryResponse;
+import com.example.demo.message.dto.MarkReadRequest;
 import com.example.demo.message.dto.MessageResponse;
 import com.example.demo.message.dto.MessageSendRequest;
+import com.example.demo.message.dto.UnreadCountResponse;
 import com.example.demo.message.service.ConversationService;
 
 import jakarta.validation.Valid;
@@ -43,6 +46,20 @@ public class ConversationController {
     @GetMapping("/conversations")
     public List<ConversationSummaryResponse> list(@AuthenticationPrincipal Jwt jwt) {
         return conversationService.list(LoginUser.from(jwt));
+    }
+
+    // 안 읽은 쪽지 수(내가 참가자인 모든 방). "/conversations/{id}"와 겹치지 않는다: 글자 그대로인 주소가 {id}보다 먼저 뽑힌다.
+    @GetMapping("/conversations/unread-count")
+    public UnreadCountResponse unreadCount(@AuthenticationPrincipal Jwt jwt) {
+        return conversationService.unreadCount(LoginUser.from(jwt));
+    }
+
+    // 읽음 처리: 본문의 lastMessageId까지, 상대가 보낸 쪽지만 읽음으로. 학교 인증은 필요 없다(읽기 계열).
+    @PutMapping("/conversations/{id}/read")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void markRead(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
+            @Valid @RequestBody MarkReadRequest request) {
+        conversationService.markRead(id, LoginUser.from(jwt), request.lastMessageId());
     }
 
     // 대화 한 건 + 쪽지들. 참가자만(남의 대화는 관리자도 404).
