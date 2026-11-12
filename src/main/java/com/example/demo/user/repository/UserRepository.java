@@ -80,7 +80,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // 서로 반대 순서로 잠그면 교착(40P01 -> 500)이 난다. 쪽지도 "회원 행부터" 잡으면 고리가 안 생긴다:
     //   - 탈퇴가 먼저 회원 행을 잡았으면: 쪽지는 여기(아직 아무 잠금도 없는 상태)에서 기다리고, 탈퇴가 끝난 뒤 행이 없어서 401/404.
     //   - 쪽지가 먼저 잡았으면: 탈퇴가 lockById(탈퇴의 첫 잠금)에서 기다리고, 아직 아무것도 잡지 않았으니 고리가 없다.
-    // KEY SHARE끼리는 충돌하지 않아 쪽지끼리는 안 막고, 닉네임 변경 같은 일반 UPDATE(NO KEY UPDATE)와도 충돌하지 않는다.
+    // KEY SHARE끼리는 충돌하지 않아 쪽지끼리는 안 막는다. 닉네임 변경은 nickname이 UNIQUE(키 칸)라 KEY SHARE와 충돌해
+    // 쪽지 쪽이 끝날 때까지 잠깐 기다릴 뿐이다(그 사이 서로 쥔 잠금이 없어 고리는 안 생긴다). 비밀번호 변경처럼 키 칸이 아닌 UPDATE는 충돌하지 않는다.
     // order by id: 여러 행을 늘 같은 순서로 잡는다.
     @Query(value = "select id from users where id in (:ids) order by id for key share", nativeQuery = true)
     @Transactional(propagation = Propagation.MANDATORY)

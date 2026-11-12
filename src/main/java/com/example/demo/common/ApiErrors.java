@@ -44,6 +44,11 @@ public final class ApiErrors {
         return new ResponseStatusException(HttpStatus.NOT_FOUND, "물건 글을 찾을 수 없습니다.");
     }
 
+    // 없는 대화방, 또는 내가 참가자가 아닌 대화방(관리자 포함) -> 404 (남의 대화방이 있는지 알려 주지 않으려고 같은 오류)
+    public static ResponseStatusException conversationNotFound() {
+        return new ResponseStatusException(HttpStatus.NOT_FOUND, "대화를 찾을 수 없습니다.");
+    }
+
     // 로그인 안 됨(토큰은 유효하지만 회원이 없는 경우 포함) -> 401
     public static ResponseStatusException loginRequired() {
         return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");

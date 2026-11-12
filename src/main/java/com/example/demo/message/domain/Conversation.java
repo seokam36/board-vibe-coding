@@ -56,4 +56,14 @@ public class Conversation {
     // 마지막 쪽지 시각. 엔티티 저장이 옛 값으로 덮어쓰지 않게 updatable=false, 갱신은 repository의 UPDATE 한 문장으로만 한다.
     @Column(name = "last_message_at", nullable = false, updatable = false)
     private Instant lastMessageAt;
+
+    // 이 회원이 방의 참가자(구매자 또는 판매자)인가. 탈퇴해서 비어 있는 칸은 아무도 아니다.
+    public boolean hasParticipant(Long userId) {
+        return (buyer != null && buyer.getId().equals(userId)) || (seller != null && seller.getId().equals(userId));
+    }
+
+    // 내(userId) 기준 상대. 상대가 탈퇴했으면 null. (호출 전에 hasParticipant로 참가자인지 먼저 확인한다)
+    public User partnerOf(Long userId) {
+        return (buyer != null && buyer.getId().equals(userId)) ? seller : buyer;
+    }
 }
