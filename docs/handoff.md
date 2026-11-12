@@ -2,7 +2,7 @@
 
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 
-마지막 갱신: 2026-11-11 집 PC (S13-g1~g4 끝냄, 사진 백엔드 완료)
+마지막 갱신: 2026-11-12 노트북 (S13-g5-1·g5-2 끝냄, 사진 화면 완료)
 
 ## 지금 어디까지
 - **S0~S12 + UI1~UI3 완료·배포됨.** 운영은 S12-e(2026-11-11) 이미지, V8까지 적용. S12 리뷰 수정(21741e0)은 push됐지만 운영 미반영(다음 배포에 같이 나감).
@@ -14,22 +14,25 @@
   - S13-d: 화면 `/market`·`/market/:id`·`/market/new`·`/market/:id/edit`, 상단바 "중고·나눔". 판매자만 갈 수 있는 상태 버튼, [거래 완료] 확인 창, 관리자는 남의 글에 [삭제]만.
   - S13-e(9f31e26): **V10** reports.market_item_id(FK CASCADE·UNIQUE) + ck_reports_target `num_nonnulls(...)=1`. `POST /market-items/{id}/reports`(같은 학교 인증 회원만), 관리자 목록 MARKET_ITEM("중고" 배지, postId null).
   - S13-f(ee82020): `GET /market-items?q=` 제목 검색(대소문자 무시, %·_·\ 이스케이프, NUL·50자 초과 400, 표 변경 없음), /market 검색창.
-- **S13-g 사진 백엔드 g1~g4 완료(2026-11-11), 아직 push 안 함 → 이 handoff 커밋과 같이 push.** 화면(g5)·S3(g6)은 아직.
+- **S13-g 사진 g1~g5 완료, 전부 push됨(c81f651), 운영 미반영.** S3(g6)만 남음.
   - g1(3d6fa5c): `photo.service.ImageProcessor`(매직 바이트 JPEG·PNG → 헤더로 긴 변 10,000·총 4천만 상한 → **디코딩 때 건너뛰며 읽기 n=올림(긴 변/4096)** → 2048 + 썸네일 320 → 형식 유지 재인코딩으로 GPS 제거) + `photo.repository.PhotoStorage`·`LocalPhotoStorage`(./uploads, `app.photo.local-dir`). 의존성 metadata-extractor 2.19.0.
   - g2(ee7f6af): **V11** `market_item_photos`(글 FK CASCADE, uk_ 키, content_type CHECK) + `photo_delete_queue`. `POST /market-items/{id}/photos`(판매자 본인, 관리자 403, DONE 409, 글당 10장, 싼 확인 → Semaphore(2) 5초 503 → 자리 얻은 뒤 바이트 읽기 → 창고 put(트랜잭션 밖) → 글 FOR UPDATE 안에서 재확인·10장·INSERT). 단건·수정·상태변경 응답에 `photos`, 목록엔 없음. multipart 10MB/11MB, max-swallow-size 11MB.
   - g3(1447777): `GET …/photos/{photoId}?size=thumb`(공개, SecurityConfig에 이 GET 한 줄만, 1년 immutable 캐시, nosniff), `DELETE` 같은 주소(글 잠금 안에서 장부 먼저, 파일은 커밋 뒤).
   - g4(7a92036): `PhotoDeleteQueue`(창고 delete는 전부 여기) + `PhotoCleanupJob`(@Scheduled 10분, 10분 지난 줄만 SKIP LOCKED 100개, 사진 행에 살아 있는 키는 줄만 삭제). 글 삭제·탈퇴·사진 지우기는 장부 삭제와 큐 INSERT를 한 트랜잭션, 올리기는 put 전에 큐 등록하고 성공 트랜잭션에서 뺌. `SchedulingConfig`(app.scheduling.enabled=false면 꺼짐).
+  - g5-1(01f0442): `GET /market-items` 응답을 목록 전용 `MarketItemListResponse`로 분리(+ `coverPhoto` = id 최소 사진, 없으면 null). `findCoverPhotos`(min(id) group by) 글 1000개당 쿼리 1번. 화면: 목록 72px 썸네일, 상세 4:3 큰 사진 + 썸네일 버튼 줄.
+  - g5-2(c81f651, 프론트만): 수정 화면 `MarketPhotoEditor`(즉시 올리기·지우기, useConfirm), 글쓰기는 미리보기 → 저장 = 글 POST → 사진 차례로 → 상세(일부 실패 안내는 router state, 읽은 뒤 replace로 지움). `marketPhotoUpload.ts`(사전 검사, 한 장씩, 401·403·404·409·네트워크·timeout 5분 중단 / 400·413·503 계속). 올리는 중 [저장]·[취소] 잠금, 저장 중 사진 영역 잠금.
 - Notion: S13 카드에 S13-a~g4 단계 페이지 + 도구 사전에 "ImageIO · metadata-extractor". 진행 현황 S13 줄은 그대로("남은 것: 사진·배포").
 
 ## 다음에 할 일
-- **S13-g5-1(화면: 상세·목록 사진 보기) 설명 → 사용자 OK → build.** 프론트 단계라 frontend-design 스킬 + docs/design.md, Notion 단계 기록은 안 씀. 정할 것: 목록 대표 사진(지금 목록 응답엔 photos가 없음 — review는 목록 전용 DTO 분리 추천, 서버 변경 필요), 썸네일은 `?size=thumb`.
-- 그다음 g5-2(올리기·수정 화면에서 사진 추가·삭제, 413·401이 브라우저에서 제대로 보이는지 확인) → g6(S3, build 전 사용자 AWS 콘솔 작업) → S14 쪽지 → S13-h 배포(S13·S14 한 번에) → S16 Flutter(웹) 교체.
+- **S13-g6(S3) 시작: 먼저 사용자가 AWS 콘솔 작업(아래 "g6 build 전"), 그다음 설명 → OK → build.** 사용자에게 콘솔 화면별로 하나씩 안내하기로 함. g6 끝나면 Notion S13 카드에 g5~g6 단계 페이지(g5-1은 서버 변경이 있었음).
+- 그다음 S14 쪽지 → S13-h 배포(S13·S14 한 번에) → S16 Flutter(웹) 교체.
 
 ## 진행 중인 단계
-- **S13-g(사진 업로드)**: g1~g4 끝(build·tester·review 모두), g5-1·g5-2·g6 남음. 결정은 docs/backlog.md S13-g "결정" 줄 2개, 리뷰 미룬 것은 "나중(S13-g1~g4 리뷰)" 줄 4개.
-  - **S13-h 배포 전에 반드시**: (1) 공개 사진 GET이 요청마다 파일 전체를 byte[]로 메모리에 올림(동시 제한 없음) → g6에서 스트리밍 등 결정, (2) 느린 올리기(10분 초과) vs 청소부 경합 → insertLocked의 큐 줄 삭제를 `delete … returning attempts`로(g6 전), (3) 청소부가 운영에서 실제로 켜지는지 짧은 주기 bootRun 로그로 확인, (4) 운영 compose에 uploads 볼륨 없음(g6에서 S3로 해결).
+- **S13-g(사진 업로드)**: g1~g5-2 끝(build·tester·review 모두), g6만 남음. 결정은 docs/backlog.md S13-g "결정" 줄 2개, 리뷰 미룬 것은 "나중(S13-g1~g5-2 리뷰)" 줄 6개.
+  - **S13-h 배포 전에 반드시**: (1) 공개 사진 GET이 요청마다 파일 전체를 byte[]로 메모리에 올림(동시 제한 없음) → g6에서 스트리밍 등 결정(사진 GET마다 DB 연결 1개·풀 3개도 같이), (2) 느린 올리기(10분 초과) vs 청소부 경합 → insertLocked의 큐 줄 삭제를 `delete … returning attempts`로(g6 전. 화면 timeout이 5분이라 화면 쪽은 10분 전에 끊음), (3) 청소부가 운영에서 실제로 켜지는지 짧은 주기 bootRun 로그로 확인, (4) 운영 compose에 uploads 볼륨 없음(g6에서 S3로 해결), (5) **nginx `client_max_body_size` 기본 1m → 11m**(안 올리면 3MB 사진도 413·연결 끊김).
   - g6 build 전에 사용자 AWS 콘솔 작업: S3 버킷(퍼블릭 차단 4개, SSE-S3, 버저닝 끔) + EC2용 IAM 역할(그 버킷만 Put/Get/Delete + ListBucket) 붙이기. nginx client_max_body_size(기본 1m)도 g6에서 11m로.
 - 커밋 안 된 변경: `docs/handoff.md`(이 커밋), `.claude/launch.json`(일부러 커밋 안 함).
+- 미룬 것(S13-g5): backlog S13 항목의 "나중(S13-g5-1 리뷰)"·"나중(S13-g5-2 리뷰)" 줄(키보드 Enter로 파일 선택 창이 실제로 열리는지 사람 확인, 아이폰 실기기 HEIC·48MP 확인, 글쓰기 401 뒤 재로그인 안내 등).
 - 미룬 것(S13): backlog S13 항목의 "나중(S13-a 리뷰)"·"나중(S13-b 리뷰)"·"나중(S13-c 리뷰)"·"나중(S13-d 리뷰)" 줄(가격 5000.9·"5000" 문자열 받아짐 확인, 비자 후기 수정 중 삭제 500, 학교별 머리말, 가격 굵기 등).
 - 미룬 것(S12): backlog S12 항목의 "나중(S12-c 리뷰)"·"나중(S12-d 리뷰)" 줄 · S12-a 리뷰: 배열·숫자 날짜(`[2026,12,31]`, `20818`)도 LocalDate로 받아짐(후기 날짜와 함께 Jackson 설정 한 곳에서 막기) · upsert `@Modifying`에 clearAutomatically 없음(upsert 뒤 다시 읽는 코드가 생기면) · "오늘 이후여야 합니다" 400 문구(오늘도 허용) · 덮어쓰기 때 created_at 유지 단언 · FlywayExistingBaselineTests가 V8 성공 행을 직접 단언하지 않음 · S12-b: 계산 로직이 DTO(VisaPlanResponse.of) 안(두 번째 사용처 생기면 domain으로) · 띠 자정 넘김 자동 갱신 없음(새로고침하면 반영)
 - 미룬 것(UI3 리뷰): "본인 글/댓글/후기만 수정할 수 있습니다" 3형제를 함수 하나로(라벨만 다른 문구는 함수형 사전 허용으로 원칙 정하기) · errorMessage.ts 맨 위 파일 안내 주석 · SignupPage '가입하지 못했습니다' 2번 지역 상수 · 문구 자체 변경(CSRF 403과 학교 인증 403 섞임, 어미 통일, 학교 인증 403 변형 3종, 수정 403의 CSRF 미고려) — backlog UI3 "나중"
@@ -116,9 +119,12 @@
 - **서브에이전트가 셸(perl·sed)로 파일을 고치면 템플릿 문자열 `${...}`가 지워진다**(S13-e에서 신고 주소가 `/market-items//reports`가 됨, e2e가 잡음). build·tester에게 "파일 수정은 Edit 도구로, 끝나면 git diff에서 `${` 확인"을 꼭 적어 준다.
 - **build 보고를 그대로 믿지 말 것(또 나옴)**: S13-e에서 "types.ts postId number|null로 고쳤다"고 했는데 안 고쳐져 있었다(review가 잡음). 중요한 주장은 메인이 grep으로 확인.
 - **Criteria에서 `cb.literal(값)`은 SQL에 값이 그대로 박힌다**(S13-f 로그로 확인). 사용자 입력은 `((HibernateCriteriaBuilder) cb).value(값)`로 바인딩.
-- 이 PC 로컬 DB(노트북?): V9까지 적용. 연습 계정 `market_seller1`(고려대 인증, 중고 글 1개 DONE). 비밀번호는 세션 임시 폴더에만 있음. 새 계정 인증은 `MAIL_MODE=log`로 띄우고 서버 로그의 `[가짜 메일 발송] ... code=`를 읽는다.
+- 노트북 로컬 DB(OneDrive\Desktop 경로인 PC): 이제 V11까지 적용. 연습 계정 `market_seller1`(고려대 인증, 중고 글 1개 DONE), `photo_check1`·`photo_check2`(연세대 인증, SQL로 지정, 사진 있는 연습 글 2개 + 사진 없는 글 1개). 비밀번호는 매번 임의로 만들어 남기지 않음 → 필요하면 새로 가입 + SQL 인증. 새 계정 인증은 `MAIL_MODE=log`로 띄우고 서버 로그의 `[가짜 메일 발송] ... code=`를 읽는다. 이 PC의 `.claude/launch.json` backend는 옛 세션 임시 폴더의 run-backend.ps1을 가리키는데 아직 남아 있어 그대로 동작함(없어지면 다시 만들기).
 - **사진 관련 테스트 설정**: 테스트 설정 파일(`src/test/resources/config/application.properties`)에 `app.photo.local-dir=임시 폴더`·`app.scheduling.enabled=false`. 청소부는 테스트에서 `PhotoCleanupJob.runOnce()`를 직접 부르고, 시간 경과는 큐 줄의 created_at을 SQL로 과거로 돌려 흉내 낸다(`@MockitoBean Clock`은 컨텍스트를 새로 띄움). 창고 실패 흉내는 `PhotoDeleteQueue`·서비스의 창고 필드를 ReflectionTestUtils로 바꿔 끼운다. 멀티파트 413·swallow는 MockMvc가 못 봐서 `MarketItemPhotoUploadLimitTests`(RANDOM_PORT)만 실제 포트.
-- **max-swallow-size 테스트는 설정을 지키지 못한다**: 설정을 빼도 로컬 RANDOM_PORT 테스트가 통과했다(연결 끊김 재현 안 됨). 브라우저·nginx 뒤 401·413은 g5-2·g6에서 실제로 확인.
+- **max-swallow-size 테스트는 설정을 지키지 못한다**: 설정을 빼도 로컬 RANDOM_PORT 테스트가 통과했다(연결 끊김 재현 안 됨). g5-2에서 실제 백엔드(Vite 프록시 경유)로 10.5MB 직접 POST → 413이 깔끔히 오고 다음 요청 200, 로그아웃 뒤 올리기 → 401 재로그인 안내까지 확인. **nginx 뒤 413은 g6에서 다시 확인.**
+- **e2e를 두 개 동시에 돌리지 말 것**: tester가 백그라운드로 `--repeat-each`를 돌리는 중에 메인이 `npm run test:e2e`를 돌려 16개가 실패했다(둘 다 5174 Vite를 씀). 끝난 뒤 다시 돌리면 전부 통과. 서브에이전트 보고에 "백그라운드로 넘어갔다"가 있으면 끝날 때까지 기다린다.
+- 브라우저 확인 중 Browser 창이 가려져 있으면(hidden) canvas `toBlob`·타이머가 느려져 javascript_tool이 45초 시간 초과가 난다. 스크립트는 실제로 끝났을 수 있으니 다시 돌리기 전에 화면 상태를 먼저 본다.
+- 브라우저에서 사진 올리기를 확인할 때: canvas로 PNG File을 만들고 `DataTransfer`로 `input[type=file]`에 넣은 뒤 change 이벤트를 보낸다(진짜 업로드 흐름 그대로). 413 확인은 화면이 10MB를 미리 막으니 fetch로 직접 보낸다.
 - **tester는 `src/main`을 못 고친다**(훅). "일부러 망가뜨려 보기"가 필요하면 메인 대화가 직접 한다(스크래치패드에 복사 → Edit로 망가뜨림 → 테스트 → 복사본으로 되돌리고 해시 비교). build에게 시켜도 된다.
 - **build가 "Edit만 쓰라"는 지시를 어기고 python·heredoc을 쓴 적이 있다**(S13-g2·g3). 매번 `git diff`에서 `${`·역슬래시 줄을 확인한다.
 - **PowerShell에서 `git commit -F -` + here-string이 안 먹는다**(메시지가 경로로 해석됨). 메시지를 스크래치패드 파일로 쓰고 `-F 파일경로`로, 또는 Bash 도구로 커밋. PowerShell 문자열 안의 `${`도 변수로 해석돼 깨지니 grep은 Bash 도구로.
