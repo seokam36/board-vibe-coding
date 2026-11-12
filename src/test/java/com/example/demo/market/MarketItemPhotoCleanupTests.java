@@ -15,7 +15,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -93,6 +95,7 @@ class MarketItemPhotoCleanupTests {
 		volatile boolean 지우기실패;
 		volatile int 넣기실패번째; // n번째 put에서 실패 (0이면 안 실패)
 		volatile Runnable 첫_put_직후;
+		volatile Runnable 둘째_put_직후; // 두 번째 put(썸네일) 직후 실행 (S13-g6-1: 느린 올리기 도중 청소부가 끼어드는 상황 흉내)
 		volatile String 예외나는키; // 이 키를 지울 때만 일반 RuntimeException을 던진다
 		int puts;
 		final List<String> 지우기시도 = new ArrayList<>();
@@ -110,6 +113,9 @@ class MarketItemPhotoCleanupTests {
 			진짜.put(key, bytes, contentType);
 			if (puts == 1 && 첫_put_직후 != null) {
 				첫_put_직후.run();
+			}
+			if (puts == 2 && 둘째_put_직후 != null) {
+				둘째_put_직후.run();
 			}
 		}
 
@@ -475,6 +481,153 @@ class MarketItemPhotoCleanupTests {
 		assertThat(큐_줄수()).isZero();
 	}
 
+	// ============ 느린 올리기 vs 청소부 경합 (S13-g6-1) ============
+
+	// "사진 행은 있는데 창고 파일이 없는" 행의 개수 (깨진 사진이 생겼는지 보는 용도)
+	private long 파일_없는_사진_행수() {
+		long broken = 0;
+		for (String key : jdbc.queryForList("select storage_key from market_item_photos", String.class)) {
+			broken += 진짜창고.get(key).isPresent() ? 0 : 1;
+		}
+		for (String key : jdbc.queryForList("select thumb_key from market_item_photos", String.class)) {
+			broken += 진짜창고.get(key).isPresent() ? 0 : 1;
+		}
+		return broken;
+	}
+
+	private long 사진_행수() {
+		return jdbc.queryForObject("select count(*) from market_item_photos", Long.class);
+	}
+
+	@Test
+	void 조건1_정상_올리기는_201이고_그_키의_대기_표_줄은_0개다() throws Exception {
+		long id = 글올리기(쿠키);
+		List<String> 잡은키 = new ArrayList<>();
+		// 올리는 도중(파일 넣은 직후)에는 쪽지 2줄이 attempts 0으로 있어야 한다
+		창고.첫_put_직후 = () -> {
+			잡은키.addAll(큐_키들());
+			assertThat(jdbc.queryForObject("select count(*) from photo_delete_queue where attempts = 0", Long.class)).isEqualTo(2);
+		};
+
+		MockHttpServletResponse r = 올리기(id, 쿠키);
+
+		assertThat(r.getStatus()).isEqualTo(201);
+		assertThat(잡은키).hasSize(2);
+		assertThat(jdbc.queryForObject("select count(*) from photo_delete_queue where storage_key in (?, ?)", Long.class,
+				잡은키.get(0), 잡은키.get(1))).isZero();
+		assertThat(글의_키들(id)).containsExactlyInAnyOrderElementsOf(잡은키);
+		파일_있음(잡은키);
+	}
+
+	@Test
+	void 조건2_넣은_뒤_INSERT_전에_쪽지_시도횟수가_1_이상이면_503이고_사진_행은_0개_파일과_쪽지도_정리된다() throws Exception {
+		long id = 글올리기(쿠키);
+		List<String> 잡은키 = new ArrayList<>();
+		창고.둘째_put_직후 = () -> {
+			잡은키.addAll(큐_키들());
+			jdbc.update("update photo_delete_queue set attempts = 1"); // 청소부가 집어 간 상황
+		};
+
+		assertThat(올리기(id, 쿠키).getStatus()).isEqualTo(503);
+
+		assertThat(잡은키).hasSize(2);
+		assertThat(사진_행수()).isZero();
+		// 조건4: 창고에 그 키 파일 없음, 큐에도 그 키 줄 없음
+		파일_없음(잡은키);
+		assertThat(큐_줄수()).isZero();
+	}
+
+	@Test
+	void 조건2_쪽지_두_줄_중_한_줄만_시도횟수가_1_이상이어도_503이고_사진_행은_0개다() throws Exception {
+		long id = 글올리기(쿠키);
+		List<String> 잡은키 = new ArrayList<>();
+		창고.둘째_put_직후 = () -> {
+			잡은키.addAll(큐_키들());
+			jdbc.update("update photo_delete_queue set attempts = 1 where id = (select min(id) from photo_delete_queue)");
+		};
+
+		assertThat(올리기(id, 쿠키).getStatus()).isEqualTo(503);
+
+		assertThat(사진_행수()).isZero();
+		파일_없음(잡은키);
+		assertThat(큐_줄수()).isZero();
+	}
+
+	@Test
+	void 조건3_넣은_뒤_INSERT_전에_쪽지가_0개면_503이고_사진_행은_0개_파일도_정리된다() throws Exception {
+		long id = 글올리기(쿠키);
+		List<String> 잡은키 = new ArrayList<>();
+		창고.둘째_put_직후 = () -> {
+			잡은키.addAll(큐_키들());
+			jdbc.update("delete from photo_delete_queue"); // 청소부가 이미 줄을 지운 상황
+		};
+
+		assertThat(올리기(id, 쿠키).getStatus()).isEqualTo(503);
+
+		assertThat(잡은키).hasSize(2);
+		assertThat(사진_행수()).isZero();
+		파일_없음(잡은키);
+		assertThat(큐_줄수()).isZero();
+	}
+
+	@Test
+	void 조건3_넣은_뒤_INSERT_전에_쪽지가_1개만_남으면_503이고_사진_행은_0개_파일도_정리된다() throws Exception {
+		long id = 글올리기(쿠키);
+		List<String> 잡은키 = new ArrayList<>();
+		창고.둘째_put_직후 = () -> {
+			잡은키.addAll(큐_키들());
+			jdbc.update("delete from photo_delete_queue where id = (select min(id) from photo_delete_queue)");
+		};
+
+		assertThat(올리기(id, 쿠키).getStatus()).isEqualTo(503);
+
+		assertThat(잡은키).hasSize(2);
+		assertThat(사진_행수()).isZero();
+		파일_없음(잡은키);
+		assertThat(큐_줄수()).isZero(); // 남은 한 줄도 바깥 catch가 파일을 지운 뒤 정리한다
+	}
+
+	@Test
+	void 조건5_올리는_사이_청소부가_쪽지를_처리하면_503이고_파일_없는_사진_행은_생기지_않는다() throws Exception {
+		long id = 글올리기(쿠키);
+		List<String> 잡은키 = new ArrayList<>();
+		int[] 청소부_처리 = new int[1];
+		창고.둘째_put_직후 = () -> {
+			잡은키.addAll(큐_키들());
+			나이_먹이기(); // 10분 넘게 걸린 느린 올리기를 흉내
+			청소부_처리[0] = cleanupJob.runOnce(); // 청소부가 "고아 파일"로 보고 지운다
+		};
+
+		assertThat(올리기(id, 쿠키).getStatus()).isEqualTo(503);
+
+		assertThat(청소부_처리[0]).as("청소부가 쪽지 2줄을 처리했어야 함").isEqualTo(2);
+		assertThat(잡은키).hasSize(2);
+		assertThat(사진_행수()).isZero();
+		assertThat(파일_없는_사진_행수()).isZero();
+		파일_없음(잡은키);
+		assertThat(큐_줄수()).isZero();
+	}
+
+	@Test
+	void 조건5_청소부가_파일_지우기에_실패해_시도횟수만_올려_둔_경우도_503이고_파일_없는_사진_행은_없다() throws Exception {
+		long id = 글올리기(쿠키);
+		List<String> 잡은키 = new ArrayList<>();
+		창고.둘째_put_직후 = () -> {
+			잡은키.addAll(큐_키들());
+			나이_먹이기();
+			창고.지우기실패 = true; // 청소부가 집었지만(attempts 1) 지우기는 실패
+			cleanupJob.runOnce();
+			창고.지우기실패 = false; // 이후 바깥 catch의 정리는 성공해야 한다
+		};
+
+		assertThat(올리기(id, 쿠키).getStatus()).isEqualTo(503);
+
+		assertThat(사진_행수()).isZero();
+		assertThat(파일_없는_사진_행수()).isZero();
+		파일_없음(잡은키);
+		assertThat(큐_줄수()).isZero();
+	}
+
 	// ============ 청소부 ============
 
 	@Test
@@ -576,6 +729,71 @@ class MarketItemPhotoCleanupTests {
 			pool.shutdown();
 			pool.awaitTermination(10, TimeUnit.SECONDS);
 		}
+	}
+
+	@Test
+	void 조건5_청소부가_줄을_잡고_커밋_전이면_올리기_DELETE가_잠금을_기다렸다가_attempts_1을_보고_503이다() throws Exception {
+		long id = 글올리기(쿠키);
+		List<String> 잡은키 = new ArrayList<>();
+		CountDownLatch 잠갔음 = new CountDownLatch(1); // 청소부 역할 트랜잭션이 줄을 잠그고 attempts를 올렸다는 신호
+		CountDownLatch 커밋해도됨 = new CountDownLatch(1); // 올리기 DELETE가 실제로 대기에 들어간 걸 확인한 뒤 주는 신호
+		AtomicBoolean 대기확인 = new AtomicBoolean(false);
+		ExecutorService pool = Executors.newFixedThreadPool(2);
+		try {
+			창고.둘째_put_직후 = () -> {
+				잡은키.addAll(큐_키들());
+				// (1) 청소부 역할: 별도 연결·트랜잭션에서 두 줄을 잠그고 attempts+1, 신호를 준 뒤 허락이 날 때까지 커밋하지 않는다
+				pool.submit(() -> new TransactionTemplate(txManager).executeWithoutResult(s -> {
+					jdbc.update("update photo_delete_queue set attempts = attempts + 1");
+					잠갔음.countDown();
+					try {
+						if (!커밋해도됨.await(20, TimeUnit.SECONDS)) {
+							throw new IllegalStateException("커밋 허락 시간 초과");
+						}
+					} catch (InterruptedException e) {
+						throw new IllegalStateException(e);
+					}
+				}));
+				try {
+					assertThat(잠갔음.await(10, TimeUnit.SECONDS)).as("청소부 역할이 줄을 잠가야 함").isTrue();
+				} catch (InterruptedException e) {
+					throw new IllegalStateException(e);
+				}
+				// (2) 감시자: 올리기 쪽 DELETE가 pg_stat_activity에서 Lock 대기 중인 걸 볼 때까지 기다린 뒤 커밋을 허락한다 (sleep에 기대지 않음)
+				pool.submit(() -> {
+					try {
+						long 끝 = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+						while (System.nanoTime() < 끝 && !대기확인.get()) {
+							Long 대기수 = jdbc.queryForObject(
+									"select count(*) from pg_stat_activity where wait_event_type = 'Lock' "
+											+ "and query ilike '%delete from photo_delete_queue%' and query not ilike '%pg_stat_activity%'",
+									Long.class);
+							if (대기수 != null && 대기수 > 0) {
+								대기확인.set(true);
+							} else {
+								Thread.sleep(20);
+							}
+						}
+					} catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
+					} finally {
+						커밋해도됨.countDown(); // 확인 실패여도 멈추지 않게 반드시 푼다 (실패는 아래 assert가 잡는다)
+					}
+				});
+			};
+
+			assertThat(올리기(id, 쿠키).getStatus()).isEqualTo(503);
+		} finally {
+			커밋해도됨.countDown();
+			pool.shutdown();
+			assertThat(pool.awaitTermination(20, TimeUnit.SECONDS)).as("보조 스레드가 끝나야 함").isTrue();
+		}
+
+		assertThat(대기확인.get()).as("올리기 DELETE가 실제로 줄 잠금을 기다렸어야 함").isTrue();
+		assertThat(잡은키).hasSize(2);
+		assertThat(사진_행수()).isZero();
+		파일_없음(잡은키);
+		assertThat(큐_줄수()).isZero();
 	}
 
 	@Test

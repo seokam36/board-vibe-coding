@@ -120,7 +120,7 @@ export const ERROR_MESSAGES = {
   MARKET_PHOTO_CONFLICT: '사진은 10장까지 올릴 수 있고, 거래가 완료된 글에는 올릴 수 없습니다',
   // 413: 사진 한 장이 10MB 초과
   MARKET_PHOTO_TOO_LARGE: '사진 한 장은 10MB 이하여야 합니다',
-  // 503: 서버의 이미지 처리 자리가 5초 안에 나지 않음
+  // 503: 서버의 이미지 처리 자리가 5초 안에 나지 않음, 또는 올리는 사이 정리 작업과 겹침
   MARKET_PHOTO_BUSY: '서버가 바쁩니다. 잠시 뒤 다시 시도해 주세요',
   // 사진 올리기 실패 기본 문구
   MARKET_PHOTO_UPLOAD_FAILED: '사진을 올리지 못했습니다',

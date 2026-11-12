@@ -38,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 //   4) 짧은 트랜잭션: 글 행을 FOR UPDATE로 잠그고 1)을 다시 확인 + 10장 검사 + 사진 행 INSERT
 //   3)~4)가 실패하면 창고에 넣은 파일 2개를 지운다.
 //   (S13-g4) 3) 직전에 새 키 2개를 지울 파일 대기 표에 먼저 적고, 4)의 트랜잭션에서 사진 행 INSERT와 함께 뗀다.
+//   (S13-g6-1) 4)에서 쪽지를 뗄 때 청소부가 이미 집었으면 롤백하고 503(올리는 사이 정리 작업과 겹침).
 // 이미지 처리와 창고 저장은 오래 걸려서 트랜잭션(= DB 연결 점유) 밖에서 한다. 연결 풀이 3개뿐이라 특히 중요하다.
 @Slf4j
 @Service
@@ -61,7 +62,7 @@ public class MarketItemPhotoService {
     long processWaitMillis = 5_000;
 
     // 사진 한 장을 올리고 결과를 돌려준다. 검사 순서: 파일 없음 400 -> 글 없음 404 -> 본인 아님 403 -> 거래완료 409 -> 이미 10장 409
-    // -> (처리) 사진 깨짐 400 -> (잠금 뒤) 글이 사라짐 404 / 거래완료 409 / 10장 꽉 참 409. 관리자도 남의 글에는 못 올린다.
+    // -> (처리) 사진 깨짐 400 -> (잠금 뒤) 글이 사라짐 404 / 거래완료 409 / 10장 꽉 참 409 / 쪽지를 청소부가 이미 집었음 503. 관리자도 남의 글에는 못 올린다.
     // 학교 인증은 요구하지 않는다(수정 규칙과 같다).
     public MarketItemPhotoResponse upload(Long itemId, LoginUser loginUser, MultipartFile file) {
         // 입력 400을 먼저 본다 (수정 API가 가격 400을 404·403보다 먼저 보는 것과 같다)
@@ -166,12 +167,18 @@ public class MarketItemPhotoService {
         if (photoRepository.countByMarketItemId(itemId) >= MAX_PHOTOS_PER_ITEM) {
             throw photoLimitExceeded();
         }
-        MarketItemPhoto saved = photoRepository.save(new MarketItemPhoto(itemId, key, thumbKey, image.main().contentType(),
-                image.main().width(), image.main().height(), image.thumbnail().width(), image.thumbnail().height()));
-        // 사진 행을 넣은 같은 트랜잭션에서 대기 표의 쪽지를 뗀다: 함께 커밋되거나 함께 롤백된다
+        // 사진 행을 넣기 "전에" 쪽지를 뗀다(같은 트랜잭션). 올리는 사이 10분이 넘어 청소부가 쪽지를 집었거나 지웠다면
+        // 파일이 곧 사라지거나 이미 사라졌으니, 장부에 넣지 않고 503으로 롤백한다(S13-g6-1).
+        // 롤백 뒤에는 바깥 catch가 창고 파일 2개를 지우고 쪽지를 정리한다.
+        if (!photoDeleteQueue.dequeueIfUntouched(List.of(key, thumbKey))) {
+            // 기존 busy() 503(이미지 처리 자리 없음)과 원인을 구분하려고 로그를 남긴다
+            log.warn("사진 올리는 사이 청소부와 겹쳐 503 처리: itemId={}, key={}, thumbKey={}", itemId, key, thumbKey);
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "올리는 사이 정리 작업과 겹쳤습니다. 다시 시도해 주세요.");
+        }
+        // 쪽지 떼기와 사진 행 INSERT는 같은 트랜잭션이라 함께 커밋되거나 함께 롤백된다
         // (커밋되면 "이 파일은 쓰는 중"이라 지우지 않고, 롤백되면 쪽지가 남아 파일이 청소 대상이 된다)
-        photoDeleteQueue.dequeue(List.of(key, thumbKey));
-        return saved;
+        return photoRepository.save(new MarketItemPhoto(itemId, key, thumbKey, image.main().contentType(),
+                image.main().width(), image.main().height(), image.thumbnail().width(), image.thumbnail().height()));
     }
 
     // 본인 글인지(403), 거래완료가 아닌지(409) 확인한다 (관리자도 예외 없음)

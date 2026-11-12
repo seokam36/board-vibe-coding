@@ -82,6 +82,24 @@ public class PhotoDeleteQueue {
                 Map.of("keys", keys)));
     }
 
+    // 올리기 성공 직전 확인용 (S13-g6-1): 쪽지를 떼면서 "청소부가 건드리지 않았는지" 함께 본다.
+    // 줄을 지우고 지운 줄의 attempts를 돌려받아, 줄이 keys 개수만큼 그대로 있고 attempts가 전부 0일 때만 true.
+    // 줄이 모자라면(청소부가 이미 지움) 또는 attempts>0이면(청소부가 집어 파일을 지우는 중/지움) false -> 호출 쪽이 롤백한다.
+    // 잠금 근거: 청소부는 claim 트랜잭션에서 FOR UPDATE SKIP LOCKED + attempts 올리기를 하고 짧게 커밋한다.
+    //  - 청소부 claim이 아직 커밋 전이면 이 DELETE가 줄 잠금을 기다렸다가, 커밋 뒤 갱신된 줄(attempts>=1)을 보고 false가 된다.
+    //  - 청소부가 이미 커밋했으면 attempts>=1(줄이 있음) 또는 0줄(이미 지워짐)이라 false.
+    //  - 이 DELETE가 먼저 줄을 잠그면 청소부는 SKIP LOCKED로 건너뛰고, 이쪽 커밋 뒤에는 줄이 없다.
+    // 반드시 호출 쪽 트랜잭션 안에서 부른다(자기 트랜잭션을 열지 않는다. 롤백되면 줄 삭제도 되돌아간다).
+    public boolean dequeueIfUntouched(Collection<String> keys) {
+        if (keys.isEmpty()) {
+            return true;
+        }
+        List<Integer> attempts = jdbc.queryForList(
+                "delete from photo_delete_queue where storage_key in (:keys) returning attempts",
+                Map.of("keys", keys), Integer.class);
+        return attempts.size() == keys.size() && attempts.stream().allMatch(a -> a == 0);
+    }
+
     // 커밋 뒤에 부른다: 파일을 하나씩 지우고, 지운(또는 원래 없던) 키만 대기 표에서 뺀다.
     // 지우기나 표 정리가 실패해도 예외를 던지지 않는다: 응답을 바꾸면 안 되고, 못 지운 키는 표에 남아 청소부가 다시 시도한다.
     // 파일 하나가 실패해도 다음 파일은 계속 지운다.
