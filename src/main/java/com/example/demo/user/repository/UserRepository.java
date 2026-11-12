@@ -1,6 +1,8 @@
 package com.example.demo.user.repository;
 
 import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -72,4 +74,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query(value = "select id from users where id = :id for update", nativeQuery = true)
     @Transactional(propagation = Propagation.MANDATORY)
     Optional<Long> lockById(@Param("id") Long id);
+
+    // 쪽지 보내기(S14-a)용: 보낸 사람·받는 사람 회원 행을 "읽기 잠금(FOR KEY SHARE)"으로 먼저 잡고, 실제로 있는 id만 돌려준다.
+    // 왜 필요한가: 탈퇴(lockById의 FOR UPDATE)와 쪽지 INSERT(FK 검사가 글·방 행에 KEY SHARE를 잡은 채 회원 행을 기다림)가
+    // 서로 반대 순서로 잠그면 교착(40P01 -> 500)이 난다. 쪽지도 "회원 행부터" 잡으면 고리가 안 생긴다:
+    //   - 탈퇴가 먼저 회원 행을 잡았으면: 쪽지는 여기(아직 아무 잠금도 없는 상태)에서 기다리고, 탈퇴가 끝난 뒤 행이 없어서 401/404.
+    //   - 쪽지가 먼저 잡았으면: 탈퇴가 lockById(탈퇴의 첫 잠금)에서 기다리고, 아직 아무것도 잡지 않았으니 고리가 없다.
+    // KEY SHARE끼리는 충돌하지 않아 쪽지끼리는 안 막고, 닉네임 변경 같은 일반 UPDATE(NO KEY UPDATE)와도 충돌하지 않는다.
+    // order by id: 여러 행을 늘 같은 순서로 잡는다.
+    @Query(value = "select id from users where id in (:ids) order by id for key share", nativeQuery = true)
+    @Transactional(propagation = Propagation.MANDATORY)
+    List<Long> lockForKeyShare(@Param("ids") Collection<Long> ids);
 }
