@@ -12,9 +12,24 @@ import Notice from '../components/Notice'
 import ReloginNotice from '../components/ReloginNotice'
 import { formatDate } from '../formatDate'
 import { formatPrice } from '../marketFormat'
+import { marketPhotoUrl } from '../marketPhotoUrl'
 import type { MarketItem } from '../types'
 
 type Status = MarketItem['status']['code']
+
+// 상세의 큰 사진. 불러오지 못하면(onError) 같은 틀 안에 회색 안내 글을 보여 준다
+function MainPhoto({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false)
+  return (
+    <div className="market-photo-frame">
+      {failed ? (
+        <p className="market-photo-failed">사진을 불러오지 못했습니다</p>
+      ) : (
+        <img className="market-photo-main" src={src} alt={alt} onError={() => setFailed(true)} />
+      )}
+    </div>
+  )
+}
 
 // 지금 상태에서 갈 수 있는 상태 (서버 규칙과 같다: DONE에서는 나갈 수 없다). 화면은 이 표에 있는 버튼만 보여 준다
 // done: 성공했을 때 알려 주는 한 줄 (이 화면에서만 쓰는 문구라 ERROR_MESSAGES가 아니라 여기에 둔다)
@@ -50,6 +65,7 @@ export default function MarketDetailPage() {
   // 상태 바꾸기에 성공했을 때 버튼 근처에 띄우는 한 줄 (누른 버튼이 사라져도 스크린리더가 결과를 듣게 한다)
   const [statusNotice, setStatusNotice] = useState<string | null>(null)
   const [needLogin, setNeedLogin] = useState(false) // 요청 중 401(재발급 실패) 로그인 안내
+  const [selectedPhoto, setSelectedPhoto] = useState(0) // 큰 사진으로 보고 있는 사진 번호(0부터)
   const navigate = useNavigate()
   const { user } = useAuth()
   const confirm = useConfirm() // 거래 완료·삭제 전 확인 창 (비자 후기 삭제와 같은 방식)
@@ -64,6 +80,7 @@ export default function MarketDetailPage() {
       .then((res) => {
         if (ignore) return
         setItem(res.data)
+        setSelectedPhoto(0) // 다른 글을 열면 첫 사진부터
         setError(null)
       })
       .catch((e: unknown) => {
@@ -143,6 +160,11 @@ export default function MarketDetailPage() {
     }
   }
 
+  // 사진: 고른 번호가 사진 수를 넘으면(사진이 줄었을 때) 마지막 사진으로 맞춘다
+  const photos = item?.photos ?? []
+  const photoIndex = Math.min(selectedPhoto, photos.length - 1)
+  const currentPhoto = photos[photoIndex] // 사진이 0장이면 undefined -> 사진 영역을 그리지 않는다
+
   const locked = busy !== null
   const nextStatuses = item ? nextStatusesOf(item.status.code) : []
 
@@ -162,6 +184,34 @@ export default function MarketDetailPage() {
             <span>{formatDate(item.createdAt)}</span>
           </p>
           <p className="market-price">{formatPrice(item)}</p>
+          {/* 사진: 1장 이상일 때만 영역을 그린다. 큰 사진(본 사진) + 2장 이상이면 아래에 썸네일 줄 */}
+          {currentPhoto && (
+            <div className="market-photos">
+              {/* 4:3 고정 틀. key가 사진 id라 다른 사진을 고르면 실패 상태가 새로 시작된다(다시 불러와 본다) */}
+              <MainPhoto
+                key={currentPhoto.id}
+                src={marketPhotoUrl(item.id, currentPhoto.id)}
+                alt={`사진 ${photoIndex + 1} / ${photos.length}`}
+              />
+              {photos.length >= 2 && (
+                <div className="market-photo-strip">
+                  {photos.map((p, i) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="market-photo-thumb"
+                      aria-pressed={i === photoIndex}
+                      aria-label={`사진 ${i + 1} 보기`}
+                      onClick={() => setSelectedPhoto(i)}
+                    >
+                      {/* 버튼 이름은 aria-label이 정하므로 그림 자체는 alt 없이 장식 처리 */}
+                      <img src={marketPhotoUrl(item.id, p.id, true)} width={p.thumbWidth} height={p.thumbHeight} alt="" loading="lazy" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {/* pre-wrap: 줄바꿈·공백을 그대로 보여준다. 텍스트로만 출력하므로 HTML이 실행되지 않는다 */}
           <p className="pre-wrap post-body">{item.content}</p>
         </article>

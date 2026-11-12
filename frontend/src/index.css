@@ -712,6 +712,84 @@ label textarea {
   color: var(--badge-chat-ink);
   background: var(--badge-chat-bg);
 }
+/* 목록 행: 왼쪽 정사각 썸네일 + 오른쪽 글 정보. 375px에서도 가로로 넘치지 않게 본문 칸은 min-width:0 */
+.market-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.market-row-body {
+  flex: 1;
+  min-width: 0;
+}
+.market-row-body > :last-child {
+  margin-bottom: 0;
+}
+.market-thumb {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: var(--radius-btn);
+  background: var(--hover);
+}
+/* 사진이 없거나 깨졌을 때의 회색 빈칸 */
+.market-thumb-empty {
+  background: var(--hover);
+}
+/* 상세: 큰 사진 + 썸네일 줄 */
+.market-photos {
+  margin: var(--space-3) 0;
+}
+/* 큰 사진 틀: 4:3 고정이라 사진 비율이 달라도 아래 썸네일 줄이 움직이지 않는다 */
+.market-photo-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: var(--radius-btn);
+  background: var(--canvas);
+}
+.market-photo-main {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+/* 큰 사진을 불러오지 못했을 때의 안내 글 (같은 틀 안, 회색) */
+.market-photo-failed {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.market-photo-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.market-photo-thumb {
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: var(--radius-btn);
+  background: var(--hover);
+  cursor: pointer;
+}
+.market-photo-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* 고른 썸네일은 청자색 테두리 */
+.market-photo-thumb[aria-pressed='true'] {
+  border-color: var(--celadon);
+}
 /* 가격: 본문보다 살짝 강조 */
 .market-price {
   font-weight: 700;

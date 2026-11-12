@@ -143,7 +143,17 @@ export interface VisaPlan {
   todos: VisaTodo[]
 }
 
-// 중고거래·나눔 글 한 건 (GET /market-items, /market-items/{id}). code는 요청·주소에 쓰는 값, name은 서버가 준 한글 이름
+// 중고 글에 올린 사진 한 장의 정보 (docs/api.md 28번 photos 항목). 사진 파일 자체는 34번 주소로 부른다
+export interface MarketItemPhoto {
+  id: number
+  width: number // 본 사진 크기(긴 변 ≤ 2048)
+  height: number
+  thumbWidth: number // 썸네일 크기(긴 변 ≤ 320)
+  thumbHeight: number
+  contentType: string // image/jpeg 또는 image/png
+}
+
+// 중고거래·나눔 글 한 건 (GET /market-items/{id}, 올리기·수정·상태 변경 응답). code는 요청·주소에 쓰는 값, name은 서버가 준 한글 이름
 export interface MarketItem {
   id: number
   title: string
@@ -154,6 +164,12 @@ export interface MarketItem {
   school: School
   seller: { id: number; nickname: string } // 판매자 (탈퇴하면 글도 지워져 항상 값이 있다)
   createdAt: string // ISO-8601 UTC 문자열 (formatDate로 표시)
+  photos: MarketItemPhoto[] // 올린 순. 사진이 없으면 []
+}
+
+// 중고거래·나눔 목록 항목 (GET /market-items). 한 건 응답에서 photos 대신 대표 사진 한 장(coverPhoto)이 있다
+export type MarketListItem = Omit<MarketItem, 'photos'> & {
+  coverPhoto: MarketItemPhoto | null // 처음 올린 사진. 없으면 null
 }
 
 // 중고거래·나눔 글을 올리거나 고칠 때 서버에 보내는 값 (POST·PUT /market-items). 학교·상태·판매자는 서버가 정한다

@@ -23,6 +23,7 @@ function makeItem(over: Partial<{ id: number; sellerId: number; status: MarketIt
     school,
     seller: { id: over.sellerId ?? 1, nickname: over.sellerId && over.sellerId !== 1 ? '다른사람' : '테스터' },
     createdAt: '2026-01-02T00:00:00Z',
+    photos: [],
   }
 }
 

@@ -1381,7 +1381,7 @@ CSRF 헤더 필요. `refresh_token` 쿠키가 있으면 서버(Redis)의 리프�
 
 ### 29. 물건 글 목록 `GET /market-items`
 
-로그인 없이 쓸 수 있다(만료·변조된 `access_token` 쿠키가 붙어 와도 `200`). 최신순(id 내림차순), 페이징 없음. 글이 없으면 빈 배열 `[]`. 본문(`content`)까지 포함해 28번 단건과 같은 모양의 배열을 돌려준다. 단, **목록 항목에는 `photos` 필드가 없다**(글마다 사진을 따로 읽는 비용을 피하려고. 대표 사진은 S13-g5에서 정한다).
+로그인 없이 쓸 수 있다(만료·변조된 `access_token` 쿠키가 붙어 와도 `200`). 최신순(id 내림차순), 페이징 없음. 글이 없으면 빈 배열 `[]`. 본문(`content`)까지 포함해 28번 단건과 거의 같은 모양의 배열을 돌려준다. 단, **목록 항목에는 `photos` 대신 `coverPhoto`가 있다**(그 글에서 id가 가장 작은 = 처음 올린 사진 한 장. 사진이 없으면 `null`이고 키는 항상 있다). 글마다 사진을 따로 읽는 비용을 피하려고, 대표 사진은 글 1000개당 쿼리 1번(보통 1번)으로 모아 온다.
 
 쿼리 파라미터 (모두 선택, 넘긴 것만 AND 조건)
 
@@ -1396,7 +1396,29 @@ CSRF 헤더 필요. `refresh_token` 쿠키가 있으면 서버(Redis)의 리프�
 - 존재하는 학교인데 글이 없으면 `200`과 `[]`.
 - 예: `GET /market-items?schoolId=1&tradeType=SALE&status=ON_SALE`, `GET /market-items?q=자전거`
 
-성공 응답 `200 OK`: 28번 응답 객체(`photos` 제외)의 배열.
+성공 응답 `200 OK`: 아래 모양의 객체 배열.
+
+```json
+[
+  {
+    "id": 1,
+    "title": "전공 서적 팝니다",
+    "content": "거의 새 책이에요.",
+    "tradeType": { "code": "SALE", "name": "판매" },
+    "price": 15000,
+    "status": { "code": "ON_SALE", "name": "판매중" },
+    "school": { "id": 1, "name": "경희대학교" },
+    "seller": { "id": 1, "nickname": "길동이" },
+    "createdAt": "2026-11-01T01:30:00.123456Z",
+    "coverPhoto": { "id": 7, "width": 1365, "height": 2048, "thumbWidth": 213, "thumbHeight": 320, "contentType": "image/jpeg" }
+  }
+]
+```
+
+| 필드 | 설명 |
+|------|------|
+| (나머지) | `id`부터 `createdAt`까지는 28번과 같다 |
+| coverPhoto | 대표 사진(그 글에서 id가 가장 작은 사진). 항목은 28번 `photos`의 한 항목과 같은 `{id, width, height, thumbWidth, thumbHeight, contentType}`. 사진이 없으면 `null`. 목록 카드의 작은 그림은 34번 주소에 `?size=thumb`를 붙여 부른다(예: `/market-items/1/photos/7?size=thumb`) |
 
 실패
 

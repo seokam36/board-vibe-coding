@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.demo.auth.dto.LoginUser;
 import com.example.demo.market.domain.ItemStatus;
 import com.example.demo.market.domain.TradeType;
+import com.example.demo.market.dto.MarketItemListResponse;
 import com.example.demo.market.dto.MarketItemRequest;
 import com.example.demo.market.dto.MarketItemResponse;
 import com.example.demo.market.dto.MarketItemStatusRequest;
@@ -51,7 +52,7 @@ public class MarketItemController {
 
     // 목록 조회 (최신순, 공개). 네 파라미터는 선택 필터(q = 제목 검색어). 숫자·코드 형식이 틀리면 스프링이 400을 돌려준다.
     @GetMapping
-    public List<MarketItemResponse> getAll(@RequestParam(required = false) Long schoolId,
+    public List<MarketItemListResponse> getAll(@RequestParam(required = false) Long schoolId,
             @RequestParam(required = false) TradeType tradeType,
             @RequestParam(required = false) ItemStatus status,
             @RequestParam(required = false) String q) {

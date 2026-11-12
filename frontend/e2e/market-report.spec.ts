@@ -22,6 +22,7 @@ function makeItem(sellerId: number): MarketItem {
     school,
     seller: { id: sellerId, nickname: sellerId === 1 ? fakeUser.nickname : '다른사람' },
     createdAt: '2026-01-02T00:00:00Z',
+    photos: [],
   }
 }
 

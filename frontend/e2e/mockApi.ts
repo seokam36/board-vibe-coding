@@ -1,7 +1,7 @@
 import { test as base, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import type { AuthUser } from '../src/auth/useAuth.ts'
-import type { Category, Comment, Post, School, VisaPlan, VisaReview, VisaReviewOptions, VisaReviewStat } from '../src/types.ts'
+import type { Category, Comment, MarketListItem, Post, School, VisaPlan, VisaReview, VisaReviewOptions, VisaReviewStat } from '../src/types.ts'
 
 // ---- 가짜 데이터: src/types.ts 타입을 붙여서 실제 응답 모양과 어긋나면 tsc가 알려 준다 ----
 
@@ -98,6 +98,27 @@ export type MockResponse = { status: number; body?: unknown } | { abort: true; s
 // 키는 "메서드 경로"(예: "GET /posts"). 경로는 /api를 뗀 것이고 ?뒤 쿼리는 뺀다
 export type MockHandlers = Record<string, MockResponse | (() => MockResponse)>
 
+// 1x1 투명 PNG 바이트. 사진 주소의 기본 응답으로 쓴다
+const TINY_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  'base64',
+)
+
+// 중고 글 목록 항목의 기본 가짜 데이터 (docs/api.md 29번). 대표 사진이 있는 글 하나.
+// 목록 화면 장면(tester)이 override({ 'GET /market-items': ... })로 갈아 끼워 쓴다
+export const fakeMarketListItem: MarketListItem = {
+  id: 1,
+  title: '가짜 자전거',
+  content: '거의 새 자전거입니다.',
+  tradeType: { code: 'SALE', name: '판매' },
+  price: 5000,
+  status: { code: 'ON_SALE', name: '판매중' },
+  school: postSchool,
+  seller: { id: 1, nickname: '테스터' },
+  createdAt: '2026-01-02T00:00:00Z',
+  coverPhoto: { id: 7, width: 1365, height: 2048, thumbWidth: 213, thumbHeight: 320, contentType: 'image/jpeg' },
+}
+
 // 기본 가짜 응답 모음. 로그인 여부는 state.loggedIn 으로 정한다
 function defaultHandlers(state: { loggedIn: boolean }): MockHandlers {
   return {
@@ -150,6 +171,12 @@ export async function mockApi(page: Page, options: { loggedIn?: boolean } = {}) 
       const path = new URL(req.url()).pathname.replace(/^\/api/, '')
       const key = `${req.method()} ${path}`
       const handler = handlers[key]
+      // 사진 파일 주소(docs/api.md 34번, ?size=thumb 포함)는 따로 준비하지 않아도 작은 PNG를 돌려준다.
+      // 목록·상세 화면이 사진을 부르기 때문. 테스트가 같은 주소를 override하면 그쪽이 먼저다
+      if (!handler && req.method() === 'GET' && /^\/market-items\/[^/]+\/photos\/[^/]+$/.test(path)) {
+        await route.fulfill({ status: 200, contentType: 'image/png', body: TINY_PNG })
+        return
+      }
       if (!handler) {
         unhandled.push(key)
         await route.fulfill({ status: 404, json: { message: `mock 없음: ${key}` } })

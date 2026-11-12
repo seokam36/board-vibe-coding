@@ -1,6 +1,8 @@
 package com.example.demo.market.service;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
@@ -18,6 +20,7 @@ import com.example.demo.market.domain.ItemStatus;
 import com.example.demo.market.domain.MarketItem;
 import com.example.demo.market.domain.MarketItemPhoto;
 import com.example.demo.market.domain.TradeType;
+import com.example.demo.market.dto.MarketItemListResponse;
 import com.example.demo.market.dto.MarketItemRequest;
 import com.example.demo.market.dto.MarketItemResponse;
 import com.example.demo.market.dto.MarketItemStatusRequest;
@@ -40,6 +43,7 @@ public class MarketItemService {
 
     private static final int MAX_PRICE = 10_000_000; // 판매 가격 상한(원). DB CHECK와 같은 값
     private static final int MAX_SEARCH_LENGTH = 50; // 제목 검색어 최대 글자 수
+    private static final int COVER_QUERY_CHUNK = 1000; // 대표 사진을 한 번에 묻는 글 수 (바인딩 변수 한도 대비)
 
     private final MarketItemRepository marketItemRepository;
     private final MarketItemPhotoRepository photoRepository; // 한 건짜리 응답에 사진 목록을 붙인다 (S13-g2)
@@ -87,15 +91,33 @@ public class MarketItemService {
     // 없는 학교면 404(학교 확인 쿼리 +1). 판매자·학교는 repository의 EntityGraph가 join으로 같이 읽으므로
     // 글 수와 무관하게 목록 쿼리는 1번이다(N+1 없음).
     @Transactional(readOnly = true)
-    public List<MarketItemResponse> getAll(Long schoolId, TradeType tradeType, ItemStatus status, String q) {
+    public List<MarketItemListResponse> getAll(Long schoolId, TradeType tradeType, ItemStatus status, String q) {
         String title = checkedSearchTerm(q);
         if (schoolId != null && !schoolRepository.existsById(schoolId)) {
             throw ApiErrors.schoolNotFound();
         }
         MarketItemFilter filter = new MarketItemFilter(schoolId, tradeType, status, title);
-        return marketItemRepository.findAll(filter.toSpecification(), Sort.by(Sort.Direction.DESC, "id")).stream()
-                .map(MarketItemResponse::from)
+        List<MarketItem> items = marketItemRepository.findAll(filter.toSpecification(),
+                Sort.by(Sort.Direction.DESC, "id"));
+        Map<Long, MarketItemPhoto> covers = coverPhotosOf(items);
+        return items.stream()
+                .map(item -> MarketItemListResponse.from(item, covers.get(item.getId())))
                 .toList();
+    }
+
+    // 글들의 대표 사진(글마다 id가 가장 작은 사진)을 "글 id -> 사진"으로 모은다. 글이 0개면 쿼리 없음.
+    // 한 번에 1000개씩 나눠 묻는 이유: PostgreSQL은 쿼리 하나에 넣을 수 있는 값(바인딩 변수)이 32767개까지라서,
+    // 글이 아주 많아도 한도를 넘지 않게. (글이 1000개 이하면 쿼리는 1번이다.)
+    private Map<Long, MarketItemPhoto> coverPhotosOf(List<MarketItem> items) {
+        Map<Long, MarketItemPhoto> covers = new HashMap<>();
+        List<Long> ids = items.stream().map(MarketItem::getId).toList();
+        for (int from = 0; from < ids.size(); from += COVER_QUERY_CHUNK) {
+            List<Long> chunk = ids.subList(from, Math.min(from + COVER_QUERY_CHUNK, ids.size()));
+            for (MarketItemPhoto photo : photoRepository.findCoverPhotos(chunk)) {
+                covers.put(photo.getMarketItemId(), photo);
+            }
+        }
+        return covers;
     }
 
     // 검색어를 다듬는다: null·공백뿐이면 null(조건 없음), 앞뒤 공백 제거 후 50자(코드포인트) 초과면 400

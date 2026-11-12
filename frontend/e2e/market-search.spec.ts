@@ -18,6 +18,7 @@ function makeItem(id = 1, title = '가짜 자전거'): MarketItem {
     school,
     seller: { id: 1, nickname: '테스터' },
     createdAt: '2026-01-02T00:00:00Z',
+    photos: [],
   }
 }
 

@@ -5,16 +5,17 @@ import { errorText, ERROR_MESSAGES } from '../errorMessage'
 import Loading from '../components/Loading'
 import { useAuth } from '../auth/useAuth'
 import MarketFilters from '../components/MarketFilters'
+import MarketThumb from '../components/MarketThumb'
 import MarketWriteGate from '../components/MarketWriteGate'
 import Notice from '../components/Notice'
 import { formatDate } from '../formatDate'
 import { formatPrice } from '../marketFormat'
-import type { MarketItem, School } from '../types'
+import type { MarketListItem, School } from '../types'
 
 // 목록 요청 한 번의 결과. key(어떤 조건으로 요청했는지)를 같이 저장해 둔다
 interface ListResult {
   key: string
-  items: MarketItem[]
+  items: MarketListItem[]
   error: string | null
 }
 
@@ -60,7 +61,7 @@ export default function MarketListPage() {
     if (status) params.status = status
     if (q) params.q = q
     api
-      .get<MarketItem[]>('/market-items', { params })
+      .get<MarketListItem[]>('/market-items', { params })
       .then((res) => {
         if (!ignore) setResult({ key: queryKey, items: res.data, error: null })
       })
@@ -117,19 +118,23 @@ export default function MarketListPage() {
         )}
         <ul className="rows">
           {items.map((it) => (
-            <li key={it.id} className="row">
-              <div className="row-title">
-                <span className={`badge badge-${it.status.code}`}>{it.status.name}</span>
-                <Link to={`/market/${it.id}`} className="row-link">
-                  {it.title}
-                </Link>
+            <li key={it.id} className="row market-row">
+              {/* 왼쪽: 대표 사진 썸네일(없으면 회색 빈칸) */}
+              <MarketThumb item={it} />
+              <div className="market-row-body">
+                <div className="row-title">
+                  <span className={`badge badge-${it.status.code}`}>{it.status.name}</span>
+                  <Link to={`/market/${it.id}`} className="row-link">
+                    {it.title}
+                  </Link>
+                </div>
+                {/* 가격 / 학교 / 작성일 */}
+                <p className="meta">
+                  <span className="market-price">{formatPrice(it)}</span>
+                  <span>{it.school.name}</span>
+                  <span>{formatDate(it.createdAt)}</span>
+                </p>
               </div>
-              {/* 가격 / 학교 / 작성일 */}
-              <p className="meta">
-                <span className="market-price">{formatPrice(it)}</span>
-                <span>{it.school.name}</span>
-                <span>{formatDate(it.createdAt)}</span>
-              </p>
             </li>
           ))}
         </ul>
