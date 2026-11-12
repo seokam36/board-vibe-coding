@@ -98,7 +98,7 @@ describe('공용 문구 상수', () => {
 // 문구 사전: 화면에 보이는 글자가 그대로인지 한 글자씩 고정한다 (함수는 예시 인자로)
 describe('ERROR_MESSAGES 문구 사전', () => {
   it('글자가 바뀌지 않는다', () => {
-    const { alreadyDeleted, ...texts } = ERROR_MESSAGES
+    const { alreadyDeleted, photoSkipped, ...texts } = ERROR_MESSAGES
     expect(texts).toEqual({
       POST_NOT_FOUND: '글을 찾을 수 없습니다',
       POST_LOAD_FAILED: '글을 불러오지 못했습니다',
@@ -123,10 +123,20 @@ describe('ERROR_MESSAGES 문구 사전', () => {
       MARKET_STATUS_CONFLICT: '그 사이 상태가 바뀌었습니다. 새로고침해 주세요.',
       MARKET_STATUS_RETRY: '상태를 바꾸지 못했습니다. 새로고침 후 다시 시도해 주세요',
       MARKET_STATUS_FAILED: '상태를 바꾸지 못했습니다',
+      MARKET_PHOTO_INVALID: 'JPEG·PNG 사진만 올릴 수 있습니다 (손상되었거나 너무 큰 사진일 수 있습니다)',
+      MARKET_PHOTO_TYPE_ONLY: 'JPEG·PNG 사진만 올릴 수 있습니다',
+      MARKET_PHOTO_MAX_COUNT: '사진은 10장까지 올릴 수 있습니다',
+      MARKET_PHOTO_FORBIDDEN: '사진을 올리지 못했습니다. 새로고침 후 다시 시도해 주세요',
+      MARKET_PHOTO_CONFLICT: '사진은 10장까지 올릴 수 있고, 거래가 완료된 글에는 올릴 수 없습니다',
+      MARKET_PHOTO_TOO_LARGE: '사진 한 장은 10MB 이하여야 합니다',
+      MARKET_PHOTO_BUSY: '서버가 바쁩니다. 잠시 뒤 다시 시도해 주세요',
+      MARKET_PHOTO_UPLOAD_FAILED: '사진을 올리지 못했습니다',
+      MARKET_PHOTO_DELETE_CONFLICT: '거래가 완료된 글의 사진은 지울 수 없습니다',
     })
     expect(alreadyDeleted('글')).toBe('이미 삭제된 글입니다')
     expect(alreadyDeleted('댓글')).toBe('이미 삭제된 댓글입니다')
     expect(alreadyDeleted('후기')).toBe('이미 삭제된 후기입니다')
     expect(alreadyDeleted('일정')).toBe('이미 삭제된 일정입니다')
+    expect(photoSkipped('사진 한 장은 10MB 이하여야 합니다', 2)).toBe('사진 한 장은 10MB 이하여야 합니다. 2장은 받지 않았습니다.')
   })
 })

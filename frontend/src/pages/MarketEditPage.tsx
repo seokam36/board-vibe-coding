@@ -4,6 +4,7 @@ import api from '../api'
 import { errorText, ERROR_MESSAGES } from '../errorMessage'
 import Loading from '../components/Loading'
 import MarketItemForm from '../components/MarketItemForm'
+import MarketPhotoEditor from '../components/MarketPhotoEditor'
 import Notice from '../components/Notice'
 import { useAuth } from '../auth/useAuth'
 import type { MarketItem, MarketItemRequest } from '../types'
@@ -15,6 +16,8 @@ export default function MarketEditPage() {
   const [item, setItem] = useState<MarketItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [photoBusy, setPhotoBusy] = useState(false) // 사진을 올리거나 지우는 중이면 글자 [저장]을 잠근다
+  const [textSaving, setTextSaving] = useState(false) // 글자 저장(PUT) 중이면 사진 영역을 잠근다
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -66,6 +69,10 @@ export default function MarketEditPage() {
       {loadError && <Notice kind="error">{loadError}</Notice>}
       {notMine && <Notice kind="error">본인 글만 수정할 수 있습니다</Notice>}
       {loaded && !notMine && done && <Notice kind="error">{ERROR_MESSAGES.MARKET_DONE_NOT_EDITABLE}</Notice>}
+      {/* 사진은 글자 저장과 따로, 올리거나 지우는 즉시 서버에 반영된다 */}
+      {loaded && !notMine && !done && (
+        <MarketPhotoEditor key={`photos-${loaded.id}`} itemId={loaded.id} initial={loaded.photos} onBusyChange={setPhotoBusy} disabled={textSaving} />
+      )}
       {loaded && !notMine && !done && (
         <MarketItemForm
           key={loaded.id}
@@ -84,6 +91,8 @@ export default function MarketEditPage() {
             409: ERROR_MESSAGES.MARKET_DONE_NOT_EDITABLE,
           }}
           cancelTo={`/market/${safeId}`}
+          locked={photoBusy}
+          onSavingChange={setTextSaving}
         />
       )}
       {(loadError || notMine || done) && (

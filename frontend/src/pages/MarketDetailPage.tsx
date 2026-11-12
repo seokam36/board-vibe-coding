@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import api from '../api'
 import { describeError, errorText, ERROR_MESSAGES } from '../errorMessage'
 import { isAdmin } from '../auth/isAdmin'
@@ -67,10 +67,22 @@ export default function MarketDetailPage() {
   const [needLogin, setNeedLogin] = useState(false) // 요청 중 401(재발급 실패) 로그인 안내
   const [selectedPhoto, setSelectedPhoto] = useState(0) // 큰 사진으로 보고 있는 사진 번호(0부터)
   const navigate = useNavigate()
+  const location = useLocation()
+  // 글쓰기에서 넘어온 "못 올린 사진 수". router state는 브라우저 기록(history.state)에 남아 새로고침·뒤로가기 뒤에도 살아 있으니,
+  // 처음 그릴 때 값을 지역 state로 옮기고 아래 effect가 기록에서 지운다. 모르는 모양이면 0으로 본다
+  const failedState = (location.state as { photoFailed?: unknown } | null)?.photoFailed
+  const [photoFailedAt] = useState(() => ({ id: safeId, count: typeof failedState === 'number' ? failedState : 0 }))
+  const photoFailed = photoFailedAt.id === safeId ? photoFailedAt.count : 0 // 다른 글로 옮겨 가면 안내를 숨긴다
   const { user } = useAuth()
   const confirm = useConfirm() // 거래 완료·삭제 전 확인 창 (비자 후기 삭제와 같은 방식)
   const isMine = !!user && item?.seller.id === user.id // 내 글인지 (판매자 본인)
   const canAct = canActInSchool(user, item?.school.id) // 신고는 인증한 학교의 글에만 (서버 규칙과 같다)
+
+  // 넘어온 사진 실패 state를 기록에서 지운다 (replace라 뒤로가기 칸이 늘지 않는다)
+  const hasPhotoState = failedState !== undefined
+  useEffect(() => {
+    if (hasPhotoState) navigate(location.pathname, { replace: true, state: null })
+  }, [hasPhotoState, location.pathname, navigate])
 
   useEffect(() => {
     // 응답이 오기 전에 화면이 사라지거나 id가 바뀌면 늦게 온 응답을 버리기 위한 플래그
@@ -172,6 +184,8 @@ export default function MarketDetailPage() {
     <div>
       {loading && <Loading />}
       {error && <Notice kind="error">{error}</Notice>}
+      {/* 글쓰기 직후 사진 일부를 못 올렸을 때의 안내 (처음 한 번만 보이고, 새로고침·뒤로가기 뒤에는 사라진다) */}
+      {photoFailed > 0 && <Notice kind="error">사진 {photoFailed}장을 올리지 못했습니다. 수정에서 다시 올려 주세요</Notice>}
       {item && (
         <article className="panel">
           <div className="badges">

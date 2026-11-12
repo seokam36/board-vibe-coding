@@ -46,6 +46,7 @@
 신고 대상 뱃지(`.badge-POST` / `.badge-COMMENT` / `.badge-MARKET_ITEM`): 글은 청자, 댓글은 잡담 뱃지와 같은 회색, 중고 글("중고")은 질문 말머리와 같은 파랑(`--badge-question-ink` / `--badge-question-bg`). 빨강은 쓰지 않는다.
 
 사진(중고 글): 목록 썸네일(`.market-thumb`)은 72px 정사각·`object-fit: cover`, 모서리 `--radius-btn`. 상세 큰 사진은 폭 100%·4:3 고정 틀(`.market-photo-frame`)에 `object-fit: contain`(비율이 달라도 아래 썸네일 줄이 움직이지 않는다), 틀 배경 `--canvas`. 상세 썸네일 버튼(`.market-photo-thumb`)은 56px 정사각·cover, 고른 것은 `--celadon` 테두리. 사진이 없거나 못 불러온 썸네일 빈칸은 `--hover` 회색, 큰 사진 실패 문구("사진을 불러오지 못했습니다")는 틀 안 가운데 `--muted` 14px.
+글쓰기·수정의 사진 올리기 영역(`.market-photo-picker`): `.panel` 안에 "사진 (n/10)" 제목, 72px 정사각 미리보기(`.market-photo-preview`, cover, `--radius-btn`, 빈칸 `--hover`)와 그 아래 `btn btn-sm`(수정 "삭제"·글쓰기 "빼기")를 `--space-3` 간격으로 줄바꿈하며 나열한다(375px에서 가로 스크롤 없음). [사진 추가]는 `btn` 버튼이 숨긴 `input[type=file]`을 대신 열고, 진행("사진 올리는 중 n/전체")은 info 안내(role=status), 사전 검사·서버 에러는 error 안내(role=alert). 10장이면 추가 버튼을 비활성하고 옆에 `meta` 안내를 둔다.
 
 말머리 뱃지(글자색 / 배경): 잡담 `--muted` / `#262F2C`, 질문 `#A9C2F0` / `#1F2B42`, 학교생활 `--celadon-ink` / `--celadon-soft`.
 

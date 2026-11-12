@@ -790,6 +790,34 @@ label textarea {
 .market-photo-thumb[aria-pressed='true'] {
   border-color: var(--celadon);
 }
+/* 글쓰기·수정: 사진 올리기 영역. 썸네일 + 그 아래 삭제/빼기 버튼, 줄이 좁으면 아래로 넘어간다 */
+.market-photo-picker-title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-body);
+}
+.market-photo-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+.market-photo-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: 72px;
+}
+.market-photo-preview {
+  display: block;
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: var(--radius-btn);
+  background: var(--hover);
+}
 /* 가격: 본문보다 살짝 강조 */
 .market-price {
   font-weight: 700;

@@ -41,6 +41,9 @@ export function errorText(error: unknown, table: MessageTable, fallback: string)
   return info.kind === 'message' ? info.message : fallback
 }
 
+// 사진 종류 안내의 앞부분. 서버 400 문구와 브라우저 사전 검사 문구가 같은 글자로 시작해서 한 곳에 둔다
+const PHOTO_TYPE_ONLY = 'JPEG·PNG 사진만 올릴 수 있습니다'
+
 // 화면 여러 곳에서 겹쳐 쓰는 에러 문구 사전. 이름은 "무엇을 못 했는지"로 짓는다.
 // 글자(띄어쓰기·마침표 포함)를 바꾸면 화면 문구가 바뀌니 errorMessage.test.ts가 그대로인지 지켜 준다.
 export const ERROR_MESSAGES = {
@@ -103,4 +106,24 @@ export const ERROR_MESSAGES = {
   MARKET_STATUS_RETRY: '상태를 바꾸지 못했습니다. 새로고침 후 다시 시도해 주세요',
   // 상태 바꾸기 실패 기본 문구
   MARKET_STATUS_FAILED: '상태를 바꾸지 못했습니다',
+  // 사진 올리기(33번) 실패. 글쓰기·수정 화면이 같은 표(marketPhotoUpload.ts)를 쓴다
+  // 400: JPEG·PNG가 아니거나 깨졌거나 픽셀이 너무 큼
+  MARKET_PHOTO_INVALID: `${PHOTO_TYPE_ONLY} (손상되었거나 너무 큰 사진일 수 있습니다)`,
+  // 브라우저 사전 검사: 종류 안내 앞부분 / 장수 한도 안내 (수정 화면의 10장 도달 안내 글에도 씀)
+  MARKET_PHOTO_TYPE_ONLY: PHOTO_TYPE_ONLY,
+  MARKET_PHOTO_MAX_COUNT: '사진은 10장까지 올릴 수 있습니다',
+  // 사전 검사에서 뺀 사진 안내 한 줄: "이유. n장은 받지 않았습니다."
+  photoSkipped: (reason: string, count: number) => `${reason}. ${count}장은 받지 않았습니다.`,
+  // 403: 본인 글이 아니거나 보안 토큰 문제
+  MARKET_PHOTO_FORBIDDEN: '사진을 올리지 못했습니다. 새로고침 후 다시 시도해 주세요',
+  // 409: 이미 10장이거나 거래가 완료된 글 (서버가 두 경우를 같은 코드로 준다)
+  MARKET_PHOTO_CONFLICT: '사진은 10장까지 올릴 수 있고, 거래가 완료된 글에는 올릴 수 없습니다',
+  // 413: 사진 한 장이 10MB 초과
+  MARKET_PHOTO_TOO_LARGE: '사진 한 장은 10MB 이하여야 합니다',
+  // 503: 서버의 이미지 처리 자리가 5초 안에 나지 않음
+  MARKET_PHOTO_BUSY: '서버가 바쁩니다. 잠시 뒤 다시 시도해 주세요',
+  // 사진 올리기 실패 기본 문구
+  MARKET_PHOTO_UPLOAD_FAILED: '사진을 올리지 못했습니다',
+  // 사진 지우기 409: 거래가 완료된 글
+  MARKET_PHOTO_DELETE_CONFLICT: '거래가 완료된 글의 사진은 지울 수 없습니다',
 } as const

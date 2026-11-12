@@ -1,7 +1,7 @@
 import { test as base, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import type { AuthUser } from '../src/auth/useAuth.ts'
-import type { Category, Comment, MarketListItem, Post, School, VisaPlan, VisaReview, VisaReviewOptions, VisaReviewStat } from '../src/types.ts'
+import type { Category, Comment, MarketItemPhoto, MarketListItem, Post, School, VisaPlan, VisaReview, VisaReviewOptions, VisaReviewStat } from '../src/types.ts'
 
 // ---- 가짜 데이터: src/types.ts 타입을 붙여서 실제 응답 모양과 어긋나면 tsc가 알려 준다 ----
 
@@ -121,6 +121,7 @@ export const fakeMarketListItem: MarketListItem = {
 
 // 기본 가짜 응답 모음. 로그인 여부는 state.loggedIn 으로 정한다
 function defaultHandlers(state: { loggedIn: boolean }): MockHandlers {
+  let nextPhotoId = 100 // 사진 올리기 가짜 응답의 id (테스트마다 새로 시작)
   return {
     // docs/api.md: GET /csrf 는 헤더 이름을 돌려준다 (쿠키 설정은 서버가 하니 여기선 본문만)
     'GET /csrf': { status: 200, body: { headerName: 'X-XSRF-TOKEN' } },
@@ -147,7 +148,24 @@ function defaultHandlers(state: { loggedIn: boolean }): MockHandlers {
     'GET /users/me/visa-plan': { status: 200, body: fakeEmptyVisaPlan },
     'PUT /users/me/visa-plan': { status: 200, body: fakeEmptyVisaPlan },
     'DELETE /users/me/visa-plan': { status: 204 },
+    // 사진 올리기(33번)·지우기(35번). 올릴 때마다 사진 id가 1씩 늘어난다 (100부터: 글에 이미 있는 사진 id와 안 겹치게)
+    'POST /market-items/*/photos': () => ({
+      status: 201,
+      body: { id: nextPhotoId++, width: 1365, height: 2048, thumbWidth: 213, thumbHeight: 320, contentType: 'image/jpeg' } satisfies MarketItemPhoto,
+    }),
+    'DELETE /market-items/*/photos/*': { status: 204 },
   }
+}
+
+// 키에 "*"가 있으면 그 자리 한 구간(슬래시 없는 글자)과 맞는다. 정확한 키가 없을 때만 쓴다
+function findWildcardHandler(handlers: MockHandlers, key: string) {
+  for (const pattern of Object.keys(handlers)) {
+    if (!pattern.includes('*')) continue
+    const p = pattern.split('/')
+    const k = key.split('/')
+    if (p.length === k.length && p.every((seg, i) => seg === '*' || seg === k[i])) return handlers[pattern]
+  }
+  return undefined
 }
 
 // page.route로 /api 요청을 가로채 가짜 응답을 준다. 준비 안 된 요청은 unhandled에 기록하고 404로 막는다
@@ -170,7 +188,8 @@ export async function mockApi(page: Page, options: { loggedIn?: boolean } = {}) 
       const req = route.request()
       const path = new URL(req.url()).pathname.replace(/^\/api/, '')
       const key = `${req.method()} ${path}`
-      const handler = handlers[key]
+      // 정확한 키가 먼저, 없으면 "*"(한 구간)가 든 키로 찾는다 (예: "POST /market-items/*/photos")
+      const handler = handlers[key] ?? findWildcardHandler(handlers, key)
       // 사진 파일 주소(docs/api.md 34번, ?size=thumb 포함)는 따로 준비하지 않아도 작은 PNG를 돌려준다.
       // 목록·상세 화면이 사진을 부르기 때문. 테스트가 같은 주소를 override하면 그쪽이 먼저다
       if (!handler && req.method() === 'GET' && /^\/market-items\/[^/]+\/photos\/[^/]+$/.test(path)) {

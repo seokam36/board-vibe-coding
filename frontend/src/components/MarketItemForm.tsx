@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router'
 import { describeError, ERROR_MESSAGES } from '../errorMessage'
@@ -15,10 +15,12 @@ interface Props {
   onSave: (body: MarketItemRequest) => Promise<void>
   errorTable: MessageTable // 저장 실패 상태코드별 문구
   cancelTo: string
+  locked?: boolean // 다른 작업(사진 올리기·지우기) 중이면 [저장]을 잠근다
+  onSavingChange?: (saving: boolean) => void // 글자 저장 중인지 부모에게 알린다 (수정 화면의 사진 영역 잠금용)
 }
 
 // 중고·나눔 글 올리기·수정 공용 폼 (요청 DTO가 하나라 폼도 하나)
-export default function MarketItemForm({ initial, onSave, errorTable, cancelTo }: Props) {
+export default function MarketItemForm({ initial, onSave, errorTable, cancelTo, locked = false, onSavingChange }: Props) {
   // 입력값은 state로 관리한다. 실패해도 그대로 남는다
   const [title, setTitle] = useState(initial?.title ?? '')
   const [content, setContent] = useState(initial?.content ?? '')
@@ -30,8 +32,14 @@ export default function MarketItemForm({ initial, onSave, errorTable, cancelTo }
   // 저장 중 401(재발급까지 실패): 로그인 안내를 따로 보여 준다
   const [needLogin, setNeedLogin] = useState(false)
 
+  // 저장 중인지 바뀔 때마다 부모에게 알린다
+  useEffect(() => {
+    onSavingChange?.(saving)
+  }, [saving, onSavingChange])
+
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (locked) return // 엔터로 제출되는 경우도 막는다
     setError(null)
     setNeedLogin(false)
     if (!title.trim() || !content.trim()) {
@@ -102,12 +110,19 @@ export default function MarketItemForm({ initial, onSave, errorTable, cancelTo }
       {error && <Notice kind="error">{error}</Notice>}
       {needLogin && <ReloginNotice />}
       <div className="actions">
-        <button type="submit" className="btn btn-primary" disabled={saving}>
+        <button type="submit" className="btn btn-primary" disabled={saving || locked}>
           {saving ? '저장 중...' : '저장'}
         </button>
-        <Link to={cancelTo} className="btn">
-          취소
-        </Link>
+        {/* 저장 중에는 링크를 못 막으니 비활성 버튼 모양으로 바꾼다 (상세 화면의 [수정]과 같은 방식) */}
+        {saving ? (
+          <button type="button" className="btn" disabled>
+            취소
+          </button>
+        ) : (
+          <Link to={cancelTo} className="btn">
+            취소
+          </Link>
+        )}
       </div>
     </form>
   )
