@@ -2,7 +2,7 @@
 
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 
-마지막 갱신: 2026-11-12 집 PC (S13-g6-3~g6-5 끝, S13-g 사진 전부 완료, Notion g5-1~g6-5 기록)
+마지막 갱신: 2026-11-12 집 PC (S14 쪽지 a~d 끝, Notion S14 카드 + a~c 기록)
 
 ## 지금 어디까지
 - **S0~S12 + UI1~UI3 완료·배포됨.** 운영은 S12-e(2026-11-11) 이미지, V8까지 적용. S12 리뷰 수정(21741e0)은 push됐지만 운영 미반영(다음 배포에 같이 나감).
@@ -27,20 +27,29 @@
   - g5-1(01f0442): `GET /market-items` 응답을 목록 전용 `MarketItemListResponse`로 분리(+ `coverPhoto` = id 최소 사진, 없으면 null). `findCoverPhotos`(min(id) group by) 글 1000개당 쿼리 1번. 화면: 목록 72px 썸네일, 상세 4:3 큰 사진 + 썸네일 버튼 줄.
   - g5-2(c81f651, 프론트만): 수정 화면 `MarketPhotoEditor`(즉시 올리기·지우기, useConfirm), 글쓰기는 미리보기 → 저장 = 글 POST → 사진 차례로 → 상세(일부 실패 안내는 router state, 읽은 뒤 replace로 지움). `marketPhotoUpload.ts`(사전 검사, 한 장씩, 401·403·404·409·네트워크·timeout 5분 중단 / 400·413·503 계속). 올리는 중 [저장]·[취소] 잠금, 저장 중 사진 영역 잠금.
 - Notion: S13 카드에 S13-a~g4 + g5-1·g6-1~g6-5 단계 페이지(g5-2는 프론트만이라 안 씀), 도구 사전에 "ImageIO · metadata-extractor"·"AWS S3 · AWS SDK". 진행 현황 S13 줄 "남은 것: 배포(S14 쪽지와 함께)". **메인 페이지 아키텍처 그림에 S3는 S13-h 배포 때 추가.**
+- **S14(쪽지) a~d 완료, 운영 미반영.** 결정 9개 전부 backlog S14 항목(대화방 방식, 같은 학교 인증만 시작, 거래완료는 새 대화만 409, 글 삭제·탈퇴해도 대화 남음, 남의 방은 관리자도 404, 1~1000자, 신고는 S14-f).
+  - S14-a(987bc2f): **V12** `conversations`(글·구매자·판매자 FK 전부 SET NULL, item_title 복사, `uk_conversations_item_buyer`, ck 구매자≠판매자) + `messages`(대화 CASCADE, sender SET NULL, read_at) + 인덱스 5개. `POST /market-items/{id}/conversations`(같은 글+구매자면 기존 방, `INSERT … ON CONFLICT DO NOTHING RETURNING id`).
+  - S14-b(d546ae0): `GET /conversations`(쿼리 고정, N+1 없음) · `GET /conversations/{id}`(쪽지 id 오름차순) · `POST /conversations/{id}/messages`(상대 탈퇴 409). 쪽지 저장은 `ConversationService.appendMessage` 한 곳(방 행 NO KEY UPDATE 뒤 시각 재기).
+  - S14-c(62bba67): `PUT /conversations/{id}/read` {"lastMessageId"}(사용자 결정 "본 쪽지까지만", 소수 400은 MarkReadRequest 칸 전용 변환기) · `GET /conversations/unread-count` · 목록 unreadCount. 세기·읽음 조건은 전부 `sender.id IS DISTINCT FROM 나`.
+  - S14-d(80851f1, 프론트만): 상세 "판매자에게 쪽지"(SellerMessageBox) · `/messages` 쪽지함 · `/messages/:id` 대화(ConversationView를 key로 감쌈) · 상단바 "쪽지" 링크(숫자 없음) · 공용 MessageComposer. 실제 백엔드로 보내기·답장·쪽지함 브라우저 확인.
+  - **잠금 규칙(S14 핵심)**: 탈퇴(`UserService.withdraw`)는 회원 행 FOR UPDATE를 맨 먼저 잡는다. 쪽지 쓰기·답장·읽음 처리는 전부 **회원 행 FOR KEY SHARE(`UserRepository.lockForKeyShare`, id 순)를 먼저** 잡고 그다음 방·쪽지 행. 순서를 어기면 실제로 40P01 교착 → 500이 났다(S14-a에서 재현).
+- Notion: S14 카드(번호 15)에 S14-a·b·c 단계 페이지(d는 프론트만이라 안 씀). 진행 현황 S14 줄 "남은 것: 화면 · 신고"(S14-e 끝나면 "신고"만).
 
 ## 다음에 할 일
-- **S14 쪽지 시작**: CLAUDE.md 흐름대로 메인이 docs/backlog.md에 S14 항목을 정리해 보여주고 → planner(완료 조건) → 승인.
+- **S14-e 시작**(화면: 상단바 "쪽지 (n)" + 대화 열면 읽음 PUT): build 전에 무엇을 만드는지 설명하고 OK. backlog "나중(S14-c 리뷰)"의 S14-e 화면 주의(PUT 뒤 숫자 다시 받기, 로그인했을 때만 unread-count, PUT 실패해도 화면 유지, mockApi 기본 응답에 unread-count·PUT read 둘 다)와 "나중(S14-d 리뷰)"의 **고쳐야 할 e2e 3곳**을 build에 같이 넘긴다.
+- 그다음 S14-f 대화 신고(V13, 시작 전 planner 한 번 더 — "관리자는 신고된 대화만 본다" 범위 승인 필요).
 - S13-h 배포 전까지 사용자 콘솔 1분 작업: EC2 메타데이터 홉 제한 2 확인(아래 "진행 중인 단계"). 배포 날은 deploy.md "사진 저장 (S13-g6)" 1~5단계를 그대로 따른다.
 - (나중, 사용자 결정) 포트폴리오 트러블슈팅 정리: g6-1은 "옛 코드로 되돌리면 테스트 6개 실패" 재현 증거 있음. g6-2를 트러블슈팅으로 쓰려면 b6274d9(통째 읽기) vs 이후를 작은 힙으로 동시 요청해 메모리 전후 측정이 필요(지금은 "설계 개선"으로만 말할 수 있음).
-- 그다음 S14 쪽지 → S13-h 배포(S13·S14 한 번에) → S16 Flutter(웹) 교체.
+- 그다음 S13-h 배포(S13·S14 한 번에) → S16 Flutter(웹) 교체.
 
 ## 진행 중인 단계
-- 진행 중인 단계 없음(S13-g 끝, S14는 아직 시작 전). 아래는 S13-h 배포 때 필요한 메모.
+- 진행 중인 단계 없음(S14-d까지 커밋, S14-e는 시작 전). 아래는 S13-h 배포 때 필요한 메모.
   - 리뷰 미룬 것은 backlog "나중(S13-g…리뷰)" 줄들(g6-3·g6-4·g6-5 줄 새로 추가). **g6-5 줄의 "S13-h 배포 날 처음 확인" 목록**(nginx 거친 사진 201·실제 S3 왕복·삭제 실패 로그 0건·홉 제한·301/403 표 줄은 알려진 동작 기준)을 배포 날 체크리스트로 쓴다.
   - **AWS 콘솔 작업 끝(2026-11-12)**: 서울 리전 S3 버킷(범용·글로벌 네임스페이스, ACL 비활성, 퍼블릭 차단 4개, 버저닝 끔, SSE-S3) + IAM 정책 `board-market-photos-access`(그 버킷만 Put/Get/Delete + ListBucket) + IAM 역할 `board-ec2-role`(EC2 신뢰, 위 정책만) → EC2 `demo-server`에 연결함. 액세스 키는 안 만듦(앱은 기본 자격 증명 체인). **버킷 이름은 저장소가 공개라 코드·문서에 안 씀 → 사용자에게 물어서 EC2 `.env`의 `PHOTO_S3_BUCKET`에만.**
   - **남은 콘솔 1분 작업(S13-h 전까지)**: EC2 → demo-server → 작업 → 인스턴스 설정 → 인스턴스 메타데이터 옵션 수정 → "메타데이터 응답 홉 제한"이 2인지(1이면 2로). 컨테이너 안 앱이 역할 열쇠를 받으려면 2 이상 필요.
   - 위험(사용자에게 알림): 실제 S3 왕복은 S13-h 배포 날 처음 해 봄. compose를 바꿨으니 Deploy 전에 compose scp 필수(빼먹으면 조용히 local).
 - 커밋 안 된 변경: `docs/handoff.md`(이 커밋), `.claude/launch.json`(일부러 커밋 안 함).
+- 미룬 것(S14): backlog S14 항목의 "나중(S14-a 리뷰)"·"나중(S14-b 리뷰)"·"나중(S14-c 리뷰)"·"나중(S14-d 리뷰)" 줄(전각 공백 쪽지, 목록 페이징, 안 읽은 수 부분 인덱스, 문자열 숫자 "1" 받아짐 등).
 - 미룬 것(S13-g5): backlog S13 항목의 "나중(S13-g5-1 리뷰)"·"나중(S13-g5-2 리뷰)" 줄(키보드 Enter로 파일 선택 창이 실제로 열리는지 사람 확인, 아이폰 실기기 HEIC·48MP 확인, 글쓰기 401 뒤 재로그인 안내 등).
 - 미룬 것(S13): backlog S13 항목의 "나중(S13-a 리뷰)"·"나중(S13-b 리뷰)"·"나중(S13-c 리뷰)"·"나중(S13-d 리뷰)" 줄(가격 5000.9·"5000" 문자열 받아짐 확인, 비자 후기 수정 중 삭제 500, 학교별 머리말, 가격 굵기 등).
 - 미룬 것(S12): backlog S12 항목의 "나중(S12-c 리뷰)"·"나중(S12-d 리뷰)" 줄 · S12-a 리뷰: 배열·숫자 날짜(`[2026,12,31]`, `20818`)도 LocalDate로 받아짐(후기 날짜와 함께 Jackson 설정 한 곳에서 막기) · upsert `@Modifying`에 clearAutomatically 없음(upsert 뒤 다시 읽는 코드가 생기면) · "오늘 이후여야 합니다" 400 문구(오늘도 허용) · 덮어쓰기 때 created_at 유지 단언 · FlywayExistingBaselineTests가 V8 성공 행을 직접 단언하지 않음 · S12-b: 계산 로직이 DTO(VisaPlanResponse.of) 안(두 번째 사용처 생기면 domain으로) · 띠 자정 넘김 자동 갱신 없음(새로고침하면 반영)
@@ -57,7 +66,7 @@
 
 ## 주의할 점
 - 새 컴퓨터에서는 먼저 `git pull`. 끝나면 커밋·push.
-- **표(테이블)를 바꾸는 기능은 새 V 파일**(다음은 `V12__add_...sql`, 이름은 `add_`, UNIQUE는 `uk_` 관례)로. 커밋된 V 파일은 고치지 않는다. ddl-auto는 validate 유지.
+- **표(테이블)를 바꾸는 기능은 새 V 파일**(다음은 `V13__add_...sql`, 이름은 `add_`, UNIQUE는 `uk_` 관례)로. 커밋된 V 파일은 고치지 않는다. ddl-auto는 validate 유지.
 - **FK·UNIQUE·CHECK 제약에는 반드시 이름**을 지어라. 서비스가 제약 이름으로 404/401/409를 구분한다(`ConstraintViolations`). V1의 `posts.author_id` FK만 해시 이름이라 글쓰기는 "23503이면 401".
 - **DB 오류 메시지 언어는 영어(기본값) 유지.** `lc_messages`를 바꾸면 경쟁 상황에서 500(docs/deploy.md).
 - 경쟁 조건 테스트는 `LockRaceSupport`, 유령 토큰은 `TestLogin.행없는_회원_토큰(jwtEncoder)`, 인증 회원은 `TestLogin.인증된_사용자(...)`·`학교_인증_처리(jdbc, username, 학교명)`. 글쓰기·댓글·공감·신고 테스트는 **인증 회원 + 같은 학교 글**이어야 한다.
@@ -83,7 +92,7 @@
 - 후기 작성 테스트는 **인증 회원**이어야 한다(`TestLogin.인증된_사용자`·`학교_인증_처리`). 수정·삭제는 인증 불필요. 탈퇴는 `UserService.withdraw`가 posts·comments·visa_reviews 작성자를 비운 뒤 회원 삭제(작성자 FK에 ON DELETE 없음).
 - SecurityConfig의 `GET /visa-reviews/{id}` 공개 규칙은 `/visa-reviews/` 아래 한 칸짜리 GET을 전부 공개로 만든다(`/stats`도 명시해 둠). 로그인 전용 GET을 그 아래 두려면 따로 막아야 한다.
 - **Vite 옛 파일 문제가 이번에도 여러 번 났다**(서브에이전트가 고친 직후 화면이 하얗게 비고 `xxx is not defined`). build가 프론트를 고친 뒤에는 브라우저 확인 전에 frontend 서버를 항상 껐다 켠다.
-- Flyway 테스트 `FlywayExistingBaselineTests`는 "새로 적용되는 V 파일 수"를 하드코딩한다(지금 10개·기록장 11행) → V12를 만들면 같이 고쳐야 한다.
+- Flyway 테스트 `FlywayExistingBaselineTests`는 "새로 적용되는 V 파일 수"를 하드코딩한다(지금 11개·기록장 12행 + V12 성공 행 단언) → V13을 만들면 같이 고쳐야 한다.
 - **tester가 이제 `frontend/e2e/`에도 쓸 수 있다**(`.claude/agents/tester.md` 허용 경로, 2026-11-10). 에이전트 설정은 세션 시작 때만 읽혀서, 바꾼 그 세션에서는 반영 안 됐다(그래서 S12-c·d e2e는 메인 대화가 씀). 화면 코드 `frontend/src/`는 여전히 못 씀.
 - **build 보고를 그대로 믿지 말 것**: S12-c에서 build가 "npm run build 통과"라고 했는데 실제로는 e2e 파일 import 확장자(`'./mockApi'` → `'./mockApi.ts'`)로 tsc가 실패했다. 커밋 전에 메인이 `npm test`·`npm run build`·`npm run lint`·`npm run test:e2e`를 직접 한 번 돌린다.
 - **e2e에서 날짜를 입력하는 장면은 브라우저 시계를 고정**한다: `test.beforeEach(async ({ page }) => { await page.clock.setFixedTime(new Date('2026-11-10T03:00:00Z')) })`(visa-plan·visa-banner spec). 날짜 칸에 `min=오늘`이 있어서 고정 안 하면 날짜가 지나면서 테스트가 깨진다.
@@ -124,7 +133,7 @@
 - **build 전에 "이번 단계에서 무엇을 만드는지" 쉬운 말로 설명하고 OK를 받는다**(큰 계획 OK는 단계 build 승인이 아님. 2026-11-11 지적받음).
 - **테스트가 진짜로 버그를 잡는지 확인하는 법(S13에서 3번 씀):** 고친 줄을 잠깐 빼고 그 테스트만 돌려 실패하는지 본다. 원본은 임시 폴더에 복사 → 복사본으로 되돌리고 `cmp`로 같은지 확인.
 - 로컬 백엔드 띄우기: `.claude/launch.json`의 backend는 `.env`를 환경변수로 넣고 `gradlew.bat bootRun`을 부르는 ps1을 가리킨다. 그 ps1은 세션 임시 폴더에 있어서 새 세션에선 없음 → 다시 만들기. **PowerShell 5.1 스크립트 안에 한글 경로를 쓰면 깨진다**(경로는 `(Get-Location).Path`로, .env는 `[IO.File]::ReadAllLines(..., UTF8)`로 읽기).
-- 집 PC `.claude/launch.json`의 backend는 ps1 없이 `.env`를 읽어 `gradlew.bat bootRun`을 부르는 한 줄 명령(그대로 preview_start 가능). 집 PC 로컬 DB는 이제 V11까지(g6-4 bootRun 때 적용), 연습 중고 글 4개(`visa_me`, "중고 자전거 팝니다"·"iPad 9세대 팝니다"·"50% 할인 책상"·"전기밥솥 나눔")가 있다.
+- 집 PC `.claude/launch.json`의 backend는 ps1 없이 `.env`를 읽어 `gradlew.bat bootRun`을 부르는 한 줄 명령(그대로 preview_start 가능). 집 PC 로컬 DB는 이제 V12까지(S14-d 브라우저 확인 때 적용). 쪽지 연습 계정 `s14_seller`·`s14_buyer`(둘 다 경희대 인증, SQL로 지정, 비밀번호는 세션 임시 폴더에만 → 필요하면 새로 가입), 연습 중고 글 5번 "S14 쪽지 확인용 전기포트"와 대화방 1개(쪽지 3통). 그 전부터 있던 연습 중고 글 4개(`visa_me`, "중고 자전거 팝니다"·"iPad 9세대 팝니다"·"50% 할인 책상"·"전기밥솥 나눔")가 있다.
 - **서브에이전트가 셸(perl·sed)로 파일을 고치면 템플릿 문자열 `${...}`가 지워진다**(S13-e에서 신고 주소가 `/market-items//reports`가 됨, e2e가 잡음). build·tester에게 "파일 수정은 Edit 도구로, 끝나면 git diff에서 `${` 확인"을 꼭 적어 준다.
 - **build 보고를 그대로 믿지 말 것(또 나옴)**: S13-e에서 "types.ts postId number|null로 고쳤다"고 했는데 안 고쳐져 있었다(review가 잡음). 중요한 주장은 메인이 grep으로 확인.
 - **Criteria에서 `cb.literal(값)`은 SQL에 값이 그대로 박힌다**(S13-f 로그로 확인). 사용자 입력은 `((HibernateCriteriaBuilder) cb).value(값)`로 바인딩.
@@ -141,6 +150,11 @@
 - **build가 "Edit만 쓰라"는 지시를 어기고 python·heredoc을 쓴 적이 있다**(S13-g2·g3). 매번 `git diff`에서 `${`·역슬래시 줄을 확인한다.
 - **PowerShell에서 `git commit -F -` + here-string이 안 먹는다**(메시지가 경로로 해석됨). 메시지를 스크래치패드 파일로 쓰고 `-F 파일경로`로, 또는 Bash 도구로 커밋. PowerShell 문자열 안의 `${`도 변수로 해석돼 깨지니 grep은 Bash 도구로.
 - **Notion에 긴 한국어 페이지를 만들면 글자가 가끔 깨진다**(몰 초·쫔고·잠깔·잔못되면 등). 만든 뒤 꼭 fetch로 다시 읽고 update_content로 고친다. 고친 단어가 또 깨질 수 있어 다른 말로 바꾸는 게 안전.
+- **build가 heredoc 금지를 S14에서도 세 번 어겼다**(S14-c 새 파일 3개, S14-d types.ts `cat >>`). 매번 그 파일을 메인이 직접 열어 확인했고 깨진 곳은 없었다. 계속 확인할 것.
+- **review의 교착 추론은 꼭 재현부터**: S14-a 추론은 실제로 40P01이 났고(고침), S14-b 추론(답장 둘 + 글 삭제)은 pg_locks로 보니 안 났다(이미 KEY SHARE를 쥔 트랜잭션은 tuple 대기 줄에 서지 않음). 재현 테스트는 LockRaceSupport + 대기 단언, 고친 줄을 빼면 실패하는지까지.
+- **연속 두 요청의 시각을 isAfter로 비교하는 테스트는 Windows에서 가끔 실패**(시계 해상도 ~1ms라 같은 틱). 첫 행의 시각을 SQL로 과거로 돌려 놓고 비교(S14-c에서 ConversationStartApiTests 고침).
+- **e2e mockApi 기본 응답은 와일드카드(`*`) 말고 정확한 주소로**: `GET /conversations/*`가 `/conversations/unread-count`까지 삼켜서 "준비 안 한 요청이면 실패" 안전망이 꺼졌었다. 정확한 키가 `*`보다 먼저 쓰이므로, 기본을 정확한 키로 바꾸면 기존 `*` override도 정확한 키로 바꿔야 먹는다.
+- **같은 컴포넌트를 주소만 바꿔 재사용하는 화면은 key로 새로 그리기**: 브라우저 기록으로 /messages/5 → /messages/3 이동 시 React Router가 화면을 재사용해 다른 방으로 답장이 갈 뻔했다(ConversationPage가 ConversationView를 `key={id}`로 감쌈).
 - **사진 GET은 InputStreamResource라 Spring이 Range 처리를 건너뜀(항상 200 전체).** InputStreamResource를 상속한 클래스로 바꾸거나 ETag/304를 붙이면 스트림을 두 번 읽거나 안 닫힐 수 있다(컨트롤러 주석·MarketItemPhotoStreamTests가 지킴). 사진 GET 바로 뒤 Files.delete 성공 테스트가 Windows 핸들 누수를 잡는다.
 - DB 연결 풀을 줄여 확인할 때: bootRun 환경변수 `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=3`(g6-2에서 이걸로 동시 30개 확인).
 - 중고 글 수정·상태 변경은 **조건부 UPDATE**만 쓴다. 엔티티 값을 바꿔 저장(dirty checking)하면 모든 칸을 UPDATE해서 상태가 옛 값으로 돌아간다(S13-b 리뷰에서 발견). 비자 후기 수정에는 아직 "수정 중 삭제 → 500" 빈틈이 남아 있음.
