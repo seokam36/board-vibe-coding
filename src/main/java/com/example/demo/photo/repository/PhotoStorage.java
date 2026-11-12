@@ -2,8 +2,8 @@ package com.example.demo.photo.repository;
 
 import java.util.Optional;
 
-// 사진 파일을 보관하는 창고의 약속(인터페이스). 지금은 로컬 폴더 구현만 있고,
-// 나중(S13-g6)에 S3 구현을 같은 약속으로 붙인다.
+// 사진 파일을 보관하는 창고의 약속(인터페이스). 구현은 두 가지(LocalPhotoStorage: 내 컴퓨터 폴더, S3PhotoStorage: AWS S3)이고,
+// 설정 app.photo.storage(local 또는 s3, 환경변수 PHOTO_STORAGE)로 하나만 골라 쓴다.
 //
 // 약속 두 가지:
 // 1) content-type은 DB(market_item_photos.content_type) 값만 믿는다. 창고는 바이트만 주고받고,

@@ -9,12 +9,15 @@ import java.nio.file.Path;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Repository;
 
-// 사진을 내 컴퓨터 폴더에 파일로 저장하는 구현 (개발·테스트용, S13-g6 전까지 유일한 구현).
+// 사진을 내 컴퓨터 폴더에 파일로 저장하는 구현 (개발·테스트용. 운영용은 S3PhotoStorage, app.photo.storage로 고른다).
 // key가 곧 폴더 안의 파일 경로다. 폴더 밖으로 나가는 key는 거부한다.
+// app.photo.storage=local(기본값, 설정 안 하면 이쪽)일 때만 빈으로 등록된다.
 // IO 실패는 PhotoStorageException으로 감싸 던진다 (PhotoStorage 약속).
 @Repository
+@ConditionalOnProperty(name = "app.photo.storage", havingValue = "local", matchIfMissing = true)
 public class LocalPhotoStorage implements PhotoStorage {
 
     private final Path root;
@@ -88,13 +91,7 @@ public class LocalPhotoStorage implements PhotoStorage {
 
     // key를 안전한 실제 경로로 바꾼다. 폴더 밖으로 나가는 key는 IllegalArgumentException.
     private Path resolve(String key) {
-        if (key == null || key.isBlank()
-                || key.indexOf('\\') >= 0   // 역슬래시(윈도우식 경로)
-                || key.indexOf(':') >= 0    // C: 같은 드라이브 지정
-                || key.indexOf('\0') >= 0   // 널 문자
-                || key.startsWith("/")) {   // 절대경로
-            throw new IllegalArgumentException("사진 key가 올바르지 않습니다");
-        }
+        PhotoKeys.requireSafe(key); // 문자열 검사는 S3 구현과 같은 공용 규칙
         try {
             Path path = root.resolve(key).normalize();
             // ../ 로 root 밖에 나가거나 root 자체를 가리키면 거부

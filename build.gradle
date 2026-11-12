@@ -17,6 +17,13 @@ repositories {
 	mavenCentral()
 }
 
+// AWS SDK for Java v2 묶음(BOM): 모듈 버전을 한곳에서 맞춘다 (S13-g6-3). 2.57.13 = 2026-11 기준 안정 버전, 올릴 땐 이 숫자만 바꾼다
+dependencyManagement {
+	imports {
+		mavenBom 'software.amazon.awssdk:bom:2.57.13'
+	}
+}
+
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
@@ -43,6 +50,15 @@ dependencies {
 	annotationProcessor 'org.projectlombok:lombok'
 	// 사진의 EXIF 회전 정보(Orientation)를 읽기 위한 라이브러리 (S13-g1, Apache-2.0)
 	implementation 'com.drewnoakes:metadata-extractor:2.19.0'
+	// 사진을 AWS S3에 저장하기 위한 SDK (S13-g6-3). 동기(S3Client)만 쓴다.
+	// - 비동기용 netty-nio-client는 안 쓰므로 뺀다(용량·충돌 감소). CRT도 안 쓴다.
+	// - HTTP 클라이언트는 apache5-client(Apache HttpClient 5 기반) 하나만 쓴다(s3가 기본으로 가져옴): 연결 풀 크기·대기 시간을 코드로 정할 수 있어서.
+	//   url-connection-client는 풀 설정이 없어 고르지 않았다.
+	implementation('software.amazon.awssdk:s3') {
+		exclude group: 'software.amazon.awssdk', module: 'netty-nio-client'
+	}
+	// 연결 풀 설정을 코드에서 하려면 컴파일 때도 필요해서 직접 선언 (이미 s3가 실행 때 가져오는 같은 라이브러리, SDK 2.57의 기본 HTTP 클라이언트)
+	implementation 'software.amazon.awssdk:apache5-client'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	// 테스트에서 csrf() 같은 보안 헬퍼를 쓰기 위한 Spring Security 테스트 지원
 	testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
