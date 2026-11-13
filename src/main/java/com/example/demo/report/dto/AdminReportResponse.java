@@ -4,6 +4,7 @@ import java.time.Instant;
 
 import com.example.demo.comment.domain.Comment;
 import com.example.demo.market.domain.MarketItem;
+import com.example.demo.message.domain.Conversation;
 import com.example.demo.post.domain.Post;
 import com.example.demo.report.domain.Report;
 import com.example.demo.user.domain.User;
@@ -17,7 +18,9 @@ public record AdminReportResponse(Long id, Target target, AuthorResponse reporte
     static final int PREVIEW_MAX = 100;
 
     // 신고 대상. preview = 글·중고 글이면 제목, 댓글이면 내용 앞 100자(넘으면 "…"을 붙인다).
-    // postId = 중고 글이면 null. author = 대상 작성자(중고 글이면 판매자, 탈퇴했거나 작성자 없는 옛 글이면 null)
+    // 대화방이면 id = 방 id, preview = 방을 만들 때 복사해 둔 글 제목.
+    // postId = 중고 글·대화방이면 null.
+    // author = 대상 작성자(중고 글이면 판매자, 대화방이면 신고자가 아닌 참가자. 탈퇴했거나 작성자 없는 옛 글이면 null)
     public record Target(String type, Long id, Long postId, String preview, AuthorResponse author) {
     }
 
@@ -30,14 +33,32 @@ public record AdminReportResponse(Long id, Target target, AuthorResponse reporte
         } else if (report.getMarketItem() != null) {
             MarketItem item = report.getMarketItem();
             target = new Target("MARKET_ITEM", item.getId(), null, item.getTitle(), author(item.getSeller()));
-        } else {
+        } else if (report.getConversation() != null) {
+            Conversation room = report.getConversation();
+            target = new Target("CONVERSATION", room.getId(), null, room.getItemTitle(),
+                    author(otherParticipant(room, report.getReporter())));
+        } else if (report.getComment() != null) {
             Comment comment = report.getComment();
             target = new Target("COMMENT", comment.getId(), comment.getPost().getId(), preview(comment.getContent()),
                     author(comment.getAuthor()));
+        } else {
+            // DB의 CHECK(ck_reports_target)가 막으므로 오지 않는 상태. 대상 종류가 또 늘었는데 여기를 빠뜨리면 바로 알 수 있게 한다.
+            throw new IllegalStateException("신고 대상이 없는 신고입니다. id=" + report.getId());
         }
         return new AdminReportResponse(report.getId(), target, author(report.getReporter()),
                 new ReportResponse.ReasonInfo(report.getReason().name(), report.getReason().getLabel()),
                 report.getDetail(), report.getStatus().name(), report.getCreatedAt());
+    }
+
+    // 대화방에서 신고자가 아닌 참가자. 탈퇴한 칸은 null이라 상대가 탈퇴했으면 null.
+    // 신고자가 탈퇴했으면(reporter == null) 그 사람의 방 칸도 같이 비워졌으므로 남아 있는 참가자가 상대다.
+    private static User otherParticipant(Conversation room, User reporter) {
+        for (User participant : new User[] { room.getBuyer(), room.getSeller() }) {
+            if (participant != null && (reporter == null || !participant.getId().equals(reporter.getId()))) {
+                return participant;
+            }
+        }
+        return null;
     }
 
     private static AuthorResponse author(User user) {

@@ -59,4 +59,12 @@ public class ReportController {
             @Valid @RequestBody ReportCreateRequest request) {
         return reportService.reportMarketItem(id, LoginUser.from(jwt), request);
     }
+
+    // 쪽지 대화방 신고: 201 (대화방 참가자만)
+    @PostMapping("/conversations/{id}/reports")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ReportResponse reportConversation(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
+            @Valid @RequestBody ReportCreateRequest request) {
+        return reportService.reportConversation(id, LoginUser.from(jwt), request);
+    }
 }

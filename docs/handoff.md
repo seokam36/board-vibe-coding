@@ -2,7 +2,7 @@
 
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 
-마지막 갱신: 2026-11-13 (S14 쪽지 a~e 끝, 다음은 S14-f 대화 신고)
+마지막 갱신: 2026-11-13 (S14 쪽지 a~e + S14-f1 대화 신고 백엔드 끝, 다음은 S14-f2 관리자 대화 보기)
 
 ## 지금 어디까지
 - **S0~S12 + UI1~UI3 완료·배포됨.** 운영은 S12-e(2026-11-11) 이미지, V8까지 적용. S12 리뷰 수정(21741e0)은 push됐지만 운영 미반영(다음 배포에 같이 나감).
@@ -33,18 +33,19 @@
   - S14-c(62bba67): `PUT /conversations/{id}/read` {"lastMessageId"}(사용자 결정 "본 쪽지까지만", 소수 400은 MarkReadRequest 칸 전용 변환기) · `GET /conversations/unread-count` · 목록 unreadCount. 세기·읽음 조건은 전부 `sender.id IS DISTINCT FROM 나`.
   - S14-d(80851f1, 프론트만): 상세 "판매자에게 쪽지"(SellerMessageBox) · `/messages` 쪽지함 · `/messages/:id` 대화(ConversationView를 key로 감쌈) · 상단바 "쪽지" 링크(숫자 없음) · 공용 MessageComposer. 실제 백엔드로 보내기·답장·쪽지함 브라우저 확인.
   - S14-e(프론트만): `messages/UnreadProvider.tsx`+`unreadContext.ts`(`useUnread()` = {count, refresh}). 로그인했을 때만 GET unread-count, **로그인·회원 교체·주소(pathname) 바뀔 때마다** 다시 받음(결정 ⑦, 요청 번호 seq로 마지막 응답만 반영). 상단바 "쪽지 (n)"(0이면 "쪽지"). ConversationPage가 대화를 불러온 뒤 쪽지가 있으면 마지막 id로 PUT read → refresh, PUT 실패는 무시. mockApi 기본 응답에 unread-count·PUT /conversations/3/read(정확한 키). e2e 269개.
+  - S14-f1(백엔드): **V13** `reports.conversation_id`(fk_reports_conversation CASCADE, uk_reports_conversation_reporter (방, 신고자), ck_reports_target = 넷 중 정확히 하나) + `POST /conversations/{id}/reports`(401 → 미인증 403 → 신고자 회원 행 `lockForKeyShare` → 방 없음·비참가자 404 → 중복 409; 같은 학교 검사 없음) + 관리자 목록 CONVERSATION(preview=item_title, author=신고자 아닌 참가자) + 기각 200. `ReportResponse`·`AdminReportResponse`의 "나머지는 댓글" 가정을 4분기 + IllegalStateException으로 고침. **사용자 결정**: 관리자는 신고된 대화의 방 전체를 계속 볼 수 있다(f2), 처리는 보기+기각만, 안 읽은 부분 인덱스는 안 함. 신고자 잠금 줄은 지금 테스트로 못 지키는 보험(FK 트리거 이름 순서에 기대는 우연을 피하려는 것, 추론이며 재현 못 함). 전체 테스트 1299.
   - **잠금 규칙(S14 핵심)**: 탈퇴(`UserService.withdraw`)는 회원 행 FOR UPDATE를 맨 먼저 잡는다. 쪽지 쓰기·답장·읽음 처리는 전부 **회원 행 FOR KEY SHARE(`UserRepository.lockForKeyShare`, id 순)를 먼저** 잡고 그다음 방·쪽지 행. 순서를 어기면 실제로 40P01 교착 → 500이 났다(S14-a에서 재현).
 - Notion: S14 카드(번호 15)에 S14-a·b·c 단계 페이지(d는 프론트만이라 안 씀). 진행 현황 S14 줄 "남은 것: 화면 · 신고"(S14-e 끝나면 "신고"만).
 
 ## 다음에 할 일
-- **S14-f 대화 신고(V13)**: 시작 전 planner 한 번 더 — "관리자는 신고된 대화만 본다" 범위 승인 필요. (S14-e는 끝남. 미룬 것은 backlog "나중(S14-e 리뷰)" — 스크린리더용 "안 읽은 쪽지 3개", 단위 테스트, e2e 중복 등.)
+- **S14-f2 → f3 → f4**(backlog S14-f 항목에 완료 조건 있음): f2 백엔드 `GET /admin/reports/{id}/conversation`(방 전체, 읽음 여부 없음, 일반 회원 403·없는/다른 종류 신고 404, `GET /conversations/{id}`는 관리자에게 계속 404), f3 대화 화면 [신고] 버튼, f4 관리자 "쪽지" 배지 + 대화 보기 화면([삭제] 없음). 각 단계 build 전에 무엇을 만드는지 설명하고 OK. **S13-h 배포 때 deploy.md 되돌리기 절에 한 줄**: V13 뒤 대화 신고가 있으면 S14-f 이전 이미지의 관리자 목록은 500. (S14-e는 끝남. 미룬 것은 backlog "나중(S14-e 리뷰)" — 스크린리더용 "안 읽은 쪽지 3개", 단위 테스트, e2e 중복 등.)
 - 알려진 불안정 테스트: 전체 e2e에서 `messages.spec.ts:74`가 한 번 실패했다가 단독 3번 통과. 또 실패하면 실패한 줄이 `:91`·`:94`면 부하, `waitIdle`·"준비하지 않은 요청"이면 S14-e 관련.
 - S13-h 배포 전까지 사용자 콘솔 1분 작업: EC2 메타데이터 홉 제한 2 확인(아래 "진행 중인 단계"). 배포 날은 deploy.md "사진 저장 (S13-g6)" 1~5단계를 그대로 따른다.
 - (나중, 사용자 결정) 포트폴리오 트러블슈팅 정리: g6-1은 "옛 코드로 되돌리면 테스트 6개 실패" 재현 증거 있음. g6-2를 트러블슈팅으로 쓰려면 b6274d9(통째 읽기) vs 이후를 작은 힙으로 동시 요청해 메모리 전후 측정이 필요(지금은 "설계 개선"으로만 말할 수 있음).
 - 그다음 S13-h 배포(S13·S14 한 번에) → S16 Flutter(웹) 교체.
 
 ## 진행 중인 단계
-- 진행 중인 단계 없음(S14-e까지 커밋, S14-f는 시작 전). 아래는 S13-h 배포 때 필요한 메모.
+- 진행 중인 단계 없음(S14-f1까지 커밋, S14-f2는 시작 전). 아래는 S13-h 배포 때 필요한 메모.
   - 리뷰 미룬 것은 backlog "나중(S13-g…리뷰)" 줄들(g6-3·g6-4·g6-5 줄 새로 추가). **g6-5 줄의 "S13-h 배포 날 처음 확인" 목록**(nginx 거친 사진 201·실제 S3 왕복·삭제 실패 로그 0건·홉 제한·301/403 표 줄은 알려진 동작 기준)을 배포 날 체크리스트로 쓴다.
   - **AWS 콘솔 작업 끝(2026-11-12)**: 서울 리전 S3 버킷(범용·글로벌 네임스페이스, ACL 비활성, 퍼블릭 차단 4개, 버저닝 끔, SSE-S3) + IAM 정책 `board-market-photos-access`(그 버킷만 Put/Get/Delete + ListBucket) + IAM 역할 `board-ec2-role`(EC2 신뢰, 위 정책만) → EC2 `demo-server`에 연결함. 액세스 키는 안 만듦(앱은 기본 자격 증명 체인). **버킷 이름은 저장소가 공개라 코드·문서에 안 씀 → 사용자에게 물어서 EC2 `.env`의 `PHOTO_S3_BUCKET`에만.**
   - **남은 콘솔 1분 작업(S13-h 전까지)**: EC2 → demo-server → 작업 → 인스턴스 설정 → 인스턴스 메타데이터 옵션 수정 → "메타데이터 응답 홉 제한"이 2인지(1이면 2로). 컨테이너 안 앱이 역할 열쇠를 받으려면 2 이상 필요.
@@ -67,7 +68,7 @@
 
 ## 주의할 점
 - 새 컴퓨터에서는 먼저 `git pull`. 끝나면 커밋·push.
-- **표(테이블)를 바꾸는 기능은 새 V 파일**(다음은 `V13__add_...sql`, 이름은 `add_`, UNIQUE는 `uk_` 관례)로. 커밋된 V 파일은 고치지 않는다. ddl-auto는 validate 유지.
+- **표(테이블)를 바꾸는 기능은 새 V 파일**(다음은 `V14__add_...sql`, 이름은 `add_`, UNIQUE는 `uk_` 관례)로. 커밋된 V 파일은 고치지 않는다. ddl-auto는 validate 유지.
 - **FK·UNIQUE·CHECK 제약에는 반드시 이름**을 지어라. 서비스가 제약 이름으로 404/401/409를 구분한다(`ConstraintViolations`). V1의 `posts.author_id` FK만 해시 이름이라 글쓰기는 "23503이면 401".
 - **DB 오류 메시지 언어는 영어(기본값) 유지.** `lc_messages`를 바꾸면 경쟁 상황에서 500(docs/deploy.md).
 - 경쟁 조건 테스트는 `LockRaceSupport`, 유령 토큰은 `TestLogin.행없는_회원_토큰(jwtEncoder)`, 인증 회원은 `TestLogin.인증된_사용자(...)`·`학교_인증_처리(jdbc, username, 학교명)`. 글쓰기·댓글·공감·신고 테스트는 **인증 회원 + 같은 학교 글**이어야 한다.
@@ -93,7 +94,7 @@
 - 후기 작성 테스트는 **인증 회원**이어야 한다(`TestLogin.인증된_사용자`·`학교_인증_처리`). 수정·삭제는 인증 불필요. 탈퇴는 `UserService.withdraw`가 posts·comments·visa_reviews 작성자를 비운 뒤 회원 삭제(작성자 FK에 ON DELETE 없음).
 - SecurityConfig의 `GET /visa-reviews/{id}` 공개 규칙은 `/visa-reviews/` 아래 한 칸짜리 GET을 전부 공개로 만든다(`/stats`도 명시해 둠). 로그인 전용 GET을 그 아래 두려면 따로 막아야 한다.
 - **Vite 옛 파일 문제가 이번에도 여러 번 났다**(서브에이전트가 고친 직후 화면이 하얗게 비고 `xxx is not defined`). build가 프론트를 고친 뒤에는 브라우저 확인 전에 frontend 서버를 항상 껐다 켠다.
-- Flyway 테스트 `FlywayExistingBaselineTests`는 "새로 적용되는 V 파일 수"를 하드코딩한다(지금 11개·기록장 12행 + V12 성공 행 단언) → V13을 만들면 같이 고쳐야 한다.
+- Flyway 테스트 `FlywayExistingBaselineTests`는 "새로 적용되는 V 파일 수"를 하드코딩한다(지금 12개·기록장 13행 + V13 성공 행 단언) → V14를 만들면 같이 고쳐야 한다.
 - **tester가 이제 `frontend/e2e/`에도 쓸 수 있다**(`.claude/agents/tester.md` 허용 경로, 2026-11-10). 에이전트 설정은 세션 시작 때만 읽혀서, 바꾼 그 세션에서는 반영 안 됐다(그래서 S12-c·d e2e는 메인 대화가 씀). 화면 코드 `frontend/src/`는 여전히 못 씀.
 - **build 보고를 그대로 믿지 말 것**: S12-c에서 build가 "npm run build 통과"라고 했는데 실제로는 e2e 파일 import 확장자(`'./mockApi'` → `'./mockApi.ts'`)로 tsc가 실패했다. 커밋 전에 메인이 `npm test`·`npm run build`·`npm run lint`·`npm run test:e2e`를 직접 한 번 돌린다.
 - **e2e에서 날짜를 입력하는 장면은 브라우저 시계를 고정**한다: `test.beforeEach(async ({ page }) => { await page.clock.setFixedTime(new Date('2026-11-10T03:00:00Z')) })`(visa-plan·visa-banner spec). 날짜 칸에 `min=오늘`이 있어서 고정 안 하면 날짜가 지나면서 테스트가 깨진다.
