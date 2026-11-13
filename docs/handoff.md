@@ -2,7 +2,7 @@
 
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 
-마지막 갱신: 2026-11-13 집 PC (S14-g·S14-h 완료, **S13-h 배포 완료(S13·S14 한 번에)**. 남은 것: Notion 갱신(서버 오류로 못 함) → S16)
+마지막 갱신: 2026-11-13 밤 집 PC (**S16 시작: research·planner 끝, 결정 10개 승인, S16-a 완료·push(9ee2f2c)**. Notion 갱신은 또 서버 시간 초과로 못 함)
 
 ## 지금 어디까지
 - **S0~S14 + UI1~UI3 완료·배포됨.** 운영은 S13-h(2026-11-13, 커밋 4f1c7c0 이미지) 이미지, **V13까지 적용**. 배포 확인: health UP, `PHOTO_STORAGE=s3`, Flyway 9~13 success, S3 오류 로그 0, 브라우저로 사진 올리기·보기·지우기(실제 S3 왕복 처음). **미확인: 운영에서 쪽지·대화 신고**(학교 인증된 두 번째 계정이 없음), 사진 지운 뒤 `사진 파일 삭제에 실패` 0건 로그는 사용자에게 명령만 줌(결과 못 받음).
@@ -40,19 +40,23 @@
   - S14-g(a091f3e, 백엔드): 대화 보기 두 API가 쪽지를 DB에서 id desc **201통만**(Spring Data `Limit`, 실제 SQL LIMIT) → 201통이면 `hasMore:true` + 가장 오래된 1통 버림 → 오름차순. 상수 `message/service/RecentMessages.LIMIT=200` 한 곳, 두 응답 DTO에 `hasMore`. 테스트 설정 `hibernate.query.fail_on_pagination_over_collection_fetch=true`. 저장소가 정말 201개만 꺼내는지 `RecentMessagesRepositoryTests`. 전체 1334. Notion 단계 페이지 있음.
   - S14-h(19bcccd, 프론트만): 쪽지함 줄 안 읽은 수 배지(`formatUnreadBadge`, 100 이상 "99+", sr-only "안 읽은 쪽지 N개"), hasMore면 대화 화면·관리자 대화 보기 목록 위 회색 안내(프론트 상수 `RECENT_MESSAGE_LIMIT=200`, 서버와 손으로 맞춤). e2e 340.
   - **잠금 규칙(S14 핵심)**: 탈퇴(`UserService.withdraw`)는 회원 행 FOR UPDATE를 맨 먼저 잡는다. 쪽지 쓰기·답장·읽음 처리·대화 신고는 전부 **회원 행 FOR KEY SHARE(`UserRepository.lockForKeyShare`, id 순)를 먼저** 잡고 그다음 방·쪽지 행. 순서를 어기면 실제로 40P01 교착 → 500이 났다(S14-a에서 재현).
+- **S16(React → Flutter 웹 교체) 진행 중.** research·planner 결과와 사용자 결정 10개, 단계 목록(a~p), S16-a 실측은 전부 backlog S16 항목에 있음.
+  - 결정 요약: 운영엔 /v2 없이 끝(S16-n)에 web 이미지를 통째 교체 · 폴더 `flutter_app/` · 테스트는 `flutter test` 위젯 테스트+가짜 응답 + 묶음마다 손 확인표 · `dio` · `provider` · Material 3 + 색·폭 720px만 맞춤 · 중간 단계도 main에 push · React 삭제는 배포 확인 뒤(S16-p) · 백엔드·DB 변경 없음(필요하면 멈추고 묻기).
+  - S16-a(9ee2f2c): Flutter 3.50.0 / Dart 3.14.0 설치, `flutter_app/`(웹만, 새 패키지 없음) 실험 화면. 한글 입력 합격(사용자 직접). 처음 치는 글자에 잠깐 □ = 한글 폰트를 fonts.gstatic.com에서 조각으로 받아서(canvaskit도 www.gstatic.com) → S16-c 후보로 폰트·엔진 자체 담기. Ctrl+F는 1/1만 세고 이동 안 함, 드래그 선택 안 됨(알려진 한계). 첫 로딩 React 421KB vs Flutter 약 2.4MB+엔진 2MB+폰트 0.2MB, 지금 nginx엔 gzip 없음. Playwright(msedge)가 ensureSemantics 켠 Flutter 화면에서 getByRole·getByLabel·한글 fill 됨. tester·review는 실험 단계라 생략(메인이 analyze·test 직접 확인).
 - Notion: S14 카드(번호 15)에 S14-a·b·c·**g** 단계 페이지 + "S14 전체 정리와 코드 리뷰". 카드 표 g·h 줄 완료로 갱신 끝. **아직 못 한 것(2026-11-13 Notion 서버 오류로 실패)**: 상위 페이지 "진행 현황"의 S13·S14 줄 체크(괄호에 "S13-h에서 한 번에 배포"), S13·S14 카드 요약에 배포됨, 메인 페이지 아키텍처 그림에 S3 추가, 도구 사전에 IAM 역할·IMDS(홉 제한) 페이지가 필요한지 확인(S3·AWS SDK 페이지는 이미 있음).
 
 ## 다음에 할 일
-- **바로 다음 행동: Notion 갱신**(위 "지금 어디까지"의 Notion "아직 못 한 것" 4가지). 2026-11-13에 Notion 커넥터가 "연결됨"인데 fetch·search마다 서버 오류였다. 되면 진행 현황 S13·S14 체크.
-- 그다음 **S16 Flutter(웹) 교체**(backlog S16: research 먼저 → planner). 순서 S16 → S17 AI → S15 번역(사용자 결정 2026-11-12).
+- **바로 다음 행동: S16-b 준비.** research 먼저(개발 때 Flutter 화면과 `/api`를 같은 출처로 맞추는 방법 — Flutter 개발 서버 프록시 설정 또는 로컬 nginx, 백엔드 CORS 변경 금지 / `--web-content-hash` 실제 동작) → planner로 S16-b 완료 조건 확정(주소 22개 빈 화면·go_router·#없는 주소·뒤로 가기·404 화면·CI에 flutter 작업(analyze·test·build web), images 작업은 그대로) → **build 전에 사용자에게 쉬운 말로 설명하고 OK** → build → tester → review.
+- Notion 갱신(위 "아직 못 한 것" 4가지)은 Notion이 되면 아무 때나. 2026-11-13엔 두 번 다 "연결됨"인데 fetch·search 시간 초과. S16-a는 실험 단계라 Notion 단계 페이지를 쓸지 사용자에게 물어볼 것(도구 사전에 Flutter 페이지는 필요).
+- 순서 S16 → S17 AI → S15 번역(사용자 결정 2026-11-12).
 - 운영 확인 남은 것(선택): 학교 인증된 두 번째 계정이 생기면 docs/deploy.md "S13·S14 배포 후 확인" 4·5번(쪽지·대화 신고). 사진을 지운 뒤 서버에서 `docker compose --profile prod logs app | grep -c '사진 파일 삭제에 실패'`가 0인지.
 - **EC2는 2026-11-13 배포 뒤 켜져 있을 수 있다.** 안 쓰면 콘솔에서 중지(퍼블릭 IP는 켤 때마다 바뀜).
 - (나중, 사용자 결정) 포트폴리오 트러블슈팅 정리: g6-1은 "옛 코드로 되돌리면 테스트 6개 실패" 재현 증거 있음. g6-2를 트러블슈팅으로 쓰려면 b6274d9(통째 읽기) vs 이후를 작은 힙으로 동시 요청해 메모리 전후 측정이 필요. **S13-h의 CI 빨간불(11-12~13, 아래 주의할 점)도 트러블슈팅 후보**(원인 추적: 같은 테스트 2개만 매번 실패 → 로컬 Edge·Chrome 통과 → CI만 headless shell → channel 변경으로 초록).
 
 ## 진행 중인 단계
-- 진행 중인 단계 없음. 마지막 커밋 2f97925(S13-h 배포 기록) + 이 handoff.
+- S16 진행 중: S16-a 끝(9ee2f2c·d4bd816, push됨), S16-b는 research부터. 이번에 생긴 "나중": 한글 폰트·canvaskit 자체 담기(S16-c 후보), nginx gzip, 드래그 선택(SelectionArea) 검토 — 전부 backlog S16 S16-a 실측 줄.
 - 운영 서버 상태 메모: EC2 `~/board/.env`에 `PHOTO_S3_BUCKET` 들어감(값은 저장소에 안 씀), `docker-compose.yml`은 S13-g6 버전으로 교체, 옛 파일은 `docker-compose.yml.bak-20261113`. IMDS 홉 제한 2·IMDSv2 필수·역할 `board-ec2-role` 확인함.
-- 커밋 안 된 변경: 이 handoff 갱신 커밋만 남음, `.claude/launch.json`(일부러 커밋 안 함).
+- 커밋 안 된 변경: 이 handoff 갱신 커밋만 남음, `.claude/launch.json`(일부러 커밋 안 함, 집 PC엔 S16-a 측정용 `flutter-web-build`(8765)·`react-dist`(8766) 정적 서버 항목 추가됨).
 - 미룬 것(S14-g·S14-h·S13-h): backlog의 "나중(S14-g 리뷰)"·"나중(S14-h 리뷰)"·"나중(S13-h)" 줄(200통 넘는 방은 화면이 잘렸다는 것 외엔 이전 쪽지 볼 방법 없음, e2e 도우미 중복, 프론트·서버 200 상수 손으로 맞춤, 운영 쪽지 미확인).
 - 미룬 것(S14): backlog S14 항목의 "나중(S14-a~d 리뷰)"·"나중(S14-e 리뷰)"·"나중(S14-f1 리뷰)"·"나중(S14-f2 리뷰)"·"나중(S14-f3 리뷰)"·"나중(S14-f4 리뷰)"·"나중(S14 전체 리뷰)" 줄(전각 공백 쪽지, 목록 페이징, 안 읽은 수 부분 인덱스, 문자열 숫자 "1" 받아짐, 관리자 열람 감사 기록(관리자 늘리기 전 필수), 쪽지 횟수 제한, 신고 남용, 접근성, e2e 중복, 새 e2e "읽음 PUT 401"이 옛 조건으로도 통과하는 빈틈 등).
 - 미룬 것(S13-g5): backlog S13 항목의 "나중(S13-g5-1 리뷰)"·"나중(S13-g5-2 리뷰)" 줄(키보드 Enter로 파일 선택 창이 실제로 열리는지 사람 확인, 아이폰 실기기 HEIC·48MP 확인, 글쓰기 401 뒤 재로그인 안내 등).
@@ -71,6 +75,9 @@
 
 ## 주의할 점
 - 새 컴퓨터에서는 먼저 `git pull`. 끝나면 커밋·push.
+- **Flutter(S16)**: 집 PC는 `C:\Users\seoka\flutter`(git clone --depth 1 -b stable, 3.50.0), 사용자 PATH에 `...\flutter\bin` 추가함(새 터미널부터 적용, 그 전엔 전체 경로 `C:\Users\seoka\flutter\bin\flutter.bat`). 웹만이라 doctor의 Android·Visual Studio ❌는 무시. 첫 실행은 Dart SDK·패키지 받느라 20분 넘게 걸렸다. **노트북엔 아직 설치 안 함** → 같은 방법으로 설치 후 `flutter doctor`(Chrome ✅면 됨).
+- **집 PC 스마트 앱 컨트롤을 사용자가 2026-11-13에 껐다.** 켜져 있을 때 dartvm.exe를 막아 flutter.bat가 아무 오류 없이 무한 재시도했다(겉보기엔 "오래 걸림"). 막힘 확인은 이벤트 로그 `Microsoft-Windows-CodeIntegrity/Operational`(Id 3077/3033 "did not meet the Enterprise signing level"). 아래 oxlint·Playwright 브라우저 차단도 같은 원인이었을 가능성이 높음(꺼진 뒤 lint는 아직 안 돌려 봄). 노트북에서 같은 증상이면 같은 로그부터 확인.
+- **Git Bash `sed -i`로 docs 파일을 고치지 말 것**: 2026-11-13 backlog 한 칸 고치려다 줄바꿈 때문에 47줄이 바뀌었다(커밋 전 `git checkout --`로 되돌림, 그 파일은 이미 커밋돼 있었음). Edit 도구로.
 - **CI e2e 브라우저(2026-11-13)**: `playwright.config.ts`는 CI에서 `channel: 'chromium'`(진짜 Chromium 새 headless), 로컬은 Edge(`msedge`). 기본값(chrome-headless-shell)에서는 뒤로 가기 테스트 2개(market-photo-upload:593, market-search:136)가 11-12부터 CI에서만 계속 실패해 **images가 안 올라갔다**(S14-g 한 번만 통과). CI가 빨강이면 Docker Hub latest가 옛 버전이므로 Deploy 전에 그 커밋 CI(images 포함) 초록 확인 필수. CI 로그는 비로그인 API로 못 받음 → 사용자 Chrome으로 Actions 잡 페이지를 읽었다. `messages.spec.ts:74`는 여전히 CI에서 재시도로 통과(flaky).
 - **집 PC에서 `npm run lint`(oxlint) 실행 불가**: Windows 애플리케이션 제어 정책이 `oxlint.win32-x64-msvc.node`를 막음(재설치로 안 풀림, 보안 설정이라 그대로 둠). lint는 CI·노트북에서 확인. 이 PC에 `gh` CLI도 없음(공개 저장소라 curl로 GitHub API 조회는 됨).
 - **사용자에게 서버 명령을 줄 때 `<서버IP>`·`<버킷 이름>` 같은 자리표시를 쓰지 말 것**: 2026-11-13에 그대로 복사돼 .env에 `<버킷 이름>`이 들어갔다. 실제 값을 넣은 완성 명령을 주거나 "이 부분만 바꿔"를 한 줄로 분리. 사용자 터미널은 PowerShell이라 키 경로는 `"$HOME\.ssh\board-ec2"`. 서버 안/내 PC 중 어디서 칠 명령인지 매번 표시.
