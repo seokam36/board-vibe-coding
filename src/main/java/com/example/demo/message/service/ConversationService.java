@@ -9,6 +9,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Limit;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -228,7 +229,8 @@ public class ConversationService {
         }).toList();
     }
 
-    // 대화 한 건 + 쪽지 전체(id 오름차순). 참가자가 아니거나(관리자 포함) 없는 방이면 404.
+    // 대화 한 건 + 최근 쪽지 200통(id 오름차순). 참가자가 아니거나(관리자 포함) 없는 방이면 404.
+    // 쪽지는 최신 201통을 가져와 201통이면 hasMore=true로 알리고 가장 오래된 1통은 버린다(S14-g).
     @Transactional(readOnly = true)
     public ConversationDetailResponse detail(Long conversationId, LoginUser loginUser) {
         User me = accessGuard.requireUser(loginUser);
@@ -237,8 +239,10 @@ public class ConversationService {
         if (!room.hasParticipant(me.getId())) {
             throw ApiErrors.conversationNotFound();
         }
+        var recent = RecentMessages.trim(messageRepository.findRecentResponses(conversationId, me.getId(),
+                Limit.of(RecentMessages.FETCH_SIZE)));
         return new ConversationDetailResponse(room.getId(), ConversationItemInfo.of(room),
-                ConversationPartnerInfo.of(room, me.getId()), messageRepository.findResponses(conversationId, me.getId()));
+                ConversationPartnerInfo.of(room, me.getId()), recent.items(), recent.hasMore());
     }
 
     // 읽음 처리: 이 방에서 id <= lastMessageId 이고 상대가 보낸 안 읽은 쪽지에 읽은 시각을 찍는다. 학교 인증은 필요 없다(읽기 계열).

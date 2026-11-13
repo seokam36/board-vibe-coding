@@ -43,7 +43,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 // S14-f2: 관리자가 신고된 대화를 읽는 API(GET /admin/reports/{id}/conversation)를 검사한다.
-// 핵심: 방 전체가 보인다 / 읽음 처리가 안 된다 / 대화 신고만 열린다 / 일반 회원 403 / 쿼리 수 고정 /
+// 핵심: 신고 시각으로 자르지 않고(최근 200통) 보인다 / 읽음 처리가 안 된다 / 대화 신고만 열린다 / 일반 회원 403 / 쿼리 수 고정 /
 // 그리고 같은 관리자도 GET /conversations/{id}는 여전히 404(결정 ⑥)이다.
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
@@ -111,7 +111,7 @@ class AdminConversationViewTests {
 	// ============ 성공: 모양과 범위 ============
 
 	@Test
-	void 신고된_대화의_방_전체를_id_오름차순으로_돌려준다_신고_뒤_쪽지와_신고하지_않은_상대의_쪽지도_보인다() throws Exception {
+	void 신고된_대화를_신고_시각으로_자르지_않고_id_오름차순으로_돌려준다_신고_뒤_쪽지와_신고하지_않은_상대의_쪽지도_보인다() throws Exception {
 		답장(판매자쿠키, "둘째"); // 신고 전 답장
 		long reportId = 대화_신고(구매자쿠키);
 		답장(판매자쿠키, "신고 뒤 판매자 답장"); // 신고 뒤 쪽지, 신고하지 않은 쪽(판매자)의 쪽지
@@ -144,7 +144,7 @@ class AdminConversationViewTests {
 			// 읽음 여부·mine은 응답에 없다
 			assertThat(m.get(i).propertyNames()).containsExactlyInAnyOrder("id", "sender", "content", "createdAt");
 		}
-		assertThat(b.propertyNames()).containsExactlyInAnyOrder("reportId", "conversationId", "itemTitle", "buyer", "seller", "messages");
+		assertThat(b.propertyNames()).containsExactlyInAnyOrder("reportId", "conversationId", "itemTitle", "buyer", "seller", "messages", "hasMore");
 	}
 
 	@Test
@@ -290,17 +290,19 @@ class AdminConversationViewTests {
 			stats.setStatisticsEnabled(false);
 		}
 		assertThat(res.getStatus()).isEqualTo(200);
-		assertThat(json(res).get("messages").size()).isEqualTo(n);
+		assertThat(json(res).get("messages").size()).isEqualTo(Math.min(n, 200)); // 최근 200통까지만
 		return count;
 	}
 
 	@Test
-	void 쪽지가_1통이든_50통이든_SQL_실행_수가_같다() throws Exception {
+	void 쪽지가_1통이든_50통이든_250통이든_SQL_실행_수가_같다() throws Exception {
 		long reportId = 대화_신고(구매자쿠키);
 		long small = 읽기_SQL수(reportId, 1, 1);
 		long large = 읽기_SQL수(reportId, 50, 2);
 		System.out.println("[쿼리수관찰:관리자대화보기] 1통=" + small + ", 50통=" + large);
 		assertThat(large).as("50통 SQL 수").isEqualTo(small);
+		long huge = 읽기_SQL수(reportId, 250, 3); // 200통 한도를 넘어도 쿼리 수는 같다
+		assertThat(huge).as("250통 SQL 수").isEqualTo(small);
 		// 실측 3번 = 관리자 회원 재확인 1 + 신고(방·참가자 포함) 1 + 쪽지(보낸 사람 포함) 1
 		assertThat(small).as("절대 SQL 수").isEqualTo(3L);
 	}

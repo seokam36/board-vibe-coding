@@ -133,7 +133,7 @@ class ConversationReadReplyExtraTests {
 		assertThat(키들(목록항목.get("lastMessage"))).containsExactlyInAnyOrder("content", "createdAt", "mine");
 
 		JsonNode 상세 = json(보기(구매자쿠키, 방));
-		assertThat(키들(상세)).containsExactlyInAnyOrder("id", "item", "partner", "messages");
+		assertThat(키들(상세)).containsExactlyInAnyOrder("id", "item", "partner", "messages", "hasMore");
 		assertThat(키들(상세.get("item"))).containsExactlyInAnyOrder("id", "title", "deleted");
 		assertThat(키들(상세.get("partner"))).containsExactlyInAnyOrder("id", "nickname");
 		assertThat(키들(상세.get("messages").get(0))).containsExactlyInAnyOrder("id", "content", "createdAt", "mine");

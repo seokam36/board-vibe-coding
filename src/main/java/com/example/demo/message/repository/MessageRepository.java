@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -17,18 +18,21 @@ import com.example.demo.message.dto.MessageResponse;
 // 쪽지 DB 접근 담당
 public interface MessageRepository extends JpaRepository<Message, Long> {
 
-    // 방 안의 쪽지를 id 오름차순으로(id가 진짜 순서. 지금은 방 행 잠금 뒤에 시각을 재서 created_at 순서와도 같지만 id가 더 확실하다).
+    // 방 안의 최신 쪽지를 id 내림차순(최신이 먼저)으로, limit개만(S14-g). id가 진짜 순서다(created_at보다 확실).
+    // 서비스가 201을 넘겨 "하나 더" 가져와 hasMore를 판단하고, 오름차순으로 뒤집는다(RecentMessages.trim).
     // 엔티티를 읽지 않고 곧바로 응답 모양으로 가져온다. mine = 보낸 사람이 나인가(보낸 사람이 탈퇴해 NULL이면 false).
     @Query("select new com.example.demo.message.dto.MessageResponse(m.id, m.content, m.createdAt, "
             + "case when m.sender.id = :me then true else false end) "
-            + "from Message m where m.conversation.id = :conversationId order by m.id")
-    List<MessageResponse> findResponses(@Param("conversationId") Long conversationId, @Param("me") Long me);
+            + "from Message m where m.conversation.id = :conversationId order by m.id desc")
+    List<MessageResponse> findRecentResponses(@Param("conversationId") Long conversationId, @Param("me") Long me,
+            Limit limit);
 
-    // 관리자가 신고된 대화를 읽을 때(S14-f2): 방의 쪽지 전부를 보낸 사람과 함께 id 오름차순으로 가져온다.
+    // 관리자가 신고된 대화를 읽을 때(S14-f2, g): 방의 최신 쪽지를 보낸 사람과 함께 id 내림차순으로 limit개만 가져온다.
     // LEFT JOIN FETCH: 보낸 사람이 탈퇴해 NULL이어도 쪽지는 나와야 하고, 쪽지가 몇 통이든 쿼리는 1번(N+1 없음).
+    // sender는 to-one 연관이라 개수 제한이 SQL의 LIMIT으로 그대로 들어간다(컬렉션 fetch와 달리 메모리 페이징 없음).
     // 읽기 전용 일반 SELECT다. read_at을 바꾸는 코드(markRead)는 이 흐름에서 부르지 않는다.
-    @Query("select m from Message m left join fetch m.sender where m.conversation.id = :conversationId order by m.id")
-    List<Message> findAllWithSenderByConversationId(@Param("conversationId") Long conversationId);
+    @Query("select m from Message m left join fetch m.sender where m.conversation.id = :conversationId order by m.id desc")
+    List<Message> findRecentWithSender(@Param("conversationId") Long conversationId, Limit limit);
 
     // 여러 방의 "마지막 쪽지"(방마다 id가 가장 큰 것)를 쿼리 한 번에 가져온다. 방이 1개든 20개든 쿼리는 1번.
     @Query("select new com.example.demo.message.repository.LastMessageRow(m.conversation.id, m.content, m.createdAt, m.sender.id) "

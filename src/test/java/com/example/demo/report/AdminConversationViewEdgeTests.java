@@ -83,7 +83,7 @@ class AdminConversationViewEdgeTests {
 	}
 
 	@Test
-	void 같은_방을_구매자와_판매자가_각각_신고하면_두_신고_id_모두_같은_방_전체를_보여_준다() throws Exception {
+	void 같은_방을_구매자와_판매자가_각각_신고하면_두_신고_id_모두_같은_방을_보여_준다() throws Exception {
 		답장(판매자쿠키, 방id, "\"판매자 답장\"");
 		long 구매자신고 = 신고하기(구매자쿠키, 방id);
 		long 판매자신고 = 신고하기(판매자쿠키, 방id);

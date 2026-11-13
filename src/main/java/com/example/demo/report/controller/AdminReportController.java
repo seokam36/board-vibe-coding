@@ -34,7 +34,7 @@ public class AdminReportController {
         return adminReportService.getAll(status, LoginUser.from(jwt));
     }
 
-    // 신고된 대화 읽기(대화 신고만). 200 + 방 전체 쪽지. 읽음 처리는 하지 않는다.
+    // 신고된 대화 읽기(대화 신고만). 200 + 최근 200통 쪽지(신고 시각으로 자르지 않음). 읽음 처리는 하지 않는다.
     @GetMapping("/{id}/conversation")
     public AdminConversationResponse getConversation(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         return adminReportService.getConversation(id, LoginUser.from(jwt));

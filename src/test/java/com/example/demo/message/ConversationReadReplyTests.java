@@ -296,7 +296,7 @@ class ConversationReadReplyTests {
 	}
 
 	// 무엇: 판매자가 답장한 뒤 탈퇴하면, 구매자가 봐도 쪽지 2통이 다 나오고 판매자 것(보낸 사람 NULL)은 mine=false.
-	// 왜: MessageRepository.findResponses의 `m.sender.id = :me`가 inner join으로 바뀌면 보낸 사람이 NULL인 쪽지가 목록에서 사라진다. 그걸 잡는다.
+	// 왜: MessageRepository.findRecentResponses의 `m.sender.id = :me`가 inner join으로 바뀌면 보낸 사람이 NULL인 쪽지가 목록에서 사라진다. 그걸 잡는다.
 	@Test
 	void 보기_보낸_사람이_탈퇴한_쪽지도_남고_mine_false다() throws Exception {
 		long 방 = 방_만들기(구매자쿠키, 글id, "문의");
