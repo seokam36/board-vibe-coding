@@ -2,19 +2,19 @@
 
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 
-마지막 갱신: 2026-11-13 (S14-g 안(최근 200통·hasMore) 사용자 OK, build는 시작 전 상태. 그다음 S14-h → S13-h 배포)
+마지막 갱신: 2026-11-13 집 PC (S14-g·S14-h 완료, **S13-h 배포 완료(S13·S14 한 번에)**. 남은 것: Notion 갱신(서버 오류로 못 함) → S16)
 
 ## 지금 어디까지
-- **S0~S12 + UI1~UI3 완료·배포됨.** 운영은 S12-e(2026-11-11) 이미지, V8까지 적용. S12 리뷰 수정(21741e0)은 push됐지만 운영 미반영(다음 배포에 같이 나감).
+- **S0~S14 + UI1~UI3 완료·배포됨.** 운영은 S13-h(2026-11-13, 커밋 4f1c7c0 이미지) 이미지, **V13까지 적용**. 배포 확인: health UP, `PHOTO_STORAGE=s3`, Flyway 9~13 success, S3 오류 로그 0, 브라우저로 사진 올리기·보기·지우기(실제 S3 왕복 처음). **미확인: 운영에서 쪽지·대화 신고**(학교 인증된 두 번째 계정이 없음), 사진 지운 뒤 `사진 파일 삭제에 실패` 0건 로그는 사용자에게 명령만 줌(결과 못 받음).
 - **방향 결정(2026-11-11):** 이 프로젝트는 학습·포트폴리오(A)가 중심, 실제 사용자(B)는 되면 좋은 것. 비자 일정 캘린더(.ics)는 보류. 다음 큰 기능은 **S13 중고거래·나눔 → S14 쪽지 → S15 글 번역**. **S13과 S14를 다 만든 뒤 한 번에 배포**(쪽지가 없으면 연락 수단이 없어서).
-- **S13(중고거래·나눔) a~d 완료, push됨(f8071ad), 운영 미반영.** 결정 전부 backlog S13 항목.
+- **S13(중고거래·나눔) a~d 완료, push됨(f8071ad), S13-h로 배포됨.** 결정 전부 backlog S13 항목.
   - S13-a: V9 `market_items`(판매자 FK ON DELETE CASCADE, CHECK 거래 방식·상태·가격(나눔 0 / 판매 1~10,000,000)) + `POST /market-items`(학교 인증 회원, 학교는 인증 학교 복사) · `GET /market-items/{id}`(공개).
   - S13-b: `GET /market-items`(공개, schoolId·tradeType·status 필터) · `PUT /{id}`(본인만, 관리자도 403) · `DELETE /{id}`(본인·관리자).
   - S13-c: `PUT /{id}/status`(본인만). 전환 규칙은 `ItemStatus.canChangeTo` 한 곳(ON_SALE↔RESERVED, →DONE, DONE에서 못 나감). 상태 변경·내용 수정 모두 **조건부 UPDATE**(where status=from / status<>DONE), 0행이면 existsById로 404/409. status는 `updatable=false`, 엔티티에 내용·상태 바꾸는 메서드 없음(일부러). 완료 글은 내용 수정 409, 삭제만.
   - S13-d: 화면 `/market`·`/market/:id`·`/market/new`·`/market/:id/edit`, 상단바 "중고·나눔". 판매자만 갈 수 있는 상태 버튼, [거래 완료] 확인 창, 관리자는 남의 글에 [삭제]만.
   - S13-e(9f31e26): **V10** reports.market_item_id(FK CASCADE·UNIQUE) + ck_reports_target `num_nonnulls(...)=1`. `POST /market-items/{id}/reports`(같은 학교 인증 회원만), 관리자 목록 MARKET_ITEM("중고" 배지, postId null).
   - S13-f(ee82020): `GET /market-items?q=` 제목 검색(대소문자 무시, %·_·\ 이스케이프, NUL·50자 초과 400, 표 변경 없음), /market 검색창.
-- **S13-g 사진 g1~g6 전부 완료, push됨(aa330ad), 운영 미반영.** S13에서 남은 건 S13-h 배포뿐(S14 쪽지 뒤 한 번에).
+- **S13-g 사진 g1~g6 전부 완료, push됨(aa330ad), S13-h로 배포됨.**
   - g6-3(2e55f28): `S3PhotoStorage` + `S3ClientConfig`(`app.photo.storage=${PHOTO_STORAGE:local}`, s3일 때만 켜짐, 버킷·리전 비면 시작 실패, 시작 때 HeadBucket 실패면 시작 실패, apache5 풀 100·대기 3s·연결 3s·소켓 10s·attempt 30s·call 60s, 자격 증명은 기본 체인=EC2 IAM 역할). NoSuchKey → empty, SdkException → PhotoStorageException, open 실패 때 abort. key 검사는 공용 `PhotoKeys`. 의존성 AWS SDK BOM 2.57.13 + s3(netty exclude) + apache5-client. 테스트는 Mockito 가짜 S3Client(진짜 S3·LocalStack 안 씀).
   - g6-4(f2d3358): `PhotoCleanupJob.scheduledRun`이 **처음 성공한 실행**에서 INFO "사진 청소부 첫 실행: n개 처리" 한 줄(실패면 WARN "첫 실행에 실패", 깃발 유지). bootRun `--app.photo.cleanup-interval=PT5S`로 실제 확인.
   - g6-5(aa330ad): nginx 사진 올리기 전용 칸 `location ~ ^/api/market-items/[0-9]+/photos$`(11m·`proxy_read_timeout 150s`, 나머지 /api/는 기본 1m·60s). compose app에 `PHOTO_STORAGE: ${PHOTO_STORAGE:-s3}`·`PHOTO_S3_BUCKET: ${PHOTO_S3_BUCKET:-}`·`PHOTO_S3_REGION: ${PHOTO_S3_REGION:-ap-northeast-2}`. .env.example 사진 단락. **deploy.md "사진 저장 (S13-g6)"**: 배포 날 1~5단계(홉 제한·.env 버킷·compose scp 먼저·Deploy·확인), 실제 로그 글자 기준 시작 실패 표, 되돌리기 주의. 로컬에서 실제 web 이미지로 사진 3MB 통과·10.5MB 스프링 413·12MB nginx 413·글 3MB nginx 413 확인.
@@ -27,7 +27,7 @@
   - g5-1(01f0442): `GET /market-items` 응답을 목록 전용 `MarketItemListResponse`로 분리(+ `coverPhoto` = id 최소 사진, 없으면 null). `findCoverPhotos`(min(id) group by) 글 1000개당 쿼리 1번. 화면: 목록 72px 썸네일, 상세 4:3 큰 사진 + 썸네일 버튼 줄.
   - g5-2(c81f651, 프론트만): 수정 화면 `MarketPhotoEditor`(즉시 올리기·지우기, useConfirm), 글쓰기는 미리보기 → 저장 = 글 POST → 사진 차례로 → 상세(일부 실패 안내는 router state, 읽은 뒤 replace로 지움). `marketPhotoUpload.ts`(사전 검사, 한 장씩, 401·403·404·409·네트워크·timeout 5분 중단 / 400·413·503 계속). 올리는 중 [저장]·[취소] 잠금, 저장 중 사진 영역 잠금.
 - Notion: S13 카드에 S13-a~g4 + g5-1·g6-1~g6-5 단계 페이지(g5-2는 프론트만이라 안 씀), 도구 사전에 "ImageIO · metadata-extractor"·"AWS S3 · AWS SDK". 진행 현황 S13 줄 "남은 것: 배포(S14 쪽지와 함께)". **메인 페이지 아키텍처 그림에 S3는 S13-h 배포 때 추가.**
-- **S14(쪽지) a~f4 완료·push됨(383fb22), 운영 미반영. 배포 전에 S14-g·S14-h를 더 한다(아래 "다음에 할 일").** 결정 9개 전부 backlog S14 항목(대화방 방식, 같은 학교 인증만 시작, 거래완료는 새 대화만 409, 글 삭제·탈퇴해도 대화 남음, 남의 방은 관리자도 404, 1~1000자, 신고는 S14-f).
+- **S14(쪽지) a~h 전부 완료, S13-h로 배포됨.** 결정 9개 전부 backlog S14 항목(대화방 방식, 같은 학교 인증만 시작, 거래완료는 새 대화만 409, 글 삭제·탈퇴해도 대화 남음, 남의 방은 관리자도 404, 1~1000자, 신고는 S14-f).
   - S14-a(987bc2f): **V12** `conversations`(글·구매자·판매자 FK 전부 SET NULL, item_title 복사, `uk_conversations_item_buyer`, ck 구매자≠판매자) + `messages`(대화 CASCADE, sender SET NULL, read_at) + 인덱스 5개. `POST /market-items/{id}/conversations`(같은 글+구매자면 기존 방, `INSERT … ON CONFLICT DO NOTHING RETURNING id`).
   - S14-b(d546ae0): `GET /conversations`(쿼리 고정, N+1 없음) · `GET /conversations/{id}`(쪽지 id 오름차순) · `POST /conversations/{id}/messages`(상대 탈퇴 409). 쪽지 저장은 `ConversationService.appendMessage` 한 곳(방 행 NO KEY UPDATE 뒤 시각 재기).
   - S14-c(62bba67): `PUT /conversations/{id}/read` {"lastMessageId"}(사용자 결정 "본 쪽지까지만", 소수 400은 MarkReadRequest 칸 전용 변환기) · `GET /conversations/unread-count` · 목록 unreadCount. 세기·읽음 조건은 전부 `sender.id IS DISTINCT FROM 나`.
@@ -37,27 +37,23 @@
   - S14-f2(백엔드): `GET /admin/reports/{id}/conversation`(관리자만, 방 전체·기각된 신고도 읽음·read_at 안 바뀜·잠금 없음, 대화 신고가 아닌 신고 id는 404, 응답 {reportId, conversationId, itemTitle, buyer, seller, messages[{id, sender, content, createdAt}]}, 사람은 id·nickname뿐). `GET /conversations/{id}`는 관리자에게 계속 404. 쪽지 쿼리 1번(left join fetch sender). 전체 테스트 1318. 미룬 것: 쪽지 수 상한·페이징 없음, 감사 기록 없음(backlog "나중(S14-f2 리뷰)").
   - S14-f3(프론트만): 대화 화면 [신고] 버튼 = 기존 `ReportForm` 재사용(label '대화'). 대화일 때만 404·400·403 문구가 다름(REPORT_REASON_INVALID 새로, 403은 VISA_SCHOOL_REQUIRED_RETRY). 인증 회원에게만 버튼(미인증은 숨김). ConversationPage의 `replied`·`reportLoginLost` 깃발은 `user && !user.verifiedSchool` 조건 하나로 대체. e2e 296개. **알려진 빈틈**: 새 e2e "읽음 PUT 401…"은 옛 조건으로도 통과해 그 빈틈을 못 지킴(backlog "나중(S14-f3 리뷰)").
   - S14-f4(프론트만): 관리자 신고 목록에 대화 신고 = 배지 "쪽지" + [대화 보기](`/admin/reports/{신고 id}/conversation`, **방 id 아님**) + [문제 없음]만(삭제 없음). 새 화면 `AdminConversationPage`(관리자만·읽기 전용, 방 전체, 보낸 사람은 id 비교, `key={id}`+`ignore`). `mockApi.loginAdmin` export. e2e 327개. 전체 e2e가 컴퓨터가 바쁠 때 가끔 느리거나 1개씩 실패하는 알려진 불안정(backlog "나중(S14-f4 리뷰)": `messages*.spec`·market·visa-banner 몇 줄, `ECONNREFUSED /conversations/3` 로그 포함). **S14(쪽지) 전 단계 끝.**
+  - S14-g(a091f3e, 백엔드): 대화 보기 두 API가 쪽지를 DB에서 id desc **201통만**(Spring Data `Limit`, 실제 SQL LIMIT) → 201통이면 `hasMore:true` + 가장 오래된 1통 버림 → 오름차순. 상수 `message/service/RecentMessages.LIMIT=200` 한 곳, 두 응답 DTO에 `hasMore`. 테스트 설정 `hibernate.query.fail_on_pagination_over_collection_fetch=true`. 저장소가 정말 201개만 꺼내는지 `RecentMessagesRepositoryTests`. 전체 1334. Notion 단계 페이지 있음.
+  - S14-h(19bcccd, 프론트만): 쪽지함 줄 안 읽은 수 배지(`formatUnreadBadge`, 100 이상 "99+", sr-only "안 읽은 쪽지 N개"), hasMore면 대화 화면·관리자 대화 보기 목록 위 회색 안내(프론트 상수 `RECENT_MESSAGE_LIMIT=200`, 서버와 손으로 맞춤). e2e 340.
   - **잠금 규칙(S14 핵심)**: 탈퇴(`UserService.withdraw`)는 회원 행 FOR UPDATE를 맨 먼저 잡는다. 쪽지 쓰기·답장·읽음 처리·대화 신고는 전부 **회원 행 FOR KEY SHARE(`UserRepository.lockForKeyShare`, id 순)를 먼저** 잡고 그다음 방·쪽지 행. 순서를 어기면 실제로 40P01 교착 → 500이 났다(S14-a에서 재현).
-- Notion: S14 카드(번호 15)에 S14-a·b·c 단계 페이지 + **"S14 전체 정리와 코드 리뷰"**(API 한눈에·f1·f2 흐름·리뷰 표·면접 답변, 2026-11-13). 프론트만 바꾼 d·e·f3·f4는 단계 페이지를 안 씀. 카드 표에 d~h 줄과 단계 "S14-a ~ S14-h", 진행 현황 S14 줄 "남은 것: 배포 전 작은 두 단계(최근 N통만 읽기·쪽지함 안 읽은 표시), 배포" 갱신 끝. S14-g·h가 끝나면 카드 표의 "(배포 전, 예정)"을 고치고, 백엔드인 g는 단계 페이지를 쓴다. 메인 페이지 아키텍처 그림에 S3는 S13-h 배포 때 추가.
+- Notion: S14 카드(번호 15)에 S14-a·b·c·**g** 단계 페이지 + "S14 전체 정리와 코드 리뷰". 카드 표 g·h 줄 완료로 갱신 끝. **아직 못 한 것(2026-11-13 Notion 서버 오류로 실패)**: 상위 페이지 "진행 현황"의 S13·S14 줄 체크(괄호에 "S13-h에서 한 번에 배포"), S13·S14 카드 요약에 배포됨, 메인 페이지 아키텍처 그림에 S3 추가, 도구 사전에 IAM 역할·IMDS(홉 제한) 페이지가 필요한지 확인(S3·AWS SDK 페이지는 이미 있음).
 
 ## 다음에 할 일
-- **바로 다음 행동: S14-g(백엔드) build 시작. 안은 2026-11-13 사용자 OK 받음(다시 묻지 않아도 됨).** 한 번 build를 돌리다 PC를 옮기느라 멈추고 전부 되돌렸다(코드 변경 없음).
-  - 합의한 안: ① `GET /conversations/{id}`와 `GET /admin/reports/{id}/conversation` 둘 다 쪽지 **최신 200통만**(상수 한 곳, 설정 파일 X) ② DB에서 id 내림차순 201통(N+1) → 201통이면 `hasMore=true`, 가장 오래된 1통 버리고 오름차순으로 뒤집기, sender left join fetch 쿼리 1번 ③ 두 응답 DTO(`ConversationDetailResponse`·`AdminConversationResponse`)에 `hasMore`(boolean) ④ 이전 쪽지 불러오기(페이징)는 안 함 → backlog "나중"에 ⑤ 표 변경 없음(`idx_messages_conversation_id_id`가 V12에 있음, V14 X) ⑥ 읽음 처리·안 읽은 수는 그대로(화면은 받은 마지막 id까지 읽음 → 200통보다 오래된 안 읽은 쪽지도 읽음 처리되는데 괜찮다고 봄) ⑦ `docs/api.md` 두 API에 "최근 200통·오름차순·hasMore" ⑧ 화면에 "이전 쪽지는 표시되지 않아요" 한 줄은 S14-h에서.
-  - 완료 조건: 201통 이상 방은 최신 200통 + `hasMore:true`, 200통 이하는 전부 + false, 두 주소 모두 오름차순, 기존 테스트 통과. 멈추기 전 build가 본 것: `AdminConversationViewTests`에 응답 필드 집합을 정확히 단언하는 테스트가 있어 hasMore를 반영해야 함, 기존 `findAllWithSenderByConversationId`는 대체 후 안 쓰면 삭제.
-  - 끝나면 tester → review → 메인이 `./gradlew cleanTest test` 직접. 그다음 S14-h(프론트).
-- **S14 전체 코드 리뷰는 끝났다**(필수 0·권장 4, 2026-11-13). 사용자 결정으로 **배포 전에 두 단계를 더 한다**(backlog S14-g·S14-h): (1) **S14-g 백엔드**: `GET /conversations/{id}`와 관리자 대화 보기가 쪽지를 최근 N통만 읽는다(N·"더 있음" 표시·오래된 쪽지 처리는 build 전에 사용자에게 설명하고 OK. 이유: 쪽지를 전부 메모리로 읽는데 운영 힙 약 307MB·DB 연결 3개라 한 명이 쪽지 1만 통을 쌓고 피해자가 방을 열면 앱이 죽을 수 있다는 추측). (2) **S14-h 화면**: 쪽지함 줄에 방별 안 읽은 수(서버 `unreadCount`는 이미 있음). 관리자 열람 기록은 배포 뒤·관리자를 늘리기 전에. 그다음 **S13-h 배포(S13·S14 한 번에)**. 배포 날 deploy.md "(b) 옛 이미지로 돌아가도 괜찮은가"에 V9~V13 되돌리기 안내를 쓴다(backlog "나중(S14 전체 리뷰)"). Notion S14 카드에는 "S14 전체 정리와 코드 리뷰" 페이지를 만들었다(프론트만 바꾼 d·e·f3·f4와 f1·f2 흐름은 그 페이지에). 각 단계 build 전에 무엇을 만드는지 설명하고 OK.
-- 알려진 불안정(원인 미확정): 전체 e2e가 컴퓨터가 바쁠 때 가끔 느리거나(build 실행 5분·45분) 1개씩 실패한다(`messages.spec.ts:74`·`:275`, `messages-extra.spec.ts:420`·`:460`, `market.spec.ts:679`, `visa-banner.spec.ts:63`가 한 번씩). 메인·tester가 다시 돌리면 2~3분에 전부 통과(마지막 327개). 전체 로그에 vite 프록시 `ECONNREFUSED /conversations/3`가 찍힌 적도 있다(`reuseExistingServer`로 5174 서버가 재사용돼 열어 둔 탭이 mock 없이 프록시로 갔을 가능성, 추측). 반복되면 backlog "나중(S14-f4 리뷰)"의 확인 방법(5174 탭 없이 `messages*.spec.ts`만 `--workers=1`)을 쓰고 workers·timeout 조정을 검토.
-- S13-h 배포 전까지 사용자 콘솔 1분 작업: EC2 메타데이터 홉 제한 2 확인(아래 "진행 중인 단계"). 배포 날은 deploy.md "사진 저장 (S13-g6)" 1~5단계를 그대로 따른다.
-- (나중, 사용자 결정) 포트폴리오 트러블슈팅 정리: g6-1은 "옛 코드로 되돌리면 테스트 6개 실패" 재현 증거 있음. g6-2를 트러블슈팅으로 쓰려면 b6274d9(통째 읽기) vs 이후를 작은 힙으로 동시 요청해 메모리 전후 측정이 필요(지금은 "설계 개선"으로만 말할 수 있음).
-- 그다음 S13-h 배포(S13·S14 한 번에) → S16 Flutter(웹) 교체.
+- **바로 다음 행동: Notion 갱신**(위 "지금 어디까지"의 Notion "아직 못 한 것" 4가지). 2026-11-13에 Notion 커넥터가 "연결됨"인데 fetch·search마다 서버 오류였다. 되면 진행 현황 S13·S14 체크.
+- 그다음 **S16 Flutter(웹) 교체**(backlog S16: research 먼저 → planner). 순서 S16 → S17 AI → S15 번역(사용자 결정 2026-11-12).
+- 운영 확인 남은 것(선택): 학교 인증된 두 번째 계정이 생기면 docs/deploy.md "S13·S14 배포 후 확인" 4·5번(쪽지·대화 신고). 사진을 지운 뒤 서버에서 `docker compose --profile prod logs app | grep -c '사진 파일 삭제에 실패'`가 0인지.
+- **EC2는 2026-11-13 배포 뒤 켜져 있을 수 있다.** 안 쓰면 콘솔에서 중지(퍼블릭 IP는 켤 때마다 바뀜).
+- (나중, 사용자 결정) 포트폴리오 트러블슈팅 정리: g6-1은 "옛 코드로 되돌리면 테스트 6개 실패" 재현 증거 있음. g6-2를 트러블슈팅으로 쓰려면 b6274d9(통째 읽기) vs 이후를 작은 힙으로 동시 요청해 메모리 전후 측정이 필요. **S13-h의 CI 빨간불(11-12~13, 아래 주의할 점)도 트러블슈팅 후보**(원인 추적: 같은 테스트 2개만 매번 실패 → 로컬 Edge·Chrome 통과 → CI만 headless shell → channel 변경으로 초록).
 
 ## 진행 중인 단계
-- 진행 중인 단계 없음(S14-f4까지 커밋·push됨, S14-g는 안 OK만 받고 코드는 시작 전). 아래는 S13-h 배포 때 필요한 메모.
-  - 리뷰 미룬 것은 backlog "나중(S13-g…리뷰)" 줄들(g6-3·g6-4·g6-5 줄 새로 추가). **g6-5 줄의 "S13-h 배포 날 처음 확인" 목록**(nginx 거친 사진 201·실제 S3 왕복·삭제 실패 로그 0건·홉 제한·301/403 표 줄은 알려진 동작 기준)을 배포 날 체크리스트로 쓴다.
-  - **AWS 콘솔 작업 끝(2026-11-12)**: 서울 리전 S3 버킷(범용·글로벌 네임스페이스, ACL 비활성, 퍼블릭 차단 4개, 버저닝 끔, SSE-S3) + IAM 정책 `board-market-photos-access`(그 버킷만 Put/Get/Delete + ListBucket) + IAM 역할 `board-ec2-role`(EC2 신뢰, 위 정책만) → EC2 `demo-server`에 연결함. 액세스 키는 안 만듦(앱은 기본 자격 증명 체인). **버킷 이름은 저장소가 공개라 코드·문서에 안 씀 → 사용자에게 물어서 EC2 `.env`의 `PHOTO_S3_BUCKET`에만.**
-  - **남은 콘솔 1분 작업(S13-h 전까지)**: EC2 → demo-server → 작업 → 인스턴스 설정 → 인스턴스 메타데이터 옵션 수정 → "메타데이터 응답 홉 제한"이 2인지(1이면 2로). 컨테이너 안 앱이 역할 열쇠를 받으려면 2 이상 필요.
-  - 위험(사용자에게 알림): 실제 S3 왕복은 S13-h 배포 날 처음 해 봄. compose를 바꿨으니 Deploy 전에 compose scp 필수(빼먹으면 조용히 local).
+- 진행 중인 단계 없음. 마지막 커밋 2f97925(S13-h 배포 기록) + 이 handoff.
+- 운영 서버 상태 메모: EC2 `~/board/.env`에 `PHOTO_S3_BUCKET` 들어감(값은 저장소에 안 씀), `docker-compose.yml`은 S13-g6 버전으로 교체, 옛 파일은 `docker-compose.yml.bak-20261113`. IMDS 홉 제한 2·IMDSv2 필수·역할 `board-ec2-role` 확인함.
 - 커밋 안 된 변경: 이 handoff 갱신 커밋만 남음, `.claude/launch.json`(일부러 커밋 안 함).
+- 미룬 것(S14-g·S14-h·S13-h): backlog의 "나중(S14-g 리뷰)"·"나중(S14-h 리뷰)"·"나중(S13-h)" 줄(200통 넘는 방은 화면이 잘렸다는 것 외엔 이전 쪽지 볼 방법 없음, e2e 도우미 중복, 프론트·서버 200 상수 손으로 맞춤, 운영 쪽지 미확인).
 - 미룬 것(S14): backlog S14 항목의 "나중(S14-a~d 리뷰)"·"나중(S14-e 리뷰)"·"나중(S14-f1 리뷰)"·"나중(S14-f2 리뷰)"·"나중(S14-f3 리뷰)"·"나중(S14-f4 리뷰)"·"나중(S14 전체 리뷰)" 줄(전각 공백 쪽지, 목록 페이징, 안 읽은 수 부분 인덱스, 문자열 숫자 "1" 받아짐, 관리자 열람 감사 기록(관리자 늘리기 전 필수), 쪽지 횟수 제한, 신고 남용, 접근성, e2e 중복, 새 e2e "읽음 PUT 401"이 옛 조건으로도 통과하는 빈틈 등).
 - 미룬 것(S13-g5): backlog S13 항목의 "나중(S13-g5-1 리뷰)"·"나중(S13-g5-2 리뷰)" 줄(키보드 Enter로 파일 선택 창이 실제로 열리는지 사람 확인, 아이폰 실기기 HEIC·48MP 확인, 글쓰기 401 뒤 재로그인 안내 등).
 - 미룬 것(S13): backlog S13 항목의 "나중(S13-a 리뷰)"·"나중(S13-b 리뷰)"·"나중(S13-c 리뷰)"·"나중(S13-d 리뷰)" 줄(가격 5000.9·"5000" 문자열 받아짐 확인, 비자 후기 수정 중 삭제 500, 학교별 머리말, 가격 굵기 등).
@@ -75,6 +71,9 @@
 
 ## 주의할 점
 - 새 컴퓨터에서는 먼저 `git pull`. 끝나면 커밋·push.
+- **CI e2e 브라우저(2026-11-13)**: `playwright.config.ts`는 CI에서 `channel: 'chromium'`(진짜 Chromium 새 headless), 로컬은 Edge(`msedge`). 기본값(chrome-headless-shell)에서는 뒤로 가기 테스트 2개(market-photo-upload:593, market-search:136)가 11-12부터 CI에서만 계속 실패해 **images가 안 올라갔다**(S14-g 한 번만 통과). CI가 빨강이면 Docker Hub latest가 옛 버전이므로 Deploy 전에 그 커밋 CI(images 포함) 초록 확인 필수. CI 로그는 비로그인 API로 못 받음 → 사용자 Chrome으로 Actions 잡 페이지를 읽었다. `messages.spec.ts:74`는 여전히 CI에서 재시도로 통과(flaky).
+- **집 PC에서 `npm run lint`(oxlint) 실행 불가**: Windows 애플리케이션 제어 정책이 `oxlint.win32-x64-msvc.node`를 막음(재설치로 안 풀림, 보안 설정이라 그대로 둠). lint는 CI·노트북에서 확인. 이 PC에 `gh` CLI도 없음(공개 저장소라 curl로 GitHub API 조회는 됨).
+- **사용자에게 서버 명령을 줄 때 `<서버IP>`·`<버킷 이름>` 같은 자리표시를 쓰지 말 것**: 2026-11-13에 그대로 복사돼 .env에 `<버킷 이름>`이 들어갔다. 실제 값을 넣은 완성 명령을 주거나 "이 부분만 바꿔"를 한 줄로 분리. 사용자 터미널은 PowerShell이라 키 경로는 `"$HOME\.ssh\board-ec2"`. 서버 안/내 PC 중 어디서 칠 명령인지 매번 표시.
 - **표(테이블)를 바꾸는 기능은 새 V 파일**(다음은 `V14__add_...sql`, 이름은 `add_`, UNIQUE는 `uk_` 관례)로. 커밋된 V 파일은 고치지 않는다. ddl-auto는 validate 유지.
 - **FK·UNIQUE·CHECK 제약에는 반드시 이름**을 지어라. 서비스가 제약 이름으로 404/401/409를 구분한다(`ConstraintViolations`). V1의 `posts.author_id` FK만 해시 이름이라 글쓰기는 "23503이면 401".
 - **DB 오류 메시지 언어는 영어(기본값) 유지.** `lc_messages`를 바꾸면 경쟁 상황에서 500(docs/deploy.md).
