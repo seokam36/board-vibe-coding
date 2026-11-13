@@ -491,6 +491,26 @@ label textarea {
   justify-content: space-between;
   gap: var(--space-3);
 }
+/* 상대 닉네임 + 안 읽은 쪽지 배지를 한 덩어리로 (conv-top의 양끝 정렬에서 한 칸으로 취급) */
+.conv-who {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+/* 안 읽은 쪽지 수 배지: 인증 뱃지와 같은 청자 색 (새 색 없음) */
+.badge-unread {
+  flex: none;
+  color: var(--celadon-ink);
+  background: var(--celadon-soft);
+}
+/* 대화가 잘렸다는 안내: 회색(--muted) 작은 글씨. .hint엔 색·크기가 없어 여기서 정하고, 위쪽 여백만 조정 */
+.msg-truncated {
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: var(--fs-small);
+}
 .conv-partner {
   font-size: var(--fs-row);
   font-weight: 500;

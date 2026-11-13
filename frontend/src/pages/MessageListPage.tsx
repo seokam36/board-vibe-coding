@@ -6,7 +6,7 @@ import { formatDate } from '../formatDate'
 import Loading from '../components/Loading'
 import Notice from '../components/Notice'
 import ReloginNotice from '../components/ReloginNotice'
-import { WITHDRAWN_PARTNER } from '../messageText'
+import { formatUnreadBadge, WITHDRAWN_PARTNER } from '../messageText'
 import type { ConversationSummary } from '../types'
 
 // 쪽지함 (/messages): 내가 참여한 대화를 마지막 쪽지가 최근인 순으로 보여 준다. 로그인한 사람만 (App에서 RequireLogin으로 감쌈)
@@ -53,7 +53,16 @@ export default function MessageListPage() {
                 {/* 줄 전체가 링크: 상대 닉네임 · 글 제목 · 마지막 쪽지 · 시각 */}
                 <Link to={`/messages/${c.id}`} className="conv-link">
                   <span className="conv-top">
-                    <span className="conv-partner">{c.partner?.nickname ?? WITHDRAWN_PARTNER}</span>
+                    <span className="conv-who">
+                      <span className="conv-partner">{c.partner?.nickname ?? WITHDRAWN_PARTNER}</span>
+                      {/* 안 읽은 쪽지가 있을 때만 배지. 눈에는 짧은 숫자(99+), 화면 읽기 프로그램에는 실제 개수 문장 */}
+                      {c.unreadCount > 0 && (
+                        <span className="badge badge-unread">
+                          <span aria-hidden="true">{formatUnreadBadge(c.unreadCount)}</span>
+                          <span className="sr-only">안 읽은 쪽지 {c.unreadCount}개</span>
+                        </span>
+                      )}
+                    </span>
                     <span className="meta">{formatDate(c.lastMessage.createdAt)}</span>
                   </span>
                   <span className="conv-item meta">

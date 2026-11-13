@@ -65,6 +65,7 @@ const view: AdminConversationView = {
     { id: 30, sender: { id: 2, nickname: '신고자' }, content: '아직 있나요?', createdAt: '2026-11-13T03:00:00Z' },
     { id: 31, sender: { id: 8, nickname: '판매자' }, content: '네 있어요', createdAt: '2026-11-13T03:05:00Z' },
   ],
+  hasMore: false,
 }
 
 // ---- 신고 목록 ----

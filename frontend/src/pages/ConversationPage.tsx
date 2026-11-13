@@ -4,7 +4,7 @@ import api from '../api'
 import { useAuth } from '../auth/useAuth'
 import { describeError, ERROR_MESSAGES } from '../errorMessage'
 import { formatDate } from '../formatDate'
-import { WITHDRAWN_PARTNER } from '../messageText'
+import { MESSAGES_TRUNCATED, WITHDRAWN_PARTNER } from '../messageText'
 import { useUnread } from '../messages/unreadContext'
 import Loading from '../components/Loading'
 import MessageComposer from '../components/MessageComposer'
@@ -122,6 +122,8 @@ function ConversationView({ id }: { id: string }) {
             </div>
           )}
           {conv.messages.length === 0 && <p className="panel-state">아직 쪽지가 없습니다</p>}
+          {/* 서버가 최근 200통만 줬으면(hasMore) 목록 위에 안내 */}
+          {conv.hasMore && <p className="hint msg-truncated">{MESSAGES_TRUNCATED}</p>}
           <ul className="msg-list" aria-label="쪽지 목록">
             {conv.messages.map((m) => (
               <li key={m.id} className={`msg ${m.mine ? 'msg-mine' : 'msg-theirs'}`}>

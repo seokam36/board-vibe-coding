@@ -5,7 +5,7 @@ import { useAuth } from '../auth/useAuth'
 import { isAdmin } from '../auth/isAdmin'
 import { describeError, ERROR_MESSAGES } from '../errorMessage'
 import { formatDate } from '../formatDate'
-import { WITHDRAWN_PARTNER } from '../messageText'
+import { ADMIN_MESSAGES_TRUNCATED, WITHDRAWN_PARTNER } from '../messageText'
 import Loading from '../components/Loading'
 import Notice from '../components/Notice'
 import ReloginNotice from '../components/ReloginNotice'
@@ -120,6 +120,8 @@ function ConversationReader({ id }: { id: string }) {
             </dl>
           </header>
           {view.messages.length === 0 && <p className="panel-state">아직 쪽지가 없습니다</p>}
+          {/* 서버가 최근 200통만 줬으면(hasMore) 목록 위에 안내 */}
+          {view.hasMore && <p className="hint msg-truncated">{ADMIN_MESSAGES_TRUNCATED}</p>}
           {/* 구매자는 왼쪽, 판매자는 오른쪽 말풍선. 누구인지 모르면(탈퇴) 왼쪽 */}
           <ul className="msg-list" aria-label="쪽지 목록">
             {view.messages.map((m) => {

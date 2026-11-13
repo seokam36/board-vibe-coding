@@ -93,7 +93,8 @@ export interface AdminConversationView {
   itemTitle: string // 방을 만들 때 복사해 둔 글 제목
   buyer: { id: number; nickname: string } | null
   seller: { id: number; nickname: string } | null
-  messages: AdminConversationMessage[] // 오래된 것부터, 방 전체
+  messages: AdminConversationMessage[] // 오래된 것부터, 최근 200통
+  hasMore: boolean // 200통보다 이전 쪽지가 더 있으면 true
 }
 
 // 비자 후기 선택지 한 개 (GET /visa-review-options). code는 요청·주소에 쓰는 값, name은 화면에 보여 줄 한글 이름
@@ -225,7 +226,7 @@ export interface ConversationSummary {
   item: ConversationItemRef
   partner: ConversationPartner | null
   lastMessage: { content: string; createdAt: string; mine: boolean }
-  unreadCount: number // 안 읽은 쪽지 수 (쪽지함 줄 표시는 아직 안 함)
+  unreadCount: number // 안 읽은 쪽지 수 (쪽지함 줄에 배지로 표시)
 }
 
 // 안 읽은 쪽지 수 (GET /conversations/unread-count): 모든 대화를 합친 수. 상단바 "쪽지 (n)"에 쓴다
@@ -233,11 +234,12 @@ export interface UnreadCountResponse {
   count: number
 }
 
-// 대화 보기 (GET /conversations/{id}). messages는 오래된 것부터
+// 대화 보기 (GET /conversations/{id}). messages는 오래된 것부터, 최근 200통
 export interface ConversationDetail {
   id: number
   item: ConversationItemRef
   partner: ConversationPartner | null
+  hasMore: boolean // 200통보다 이전 쪽지가 더 있으면 true
   messages: ConversationMessage[]
 }
 

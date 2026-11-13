@@ -129,6 +129,7 @@ export const fakeConversationDetail: ConversationDetail = {
   item: { id: 1, title: '가짜 자전거', deleted: false },
   partner: { id: 7, nickname: '판매자닉' },
   messages: fakeMessages,
+  hasMore: false,
 }
 export const fakeConversationSummary: ConversationSummary = {
   id: 3,

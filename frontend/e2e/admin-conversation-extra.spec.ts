@@ -28,6 +28,7 @@ function viewOf(reportId: number, title: string, messages: AdminConversationView
     buyer: { id: 2, nickname: '신고자' },
     seller: { id: 8, nickname: '판매자' },
     messages,
+    hasMore: false,
   }
 }
 
