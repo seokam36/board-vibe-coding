@@ -143,6 +143,14 @@ EC2는 이미지를 받아 실행만 합니다. 저장소를 clone할 필요 없
    `/api/posts`가 502이면 app이 부팅 중일 수 있으니 잠시 후 다시 시도하고,
    계속되면 `docker compose --profile prod ps`로 app 상태를 보고 `docker compose --profile prod logs app`으로 오류를 확인합니다.
 
+### S13·S14 배포 후 확인
+S13(중고거래·사진)과 S14(쪽지)를 한 번에 배포한 뒤에 봅니다. 앞에서부터 순서대로 합니다.
+1. **[서버]** 표 변경 확인: `docker exec board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT version, success FROM flyway_schema_history ORDER BY installed_rank;"'` 에서 9, 10, 11, 12, 13이 모두 `t`(success)인지 봅니다. 하나라도 `f`이면 위 (c)를 봅니다.
+2. **[서버]** 앱 상태: `http://<퍼블릭IP>/actuator/health`가 UP이고, `docker compose --profile prod logs --tail 100 app`에 시작 실패 메시지가 없는지 봅니다.
+3. **[브라우저]** 중고거래: 글 쓰기 -> 사진 올리기 -> 상세에서 사진 보이는지 -> 사진 한 장 지우기. 사진 관련 확인(compose `PHOTO_*`, 삭제 로그 등)은 위 "사진 저장 (S13-g6)"의 "운영에 적용하기" 5번을 따릅니다(여기에 다시 적지 않습니다).
+4. **[브라우저]** 쪽지: 계정 두 개가 필요합니다. 다른 계정(같은 학교 인증)으로 그 중고 글에서 "판매자에게 쪽지" 보내기 -> 판매자 계정으로 상단바 `쪽지 (n)`의 안 읽은 수 확인 -> 쪽지함에서 열어 답장 -> 처음 계정에서 답장이 보이고 안 읽은 수가 줄어드는지 봅니다.
+5. **[브라우저]** 신고: 쪽지 대화를 신고 -> 관리자 계정(위 "관리자 지정·해제")으로 로그인해 관리자 페이지에서 대화 신고를 열어 대화 내용이 보이는지, 기각이 되는지 봅니다. 확인한 테스트 글·쪽지·신고는 정리합니다(회원 탈퇴 등).
+
 되돌리기: 문제가 생기면 EC2에서 백업 파일을 되돌리고 다시 실행합니다.
 - `cd ~/board && cp docker-compose.yml.bak-<날짜> docker-compose.yml && docker compose --profile prod up -d --remove-orphans`
 - `--remove-orphans`: 백업 파일에 없는 컨테이너(예: `board-web`)를 같이 내립니다. 없으면 남은 컨테이너가 80번 포트를 붙잡아 app이 시작하지 못할 수 있습니다.
@@ -394,6 +402,26 @@ V3(S8-a)는 `comments`·`post_likes` 표를 **새로 만들기만** 하고 기�
 - `visa_plans.user_id`의 외래키(`fk_visa_plans_user`)는 `ON DELETE CASCADE`라서, 옛 코드가 회원을 지워도(탈퇴) DB가 그 회원의 일정 행을 같이 지웁니다. 옛 코드에서도 탈퇴가 깨지지 않습니다(V7 후기와 달리 함정 없음).
 - 되돌려 있는 동안 회원이 등록한 일정은 표에 그대로 남아 있다가, 다시 새 이미지로 오면 그대로 보입니다. 기록장 행은 지우지 마세요(V2와 같은 이유).
 - 아직 확인하지 못한 것: 실제로 S11 이미지로 돌아가 시험하지는 않았습니다. 위 내용은 V8 SQL을 읽고 판단한 것입니다.
+
+**S12 이미지(V8까지 아는 코드)로 돌아갈 때 (V9~V13 적용 후)**
+S13·S14를 한 번에 배포하면 V9~V13이 한꺼번에 적용됩니다. 아래는 V9~V13 SQL(`src/main/resources/db/migration/`)과 S12 배포 기록 커밋 `9c8b600`의 옛 코드(`Report`, `AdminReportResponse`, `AdminReportService`, `ReportRepository`, `UserService.withdraw`)를 읽고 판단한 것입니다. 실제로 돌려 본 것이 아니므로 "코드를 읽어 확인"과 "추측"을 나눠 적습니다.
+
+코드를 읽어 확인한 것:
+- 앱은 뜹니다. V9~V13은 표를 새로 만들고(`market_items`, `market_item_photos`, `photo_delete_queue`, `conversations`, `messages`) `reports`에 칸 2개(`market_item_id`, `conversation_id`)를 더합니다. 옛 엔티티에 없는 표·칸은 `ddl-auto=validate`가 보지 않습니다(V3·V5·V7·V8과 같은 이유). 로그의 `newer than the latest available migration (13) ... (8)` 경고는 정상입니다.
+- **옛 코드의 글·댓글 신고 저장은 새 제약을 통과합니다.** V10·V13이 `ck_reports_target`을 "글·댓글·중고 글·대화방 중 정확히 하나"(`num_nonnulls(...) = 1`)로 바꿨습니다. 옛 `Report`는 `post_id` 또는 `comment_id` 하나만 채우고 새 두 칸은 모르니 NULL로 들어가서, 채워진 칸이 정확히 하나라 통과합니다. 같은 이유로 새 UNIQUE(`uk_reports_market_item_reporter`, `uk_reports_conversation_reporter`)도 옛 신고를 막지 않습니다(그 칸이 NULL이면 중복으로 치지 않음).
+- **중고 글 신고나 대화 신고가 한 건이라도 있으면 옛 관리자 신고 목록이 500입니다.** 옛 `AdminReportResponse.from`은 "글이 있으면 글, 아니면 댓글"로 가정하고 댓글 쪽에서 `comment.getId()`를 바로 부릅니다. 중고·대화 신고는 `post_id`와 `comment_id`가 둘 다 NULL이라 `NullPointerException`이 납니다. 목록은 상태별(대기 등)로 한꺼번에 만들어서, 그 상태에 새 종류 신고가 하나만 섞여도 그 상태의 목록 전체가 열리지 않습니다. 같은 이유로 그런 신고의 기각도 500입니다(옛 `dismiss`가 기각한 뒤 같은 변환을 해서, 트랜잭션이 취소되어 기각은 반영되지 않습니다. 추측: 이 취소 동작은 코드만 보고 판단).
+  - 되돌리기 전에 **[서버]** `docker exec board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT count(*) FROM reports WHERE post_id IS NULL AND comment_id IS NULL;"'` 로 새 종류 신고가 몇 건인지 봅니다(0이면 이 문제는 없습니다). 지우지는 않습니다(기록과 새 코드로 돌아온 뒤를 위해 그대로 둡니다).
+- **회원 탈퇴는 깨지지 않습니다.** 새 표에서 `users`를 가리키는 외래키가 전부 삭제 동작을 가졌습니다: `market_items.seller_id`는 `ON DELETE CASCADE`, `conversations.buyer_id`·`seller_id`와 `messages.sender_id`는 `ON DELETE SET NULL`(V12). 옛 `UserService.withdraw`가 글·댓글·비자 후기 작성자만 비우고 회원을 지워도 DB가 알아서 처리합니다(V7 후기 때의 함정과 다름). 판매자가 탈퇴하면 그 사람의 중고 글이 지워지고, 글에 달린 사진 행(`market_item_photos`)과 신고도 CASCADE로 같이 지워집니다. 그 글을 가리키던 대화방은 `market_item_id`만 NULL이 되어 남습니다. `ck_conversations_buyer_not_seller`는 한쪽이 NULL이면 통과합니다.
+- 중고·쪽지 화면과 API가 사라집니다. 옛 web 이미지와 옛 app 이미지를 같이 되돌리면 화면 자체가 없어지고, **새 web + 옛 app이면** 중고·쪽지 화면은 보이는데 API가 없어 "찾을 수 없다"(404) 문구가 뜹니다. 데이터(중고 글, 사진, 쪽지)는 표에 그대로 남아 있다가 새 코드로 돌아오면 다시 보입니다.
+- 옛 compose로 되돌리면 사진 저장이 조용히 `local`로 바뀝니다. 위 "사진 저장 (S13-g6)"의 "되돌리기 주의"를 먼저 읽습니다.
+
+추측(코드로 확정하지 못한 것):
+- **옛 이미지에서 판매자가 탈퇴하면 S3 파일이 남을 것입니다.** 글·사진 행은 DB가 CASCADE로 지우지만, 옛 코드는 `photo_delete_queue`에 "지울 파일"을 적는 코드가 없어서(S13에서 생김) S3의 사진 파일은 아무도 지우지 않을 것으로 봅니다. 데이터베이스에서 행이 사라졌으니 나중에 새 코드로 돌아와도 그 파일 이름을 알 길이 없습니다(저장 비용만 조금 듭니다, 서비스 동작에는 영향 없음). 실제로 S3를 확인해 보지는 않았습니다.
+- 옛 이미지에서 중고·대화 신고는 새로 만들 수 없고, 이미 있던 신고는 위처럼 목록만 막습니다. 그 사이 관리자가 대화 내용을 보려면 새 코드로 돌아와야 합니다.
+
+**하지 말 것**: V9~V13을 손으로 되돌리거나(표·칸·제약 삭제, 특히 `ck_reports_target`을 옛 정의로 되돌리는 것) 기록장(`flyway_schema_history`) 행을 지우지 마세요. 새 코드로 돌아올 때 V 파일이 다시 실행되어 "이미 있음" 오류가 나거나, 이미 들어간 중고·대화 신고 행이 옛 제약에 걸려 마이그레이션이 실패할 수 있습니다. 특별한 절차 없이 (a)대로 이미지만 바꾸면 됩니다.
+
+아직 확인하지 못한 것: 실제로 S12 이미지로 돌아가 시험하지는 않았습니다. 위 내용은 V9~V13 SQL과 `9c8b600`의 옛 코드를 읽고 판단한 것입니다(신고 목록 500은 코드상 확실하지만 실행으로 보지는 않았습니다).
 
 ### (c) V2 이상이 적용 중 실패했을 때
 PostgreSQL은 표 변경(DDL)도 트랜잭션이라, V 파일 하나가 중간에 실패하면 그 파일의 표 변경은 통째로 원상복구됩니다(반쯤 바뀐 채로 남지 않음). 먼저 기록장 상태를 확인합니다.
