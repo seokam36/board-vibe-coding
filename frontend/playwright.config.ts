@@ -23,9 +23,12 @@ export default defineConfig({
     {
       name: 'chromium',
       // 이 PC 보안 정책이 Playwright가 내려받은 브라우저(chrome-headless-shell)를 막아서,
-      // 로컬에서는 이미 깔린 정식 Edge(같은 Chromium 엔진)를 쓴다. CI는 내려받은 기본 Chromium.
+      // 로컬에서는 이미 깔린 정식 Edge(같은 Chromium 엔진)를 쓴다.
+      // CI는 'chromium' 채널 = 진짜 Chromium 브라우저의 새 headless 모드(2026-11-13 S13-h).
+      // 기본값(chrome-headless-shell, 테스트 전용 가벼운 브라우저)에서는 뒤로 가기 테스트 2개
+      // (market-photo-upload:593, market-search:136)가 CI에서만 계속 실패했다. 로컬 Edge·Chrome에서는 통과.
       // 바꾸고 싶으면 PW_CHANNEL 환경변수(예: chrome)로 지정한다.
-      use: { ...devices['Desktop Chrome'], channel: process.env.PW_CHANNEL || (isCI ? undefined : 'msedge') },
+      use: { ...devices['Desktop Chrome'], channel: process.env.PW_CHANNEL || (isCI ? 'chromium' : 'msedge') },
     },
   ],
   // 테스트 전에 Vite 개발 서버를 직접 띄운다.

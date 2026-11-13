@@ -101,7 +101,7 @@ jobs:
       - name: 의존성 설치
         run: npm ci
 
-      # 테스트용 Chromium 브라우저와 리눅스 필수 라이브러리를 설치한다. (CI=true라 config가 기본 Chromium을 쓴다)
+      # 테스트용 Chromium 브라우저와 리눅스 필수 라이브러리를 설치한다. (CI=true면 config가 chromium 채널 = 진짜 Chromium의 새 headless 모드를 쓴다)
       - name: Playwright 브라우저 설치
         run: npx playwright install --with-deps chromium
 
