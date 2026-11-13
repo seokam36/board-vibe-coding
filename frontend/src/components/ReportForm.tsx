@@ -8,8 +8,8 @@ import Notice from './Notice'
 
 const DETAIL_MAX = 300
 
-// 글·댓글 아래에 붙는 "신고" 버튼 + 펼쳐지는 신고 양식.
-// url: 신고를 보낼 주소(/posts/{id}/reports 또는 /comments/{id}/reports, /market-items/{id}/reports), label: '글'·'댓글'·'중고 글'(안내 문구용)
+// 글·댓글·중고 글·대화 화면에 붙는 "신고" 버튼 + 펼쳐지는 신고 양식.
+// url: 신고를 보낼 주소(/posts/{id}/reports 또는 /comments/{id}/reports, /market-items/{id}/reports, /conversations/{id}/reports), label: '글'·'댓글'·'중고 글'·'대화'(안내 문구용)
 // onNeedLogin: 401(재발급까지 실패)이면 부모가 로그인 안내를 띄우게 알린다
 // (로그인이 풀리면 이 컴포넌트가 사라지므로 안내를 여기서 띄우면 안 보인다)
 export default function ReportForm({
@@ -18,7 +18,7 @@ export default function ReportForm({
   onNeedLogin,
 }: {
   url: string
-  label: '글' | '댓글' | '중고 글'
+  label: '글' | '댓글' | '중고 글' | '대화'
   onNeedLogin: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -65,9 +65,12 @@ export default function ReportForm({
         err,
         {
           409: `이미 신고한 ${label}입니다`,
-          404: ERROR_MESSAGES.alreadyDeleted(label),
-          403: ERROR_MESSAGES.SCHOOL_GATE_POST_ACTION,
-          400: '내용을 확인해 주세요 (자기 것은 신고할 수 없고, 사유는 필수입니다)',
+          // 대화는 "삭제"가 아니라 없어졌거나 내 방이 아닌 경우(404)라 대화 전용 문구를 쓴다.
+          // 대화는 자기 것 신고 제한이 없어서(400은 사유 문제뿐) 400 문구도 따로 둔다
+          404: label === '대화' ? ERROR_MESSAGES.CONVERSATION_NOT_FOUND : ERROR_MESSAGES.alreadyDeleted(label),
+          // 대화 신고 403은 CSRF나 화면-서버 인증 상태 불일치뿐이라 "인증한 학교의 글이 아니에요"는 맞지 않는다
+          403: label === '대화' ? ERROR_MESSAGES.VISA_SCHOOL_REQUIRED_RETRY : ERROR_MESSAGES.SCHOOL_GATE_POST_ACTION,
+          400: label === '대화' ? ERROR_MESSAGES.REPORT_REASON_INVALID : '내용을 확인해 주세요 (자기 것은 신고할 수 없고, 사유는 필수입니다)',
         },
         '신고하지 못했습니다',
       )

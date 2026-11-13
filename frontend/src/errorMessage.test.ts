@@ -112,6 +112,7 @@ describe('ERROR_MESSAGES 문구 사전', () => {
       DELETE_FAILED: '삭제하지 못했습니다',
       POST_ALREADY_LIKED: '이미 공감한 글입니다',
       ACTION_FAILED: '처리하지 못했습니다',
+      REPORT_REASON_INVALID: '신고 사유를 확인해 주세요',
       REVIEW_NOT_FOUND: '후기를 찾을 수 없습니다',
       REVIEW_LOAD_FAILED: '후기를 불러오지 못했습니다',
       REVIEW_FIELDS_INVALID: '날짜를 확인해 주세요 (접수일은 결과일과 같거나 앞서야 하고, 둘 다 오늘까지. 본문은 2000자까지)',

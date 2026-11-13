@@ -1,7 +1,7 @@
 import { test as base, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import type { AuthUser } from '../src/auth/useAuth.ts'
-import type { Category, Comment, ConversationDetail, ConversationMessage, ConversationSummary, MarketItemPhoto, MarketListItem, Post, School, UnreadCountResponse, VisaPlan, VisaReview, VisaReviewOptions, VisaReviewStat } from '../src/types.ts'
+import type { Category, Comment, ConversationDetail, ConversationMessage, ConversationSummary, MarketItemPhoto, MarketListItem, Post, ReportReason, School, UnreadCountResponse, VisaPlan, VisaReview, VisaReviewOptions, VisaReviewStat } from '../src/types.ts'
 
 // ---- 가짜 데이터: src/types.ts 타입을 붙여서 실제 응답 모양과 어긋나면 tsc가 알려 준다 ----
 
@@ -185,6 +185,15 @@ function defaultHandlers(state: { loggedIn: boolean }): MockHandlers {
     'GET /conversations/unread-count': { status: 200, body: { count: 0 } satisfies UnreadCountResponse },
     'GET /conversations/3': { status: 200, body: fakeConversationDetail },
     'PUT /conversations/3/read': { status: 204 },
+    // 대화 신고(42번): 사유 목록과 신고 접수. 대화 화면의 [신고] 양식이 부른다
+    'GET /report-reasons': {
+      status: 200,
+      body: [
+        { code: 'SPAM', name: '스팸' },
+        { code: 'ABUSE', name: '욕설' },
+      ] satisfies ReportReason[],
+    },
+    'POST /conversations/3/reports': { status: 201, body: { id: 9 } },
     'POST /conversations/3/messages': {
       status: 201,
       body: { id: 12, content: '답장입니다', createdAt: '2026-01-02T03:10:00Z', mine: true } satisfies ConversationMessage,

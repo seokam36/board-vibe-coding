@@ -9,6 +9,7 @@ import { useUnread } from '../messages/unreadContext'
 import Loading from '../components/Loading'
 import MessageComposer from '../components/MessageComposer'
 import Notice from '../components/Notice'
+import ReportForm from '../components/ReportForm'
 import ReloginNotice from '../components/ReloginNotice'
 import type { ConversationDetail, ConversationMessage } from '../types'
 
@@ -29,7 +30,6 @@ function ConversationView({ id }: { id: string }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [needLogin, setNeedLogin] = useState(false) // 불러오다 401(재발급 실패)
-  const [replied, setReplied] = useState(false) // 보내기를 한 번 눌렀음: 그 뒤 로그인이 풀려도 답장 칸(쓴 글·재로그인 안내)을 없애지 않는다
   const endRef = useRef<HTMLDivElement>(null) // 쪽지 목록 끝: 열 때·답장했을 때 여기까지 내린다
   const count = conv?.messages.length ?? 0
 
@@ -108,6 +108,19 @@ function ConversationView({ id }: { id: string }) {
               )}
             </p>
           </header>
+          {/* 신고: 학교 인증 회원만 (서버가 미인증은 403). 상대가 탈퇴했거나 글이 지워진 방도 신고할 수 있어 그런 조건은 안 본다 */}
+          {user?.verifiedSchool && (
+            <div className="actions">
+              <ReportForm
+                key={conv.id}
+                url={`/conversations/${conv.id}/reports`}
+                label="대화"
+                onNeedLogin={() => {
+                  setNeedLogin(true) // 안내는 대화 영역 밖에서 보여 준다 (로그인이 풀리면 이 버튼이 사라지므로)
+                }}
+              />
+            </div>
+          )}
           {conv.messages.length === 0 && <p className="panel-state">아직 쪽지가 없습니다</p>}
           <ul className="msg-list" aria-label="쪽지 목록">
             {conv.messages.map((m) => (
@@ -125,8 +138,9 @@ function ConversationView({ id }: { id: string }) {
             {conv.partner === null ? (
               // 상대가 탈퇴했으면 서버가 새 쪽지를 409로 막는다. 답장 칸 대신 안내만
               <Notice kind="info">상대가 탈퇴해 더 이상 쪽지를 보낼 수 없어요</Notice>
-            ) : !user?.verifiedSchool && !replied ? (
-              // 답장도 학교 인증 회원만 (서버 403). 미인증이면 칸 대신 안내
+            ) : user && !user.verifiedSchool ? (
+              // 답장도 학교 인증 회원만 (서버 403). 로그인한 미인증 회원이면 칸 대신 안내.
+              // 로그인이 풀려 user가 null이 된 경우는 안내로 바꾸지 않는다 (쓰던 답장을 지우지 않으려고)
               <p className="hint">
                 학교 인증 후 답장할 수 있어요 <Link to="/me">학교 인증하기</Link>
               </p>
@@ -144,7 +158,6 @@ function ConversationView({ id }: { id: string }) {
                 }}
                 fallbackError={ERROR_MESSAGES.MESSAGE_SEND_FAILED}
                 send={(content) => sendReply(conv.id, content)}
-                onSubmitStart={() => setReplied(true)}
               />
             )}
           </div>

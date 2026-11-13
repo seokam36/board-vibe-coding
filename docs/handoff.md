@@ -2,7 +2,7 @@
 
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 
-마지막 갱신: 2026-11-13 (S14 쪽지 a~e + S14-f1·f2 대화 신고·관리자 대화 보기 백엔드 끝, 다음은 S14-f3 대화 화면 [신고] 버튼)
+마지막 갱신: 2026-11-13 (S14 쪽지 a~e + S14-f1~f3 끝, 다음은 S14-f4 관리자 신고 목록 "쪽지" 배지 + 대화 보기 화면)
 
 ## 지금 어디까지
 - **S0~S12 + UI1~UI3 완료·배포됨.** 운영은 S12-e(2026-11-11) 이미지, V8까지 적용. S12 리뷰 수정(21741e0)은 push됐지만 운영 미반영(다음 배포에 같이 나감).
@@ -35,18 +35,19 @@
   - S14-e(프론트만): `messages/UnreadProvider.tsx`+`unreadContext.ts`(`useUnread()` = {count, refresh}). 로그인했을 때만 GET unread-count, **로그인·회원 교체·주소(pathname) 바뀔 때마다** 다시 받음(결정 ⑦, 요청 번호 seq로 마지막 응답만 반영). 상단바 "쪽지 (n)"(0이면 "쪽지"). ConversationPage가 대화를 불러온 뒤 쪽지가 있으면 마지막 id로 PUT read → refresh, PUT 실패는 무시. mockApi 기본 응답에 unread-count·PUT /conversations/3/read(정확한 키). e2e 269개.
   - S14-f1(백엔드): **V13** `reports.conversation_id`(fk_reports_conversation CASCADE, uk_reports_conversation_reporter (방, 신고자), ck_reports_target = 넷 중 정확히 하나) + `POST /conversations/{id}/reports`(401 → 미인증 403 → 신고자 회원 행 `lockForKeyShare` → 방 없음·비참가자 404 → 중복 409; 같은 학교 검사 없음) + 관리자 목록 CONVERSATION(preview=item_title, author=신고자 아닌 참가자) + 기각 200. `ReportResponse`·`AdminReportResponse`의 "나머지는 댓글" 가정을 4분기 + IllegalStateException으로 고침. **사용자 결정**: 관리자는 신고된 대화의 방 전체를 계속 볼 수 있다(f2), 처리는 보기+기각만, 안 읽은 부분 인덱스는 안 함. 신고자 잠금 줄은 지금 테스트로 못 지키는 보험(FK 트리거 이름 순서에 기대는 우연을 피하려는 것, 추론이며 재현 못 함). 전체 테스트 1299.
   - S14-f2(백엔드): `GET /admin/reports/{id}/conversation`(관리자만, 방 전체·기각된 신고도 읽음·read_at 안 바뀜·잠금 없음, 대화 신고가 아닌 신고 id는 404, 응답 {reportId, conversationId, itemTitle, buyer, seller, messages[{id, sender, content, createdAt}]}, 사람은 id·nickname뿐). `GET /conversations/{id}`는 관리자에게 계속 404. 쪽지 쿼리 1번(left join fetch sender). 전체 테스트 1318. 미룬 것: 쪽지 수 상한·페이징 없음, 감사 기록 없음(backlog "나중(S14-f2 리뷰)").
+  - S14-f3(프론트만): 대화 화면 [신고] 버튼 = 기존 `ReportForm` 재사용(label '대화'). 대화일 때만 404·400·403 문구가 다름(REPORT_REASON_INVALID 새로, 403은 VISA_SCHOOL_REQUIRED_RETRY). 인증 회원에게만 버튼(미인증은 숨김). ConversationPage의 `replied`·`reportLoginLost` 깃발은 `user && !user.verifiedSchool` 조건 하나로 대체. e2e 296개. **알려진 빈틈**: 새 e2e "읽음 PUT 401…"은 옛 조건으로도 통과해 그 빈틈을 못 지킴(backlog "나중(S14-f3 리뷰)").
   - **잠금 규칙(S14 핵심)**: 탈퇴(`UserService.withdraw`)는 회원 행 FOR UPDATE를 맨 먼저 잡는다. 쪽지 쓰기·답장·읽음 처리는 전부 **회원 행 FOR KEY SHARE(`UserRepository.lockForKeyShare`, id 순)를 먼저** 잡고 그다음 방·쪽지 행. 순서를 어기면 실제로 40P01 교착 → 500이 났다(S14-a에서 재현).
 - Notion: S14 카드(번호 15)에 S14-a·b·c 단계 페이지(d는 프론트만이라 안 씀). 진행 현황 S14 줄 "남은 것: 화면 · 신고"(S14-e 끝나면 "신고"만).
 
 ## 다음에 할 일
-- **S14-f3 → f4**(backlog S14-f 항목에 완료 조건 있음, 둘 다 프론트만): f3 대화 화면 [신고] 버튼 + 신고 폼(`POST /conversations/{id}/reports`, 201·409·404·401 안내, 미인증은 인증 안내, 상대가 탈퇴한 방에도 버튼), f4 관리자 목록 "쪽지" 배지 + [대화 보기] + 대화 보기 화면(`GET /admin/reports/{id}/conversation`, [삭제] 없음·[문제 없음]만, 404 두 가지·403·401 안내). 각 단계 build 전에 무엇을 만드는지 설명하고 OK. **S13-h 배포 때 deploy.md 되돌리기 절에 한 줄**: V13 뒤 대화 신고가 있으면 S14-f 이전 이미지의 관리자 목록은 500. (S14-e는 끝남. 미룬 것은 backlog "나중(S14-e 리뷰)" — 스크린리더용 "안 읽은 쪽지 3개", 단위 테스트, e2e 중복 등.)
+- **S14-f4**(backlog S14-f 항목에 완료 조건 있음, 프론트만, S14의 마지막 단계): 관리자 목록 "쪽지" 배지 + [대화 보기] + 대화 보기 화면(`GET /admin/reports/{id}/conversation`, [삭제] 없음·[문제 없음]만, 404 두 가지·403·401 안내). 각 단계 build 전에 무엇을 만드는지 설명하고 OK. **S13-h 배포 때 deploy.md 되돌리기 절에 한 줄**: V13 뒤 대화 신고가 있으면 S14-f 이전 이미지의 관리자 목록은 500. (S14-e는 끝남. 미룬 것은 backlog "나중(S14-e 리뷰)" — 스크린리더용 "안 읽은 쪽지 3개", 단위 테스트, e2e 중복 등.)
 - 알려진 불안정 테스트: 전체 e2e에서 `messages.spec.ts:74`가 한 번 실패했다가 단독 3번 통과. 또 실패하면 실패한 줄이 `:91`·`:94`면 부하, `waitIdle`·"준비하지 않은 요청"이면 S14-e 관련.
 - S13-h 배포 전까지 사용자 콘솔 1분 작업: EC2 메타데이터 홉 제한 2 확인(아래 "진행 중인 단계"). 배포 날은 deploy.md "사진 저장 (S13-g6)" 1~5단계를 그대로 따른다.
 - (나중, 사용자 결정) 포트폴리오 트러블슈팅 정리: g6-1은 "옛 코드로 되돌리면 테스트 6개 실패" 재현 증거 있음. g6-2를 트러블슈팅으로 쓰려면 b6274d9(통째 읽기) vs 이후를 작은 힙으로 동시 요청해 메모리 전후 측정이 필요(지금은 "설계 개선"으로만 말할 수 있음).
 - 그다음 S13-h 배포(S13·S14 한 번에) → S16 Flutter(웹) 교체.
 
 ## 진행 중인 단계
-- 진행 중인 단계 없음(S14-f2까지 커밋, S14-f3는 시작 전). 아래는 S13-h 배포 때 필요한 메모.
+- 진행 중인 단계 없음(S14-f3까지 커밋, S14-f4는 시작 전). 아래는 S13-h 배포 때 필요한 메모.
   - 리뷰 미룬 것은 backlog "나중(S13-g…리뷰)" 줄들(g6-3·g6-4·g6-5 줄 새로 추가). **g6-5 줄의 "S13-h 배포 날 처음 확인" 목록**(nginx 거친 사진 201·실제 S3 왕복·삭제 실패 로그 0건·홉 제한·301/403 표 줄은 알려진 동작 기준)을 배포 날 체크리스트로 쓴다.
   - **AWS 콘솔 작업 끝(2026-11-12)**: 서울 리전 S3 버킷(범용·글로벌 네임스페이스, ACL 비활성, 퍼블릭 차단 4개, 버저닝 끔, SSE-S3) + IAM 정책 `board-market-photos-access`(그 버킷만 Put/Get/Delete + ListBucket) + IAM 역할 `board-ec2-role`(EC2 신뢰, 위 정책만) → EC2 `demo-server`에 연결함. 액세스 키는 안 만듦(앱은 기본 자격 증명 체인). **버킷 이름은 저장소가 공개라 코드·문서에 안 씀 → 사용자에게 물어서 EC2 `.env`의 `PHOTO_S3_BUCKET`에만.**
   - **남은 콘솔 1분 작업(S13-h 전까지)**: EC2 → demo-server → 작업 → 인스턴스 설정 → 인스턴스 메타데이터 옵션 수정 → "메타데이터 응답 홉 제한"이 2인지(1이면 2로). 컨테이너 안 앱이 역할 열쇠를 받으려면 2 이상 필요.
