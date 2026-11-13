@@ -27,7 +27,7 @@
   - g5-1(01f0442): `GET /market-items` 응답을 목록 전용 `MarketItemListResponse`로 분리(+ `coverPhoto` = id 최소 사진, 없으면 null). `findCoverPhotos`(min(id) group by) 글 1000개당 쿼리 1번. 화면: 목록 72px 썸네일, 상세 4:3 큰 사진 + 썸네일 버튼 줄.
   - g5-2(c81f651, 프론트만): 수정 화면 `MarketPhotoEditor`(즉시 올리기·지우기, useConfirm), 글쓰기는 미리보기 → 저장 = 글 POST → 사진 차례로 → 상세(일부 실패 안내는 router state, 읽은 뒤 replace로 지움). `marketPhotoUpload.ts`(사전 검사, 한 장씩, 401·403·404·409·네트워크·timeout 5분 중단 / 400·413·503 계속). 올리는 중 [저장]·[취소] 잠금, 저장 중 사진 영역 잠금.
 - Notion: S13 카드에 S13-a~g4 + g5-1·g6-1~g6-5 단계 페이지(g5-2는 프론트만이라 안 씀), 도구 사전에 "ImageIO · metadata-extractor"·"AWS S3 · AWS SDK". 진행 현황 S13 줄 "남은 것: 배포(S14 쪽지와 함께)". **메인 페이지 아키텍처 그림에 S3는 S13-h 배포 때 추가.**
-- **S14(쪽지) a~e 완료, 운영 미반영.** 결정 9개 전부 backlog S14 항목(대화방 방식, 같은 학교 인증만 시작, 거래완료는 새 대화만 409, 글 삭제·탈퇴해도 대화 남음, 남의 방은 관리자도 404, 1~1000자, 신고는 S14-f).
+- **S14(쪽지) a~f4 완료·push됨(383fb22), 운영 미반영. 배포 전에 S14-g·S14-h를 더 한다(아래 "다음에 할 일").** 결정 9개 전부 backlog S14 항목(대화방 방식, 같은 학교 인증만 시작, 거래완료는 새 대화만 409, 글 삭제·탈퇴해도 대화 남음, 남의 방은 관리자도 404, 1~1000자, 신고는 S14-f).
   - S14-a(987bc2f): **V12** `conversations`(글·구매자·판매자 FK 전부 SET NULL, item_title 복사, `uk_conversations_item_buyer`, ck 구매자≠판매자) + `messages`(대화 CASCADE, sender SET NULL, read_at) + 인덱스 5개. `POST /market-items/{id}/conversations`(같은 글+구매자면 기존 방, `INSERT … ON CONFLICT DO NOTHING RETURNING id`).
   - S14-b(d546ae0): `GET /conversations`(쿼리 고정, N+1 없음) · `GET /conversations/{id}`(쪽지 id 오름차순) · `POST /conversations/{id}/messages`(상대 탈퇴 409). 쪽지 저장은 `ConversationService.appendMessage` 한 곳(방 행 NO KEY UPDATE 뒤 시각 재기).
   - S14-c(62bba67): `PUT /conversations/{id}/read` {"lastMessageId"}(사용자 결정 "본 쪽지까지만", 소수 400은 MarkReadRequest 칸 전용 변환기) · `GET /conversations/unread-count` · 목록 unreadCount. 세기·읽음 조건은 전부 `sender.id IS DISTINCT FROM 나`.
@@ -37,12 +37,13 @@
   - S14-f2(백엔드): `GET /admin/reports/{id}/conversation`(관리자만, 방 전체·기각된 신고도 읽음·read_at 안 바뀜·잠금 없음, 대화 신고가 아닌 신고 id는 404, 응답 {reportId, conversationId, itemTitle, buyer, seller, messages[{id, sender, content, createdAt}]}, 사람은 id·nickname뿐). `GET /conversations/{id}`는 관리자에게 계속 404. 쪽지 쿼리 1번(left join fetch sender). 전체 테스트 1318. 미룬 것: 쪽지 수 상한·페이징 없음, 감사 기록 없음(backlog "나중(S14-f2 리뷰)").
   - S14-f3(프론트만): 대화 화면 [신고] 버튼 = 기존 `ReportForm` 재사용(label '대화'). 대화일 때만 404·400·403 문구가 다름(REPORT_REASON_INVALID 새로, 403은 VISA_SCHOOL_REQUIRED_RETRY). 인증 회원에게만 버튼(미인증은 숨김). ConversationPage의 `replied`·`reportLoginLost` 깃발은 `user && !user.verifiedSchool` 조건 하나로 대체. e2e 296개. **알려진 빈틈**: 새 e2e "읽음 PUT 401…"은 옛 조건으로도 통과해 그 빈틈을 못 지킴(backlog "나중(S14-f3 리뷰)").
   - S14-f4(프론트만): 관리자 신고 목록에 대화 신고 = 배지 "쪽지" + [대화 보기](`/admin/reports/{신고 id}/conversation`, **방 id 아님**) + [문제 없음]만(삭제 없음). 새 화면 `AdminConversationPage`(관리자만·읽기 전용, 방 전체, 보낸 사람은 id 비교, `key={id}`+`ignore`). `mockApi.loginAdmin` export. e2e 327개. 전체 e2e가 컴퓨터가 바쁠 때 가끔 느리거나 1개씩 실패하는 알려진 불안정(backlog "나중(S14-f4 리뷰)": `messages*.spec`·market·visa-banner 몇 줄, `ECONNREFUSED /conversations/3` 로그 포함). **S14(쪽지) 전 단계 끝.**
-  - **잠금 규칙(S14 핵심)**: 탈퇴(`UserService.withdraw`)는 회원 행 FOR UPDATE를 맨 먼저 잡는다. 쪽지 쓰기·답장·읽음 처리는 전부 **회원 행 FOR KEY SHARE(`UserRepository.lockForKeyShare`, id 순)를 먼저** 잡고 그다음 방·쪽지 행. 순서를 어기면 실제로 40P01 교착 → 500이 났다(S14-a에서 재현).
-- Notion: S14 카드(번호 15)에 S14-a·b·c 단계 페이지(d는 프론트만이라 안 씀). 진행 현황 S14 줄 "남은 것: 화면 · 신고"(S14-e 끝나면 "신고"만).
+  - **잠금 규칙(S14 핵심)**: 탈퇴(`UserService.withdraw`)는 회원 행 FOR UPDATE를 맨 먼저 잡는다. 쪽지 쓰기·답장·읽음 처리·대화 신고는 전부 **회원 행 FOR KEY SHARE(`UserRepository.lockForKeyShare`, id 순)를 먼저** 잡고 그다음 방·쪽지 행. 순서를 어기면 실제로 40P01 교착 → 500이 났다(S14-a에서 재현).
+- Notion: S14 카드(번호 15)에 S14-a·b·c 단계 페이지 + **"S14 전체 정리와 코드 리뷰"**(API 한눈에·f1·f2 흐름·리뷰 표·면접 답변, 2026-11-13). 프론트만 바꾼 d·e·f3·f4는 단계 페이지를 안 씀. 카드 표에 d~h 줄과 단계 "S14-a ~ S14-h", 진행 현황 S14 줄 "남은 것: 배포 전 작은 두 단계(최근 N통만 읽기·쪽지함 안 읽은 표시), 배포" 갱신 끝. S14-g·h가 끝나면 카드 표의 "(배포 전, 예정)"을 고치고, 백엔드인 g는 단계 페이지를 쓴다. 메인 페이지 아키텍처 그림에 S3는 S13-h 배포 때 추가.
 
 ## 다음에 할 일
+- **바로 다음 행동: S14-g(백엔드) build 시작 전에 "무엇을 만드는지" 쉬운 말로 설명하고 사용자 OK를 받는다.** 정할 것: N을 몇 통으로 할지(예: 200), 응답에 "더 있음" 표시를 넣을지, 오래된 쪽지를 어떻게 보여 줄지, 일반 대화 보기와 관리자 대화 보기 둘 다 적용(사용자 결정은 "최근 N통만 읽기"). 끝나면 tester → review → 메인이 `./gradlew cleanTest test` 직접. 그다음 S14-h(프론트).
 - **S14 전체 코드 리뷰는 끝났다**(필수 0·권장 4, 2026-11-13). 사용자 결정으로 **배포 전에 두 단계를 더 한다**(backlog S14-g·S14-h): (1) **S14-g 백엔드**: `GET /conversations/{id}`와 관리자 대화 보기가 쪽지를 최근 N통만 읽는다(N·"더 있음" 표시·오래된 쪽지 처리는 build 전에 사용자에게 설명하고 OK. 이유: 쪽지를 전부 메모리로 읽는데 운영 힙 약 307MB·DB 연결 3개라 한 명이 쪽지 1만 통을 쌓고 피해자가 방을 열면 앱이 죽을 수 있다는 추측). (2) **S14-h 화면**: 쪽지함 줄에 방별 안 읽은 수(서버 `unreadCount`는 이미 있음). 관리자 열람 기록은 배포 뒤·관리자를 늘리기 전에. 그다음 **S13-h 배포(S13·S14 한 번에)**. 배포 날 deploy.md "(b) 옛 이미지로 돌아가도 괜찮은가"에 V9~V13 되돌리기 안내를 쓴다(backlog "나중(S14 전체 리뷰)"). Notion S14 카드에는 "S14 전체 정리와 코드 리뷰" 페이지를 만들었다(프론트만 바꾼 d·e·f3·f4와 f1·f2 흐름은 그 페이지에). 각 단계 build 전에 무엇을 만드는지 설명하고 OK.
-- 알려진 불안정 테스트: 전체 e2e에서 `messages.spec.ts:74`가 한 번 실패했다가 단독 3번 통과. 또 실패하면 실패한 줄이 `:91`·`:94`면 부하, `waitIdle`·"준비하지 않은 요청"이면 S14-e 관련.
+- 알려진 불안정(원인 미확정): 전체 e2e가 컴퓨터가 바쁠 때 가끔 느리거나(build 실행 5분·45분) 1개씩 실패한다(`messages.spec.ts:74`·`:275`, `messages-extra.spec.ts:420`·`:460`, `market.spec.ts:679`, `visa-banner.spec.ts:63`가 한 번씩). 메인·tester가 다시 돌리면 2~3분에 전부 통과(마지막 327개). 전체 로그에 vite 프록시 `ECONNREFUSED /conversations/3`가 찍힌 적도 있다(`reuseExistingServer`로 5174 서버가 재사용돼 열어 둔 탭이 mock 없이 프록시로 갔을 가능성, 추측). 반복되면 backlog "나중(S14-f4 리뷰)"의 확인 방법(5174 탭 없이 `messages*.spec.ts`만 `--workers=1`)을 쓰고 workers·timeout 조정을 검토.
 - S13-h 배포 전까지 사용자 콘솔 1분 작업: EC2 메타데이터 홉 제한 2 확인(아래 "진행 중인 단계"). 배포 날은 deploy.md "사진 저장 (S13-g6)" 1~5단계를 그대로 따른다.
 - (나중, 사용자 결정) 포트폴리오 트러블슈팅 정리: g6-1은 "옛 코드로 되돌리면 테스트 6개 실패" 재현 증거 있음. g6-2를 트러블슈팅으로 쓰려면 b6274d9(통째 읽기) vs 이후를 작은 힙으로 동시 요청해 메모리 전후 측정이 필요(지금은 "설계 개선"으로만 말할 수 있음).
 - 그다음 S13-h 배포(S13·S14 한 번에) → S16 Flutter(웹) 교체.
@@ -53,8 +54,8 @@
   - **AWS 콘솔 작업 끝(2026-11-12)**: 서울 리전 S3 버킷(범용·글로벌 네임스페이스, ACL 비활성, 퍼블릭 차단 4개, 버저닝 끔, SSE-S3) + IAM 정책 `board-market-photos-access`(그 버킷만 Put/Get/Delete + ListBucket) + IAM 역할 `board-ec2-role`(EC2 신뢰, 위 정책만) → EC2 `demo-server`에 연결함. 액세스 키는 안 만듦(앱은 기본 자격 증명 체인). **버킷 이름은 저장소가 공개라 코드·문서에 안 씀 → 사용자에게 물어서 EC2 `.env`의 `PHOTO_S3_BUCKET`에만.**
   - **남은 콘솔 1분 작업(S13-h 전까지)**: EC2 → demo-server → 작업 → 인스턴스 설정 → 인스턴스 메타데이터 옵션 수정 → "메타데이터 응답 홉 제한"이 2인지(1이면 2로). 컨테이너 안 앱이 역할 열쇠를 받으려면 2 이상 필요.
   - 위험(사용자에게 알림): 실제 S3 왕복은 S13-h 배포 날 처음 해 봄. compose를 바꿨으니 Deploy 전에 compose scp 필수(빼먹으면 조용히 local).
-- 커밋 안 된 변경: `docs/handoff.md`(이 커밋), `.claude/launch.json`(일부러 커밋 안 함).
-- 미룬 것(S14): backlog S14 항목의 "나중(S14-a 리뷰)"·"나중(S14-b 리뷰)"·"나중(S14-c 리뷰)"·"나중(S14-d 리뷰)" 줄(전각 공백 쪽지, 목록 페이징, 안 읽은 수 부분 인덱스, 문자열 숫자 "1" 받아짐 등).
+- 커밋 안 된 변경: 이 handoff 갱신 커밋만 남음, `.claude/launch.json`(일부러 커밋 안 함).
+- 미룬 것(S14): backlog S14 항목의 "나중(S14-a~d 리뷰)"·"나중(S14-e 리뷰)"·"나중(S14-f1 리뷰)"·"나중(S14-f2 리뷰)"·"나중(S14-f3 리뷰)"·"나중(S14-f4 리뷰)"·"나중(S14 전체 리뷰)" 줄(전각 공백 쪽지, 목록 페이징, 안 읽은 수 부분 인덱스, 문자열 숫자 "1" 받아짐, 관리자 열람 감사 기록(관리자 늘리기 전 필수), 쪽지 횟수 제한, 신고 남용, 접근성, e2e 중복, 새 e2e "읽음 PUT 401"이 옛 조건으로도 통과하는 빈틈 등).
 - 미룬 것(S13-g5): backlog S13 항목의 "나중(S13-g5-1 리뷰)"·"나중(S13-g5-2 리뷰)" 줄(키보드 Enter로 파일 선택 창이 실제로 열리는지 사람 확인, 아이폰 실기기 HEIC·48MP 확인, 글쓰기 401 뒤 재로그인 안내 등).
 - 미룬 것(S13): backlog S13 항목의 "나중(S13-a 리뷰)"·"나중(S13-b 리뷰)"·"나중(S13-c 리뷰)"·"나중(S13-d 리뷰)" 줄(가격 5000.9·"5000" 문자열 받아짐 확인, 비자 후기 수정 중 삭제 500, 학교별 머리말, 가격 굵기 등).
 - 미룬 것(S12): backlog S12 항목의 "나중(S12-c 리뷰)"·"나중(S12-d 리뷰)" 줄 · S12-a 리뷰: 배열·숫자 날짜(`[2026,12,31]`, `20818`)도 LocalDate로 받아짐(후기 날짜와 함께 Jackson 설정 한 곳에서 막기) · upsert `@Modifying`에 clearAutomatically 없음(upsert 뒤 다시 읽는 코드가 생기면) · "오늘 이후여야 합니다" 400 문구(오늘도 허용) · 덮어쓰기 때 created_at 유지 단언 · FlywayExistingBaselineTests가 V8 성공 행을 직접 단언하지 않음 · S12-b: 계산 로직이 DTO(VisaPlanResponse.of) 안(두 번째 사용처 생기면 domain으로) · 띠 자정 넘김 자동 갱신 없음(새로고침하면 반영)
@@ -149,6 +150,9 @@
 - **compose `:?`는 프로필과 상관없이 파일 전체를 해석해서** prod 전용 변수에 쓰면 로컬 `docker compose up`도 깨진다. 선택 값은 `:-`로. `docker compose --profile prod config | grep -c ...`로 값을 출력하지 않고 확인한다.
 - **Notion이 글 속 `deploy.md` 같은 파일 이름을 웹 링크(http://deploy.md)로, 표 칸의 ` + `를 `•`로 바꾼다.** 파일 이름은 `<code>`로 감싸고, 표 칸에서는 +를 피한다. 만든 뒤 fetch로 확인.
 - **e2e를 두 개 동시에 돌리지 말 것**: tester가 백그라운드로 `--repeat-each`를 돌리는 중에 메인이 `npm run test:e2e`를 돌려 16개가 실패했다(둘 다 5174 Vite를 씀). 끝난 뒤 다시 돌리면 전부 통과. 서브에이전트 보고에 "백그라운드로 넘어갔다"가 있으면 끝날 때까지 기다린다.
+- **build·tester의 "테스트가 진짜 지킨다"는 보고도 메인이 한 번 확인**: S14-f3에서 build가 추가한 e2e "읽음 PUT 401…"이 옛 조건으로 되돌려도 통과했다(빈틈을 못 지킴, backlog에 기록). 반대로 링크에 신고 id 대신 방 id를 넣는 식의 망가뜨리기는 메인이 직접 해서 e2e 4개가 실패하는 것을 확인했다. 방법: 원본을 스크래치패드에 복사 → Edit로 망가뜨림 → 해당 spec만 `npx playwright test <spec>` → 복사본으로 되돌리고 `cmp`.
+- **편집기의 빨간 줄(getId() undefined, blank final field 등)은 롬복 때문에 뜨는 가짜 오류**다. 빌드·테스트 결과(`./gradlew cleanTest test`, build/test-results XML 합산)가 기준. `./gradlew test`만 돌리면 UP-TO-DATE로 안 돌 수 있으니 `cleanTest test`.
+- 대화 신고·관리자 대화 보기에서 **신고 id와 방 id는 다르다**(관리자 화면 링크는 신고 id `r.id`, `target.id`는 방 id). 코드 주석·e2e에서 신고 7 / 방 12처럼 일부러 다르게 둔다.
 - 브라우저 확인 중 Browser 창이 가려져 있으면(hidden) canvas `toBlob`·타이머가 느려져 javascript_tool이 45초 시간 초과가 난다. 스크립트는 실제로 끝났을 수 있으니 다시 돌리기 전에 화면 상태를 먼저 본다.
 - 브라우저에서 사진 올리기를 확인할 때: canvas로 PNG File을 만들고 `DataTransfer`로 `input[type=file]`에 넣은 뒤 change 이벤트를 보낸다(진짜 업로드 흐름 그대로). 413 확인은 화면이 10MB를 미리 막으니 fetch로 직접 보낸다.
 - **tester는 `src/main`을 못 고친다**(훅). "일부러 망가뜨려 보기"가 필요하면 메인 대화가 직접 한다(스크래치패드에 복사 → Edit로 망가뜨림 → 테스트 → 복사본으로 되돌리고 해시 비교). build에게 시켜도 된다.
