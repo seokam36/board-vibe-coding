@@ -5,6 +5,7 @@ import { useAuth } from '../auth/useAuth'
 import { describeError, ERROR_MESSAGES } from '../errorMessage'
 import { formatDate } from '../formatDate'
 import { WITHDRAWN_PARTNER } from '../messageText'
+import { useUnread } from '../messages/unreadContext'
 import Loading from '../components/Loading'
 import MessageComposer from '../components/MessageComposer'
 import Notice from '../components/Notice'
@@ -23,6 +24,7 @@ export default function ConversationPage() {
 function ConversationView({ id }: { id: string }) {
   const safeId = encodeURIComponent(id) // '?' 같은 문자가 경로에 섞여 다른 API로 바뀌는 것을 막는다
   const { user } = useAuth()
+  const { refresh: refreshUnread } = useUnread() // 읽음 처리 뒤 상단바 숫자 갱신 (함수가 안 바뀌어 아래 effect가 다시 돌지 않는다)
   const [conv, setConv] = useState<ConversationDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -41,6 +43,16 @@ function ConversationView({ id }: { id: string }) {
         setConv(res.data)
         setError(null)
         setNeedLogin(false)
+        // 대화를 열었으니 "여기까지 봤다"고 서버에 알린다 (마지막 쪽지 번호). 쪽지가 없으면 보낼 게 없다
+        const msgs = res.data.messages
+        if (msgs.length > 0) {
+          api
+            .put(`/conversations/${safeId}/read`, { lastMessageId: msgs[msgs.length - 1].id })
+            .then(() => refreshUnread()) // 읽음 처리가 끝나면 상단바 숫자를 다시 받는다
+            .catch(() => {
+              // 읽음 처리는 부가 동작이라 실패해도 대화 화면은 그대로 두고 에러를 무시한다
+            })
+        }
       })
       .catch((e: unknown) => {
         if (ignore) return
@@ -59,7 +71,7 @@ function ConversationView({ id }: { id: string }) {
     return () => {
       ignore = true
     }
-  }, [safeId])
+  }, [safeId, refreshUnread])
 
   // 쪽지가 늘어나면(처음 불러왔을 때, 답장했을 때) 맨 아래가 보이게 내린다
   useEffect(() => {

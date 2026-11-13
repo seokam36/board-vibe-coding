@@ -182,7 +182,8 @@ test('대화 화면의 쪽지에 서울 시각이 보이고 불러오기 주소�
   const paths: string[] = []
   page.on('request', (r) => {
     const p = new URL(r.url()).pathname
-    if (r.method() === 'GET' && p.startsWith('/api/conversations')) paths.push(p)
+    // 상단바가 부르는 안 읽은 수(unread-count)는 대화 불러오기가 아니므로 뺀다
+    if (r.method() === 'GET' && p.startsWith('/api/conversations') && p !== '/api/conversations/unread-count') paths.push(p)
   })
   await page.goto('/messages/3')
   await expect(page.locator('.msg')).toHaveCount(2)
@@ -287,11 +288,11 @@ test('쪽지 보내기가 401이어도 재발급이 성공하면 같은 요청�
 
 // ---- 8. 상단바 ----
 
-test('상단바 "쪽지" 링크는 /messages로 가고 숫자 없이 "쪽지"만 보이며 안 읽은 수 요청을 부르지 않는다', async ({ page, api }) => {
+test('상단바 "쪽지" 링크는 /messages로 가고, 안 읽은 수가 0이면 숫자 없이 "쪽지"만 보이며 로그인했으니 안 읽은 수를 부른다', async ({ page, api }) => {
   loginVerified(api)
   const unreadCalls: string[] = []
   page.on('request', (r) => {
-    if (new URL(r.url()).pathname.includes('unread')) unreadCalls.push(r.url())
+    if (new URL(r.url()).pathname === '/api/conversations/unread-count') unreadCalls.push(r.url())
   })
   await page.goto('/')
   const link = page.getByRole('link', { name: '쪽지', exact: true })
@@ -301,7 +302,8 @@ test('상단바 "쪽지" 링크는 /messages로 가고 숫자 없이 "쪽지"만
   await expect(page).toHaveURL(/\/messages$/)
   await expect(page.getByText('아직 쪽지가 없습니다')).toBeVisible()
   await expect(page.getByRole('link', { name: '쪽지', exact: true })).toHaveText('쪽지')
-  expect(unreadCalls).toEqual([])
+  // 개발 서버(StrictMode)는 효과를 두 번 돌려 2번 갈 수 있다. 부르긴 했는지만 본다
+  expect(unreadCalls.length).toBeGreaterThan(0)
 })
 
 // ---- 9. 대화 사이를 브라우저 기록으로 건너뛸 때 (같은 화면 컴포넌트가 재사용되는 경우) ----
@@ -309,7 +311,7 @@ test('상단바 "쪽지" 링크는 /messages로 가고 숫자 없이 "쪽지"만
 test('대화 5에서 쓰던 답장은 대화 3으로 건너뛰면 사라지고, 답장은 화면에 보이는 대화로 간다', async ({ page, api }) => {
   loginVerified(api)
   const detail5: ConversationDetail = { ...fakeConversationDetail, id: 5, partner: { id: 8, nickname: '다른닉' } }
-  api.override({ 'GET /conversations/5': { status: 200, body: detail5 } })
+  api.override({ 'GET /conversations/5': { status: 200, body: detail5 }, 'PUT /conversations/5/read': { status: 204 } })
   const calls3 = record(page, 'POST', '/api/conversations/3/messages')
   const calls5 = record(page, 'POST', '/api/conversations/5/messages')
 
@@ -344,8 +346,182 @@ test('대화 5에서 쓰던 답장은 대화 3으로 건너뛰면 사라지고, 
   expect(calls5).toHaveLength(0)
 })
 
-test('비로그인 상단바에는 "쪽지" 링크가 없다', async ({ page }) => {
+test('비로그인 상단바에는 "쪽지" 링크가 없고 안 읽은 수도 부르지 않는다', async ({ page, api }) => {
+  const unreadCalls: string[] = []
+  page.on('request', (r) => {
+    if (new URL(r.url()).pathname === '/api/conversations/unread-count') unreadCalls.push(r.url())
+  })
   await page.goto('/')
   await expect(page.getByRole('link', { name: '로그인' }).first()).toBeVisible()
   await expect(page.getByRole('link', { name: '쪽지' })).toHaveCount(0)
+  await api.waitIdle() // 늦게 나가는 요청이 있어도 검사에 잡히게 기다린다
+  expect(unreadCalls).toEqual([])
+})
+
+// ---- 10. 안 읽은 쪽지 (S14-e): 상단바 숫자와 대화 화면의 읽음 처리 ----
+
+test('안 읽은 쪽지가 3개면 상단바가 "쪽지 (3)"으로 보이고 링크는 /messages다', async ({ page, api }) => {
+  loginVerified(api)
+  api.override({ 'GET /conversations/unread-count': { status: 200, body: { count: 3 } } })
+  await page.goto('/')
+  const link = page.getByRole('link', { name: '쪽지 (3)' })
+  await expect(link).toBeVisible()
+  await expect(link).toHaveAttribute('href', '/messages')
+})
+
+test('새로고침 없이 화면을 옮기면 그사이 온 쪽지 수가 상단바에 반영된다', async ({ page, api }) => {
+  loginVerified(api)
+  // 처음엔 0개였는데 보는 동안 새 쪽지 3통이 온 상황을 흉내 낸다
+  let unread = 0
+  api.override({
+    'GET /conversations': { status: 200, body: [fakeConversationSummary] },
+    'GET /conversations/unread-count': () => ({ status: 200, body: { count: unread } }),
+  })
+  // 첫 안 읽은 수 응답(0개)이 화면에 반영될 때까지 기다린 뒤에 새 쪽지를 "도착"시킨다 (안 기다리면 첫 응답이 3으로 와서 이동 없이도 통과해 버린다)
+  const first = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/conversations/unread-count')
+  await page.goto('/')
+  await first
+  await expect(page.getByRole('link', { name: '쪽지', exact: true })).toBeVisible()
+  await api.waitIdle()
+  unread = 3
+  // 화면 이동(주소 바뀜) = 숫자를 다시 센다
+  await page.getByRole('link', { name: '쪽지', exact: true }).click()
+  await expect(page).toHaveURL(/\/messages$/)
+  await expect(page.getByRole('link', { name: '쪽지 (3)' })).toBeVisible()
+})
+
+test('대화를 열면 마지막 쪽지 번호로 읽음 처리 PUT이 가고 상단바 숫자가 줄어든다', async ({ page, api }) => {
+  loginVerified(api)
+  // 읽음 처리가 끝나면 서버의 안 읽은 수가 0이 되는 흐름을 흉내 낸다
+  let unread = 2
+  api.override({
+    'GET /conversations': { status: 200, body: [fakeConversationSummary] },
+    'GET /conversations/unread-count': () => ({ status: 200, body: { count: unread } }),
+    'PUT /conversations/3/read': () => {
+      unread = 0
+      return { status: 204 }
+    },
+  })
+  const calls = record(page, 'PUT', '/api/conversations/3/read')
+  await page.goto('/')
+  await expect(page.getByRole('link', { name: '쪽지 (2)' })).toBeVisible()
+  await page.getByRole('link', { name: '쪽지 (2)' }).click()
+  await page.locator('.row').first().getByRole('link').click()
+  await expect(page).toHaveURL(/\/messages\/3$/)
+  await expect(page.locator('.msg')).toHaveCount(2)
+  // 숫자가 사라지고 "쪽지"만 남는다
+  await expect(page.getByRole('link', { name: '쪽지', exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: '쪽지 (2)' })).toHaveCount(0)
+  // 마지막 쪽지(번호 11)까지 봤다고 알렸다. StrictMode로 두 번 갈 수 있어 본문은 모두 같아야 한다
+  expect(calls.length).toBeGreaterThan(0)
+  for (const c of calls) expect(JSON.parse(c.body ?? '{}')).toEqual({ lastMessageId: 11 })
+})
+
+test('읽음 처리 PUT이 실패해도 대화 화면은 그대로 보이고 에러 안내는 없다', async ({ page, api }) => {
+  loginVerified(api)
+  api.override({
+    'GET /conversations/unread-count': { status: 200, body: { count: 2 } },
+    'PUT /conversations/3/read': { status: 500 },
+  })
+  const calls = record(page, 'PUT', '/api/conversations/3/read')
+  await page.goto('/messages/3')
+  await expect(page.locator('.msg')).toHaveCount(2)
+  await expect(page.getByLabel('답장 내용')).toBeVisible()
+  await api.waitIdle()
+  expect(calls.length).toBeGreaterThan(0) // PUT은 실제로 갔다
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  // 읽음 처리가 실패했으니 숫자는 그대로다
+  await expect(page.getByRole('link', { name: '쪽지 (2)' })).toBeVisible()
+})
+
+test('쪽지가 하나도 없는 대화를 열면 읽음 처리 PUT을 보내지 않는다', async ({ page, api }) => {
+  loginVerified(api)
+  const detail: ConversationDetail = { ...fakeConversationDetail, messages: [] }
+  api.override({ 'GET /conversations/3': { status: 200, body: detail } })
+  const calls = record(page, 'PUT', '/api/conversations/3/read')
+  await page.goto('/messages/3')
+  await expect(page.getByText('아직 쪽지가 없습니다')).toBeVisible()
+  await api.waitIdle()
+  expect(calls).toHaveLength(0)
+})
+
+// 안 읽은 수 요청이 500이어도 화면은 멀쩡하고 "쪽지"만 보인다 (부가 표시라 조용히 무시)
+test('안 읽은 수 요청이 500이어도 상단바는 "쪽지"로 보이고 에러 안내는 없다', async ({ page, api }) => {
+  loginVerified(api)
+  api.override({ 'GET /conversations/unread-count': { status: 500 } })
+  await page.goto('/')
+  await expect(page.getByRole('link', { name: '쪽지', exact: true })).toBeVisible()
+  await api.waitIdle()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await expect(page.getByRole('link', { name: '쪽지', exact: true })).toHaveText('쪽지')
+})
+
+// 대화 3 -> 5로 이동하면 5의 마지막 쪽지 번호(21)로 PUT이 가야 한다 (3의 번호 11이 섞이면 안 됨)
+test('대화 3에서 대화 5로 이동하면 대화 5의 마지막 쪽지 번호로 읽음 처리 PUT이 간다', async ({ page, api }) => {
+  loginVerified(api)
+  const detail5: ConversationDetail = {
+    ...fakeConversationDetail,
+    id: 5,
+    partner: { id: 8, nickname: '다른닉' },
+    messages: [
+      { id: 20, content: '다른 대화 첫 쪽지', createdAt: '2026-01-03T03:00:00Z', mine: true },
+      { id: 21, content: '다른 대화 마지막 쪽지', createdAt: '2026-01-03T03:05:00Z', mine: false },
+    ],
+  }
+  api.override({ 'GET /conversations/5': { status: 200, body: detail5 }, 'PUT /conversations/5/read': { status: 204 } })
+  const calls3 = record(page, 'PUT', '/api/conversations/3/read')
+  const calls5 = record(page, 'PUT', '/api/conversations/5/read')
+  await page.goto('/messages/3')
+  await expect(page.getByRole('heading', { name: '판매자닉' })).toBeVisible()
+  await page.evaluate("window.history.pushState({}, '', '/messages/5'); window.dispatchEvent(new PopStateEvent('popstate'))")
+  await expect(page.getByRole('heading', { name: '다른닉' })).toBeVisible()
+  await api.waitIdle()
+  expect(calls3.length).toBeGreaterThan(0)
+  for (const c of calls3) expect(JSON.parse(c.body ?? '{}')).toEqual({ lastMessageId: 11 })
+  expect(calls5.length).toBeGreaterThan(0)
+  for (const c of calls5) expect(JSON.parse(c.body ?? '{}')).toEqual({ lastMessageId: 21 })
+})
+
+// 로그인 화면에서 로그인하자마자 숫자가 떠야 한다 (새로고침 없이)
+test('로그인 직후 상단바에 안 읽은 수가 바로 보인다', async ({ page, api }) => {
+  api.override({ 'GET /conversations/unread-count': { status: 200, body: { count: 4 } } })
+  await page.goto('/login')
+  await expect(page.getByRole('link', { name: /쪽지/ })).toHaveCount(0)
+  await page.getByLabel('아이디').fill(fakeUser.username)
+  await page.getByLabel('비밀번호').fill('아무비밀번호')
+  await page.getByRole('button', { name: '로그인' }).click()
+  await expect(page.getByRole('link', { name: '쪽지 (4)' })).toBeVisible()
+})
+
+// 답장은 읽음 처리와 별개: 답장을 보내도 PUT은 다시 안 가고 숫자는 그대로, 에러도 없다
+test('답장을 보내도 읽음 처리 PUT은 다시 가지 않고 상단바 숫자는 그대로다', async ({ page, api }) => {
+  loginVerified(api)
+  api.override({ 'GET /conversations/unread-count': { status: 200, body: { count: 2 } } })
+  const calls = record(page, 'PUT', '/api/conversations/3/read')
+  await page.goto('/messages/3')
+  await expect(page.locator('.msg')).toHaveCount(2)
+  // 처음 열 때의 읽음 처리 PUT이 나갈 때까지 기다린다 (쪽지가 보인 직후엔 아직 안 나갔을 수 있다)
+  await expect.poll(() => calls.length).toBeGreaterThan(0)
+  await api.waitIdle()
+  const before = calls.length
+  await page.getByLabel('답장 내용').fill('답장입니다')
+  await page.getByRole('button', { name: '답장 보내기' }).click()
+  await expect(page.locator('.msg')).toHaveCount(3)
+  await api.waitIdle()
+  expect(calls.length).toBe(before)
+  await expect(page.getByRole('link', { name: '쪽지 (2)' })).toBeVisible()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+})
+
+test('로그아웃하면 상단바 숫자가 사라진다', async ({ page, api }) => {
+  loginVerified(api)
+  api.override({
+    'GET /conversations/unread-count': { status: 200, body: { count: 3 } },
+    'POST /auth/logout': { status: 204 },
+  })
+  await page.goto('/')
+  await expect(page.getByRole('link', { name: '쪽지 (3)' })).toBeVisible()
+  await page.getByRole('button', { name: '로그아웃' }).click()
+  await expect(page.getByRole('link', { name: '로그인' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: /쪽지/ })).toHaveCount(0)
 })

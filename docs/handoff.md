@@ -2,7 +2,7 @@
 
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 
-마지막 갱신: 2026-11-12 집 PC (S14 쪽지 a~d 끝, Notion S14 카드 + a~c 기록)
+마지막 갱신: 2026-11-13 (S14 쪽지 a~e 끝, 다음은 S14-f 대화 신고)
 
 ## 지금 어디까지
 - **S0~S12 + UI1~UI3 완료·배포됨.** 운영은 S12-e(2026-11-11) 이미지, V8까지 적용. S12 리뷰 수정(21741e0)은 push됐지만 운영 미반영(다음 배포에 같이 나감).
@@ -27,23 +27,24 @@
   - g5-1(01f0442): `GET /market-items` 응답을 목록 전용 `MarketItemListResponse`로 분리(+ `coverPhoto` = id 최소 사진, 없으면 null). `findCoverPhotos`(min(id) group by) 글 1000개당 쿼리 1번. 화면: 목록 72px 썸네일, 상세 4:3 큰 사진 + 썸네일 버튼 줄.
   - g5-2(c81f651, 프론트만): 수정 화면 `MarketPhotoEditor`(즉시 올리기·지우기, useConfirm), 글쓰기는 미리보기 → 저장 = 글 POST → 사진 차례로 → 상세(일부 실패 안내는 router state, 읽은 뒤 replace로 지움). `marketPhotoUpload.ts`(사전 검사, 한 장씩, 401·403·404·409·네트워크·timeout 5분 중단 / 400·413·503 계속). 올리는 중 [저장]·[취소] 잠금, 저장 중 사진 영역 잠금.
 - Notion: S13 카드에 S13-a~g4 + g5-1·g6-1~g6-5 단계 페이지(g5-2는 프론트만이라 안 씀), 도구 사전에 "ImageIO · metadata-extractor"·"AWS S3 · AWS SDK". 진행 현황 S13 줄 "남은 것: 배포(S14 쪽지와 함께)". **메인 페이지 아키텍처 그림에 S3는 S13-h 배포 때 추가.**
-- **S14(쪽지) a~d 완료, 운영 미반영.** 결정 9개 전부 backlog S14 항목(대화방 방식, 같은 학교 인증만 시작, 거래완료는 새 대화만 409, 글 삭제·탈퇴해도 대화 남음, 남의 방은 관리자도 404, 1~1000자, 신고는 S14-f).
+- **S14(쪽지) a~e 완료, 운영 미반영.** 결정 9개 전부 backlog S14 항목(대화방 방식, 같은 학교 인증만 시작, 거래완료는 새 대화만 409, 글 삭제·탈퇴해도 대화 남음, 남의 방은 관리자도 404, 1~1000자, 신고는 S14-f).
   - S14-a(987bc2f): **V12** `conversations`(글·구매자·판매자 FK 전부 SET NULL, item_title 복사, `uk_conversations_item_buyer`, ck 구매자≠판매자) + `messages`(대화 CASCADE, sender SET NULL, read_at) + 인덱스 5개. `POST /market-items/{id}/conversations`(같은 글+구매자면 기존 방, `INSERT … ON CONFLICT DO NOTHING RETURNING id`).
   - S14-b(d546ae0): `GET /conversations`(쿼리 고정, N+1 없음) · `GET /conversations/{id}`(쪽지 id 오름차순) · `POST /conversations/{id}/messages`(상대 탈퇴 409). 쪽지 저장은 `ConversationService.appendMessage` 한 곳(방 행 NO KEY UPDATE 뒤 시각 재기).
   - S14-c(62bba67): `PUT /conversations/{id}/read` {"lastMessageId"}(사용자 결정 "본 쪽지까지만", 소수 400은 MarkReadRequest 칸 전용 변환기) · `GET /conversations/unread-count` · 목록 unreadCount. 세기·읽음 조건은 전부 `sender.id IS DISTINCT FROM 나`.
   - S14-d(80851f1, 프론트만): 상세 "판매자에게 쪽지"(SellerMessageBox) · `/messages` 쪽지함 · `/messages/:id` 대화(ConversationView를 key로 감쌈) · 상단바 "쪽지" 링크(숫자 없음) · 공용 MessageComposer. 실제 백엔드로 보내기·답장·쪽지함 브라우저 확인.
+  - S14-e(프론트만): `messages/UnreadProvider.tsx`+`unreadContext.ts`(`useUnread()` = {count, refresh}). 로그인했을 때만 GET unread-count, **로그인·회원 교체·주소(pathname) 바뀔 때마다** 다시 받음(결정 ⑦, 요청 번호 seq로 마지막 응답만 반영). 상단바 "쪽지 (n)"(0이면 "쪽지"). ConversationPage가 대화를 불러온 뒤 쪽지가 있으면 마지막 id로 PUT read → refresh, PUT 실패는 무시. mockApi 기본 응답에 unread-count·PUT /conversations/3/read(정확한 키). e2e 269개.
   - **잠금 규칙(S14 핵심)**: 탈퇴(`UserService.withdraw`)는 회원 행 FOR UPDATE를 맨 먼저 잡는다. 쪽지 쓰기·답장·읽음 처리는 전부 **회원 행 FOR KEY SHARE(`UserRepository.lockForKeyShare`, id 순)를 먼저** 잡고 그다음 방·쪽지 행. 순서를 어기면 실제로 40P01 교착 → 500이 났다(S14-a에서 재현).
 - Notion: S14 카드(번호 15)에 S14-a·b·c 단계 페이지(d는 프론트만이라 안 씀). 진행 현황 S14 줄 "남은 것: 화면 · 신고"(S14-e 끝나면 "신고"만).
 
 ## 다음에 할 일
-- **S14-e 시작**(화면: 상단바 "쪽지 (n)" + 대화 열면 읽음 PUT): build 전에 무엇을 만드는지 설명하고 OK. backlog "나중(S14-c 리뷰)"의 S14-e 화면 주의(PUT 뒤 숫자 다시 받기, 로그인했을 때만 unread-count, PUT 실패해도 화면 유지, mockApi 기본 응답에 unread-count·PUT read 둘 다)와 "나중(S14-d 리뷰)"의 **고쳐야 할 e2e 3곳**을 build에 같이 넘긴다.
-- 그다음 S14-f 대화 신고(V13, 시작 전 planner 한 번 더 — "관리자는 신고된 대화만 본다" 범위 승인 필요).
+- **S14-f 대화 신고(V13)**: 시작 전 planner 한 번 더 — "관리자는 신고된 대화만 본다" 범위 승인 필요. (S14-e는 끝남. 미룬 것은 backlog "나중(S14-e 리뷰)" — 스크린리더용 "안 읽은 쪽지 3개", 단위 테스트, e2e 중복 등.)
+- 알려진 불안정 테스트: 전체 e2e에서 `messages.spec.ts:74`가 한 번 실패했다가 단독 3번 통과. 또 실패하면 실패한 줄이 `:91`·`:94`면 부하, `waitIdle`·"준비하지 않은 요청"이면 S14-e 관련.
 - S13-h 배포 전까지 사용자 콘솔 1분 작업: EC2 메타데이터 홉 제한 2 확인(아래 "진행 중인 단계"). 배포 날은 deploy.md "사진 저장 (S13-g6)" 1~5단계를 그대로 따른다.
 - (나중, 사용자 결정) 포트폴리오 트러블슈팅 정리: g6-1은 "옛 코드로 되돌리면 테스트 6개 실패" 재현 증거 있음. g6-2를 트러블슈팅으로 쓰려면 b6274d9(통째 읽기) vs 이후를 작은 힙으로 동시 요청해 메모리 전후 측정이 필요(지금은 "설계 개선"으로만 말할 수 있음).
 - 그다음 S13-h 배포(S13·S14 한 번에) → S16 Flutter(웹) 교체.
 
 ## 진행 중인 단계
-- 진행 중인 단계 없음(S14-d까지 커밋, S14-e는 시작 전). 아래는 S13-h 배포 때 필요한 메모.
+- 진행 중인 단계 없음(S14-e까지 커밋, S14-f는 시작 전). 아래는 S13-h 배포 때 필요한 메모.
   - 리뷰 미룬 것은 backlog "나중(S13-g…리뷰)" 줄들(g6-3·g6-4·g6-5 줄 새로 추가). **g6-5 줄의 "S13-h 배포 날 처음 확인" 목록**(nginx 거친 사진 201·실제 S3 왕복·삭제 실패 로그 0건·홉 제한·301/403 표 줄은 알려진 동작 기준)을 배포 날 체크리스트로 쓴다.
   - **AWS 콘솔 작업 끝(2026-11-12)**: 서울 리전 S3 버킷(범용·글로벌 네임스페이스, ACL 비활성, 퍼블릭 차단 4개, 버저닝 끔, SSE-S3) + IAM 정책 `board-market-photos-access`(그 버킷만 Put/Get/Delete + ListBucket) + IAM 역할 `board-ec2-role`(EC2 신뢰, 위 정책만) → EC2 `demo-server`에 연결함. 액세스 키는 안 만듦(앱은 기본 자격 증명 체인). **버킷 이름은 저장소가 공개라 코드·문서에 안 씀 → 사용자에게 물어서 EC2 `.env`의 `PHOTO_S3_BUCKET`에만.**
   - **남은 콘솔 1분 작업(S13-h 전까지)**: EC2 → demo-server → 작업 → 인스턴스 설정 → 인스턴스 메타데이터 옵션 수정 → "메타데이터 응답 홉 제한"이 2인지(1이면 2로). 컨테이너 안 앱이 역할 열쇠를 받으려면 2 이상 필요.

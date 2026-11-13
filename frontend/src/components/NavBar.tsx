@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import { isAdmin } from '../auth/isAdmin'
+import { useUnread } from '../messages/unreadContext'
 import { SITE_NAME } from '../siteName'
 import Notice from './Notice'
 
 // 모든 화면 맨 위 한 줄: 왼쪽 홈 링크, 오른쪽 로그인 상태에 따른 메뉴
 export default function NavBar() {
   const { user, logout } = useAuth()
+  const { count: unread } = useUnread() // 안 읽은 쪽지 수 (비로그인이면 0)
   const [error, setError] = useState<string | null>(null)
 
   async function handleLogout() {
@@ -44,8 +46,8 @@ export default function NavBar() {
               )}
               {/* 비자 일정은 학교 인증 회원에게만 보인다 */}
               {user.verifiedSchool && <Link to="/visa-plan">비자 일정</Link>}
-              {/* 쪽지함: 로그인한 회원에게만 (안 읽은 수 숫자는 S14-e) */}
-              <Link to="/messages">쪽지</Link>
+              {/* 쪽지함: 로그인한 회원에게만. 안 읽은 쪽지가 있으면 "쪽지 (n)" */}
+              <Link to="/messages">{unread > 0 ? `쪽지 (${unread})` : '쪽지'}</Link>
               <Link to="/me">내 정보</Link>
               {/* 관리자에게만 보이는 메뉴 */}
               {isAdmin(user) && <Link to="/admin/reports">신고 관리</Link>}

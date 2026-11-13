@@ -6,6 +6,7 @@ import App from './App.tsx'
 import { AuthProvider } from './auth/AuthContext'
 import { ConfirmProvider } from './components/ConfirmDialog'
 import { VisaPlanProvider } from './visa/VisaPlanProvider'
+import { UnreadProvider } from './messages/UnreadProvider'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -17,7 +18,10 @@ createRoot(document.getElementById('root')!).render(
         <ConfirmProvider>
           {/* VisaPlanProvider: 내 비자 일정을 앱 전체에서 한 번만 불러와 상단 띠와 일정 화면이 같이 쓴다 (로그인 정보가 필요해 AuthProvider 안쪽) */}
           <VisaPlanProvider>
-            <App />
+            {/* UnreadProvider: 안 읽은 쪽지 수를 한 번만 받아 상단바 "쪽지 (n)"과 대화 화면이 같이 쓴다 (로그인 정보가 필요해 AuthProvider 안쪽) */}
+            <UnreadProvider>
+              <App />
+            </UnreadProvider>
           </VisaPlanProvider>
         </ConfirmProvider>
       </AuthProvider>

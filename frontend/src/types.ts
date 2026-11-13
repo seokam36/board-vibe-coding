@@ -209,7 +209,12 @@ export interface ConversationSummary {
   item: ConversationItemRef
   partner: ConversationPartner | null
   lastMessage: { content: string; createdAt: string; mine: boolean }
-  unreadCount: number // 안 읽은 쪽지 수 (숫자 표시는 S14-e)
+  unreadCount: number // 안 읽은 쪽지 수 (쪽지함 줄 표시는 아직 안 함)
+}
+
+// 안 읽은 쪽지 수 (GET /conversations/unread-count): 모든 대화를 합친 수. 상단바 "쪽지 (n)"에 쓴다
+export interface UnreadCountResponse {
+  count: number
 }
 
 // 대화 보기 (GET /conversations/{id}). messages는 오래된 것부터
