@@ -24,6 +24,12 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
             + "from Message m where m.conversation.id = :conversationId order by m.id")
     List<MessageResponse> findResponses(@Param("conversationId") Long conversationId, @Param("me") Long me);
 
+    // 관리자가 신고된 대화를 읽을 때(S14-f2): 방의 쪽지 전부를 보낸 사람과 함께 id 오름차순으로 가져온다.
+    // LEFT JOIN FETCH: 보낸 사람이 탈퇴해 NULL이어도 쪽지는 나와야 하고, 쪽지가 몇 통이든 쿼리는 1번(N+1 없음).
+    // 읽기 전용 일반 SELECT다. read_at을 바꾸는 코드(markRead)는 이 흐름에서 부르지 않는다.
+    @Query("select m from Message m left join fetch m.sender where m.conversation.id = :conversationId order by m.id")
+    List<Message> findAllWithSenderByConversationId(@Param("conversationId") Long conversationId);
+
     // 여러 방의 "마지막 쪽지"(방마다 id가 가장 큰 것)를 쿼리 한 번에 가져온다. 방이 1개든 20개든 쿼리는 1번.
     @Query("select new com.example.demo.message.repository.LastMessageRow(m.conversation.id, m.content, m.createdAt, m.sender.id) "
             + "from Message m where m.id in "

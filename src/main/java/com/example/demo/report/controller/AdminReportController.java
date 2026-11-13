@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.demo.auth.dto.LoginUser;
 import com.example.demo.report.domain.ReportStatus;
+import com.example.demo.report.dto.AdminConversationResponse;
 import com.example.demo.report.dto.AdminReportResponse;
 import com.example.demo.report.service.AdminReportService;
 
@@ -31,6 +32,12 @@ public class AdminReportController {
     public List<AdminReportResponse> getAll(@AuthenticationPrincipal Jwt jwt,
             @RequestParam(defaultValue = "PENDING") ReportStatus status) {
         return adminReportService.getAll(status, LoginUser.from(jwt));
+    }
+
+    // 신고된 대화 읽기(대화 신고만). 200 + 방 전체 쪽지. 읽음 처리는 하지 않는다.
+    @GetMapping("/{id}/conversation")
+    public AdminConversationResponse getConversation(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        return adminReportService.getConversation(id, LoginUser.from(jwt));
     }
 
     // 기각 (본문 없음). 200 + 기각된 신고
