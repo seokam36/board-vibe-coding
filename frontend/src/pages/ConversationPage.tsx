@@ -60,7 +60,7 @@ function ConversationView({ id }: { id: string }) {
         const info = describeError(
           e,
           { 400: ERROR_MESSAGES.CONVERSATION_NOT_FOUND, 404: ERROR_MESSAGES.CONVERSATION_NOT_FOUND },
-          '대화를 불러오지 못했습니다',
+          ERROR_MESSAGES.CONVERSATION_LOAD_FAILED,
         )
         if (info.kind === 'needLogin') setNeedLogin(true)
         else setError(info.message)

@@ -67,17 +67,33 @@ export type ReportStatus = 'PENDING' | 'DISMISSED'
 export interface Report {
   id: number
   target: {
-    type: 'POST' | 'COMMENT' | 'MARKET_ITEM' // 글·댓글·중고 글 중 무엇의 신고인지
-    id: number // 글 id 또는 댓글 id 또는 중고 글 id
-    postId: number | null // 글·댓글이면 이동할 글 id, 중고 글이면 null
-    preview: string // 내용 미리보기
-    author: { id: number; nickname: string } | null
+    type: 'POST' | 'COMMENT' | 'MARKET_ITEM' | 'CONVERSATION' // 글·댓글·중고 글·대화 중 무엇의 신고인지
+    id: number // 글 id 또는 댓글 id 또는 중고 글 id 또는 대화방 id (대화 보기 주소에는 이게 아니라 신고 id를 쓴다)
+    postId: number | null // 글·댓글이면 이동할 글 id, 중고 글·대화면 null
+    preview: string // 내용 미리보기 (대화는 글 제목)
+    author: { id: number; nickname: string } | null // 대화 신고에서는 신고자가 아닌 쪽 참가자
   }
   reporter: { id: number; nickname: string } | null
   reason: ReportReason
   detail: string | null
   status: ReportStatus
   createdAt: string
+}
+
+// 관리자가 보는 신고된 대화 (GET /admin/reports/{신고 id}/conversation, docs/api.md 5-15). 사람은 id·nickname뿐, 탈퇴했으면 null
+export interface AdminConversationMessage {
+  id: number
+  sender: { id: number; nickname: string } | null // 보낸 사람이 탈퇴했으면 null
+  content: string
+  createdAt: string // ISO-8601 UTC 문자열 (formatDate로 표시)
+}
+export interface AdminConversationView {
+  reportId: number
+  conversationId: number
+  itemTitle: string // 방을 만들 때 복사해 둔 글 제목
+  buyer: { id: number; nickname: string } | null
+  seller: { id: number; nickname: string } | null
+  messages: AdminConversationMessage[] // 오래된 것부터, 방 전체
 }
 
 // 비자 후기 선택지 한 개 (GET /visa-review-options). code는 요청·주소에 쓰는 값, name은 화면에 보여 줄 한글 이름

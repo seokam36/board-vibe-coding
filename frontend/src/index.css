@@ -304,6 +304,11 @@ label textarea {
   color: var(--celadon-ink);
   background: var(--celadon-soft);
 }
+/* 대화 신고("쪽지"): 이미 쓴 색 토큰만 조합 (청자 글자 + --hover 배경) */
+.badge-CONVERSATION {
+  color: var(--celadon-ink);
+  background: var(--hover);
+}
 /* 학교 인증 완료 뱃지(내 정보·상단바): 청자 배경 위 청자 글자 */
 .badge-verified {
   color: var(--celadon-ink);
@@ -546,6 +551,11 @@ label textarea {
   color: var(--ink);
 }
 .msg-time {
+  font-size: var(--fs-small);
+  color: var(--muted);
+}
+/* 관리자 대화 보기: 말풍선 위의 보낸 사람 표시 (닉네임 · 구매자/판매자) */
+.msg-sender {
   font-size: var(--fs-small);
   color: var(--muted);
 }

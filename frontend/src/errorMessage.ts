@@ -136,4 +136,10 @@ export const ERROR_MESSAGES = {
   MESSAGE_SEND_FAILED: '쪽지를 보내지 못했습니다',
   // 대화 보기(404·주소가 이상한 400)와 답장 404: 없는 방이거나 내 방이 아님
   CONVERSATION_NOT_FOUND: '대화를 찾을 수 없습니다',
+  // 대화 보기(일반 회원 화면·관리자 화면)를 불러오다 실패했을 때의 기본 문구
+  CONVERSATION_LOAD_FAILED: '대화를 불러오지 못했습니다',
+
+  // --- 관리자 ---
+  // 관리자 화면(신고 목록·신고된 대화 보기) 403 / 관리자가 아닐 때 화면에 보이는 안내
+  ADMIN_ONLY: '관리자만 볼 수 있습니다',
 } as const

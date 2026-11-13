@@ -294,4 +294,10 @@ export function loginVerified(api: { setLoggedIn: (v: boolean) => void; override
   api.override({ 'GET /auth/me': { status: 200, body: { ...fakeUser, verifiedSchool: { id: 1, name: '가짜대학교' } } } })
 }
 
+// 관리자로 로그인한다 (페이지를 열기 전에 호출)
+export function loginAdmin(api: { setLoggedIn: (v: boolean) => void; override: (h: MockHandlers) => void }) {
+  api.setLoggedIn(true)
+  api.override({ 'GET /auth/me': { status: 200, body: { ...fakeUser, role: 'ADMIN' } } })
+}
+
 export { expect }

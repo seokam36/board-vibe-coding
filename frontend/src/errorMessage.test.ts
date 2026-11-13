@@ -136,6 +136,8 @@ describe('ERROR_MESSAGES 문구 사전', () => {
       MESSAGE_CONTENT_INVALID: '쪽지 내용을 입력해 주세요 (최대 1000자)',
       MESSAGE_SEND_FAILED: '쪽지를 보내지 못했습니다',
       CONVERSATION_NOT_FOUND: '대화를 찾을 수 없습니다',
+      CONVERSATION_LOAD_FAILED: '대화를 불러오지 못했습니다',
+      ADMIN_ONLY: '관리자만 볼 수 있습니다',
     })
     expect(alreadyDeleted('글')).toBe('이미 삭제된 글입니다')
     expect(alreadyDeleted('댓글')).toBe('이미 삭제된 댓글입니다')

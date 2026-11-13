@@ -12,6 +12,7 @@ import PostEditPage from './pages/PostEditPage'
 import MyPage from './pages/MyPage'
 import SignupPage from './pages/SignupPage'
 import AdminReportsPage from './pages/AdminReportsPage'
+import AdminConversationPage from './pages/AdminConversationPage'
 import VisaReviewListPage from './pages/VisaReviewListPage'
 import VisaReviewStatsPage from './pages/VisaReviewStatsPage'
 import VisaReviewDetailPage from'./pages/VisaReviewDetailPage'
@@ -71,6 +72,8 @@ export default function App() {
           />
           {/* 신고 관리: 관리자 여부는 페이지 안에서 확인한다 */}
           <Route path="/admin/reports" element={<AdminReportsPage />} />
+          {/* 신고된 대화 읽기(읽기 전용): :id는 신고 id. 관리자 여부는 페이지 안에서 확인한다 */}
+          <Route path="/admin/reports/:id/conversation" element={<AdminConversationPage />} />
           {/* 비자 후기(읽기 전용, 로그인 없이 볼 수 있다) */}
           <Route path="/visa-reviews" element={<VisaReviewListPage />} />
           {/* 작성·수정은 로그인한 사람만. "/visa-reviews/new"는 ":id"보다 구체적이라 먼저 잡힌다 */}
