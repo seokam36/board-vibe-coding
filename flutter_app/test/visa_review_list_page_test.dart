@@ -92,6 +92,26 @@ void main() {
       expect(adapter.callsTo('GET', '/visa-reviews/stats').single.query, {'schoolId': '1', 'visaType': 'D2'});
     });
 
+    testWidgets('학교 목록(/schools)이 500이면 머리말은 "비자 후기", 주소의 학교는 임시 항목으로 남는다', (tester) async {
+      final adapter = FakeAdapter()
+        ..on('GET', '/schools', FakeReply(500))
+        ..on('GET', '/visa-review-options', FakeReply(200, visaOptionsJson))
+        ..on('GET', '/visa-reviews', FakeReply(200, []));
+      await pumpApp(tester, location: '/visa-reviews?schoolId=1', adapter: adapter);
+      expect(_title(tester), '비자 후기');
+      expect(find.text('알 수 없는 학교 (1)'), findsOneWidget);
+    });
+
+    testWidgets('조건을 바꾼 뒤 [통계] 탭을 누르면 바뀐 쿼리를 들고 간다 (build 때 담은 옛 값이 아니라)', (tester) async {
+      final adapter = _adapter([FakeReply(200, []), FakeReply(200, [])])
+        ..on('GET', '/visa-reviews/stats', FakeReply(200, []));
+      final app = await pumpApp(tester, location: '/visa-reviews', adapter: adapter);
+      await _pick(tester, _schoolSelect, '서울대');
+      await tester.tap(find.text('통계'));
+      await tester.pumpAndSettle();
+      expect(_uri(app), '/visa-reviews/stats?schoolId=1');
+    });
+
     testWidgets('쿼리가 없으면 탭 주소에도 ? 가 붙지 않는다', (tester) async {
       final adapter = _adapter([FakeReply(200, [])])..on('GET', '/visa-reviews/stats', FakeReply(200, []));
       final app = await pumpApp(tester, location: '/visa-reviews', adapter: adapter);

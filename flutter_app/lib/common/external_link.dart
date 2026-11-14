@@ -5,6 +5,10 @@ import 'external_link_stub.dart'
     if (dart.library.js_interop) 'external_link_web.dart'
     as platform;
 
+// window.open의 세 번째 인자. 열린 창이 window.opener로 이 사이트를 조작하지 못하게(noopener),
+// 이 사이트 주소를 Referer로 넘기지 않게(noreferrer) 한다. 웹 구현이 쓰고, 테스트가 값을 고정해 둔다
+const externalLinkWindowFeatures = 'noopener,noreferrer';
+
 abstract interface class ExternalLinkOpener {
   // url을 새 창(탭)으로 연다. 열린 창이 이 사이트를 건드리지 못하게 noopener·noreferrer로 연다
   void open(String url);

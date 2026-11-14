@@ -12,8 +12,12 @@ class VisaReviewTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final query = GoRouterState.of(context).uri.query; // 물음표 뒤 글자 (없으면 "")
-    String to(String path) => query.isEmpty ? path : '$path?$query';
+    // 누르는 순간의 주소 쿼리(물음표 뒤 글자, 없으면 "")를 읽는다. build 때 담아 두면 조건을 바꾼 뒤에도 옛 값이 남을 수 있다
+    String to(String path) {
+      final query = GoRouterState.of(context).uri.query;
+      return query.isEmpty ? path : '$path?$query';
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: AppSizes.space4),
       decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.line))),

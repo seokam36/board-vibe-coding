@@ -84,7 +84,8 @@ class VisaReview {
       resultDate: json['resultDate'] as String,
       result: VisaOption.fromJson(json['result'] as Map<String, dynamic>),
       processingDays: json['processingDays'] as int,
-      content: json['content'] as String,
+      // 본문을 안 썼으면 null로 올 수 있다 → ""로 (화면이 "남긴 메모가 없어요"를 보여 준다)
+      content: (json['content'] as String?) ?? '',
       createdAt: json['createdAt'] as String,
     );
   }

@@ -80,7 +80,8 @@ Future<void> _pickDay(WidgetTester tester, Finder field, int day, {bool prevMont
   await tester.tap(field);
   await tester.pumpAndSettle();
   if (prevMonth) {
-    await tester.tap(find.byTooltip('Previous month'));
+    // 앱 로케일이 한국어라 달력 툴팁도 한국어다
+    await tester.tap(find.byTooltip('지난달'));
     await tester.pumpAndSettle();
   }
   await tester.tap(find.text('$day'));

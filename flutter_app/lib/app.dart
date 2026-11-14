@@ -72,6 +72,11 @@ class _BoardAppState extends State<BoardApp> {
         // 어두운 청자 테마 (색·글자 크기·버튼·입력칸은 lib/theme 참고)
         theme: buildAppTheme(),
         routerConfig: _router,
+        // 한국어 전용 앱: 달력(showDatePicker)의 요일·월·툴팁 같은 기본 글자를 한국어로
+        locale: const Locale('ko'),
+        supportedLocales: const [Locale('ko')],
+        // material_ui가 Material·Widgets·Cupertino 번역을 한 묶음(delegates)으로 준다 (셋이 짝이 맞아야 경고가 안 난다)
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
         // 시작 확인이 끝날 때까지는 화면 대신 "불러오는 중..." 문구만 (쓰기 요청 전에 CSRF 쿠키가 있어야 해서).
         // React처럼 상단바도 아직 안 보인다.
         builder: (context, child) {

@@ -150,9 +150,14 @@ void main() {
       (404, '존재하지 않는 학교입니다'),
       (400, '잘못된 조건입니다. 학교·비자 종류·신청 종류를 다시 골라 주세요'),
       (500, '통계를 불러오지 못했습니다'),
+      (401, '통계를 불러오지 못했습니다'), // 로그인 개념이 없는 화면이라 401도 기본 문구
     ]) {
       testWidgets('GET $status → "$message", 표·hint는 없다', (tester) async {
-        await pumpApp(tester, location: path, adapter: _adapter([FakeReply(status)]));
+        final adapter = _adapter([FakeReply(status)]);
+        if (status == 401) adapter.on('POST', '/auth/refresh', FakeReply(401)); // 자동 재발급도 실패
+        await pumpApp(tester, location: path, adapter: adapter);
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+        await tester.pumpAndSettle();
         expect(find.text(message), findsOneWidget);
         expect(find.text('아직 통계가 없습니다'), findsNothing);
         expect(find.text(_hint), findsNothing);
@@ -202,6 +207,15 @@ void main() {
     testWidgets('목록에 없는 값은 임시 항목 "알 수 없는 학교 (99)"', (tester) async {
       await pumpApp(tester, location: '$path?schoolId=99', adapter: _adapter([FakeReply(200, [])]));
       expect(find.text('알 수 없는 학교 (99)'), findsOneWidget);
+    });
+
+    testWidgets('조건을 바꾼 뒤 [후기] 탭을 누르면 바뀐 쿼리를 들고 간다 (build 때 담은 옛 값이 아니라)', (tester) async {
+      final adapter = _adapter([FakeReply(200, []), FakeReply(200, [])])..on('GET', '/visa-reviews', FakeReply(200, []));
+      final app = await pumpApp(tester, location: path, adapter: adapter);
+      await _pick(tester, find.byKey(const ValueKey('filter-schoolId')), '부산대');
+      await tester.tap(find.text('후기'));
+      await tester.pumpAndSettle();
+      expect(_uri(app), '/visa-reviews?schoolId=2');
     });
 
     testWidgets('[후기] 탭을 누르면 쿼리를 들고 /visa-reviews 로 간다', (tester) async {

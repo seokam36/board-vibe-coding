@@ -6,8 +6,8 @@ import 'external_link.dart';
 class _WebOpener implements ExternalLinkOpener {
   @override
   void open(String url) {
-    // 세 번째 인자의 noopener,noreferrer: 열린 창이 window.opener로 이 사이트를 조작하지 못하게 한다
-    web.window.open(url, '_blank', 'noopener,noreferrer');
+    // 세 번째 인자: 열린 창이 이 사이트를 조작하지 못하게 하는 공용 상수 (external_link.dart)
+    web.window.open(url, '_blank', externalLinkWindowFeatures);
   }
 }
 
