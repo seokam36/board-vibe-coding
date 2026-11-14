@@ -90,11 +90,11 @@ void main() {
     );
     await tester.pump();
     expect(find.text('불러오는 중...'), findsOneWidget);
-    expect(find.text('내 정보 화면'), findsNothing);
+    expect(find.text('학교 인증'), findsNothing); // S16-g1: 내 정보 화면은 "학교 인증" 제목으로 확인
     gate.complete();
     await tester.pumpAndSettle();
     expect(find.text('불러오는 중...'), findsNothing);
-    expect(find.text('내 정보 화면'), findsNothing);
+    expect(find.text('학교 인증'), findsNothing);
     expect(find.widgetWithText(TextField, '아이디'), findsOneWidget); // 로그인 화면
   });
 
@@ -114,7 +114,7 @@ void main() {
     expect(find.text('불러오는 중...'), findsOneWidget);
     gate.complete();
     await tester.pumpAndSettle();
-    expect(find.text('내 정보 화면'), findsOneWidget);
+    expect(find.text('학교 인증'), findsOneWidget); // S16-g1: 진짜 내 정보 화면
     expect(find.text('아이디'), findsNothing); // 로그인 화면이 아니다
   });
 }

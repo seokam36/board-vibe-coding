@@ -82,7 +82,7 @@ void main() {
       expect(app.auth.user, isNull);
       expect(app.auth.expiredPath, '/me');
       expect(_path(app), '/me'); // 입력 중인 내용이 사라지지 않게 그대로
-      expect(find.text('내 정보 화면'), findsOneWidget);
+      expect(find.text('학교 인증'), findsOneWidget); // S16-g1: 내 정보 화면은 "학교 인증" 제목으로 확인
 
       app.router.go('/posts/new'); // 다른 보호 주소
       await tester.pumpAndSettle();
@@ -110,7 +110,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(app.auth.expiredPath, '/me'); // 기록도 같은 정리(소문자)로
       expect(_path(app), '/ME');
-      expect(find.text('내 정보 화면'), findsOneWidget);
+      expect(find.text('학교 인증'), findsOneWidget);
     });
 
     testWidgets('다시 로그인하면 풀림 표시가 지워진다', (tester) async {

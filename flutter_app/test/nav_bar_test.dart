@@ -143,7 +143,7 @@ void main() {
     testWidgets('보호 화면(/me)에서 로그아웃하면 문지기가 /login 으로 보낸다', (tester) async {
       final adapter = FakeAdapter()..on('POST', '/auth/logout', FakeReply(200));
       final app = await pumpApp(tester, location: '/me', user: userJson(), adapter: adapter);
-      expect(find.text('내 정보 화면'), findsOneWidget);
+      expect(find.text('학교 인증'), findsOneWidget); // S16-g1: 진짜 내 정보 화면 ("학교 인증" 제목으로 확인)
       await tester.tap(find.text('로그아웃'));
       await tester.pumpAndSettle();
       expect(app.router.routerDelegate.currentConfiguration.uri.path, '/login');

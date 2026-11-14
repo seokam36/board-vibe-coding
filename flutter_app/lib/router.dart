@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart' show ValueKey;
 
 import 'auth/auth_state.dart';
 import 'pages/login_page.dart';
+import 'pages/my_page.dart';
 import 'pages/not_found_page.dart';
 import 'pages/placeholder_page.dart';
 import 'pages/post_create_page.dart';
@@ -122,7 +123,11 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
               return PostEditPage(key: ValueKey(id), id: id);
             },
           ),
-          _route('/me', '내 정보 화면'), // 상단바 링크 "내 정보"와 글자가 겹치지 않게 "화면"을 붙였다
+          GoRoute(
+            path: '/me',
+            caseSensitive: false,
+            builder: (context, state) => const MyPage(), // S16-g1: 진짜 내 정보 화면
+          ),
           _route('/admin/reports', '신고 관리'),
           _route('/admin/reports/:id/conversation', '신고된 대화 보기'),
           _route('/visa-reviews', '비자 후기 목록'),
