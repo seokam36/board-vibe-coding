@@ -25,7 +25,7 @@ void main() {
     ('/login', '아이디'), // S16-d2a: 로그인은 진짜 화면이 되어 "아이디" 입력칸 라벨로 확인한다
     ('/posts/new', '글쓰기'),
     ('/posts/7','글 상세 (id: 7)'),
-    ('/posts/7/edit', '글 수정 (id: 7)'),
+    ('/posts/7/edit', '글 수정'), // S16-e2: 진짜 글 수정 화면이 되어 제목 글자로 확인한다 (id는 아래 별도 테스트)
     ('/me', '내 정보 화면'),
     ('/admin/reports', '신고 관리'),
     ('/admin/reports/7/conversation', '신고된 대화 보기 (id: 7)'),
@@ -53,7 +53,6 @@ void main() {
   // 완료 조건 2: id 화면 8개가 주소의 id를 그대로 보여 준다(화면마다 다른 숫자로 섞임 확인)
   const idPages = <(String, String, String)>[
     ('/posts/101', '글 상세', '101'),
-    ('/posts/102/edit', '글 수정', '102'),
     ('/admin/reports/103/conversation', '신고된 대화 보기', '103'),
     ('/visa-reviews/104', '비자 후기 상세', '104'),
     ('/visa-reviews/105/edit', '비자 후기 수정', '105'),
@@ -69,6 +68,13 @@ void main() {
       expect(find.textContaining('(id:'), findsOneWidget);
     });
   }
+
+  // S16-e2: 글 수정은 진짜 화면이 되어 "(id: 102)" 글자 대신 그 id로 글을 불러오는 요청으로 확인한다
+  testWidgets('글 수정 화면은 주소 /posts/102/edit 의 id 102 로 글을 불러온다', (tester) async {
+    final adapter = FakeAdapter();
+    await pumpApp(tester, location: '/posts/102/edit', user: userJson(), adapter: adapter);
+    expect(adapter.count('GET', '/posts/102'), 1);
+  });
 
   // 사용자 결정: 숫자가 아닌 id도 라우터는 거르지 않고 글자 그대로 넘긴다(처리는 각 화면 단계에서)
   testWidgets('숫자가 아닌 id(/posts/abc)도 글자 그대로 넘어간다', (tester) async {

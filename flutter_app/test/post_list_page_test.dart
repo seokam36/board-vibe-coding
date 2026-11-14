@@ -524,5 +524,63 @@ void main() {
     final school = tester.getRect(_schoolSelect);
     expect(write.top, greaterThan(school.top));
     expect(tester.getRect(_categorySelect).right, lessThanOrEqualTo(375));
+    // 필터 묶음 아래와 글쓰기 위 간격은 줄 간격 8 (필터 묶음에 따로 아래 여백이 없다)
+    // 키는 테두리 안쪽 드롭다운에 달려 있어, 테두리까지 포함한 바깥 상자(Container)로 잰다
+    final box = find.ancestor(of: _categorySelect, matching: find.byType(Container)).first;
+    expect(write.top - tester.getRect(box).bottom, 8);
+    // 긴 제목·긴 학교 이름의 오른쪽 끝도 화면 오른쪽 여백(16)을 넘지 않는다
+    final title = find.textContaining('아주 긴 제목');
+    expect(tester.getRect(title).right, lessThanOrEqualTo(375 - 16));
+    expect(tester.getRect(find.textContaining('아주아주아주')).right, lessThanOrEqualTo(375 - 16));
+  });
+
+  testWidgets('넓은 화면: 글쓰기 버튼과 드롭다운의 세로 중심이 맞는다', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await pumpApp(tester, adapter: _adapter(posts: [FakeReply(200, [])]));
+    final write = tester.getRect(find.widgetWithText(FilledButton, '글쓰기'));
+    final school = tester.getRect(_schoolSelect);
+    expect(write.center.dy, closeTo(school.center.dy, 0.5));
+  });
+
+  group('목록 요청 횟수', () {
+    testWidgets('같은 주소로 다시 go 해도 /posts 는 다시 부르지 않는다', (tester) async {
+      final adapter = _adapter(posts: [FakeReply(200, []), FakeReply(200, [])]);
+      final app = await pumpApp(tester, location: '/?schoolId=1', adapter: adapter);
+      app.router.go('/?schoolId=1');
+      await tester.pumpAndSettle();
+      expect(adapter.count('GET', '/posts'), 1);
+    });
+
+    testWidgets('extra만 바뀌어도 다시 부르지 않는다', (tester) async {
+      final adapter = _adapter(posts: [FakeReply(200, []), FakeReply(200, [])]);
+      final app = await pumpApp(tester, adapter: adapter);
+      app.router.go('/', extra: '첫 안내');
+      await tester.pumpAndSettle();
+      app.router.go('/', extra: '다른 안내');
+      await tester.pumpAndSettle();
+      expect(find.text('다른 안내'), findsOneWidget);
+      expect(adapter.count('GET', '/posts'), 1);
+    });
+  });
+
+  testWidgets('깨진 JSON 응답이면 에러 문구만 나오고 빈 목록 글자는 없다', (tester) async {
+    // 글 목록이 배열이지만 원소가 객체가 아니라 fromJson 캐스팅이 실패한다
+    await pumpApp(tester, adapter: _adapter(posts: [FakeReply(200, [123])]));
+    expect(find.text('목록을 불러오지 못했습니다'), findsOneWidget);
+    expect(find.text('아직 글이 없습니다'), findsNothing);
+  });
+
+  testWidgets('모르는 말머리 code는 색 없는 기본 뱃지 (ink 글자, 배경 없음)', (tester) async {
+    final posts = [_post(10, 'a', category: const {'code': 'XYZ', 'name': '새말머리'})];
+    await pumpApp(tester, adapter: _adapter(posts: [FakeReply(200, posts)]));
+    expect(tester.widget<Text>(find.text('새말머리')).style?.color, AppColors.ink);
+    final box = tester.widget<Container>(
+      find.ancestor(of: find.text('새말머리'), matching: find.byType(Container)).first,
+    );
+    expect((box.decoration as BoxDecoration).color, Colors.transparent);
   });
 }

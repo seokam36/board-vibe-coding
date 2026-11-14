@@ -8,9 +8,11 @@ import '../common/format_date.dart';
 import '../errors/error_messages.dart';
 import '../posts/models.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_badge.dart';
 import '../widgets/loading.dart';
 import '../widgets/notice.dart';
 import '../widgets/page_frame.dart';
+import '../widgets/select_field.dart';
 
 // 글 목록 400(조건이 잘못됨) 문구. 다른 화면과 겹치지 않는 이 화면만의 글자라 여기에 둔다
 const _badFilterMessage = '잘못된 조건입니다. 학교와 말머리를 다시 골라 주세요';
@@ -105,6 +107,8 @@ class _PostListPageState extends State<PostListPage> {
         _error = null;
       });
     }).catchError((Object e) {
+      // 응답 해석(fromJson) 실패 같은 코드 문제도 여기로 오므로, 원인을 콘솔에 남겨 둔다
+      debugPrint('글 목록 불러오기 실패: $e');
       if (!mounted || seq != _listSeq) return;
       setState(() {
         _resultKey = key;
@@ -191,45 +195,43 @@ class _PostListPageState extends State<PostListPage> {
               spacing: AppSizes.space2,
               runSpacing: AppSizes.space2,
               children: [
-                // React의 .filters (아래 여백 16)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AppSizes.space4),
-                  child: Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: AppSizes.space2,
-                    runSpacing: AppSizes.space2,
-                    children: [
-                      _FilterSelect(
-                        fieldKey: const ValueKey('filter-school'),
-                        label: '학교',
-                        width: 170,
-                        value: schoolId,
-                        options: [
-                          ('', '전체 학교'),
-                          if (schoolMissing)
-                            (schoolId, schoolsPending ? loadingText : '알 수 없는 학교 ($schoolId)'),
-                          for (final s in schools) ('${s.id}', s.name),
-                        ],
-                        onChanged: (v) => _changeFilter(schoolId: v),
-                      ),
-                      _FilterSelect(
-                        fieldKey: const ValueKey('filter-category'),
-                        label: '말머리',
-                        width: 150,
-                        value: category,
-                        options: [
-                          ('', '전체 말머리'),
-                          if (categoryMissing)
-                            (
-                              category,
-                              categoriesPending ? loadingText : '알 수 없는 말머리 ($category)',
-                            ),
-                          for (final c in categories) (c.code, c.name),
-                        ],
-                        onChanged: (v) => _changeFilter(category: v),
-                      ),
-                    ],
-                  ),
+                // React의 .filters. 툴바 안에서는 아래 여백이 0이다(.toolbar .filters { margin-bottom: 0 }).
+                // 여백을 두면 버튼과 드롭다운의 세로 위치가 어긋난다
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: AppSizes.space2,
+                  runSpacing: AppSizes.space2,
+                  children: [
+                    SelectField(
+                      fieldKey: const ValueKey('filter-school'),
+                      label: '학교',
+                      width: 170,
+                      value: schoolId,
+                      options: [
+                        ('', '전체 학교'),
+                        if (schoolMissing)
+                          (schoolId, schoolsPending ? loadingText : '알 수 없는 학교 ($schoolId)'),
+                        for (final s in schools) ('${s.id}', s.name),
+                      ],
+                      onChanged: (v) => _changeFilter(schoolId: v),
+                    ),
+                    SelectField(
+                      fieldKey: const ValueKey('filter-category'),
+                      label: '말머리',
+                      width: 150,
+                      value: category,
+                      options: [
+                        ('', '전체 말머리'),
+                        if (categoryMissing)
+                          (
+                            category,
+                            categoriesPending ? loadingText : '알 수 없는 말머리 ($category)',
+                          ),
+                        for (final c in categories) (c.code, c.name),
+                      ],
+                      onChanged: (v) => _changeFilter(category: v),
+                    ),
+                  ],
                 ),
                 // 글쓰기 버튼은 항상 보이되, 비로그인이면 로그인 화면으로 보낸다
                 FilledButton(
@@ -278,62 +280,6 @@ class _PostListPageState extends State<PostListPage> {
   }
 }
 
-// 드롭다운 한 개 (React의 <select aria-label>). options는 (값, 보여 줄 글자) 목록.
-// 스크린리더가 label("학교"·"말머리")로 읽는다.
-class _FilterSelect extends StatelessWidget {
-  const _FilterSelect({
-    required this.fieldKey,
-    required this.label,
-    required this.width,
-    required this.value,
-    required this.options,
-    required this.onChanged,
-  });
-
-  final Key fieldKey;
-  final String label;
-  final double width;
-  final String value;
-  final List<(String, String)> options;
-  final void Function(String value) onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: label,
-      child: Container(
-        width: width,
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: AppSizes.space3),
-        decoration: BoxDecoration(
-          color: AppColors.paper,
-          border: Border.all(color: AppColors.line),
-          borderRadius: BorderRadius.circular(AppSizes.radiusPanel),
-        ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            key: fieldKey,
-            isExpanded: true, // 칸 폭에 맞추고 긴 이름은 말줄임
-            value: value,
-            dropdownColor: AppColors.paper,
-            style: const TextStyle(fontSize: AppSizes.fsBody, color: AppColors.ink),
-            items: [
-              for (final (v, text) in options)
-                DropdownMenuItem<String>(
-                  value: v,
-                  child: Text(text, overflow: TextOverflow.ellipsis),
-                ),
-            ],
-            onChanged: (v) {
-              if (v != null && v != value) onChanged(v);
-            },
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // 글 한 줄: 말머리 뱃지, (학교 뱃지), 제목 링크 / 작성자·날짜·댓글·공감
 class _PostRow extends StatelessWidget {
   const _PostRow({required this.post, required this.first, required this.showSchool});
@@ -358,7 +304,7 @@ class _PostRow extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _CategoryBadge(code: post.category.code, name: post.category.name),
-              if (showSchool) _Badge(text: post.school?.name ?? '학교 미지정', school: true),
+              if (showSchool) AppBadge(text: post.school?.name ?? '학교 미지정', school: true),
               // 제목만 링크 (행 전체가 아니다)
               _RowLink(title: post.title, onTap: () => context.go('/posts/${post.id}')),
             ],
@@ -379,7 +325,8 @@ class _PostRow extends StatelessWidget {
   }
 }
 
-// 말머리 뱃지: code마다 색이 다르다 (CHAT 회색, QUESTION 파랑, CAMPUS_LIFE 청자). 모르는 code는 청자
+// 말머리 뱃지: code마다 색이 다르다 (CHAT 회색, QUESTION 파랑, CAMPUS_LIFE 청자).
+// 모르는 code는 React의 .badge 기본처럼 색 없는 뱃지(ink 글자, 배경 없음)
 class _CategoryBadge extends StatelessWidget {
   const _CategoryBadge({required this.code, required this.name});
 
@@ -391,42 +338,10 @@ class _CategoryBadge extends StatelessWidget {
     final (ink, bg) = switch (code) {
       'CHAT' => (AppColors.muted, AppColors.badgeChatBg),
       'QUESTION' => (AppColors.badgeQuestionInk, AppColors.badgeQuestionBg),
-      _ => (AppColors.celadonInk, AppColors.celadonSoft),
+      'CAMPUS_LIFE' => (AppColors.celadonInk, AppColors.celadonSoft),
+      _ => (AppColors.ink, Colors.transparent),
     };
-    return _Badge(text: name, ink: ink, bg: bg);
-  }
-}
-
-// 뱃지 한 개. school이면 학교 뱃지(배경 paper + 테두리 line + 글자 muted)
-class _Badge extends StatelessWidget {
-  const _Badge({required this.text, this.ink = AppColors.muted, this.bg = AppColors.paper, this.school = false});
-
-  final String text;
-  final Color ink;
-  final Color bg;
-  final bool school;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      decoration: BoxDecoration(
-        color: bg,
-        border: school ? Border.all(color: AppColors.line) : null,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        text,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis, // 긴 학교명이 좁은 화면에서 넘치지 않게
-        style: TextStyle(
-          fontSize: AppSizes.fsSmall,
-          fontWeight: FontWeight.w500,
-          color: ink,
-          height: 1.6,
-        ),
-      ),
-    );
+    return AppBadge(text: name, ink: ink, bg: bg);
   }
 }
 

@@ -1,9 +1,12 @@
 import 'package:go_router/go_router.dart';
+import 'package:material_ui/material_ui.dart' show ValueKey;
 
 import 'auth/auth_state.dart';
 import 'pages/login_page.dart';
 import 'pages/not_found_page.dart';
 import 'pages/placeholder_page.dart';
+import 'pages/post_create_page.dart';
+import 'pages/post_edit_page.dart';
 import 'pages/post_list_page.dart';
 import 'pages/signup_page.dart';
 import 'widgets/app_shell.dart';
@@ -95,9 +98,21 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
             builder: (context, state) =>
                 LoginPage(notice: state.extra is String ? state.extra as String : null),
           ),
-          _route('/posts/new', '글쓰기'),
+          GoRoute(
+            path: '/posts/new',
+            caseSensitive: false,
+            builder: (context, state) => const PostCreatePage(),
+          ),
           _route('/posts/:id', '글 상세'),
-          _route('/posts/:id/edit', '글 수정'),
+          GoRoute(
+            path: '/posts/:id/edit',
+            caseSensitive: false,
+            // id가 바뀌면(다른 글의 수정 주소로 이동) 입력 상태를 새로 만들도록 key를 id로 준다
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return PostEditPage(key: ValueKey(id), id: id);
+            },
+          ),
           _route('/me', '내 정보 화면'), // 상단바 링크 "내 정보"와 글자가 겹치지 않게 "화면"을 붙였다
           _route('/admin/reports', '신고 관리'),
           _route('/admin/reports/:id/conversation', '신고된 대화 보기'),
