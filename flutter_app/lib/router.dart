@@ -11,6 +11,9 @@ import 'pages/post_detail_page.dart';
 import 'pages/post_edit_page.dart';
 import 'pages/post_list_page.dart';
 import 'pages/signup_page.dart';
+import 'pages/visa_review_detail_page.dart';
+import 'pages/visa_review_list_page.dart';
+import 'pages/visa_review_stats_page.dart';
 import 'widgets/app_shell.dart';
 
 // 주소 하나를 "화면 이름"과 묶는 짧은 도우미. id가 있는 주소(:id)면 id를 글자 그대로 넘긴다.
@@ -130,10 +133,36 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
           ),
           _route('/admin/reports', '신고 관리'),
           _route('/admin/reports/:id/conversation', '신고된 대화 보기'),
-          _route('/visa-reviews', '비자 후기 목록'),
+          // S16-h1: 비자 후기 목록·통계·상세는 진짜 화면. 필터의 진짜 값은 주소 쿼리
+          GoRoute(
+            path: '/visa-reviews',
+            caseSensitive: false,
+            builder: (context, state) => VisaReviewListPage(
+              schoolId: state.uri.queryParameters['schoolId'] ?? '',
+              visaType: state.uri.queryParameters['visaType'] ?? '',
+              applicationType: state.uri.queryParameters['applicationType'] ?? '',
+            ),
+          ),
           _route('/visa-reviews/new', '비자 후기 쓰기'),
-          _route('/visa-reviews/stats', '비자 후기 통계'),
-          _route('/visa-reviews/:id', '비자 후기 상세'),
+          // 고정 주소 stats는 :id 보다 먼저 적어야 "stats"가 id로 잡히지 않는다
+          GoRoute(
+            path: '/visa-reviews/stats',
+            caseSensitive: false,
+            builder: (context, state) => VisaReviewStatsPage(
+              schoolId: state.uri.queryParameters['schoolId'] ?? '',
+              visaType: state.uri.queryParameters['visaType'] ?? '',
+              applicationType: state.uri.queryParameters['applicationType'] ?? '',
+            ),
+          ),
+          GoRoute(
+            path: '/visa-reviews/:id',
+            caseSensitive: false,
+            // id가 바뀌면 상태를 새로 만들도록 key를 id로 준다
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return VisaReviewDetailPage(key: ValueKey(id), id: id);
+            },
+          ),
           _route('/visa-reviews/:id/edit', '비자 후기 수정'),
           _route('/visa-plan', '내 비자 일정'),
           _route('/market', '중고·나눔 목록'),

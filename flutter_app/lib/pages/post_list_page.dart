@@ -12,6 +12,7 @@ import '../widgets/app_badge.dart';
 import '../widgets/loading.dart';
 import '../widgets/notice.dart';
 import '../widgets/page_frame.dart';
+import '../widgets/row_link.dart';
 import '../widgets/select_field.dart';
 
 // 글 목록 400(조건이 잘못됨) 문구. 다른 화면과 겹치지 않는 이 화면만의 글자라 여기에 둔다
@@ -306,7 +307,7 @@ class _PostRow extends StatelessWidget {
               CategoryBadge(code: post.category.code, name: post.category.name),
               if (showSchool) AppBadge(text: post.school?.name ?? '학교 미지정', school: true),
               // 제목만 링크 (행 전체가 아니다)
-              _RowLink(title: post.title, onTap: () => context.go('/posts/${post.id}')),
+              RowLink(title: post.title, onTap: () => context.go('/posts/${post.id}')),
             ],
           ),
           // 작성자·날짜·댓글 수·공감 수: 가운뎃점 대신 간격으로 나눈다
@@ -320,43 +321,6 @@ class _PostRow extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-// 제목 링크: 평소엔 밑줄 없이 ink 색, 마우스를 올리면 밑줄 (React의 .row-link)
-class _RowLink extends StatefulWidget {
-  const _RowLink({required this.title, required this.onTap});
-
-  final String title;
-  final VoidCallback onTap;
-
-  @override
-  State<_RowLink> createState() => _RowLinkState();
-}
-
-class _RowLinkState extends State<_RowLink> {
-  bool _hover = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      link: true,
-      child: InkWell(
-        onTap: widget.onTap,
-        onHover: (h) => setState(() => _hover = h),
-        child: Text(
-          widget.title,
-          style: TextStyle(
-            fontSize: AppSizes.fsRow,
-            fontWeight: FontWeight.w500,
-            color: AppColors.ink,
-            height: 1.65,
-            decoration: _hover ? TextDecoration.underline : TextDecoration.none,
-            decorationColor: AppColors.ink,
-          ),
-        ),
       ),
     );
   }

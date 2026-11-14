@@ -70,10 +70,18 @@ void main() {
     });
 
     testWidgets('링크를 누르면 그 주소로 간다 (비자 후기 → /visa-reviews)', (tester) async {
-      final app = await pumpApp(tester);
+      // S16-h1: 비자 후기 목록은 진짜 화면이라 시작 화면(글 목록)과 후기 목록이 부르는 요청을 모두 준비한다
+      final adapter = FakeAdapter()
+        ..on('GET', '/schools', FakeReply(200, []))
+        ..on('GET', '/categories', FakeReply(200, []))
+        ..on('GET', '/posts', FakeReply(200, []))
+        ..on('GET', '/schools', FakeReply(200, []))
+        ..on('GET', '/visa-review-options', FakeReply(200, {'visaTypes': [], 'applicationTypes': [], 'results': []}))
+        ..on('GET', '/visa-reviews', FakeReply(200, []));
+      final app = await pumpApp(tester, adapter: adapter);
       await tester.tap(find.text('비자 후기'));
       await tester.pumpAndSettle();
-      expect(find.text('비자 후기 목록'), findsOneWidget);
+      expect(find.text('아직 후기가 없습니다'), findsOneWidget);
       expect(app.router.routerDelegate.currentConfiguration.uri.path, '/visa-reviews');
     });
 

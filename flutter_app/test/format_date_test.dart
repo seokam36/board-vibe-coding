@@ -3,6 +3,36 @@ import 'package:board_web/common/format_date.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  // S16-h1: formatDay·seoulToday (React formatDate.test.ts의 formatDay 값 그대로 + 서울 오늘 경계)
+  group('formatDay', () {
+    test('yyyy-MM-dd를 "2026년 9월 1일"로 바꾼다 (앞의 0은 뗀다)', () {
+      expect(formatDay('2026-09-01'), '2026년 9월 1일');
+      expect(formatDay('2026-12-31'), '2026년 12월 31일');
+    });
+
+    test('모양이 다르면 빈 문자열', () {
+      expect(formatDay('2026-9-1'), '');
+      expect(formatDay(''), '');
+      expect(formatDay('2026-09-01T00:00:00'), '');
+    });
+  });
+
+  group('seoulToday', () {
+    test('서울(UTC+9) 기준 오늘 yyyy-MM-dd', () {
+      expect(seoulToday(now: DateTime.utc(2026, 11, 10)), '2026-11-10');
+    });
+
+    test('UTC로는 전날이어도 서울이 자정을 넘겼으면 다음 날', () {
+      expect(seoulToday(now: DateTime.utc(2026, 11, 9, 15, 0)), '2026-11-10');
+      expect(seoulToday(now: DateTime.utc(2026, 11, 9, 14, 59)), '2026-11-09');
+    });
+
+    test('연말·한 자리 월일은 0을 채운다', () {
+      expect(seoulToday(now: DateTime.utc(2026, 12, 31, 15, 0)), '2027-01-01');
+      expect(seoulToday(now: DateTime.utc(2026, 3, 5, 0, 0)), '2026-03-05');
+    });
+  });
+
   // "올해" 판단이 지금 시각에 달려 있으니 지금을 2026-11-10으로 고정해서 넘긴다 (React 테스트와 같음)
   final now = DateTime.utc(2026, 11, 10);
 

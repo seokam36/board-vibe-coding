@@ -38,10 +38,8 @@ void main() {
     ('/me', '학교 인증'), // S16-g1: 진짜 내 정보 화면이 되어 "학교 인증" 제목 글자로 확인한다 (상단바 "내 정보"와 겹치지 않게)
     ('/admin/reports', '신고 관리'),
     ('/admin/reports/7/conversation', '신고된 대화 보기 (id: 7)'),
-    ('/visa-reviews', '비자 후기 목록'),
+    // S16-h1: /visa-reviews·/visa-reviews/stats·/visa-reviews/:id 는 진짜 화면이 되어 아래 별도 테스트로 옮겼다
     ('/visa-reviews/new', '비자 후기 쓰기'),
-    ('/visa-reviews/stats', '비자 후기 통계'),
-    ('/visa-reviews/7', '비자 후기 상세 (id: 7)'),
     ('/visa-reviews/7/edit', '비자 후기 수정 (id: 7)'),
     ('/visa-plan', '내 비자 일정'),
     ('/market', '중고·나눔 목록'),
@@ -62,7 +60,6 @@ void main() {
   // 완료 조건 2: id 화면 8개가 주소의 id를 그대로 보여 준다(화면마다 다른 숫자로 섞임 확인)
   const idPages = <(String, String, String)>[
     ('/admin/reports/103/conversation', '신고된 대화 보기', '103'),
-    ('/visa-reviews/104', '비자 후기 상세', '104'),
     ('/visa-reviews/105/edit', '비자 후기 수정', '105'),
     ('/market/106', '중고·나눔 상세', '106'),
     ('/market/107/edit', '중고·나눔 수정', '107'),
@@ -122,11 +119,40 @@ void main() {
     expect(find.text(notFoundText), findsNothing);
   });
 
+  // S16-h1: 비자 후기 목록·통계·상세는 진짜 화면. "(id: …)" 글자 대신 화면이 보내는 요청으로 확인한다
+  testWidgets('주소 /visa-reviews 는 후기 목록 화면 (목록·선택지 요청이 간다)', (tester) async {
+    final adapter = FakeAdapter()
+      ..on('GET', '/schools', FakeReply(200, []))
+      ..on('GET', '/visa-review-options', FakeReply(200, {'visaTypes': [], 'applicationTypes': [], 'results': []}))
+      ..on('GET', '/visa-reviews', FakeReply(200, []));
+    await _start(tester, '/visa-reviews', adapter: adapter);
+    expect(find.text('아직 후기가 없습니다'), findsOneWidget);
+    expect(find.text(notFoundText), findsNothing);
+  });
+
   // 완료 조건 3: 고정 주소(new·stats)가 :id 로 잘못 잡히지 않는다
+  testWidgets('겹치는 주소 /visa-reviews/stats 는 통계 화면이고 상세(:id)로 잘못 잡히지 않는다', (tester) async {
+    final adapter = FakeAdapter()
+      ..on('GET', '/schools', FakeReply(200, []))
+      ..on('GET', '/visa-review-options', FakeReply(200, {'visaTypes': [], 'applicationTypes': [], 'results': []}))
+      ..on('GET', '/visa-reviews/stats', FakeReply(200, []));
+    await _start(tester, '/visa-reviews/stats', adapter: adapter);
+    expect(find.text('아직 통계가 없습니다'), findsOneWidget); // 상세였다면 선택지 요청도 없고 이 문구도 없다
+    expect(adapter.count('GET', '/visa-review-options'), 1);
+  });
+
+  for (final path in ['/visa-reviews/104', '/Visa-Reviews/104']) {
+    testWidgets('후기 상세는 주소 $path 의 id 104 로 후기를 불러온다 (대소문자는 가리지 않는다)', (tester) async {
+      final adapter = FakeAdapter()..on('GET', '/visa-reviews/104', FakeReply(404));
+      await _start(tester, path, adapter: adapter);
+      expect(adapter.count('GET', '/visa-reviews/104'), 1);
+      expect(find.text('후기를 찾을 수 없습니다'), findsOneWidget);
+      expect(find.text(notFoundText), findsNothing);
+    });
+  }
   const fixedPages = <(String, String)>[
     ('/posts/new', '글쓰기'),
     ('/visa-reviews/new', '비자 후기 쓰기'),
-    ('/visa-reviews/stats', '비자 후기 통계'),
     ('/market/new', '중고·나눔 쓰기'),
   ];
   for (final (path, label) in fixedPages) {
