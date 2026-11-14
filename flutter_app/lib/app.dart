@@ -7,6 +7,7 @@ import 'auth/auth_state.dart';
 import 'router.dart';
 import 'site_name.dart';
 import 'theme/app_theme.dart';
+import 'visa/visa_banner_state.dart';
 import 'visa/visa_plan_store.dart';
 import 'widgets/loading.dart';
 import 'widgets/page_frame.dart';
@@ -51,6 +52,7 @@ class _BoardAppState extends State<BoardApp> {
 
   // 내 비자 일정 보관소: 로그인 상태(AuthState)를 구독해, 학교 인증 회원일 때만 일정을 한 번 불러온다
   late final VisaPlanStore _visaPlan;
+  final VisaBannerState _visaBanner = VisaBannerState();
 
   @override
   void initState() {
@@ -65,6 +67,7 @@ class _BoardAppState extends State<BoardApp> {
   void dispose() {
     // 우리가 만든 것만 정리한다 (밖에서 넣어 준 건 넣은 쪽이 정리)
     _router.dispose(); // 로그인 상태 구독을 먼저 끊고
+    _visaBanner.dispose();
     _visaPlan.dispose(); // 보관소도 로그인 상태 구독을 끊는다 (AuthState보다 먼저)
     if (widget.authState == null) _auth.dispose();
     super.dispose();
@@ -77,6 +80,8 @@ class _BoardAppState extends State<BoardApp> {
         Provider<ApiClient>.value(value: _api),
         ChangeNotifierProvider<AuthState>.value(value: _auth),
         ChangeNotifierProvider<VisaPlanStore>.value(value: _visaPlan),
+        // 이번 화면에서 닫은 비자 띠 (화면을 옮겨도 유지)
+        ChangeNotifierProvider<VisaBannerState>.value(value: _visaBanner),
       ],
       child: MaterialApp.router(
         title: siteName,

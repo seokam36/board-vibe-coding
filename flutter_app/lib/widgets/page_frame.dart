@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../theme/app_colors.dart';
 import 'nav_bar.dart';
+import 'visa_plan_banner.dart';
 
 // 본문 틀 (React의 .page): 맨 위 상단바 + 가운데 정렬, 최대 720 폭, 좌우 16·위아래 24 여백.
 // 상단바와 본문이 한 스크롤 안에 있어 같이 올라간다(React처럼). 내용이 짧아도 화면 높이만큼은 차지한다.
@@ -22,6 +23,8 @@ class PageFrame extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (showNavBar) const NavBar(),
+              // 상단바 바로 아래 비자 일정 띠 (조건이 안 맞으면 아무것도 안 그린다)
+              if (showNavBar) const VisaPlanBanner(),
               Align(
                 alignment: Alignment.topCenter,
                 child: ConstrainedBox(

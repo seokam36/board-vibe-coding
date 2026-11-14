@@ -43,7 +43,7 @@ void main() {
     // S16-i1: /visa-plan 은 진짜 화면이 되어 visa_plan_page_test.dart 로 옮겼다
     // S16-j1: /market 은 진짜 화면이 되어 market_list_page_test.dart 로 옮겼다
     ('/market/new', '중고·나눔 쓰기'),
-    ('/market/7', '중고·나눔 상세 (id: 7)'),
+    // S16-j2: /market/:id 는 진짜 화면이 되어 market_detail_page_test.dart 로 옮겼다
     ('/market/7/edit', '중고·나눔 수정 (id: 7)'),
     ('/messages', '쪽지함'),
     ('/messages/7', '대화 (id: 7)'),
@@ -59,7 +59,7 @@ void main() {
   // 완료 조건 2: id 화면 8개가 주소의 id를 그대로 보여 준다(화면마다 다른 숫자로 섞임 확인)
   const idPages = <(String, String, String)>[
     ('/admin/reports/103/conversation', '신고된 대화 보기', '103'),
-    ('/market/106', '중고·나눔 상세', '106'),
+    // S16-j2: /market/:id 는 진짜 화면이 되어 id 확인도 market_detail_page_test.dart 가 맡는다
     ('/market/107/edit', '중고·나눔 수정', '107'),
     ('/messages/108', '대화', '108'),
   ];

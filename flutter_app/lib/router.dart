@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart' show ValueKey;
 
 import 'auth/auth_state.dart';
 import 'pages/login_page.dart';
+import 'pages/market_detail_page.dart';
 import 'pages/market_list_page.dart';
 import 'pages/my_page.dart';
 import 'pages/not_found_page.dart';
@@ -197,7 +198,17 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
             ),
           ),
           _route('/market/new', '중고·나눔 쓰기'),
-          _route('/market/:id', '중고·나눔 상세'),
+          // S16-j2: 중고·나눔 상세는 진짜 화면. id가 바뀌면 상태를 새로 만들도록 key를 id로 준다.
+          // extra(int)는 글쓰기에서 넘어온 "못 올린 사진 수" (그 밖의 모양은 없는 것으로 본다)
+          GoRoute(
+            path: '/market/:id',
+            caseSensitive: false,
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              final extra = state.extra;
+              return MarketDetailPage(key: ValueKey(id), id: id, photoFailed: extra is int ? extra : null);
+            },
+          ),
           _route('/market/:id/edit', '중고·나눔 수정'),
           _route('/messages', '쪽지함'),
           _route('/messages/:id', '대화'),
