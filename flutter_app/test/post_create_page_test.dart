@@ -119,6 +119,12 @@ void main() {
       expect(_text(tester, _contentField).length, 500);
     });
 
+    _test('제목 100자 제한은 UTF-16 길이 기준: 이모지(2칸)가 섞이면 50개에서 멈춘다', (tester) async {
+      await pumpApp(tester, location: '/posts/new', user: _verified(), adapter: _adapter());
+      await tester.enterText(_titleField, '😀' * 60); // 길이 120
+      expect(_text(tester, _titleField).length, 100);
+    });
+
     _test('[목록으로]를 누르면 "/"', (tester) async {
       final app = await pumpApp(tester, location: '/posts/new', user: _verified(), adapter: _adapter());
       await tester.tap(find.widgetWithText(OutlinedButton, '목록으로'));

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../theme/app_colors.dart';
+import 'small_button_style.dart';
 
 // 지금 열려 있는 확인 창을 false로 닫는 함수 (없으면 null).
 // 확인 창을 또 열면 앞의 것은 취소로 끝내려고 한 곳에 들고 있는다 (React의 "이미 떠 있으면 앞의 것은 취소").
@@ -131,18 +132,9 @@ class _ConfirmDialogState extends State<_ConfirmDialog> {
                     ),
                     const SizedBox(width: AppSizes.space2),
                     if (danger)
-                      // 위험한 동작: 선·글자가 danger 색 (누르는 동안 danger-strong 배경)
+                      // 위험한 동작: 공용 위험 버튼 모양 (선·글자 danger 색, 누르는 동안 danger-strong)
                       OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.danger,
-                          side: const BorderSide(color: AppColors.danger),
-                        ).copyWith(
-                          backgroundColor: WidgetStateProperty.resolveWith((states) {
-                            if (states.contains(WidgetState.pressed)) return AppColors.dangerStrong;
-                            if (states.contains(WidgetState.hovered)) return AppColors.dangerSoft;
-                            return null;
-                          }),
-                        ),
+                        style: dangerButtonStyle,
                         onPressed: () => _close(true),
                         child: Text(widget.confirmLabel),
                       )

@@ -1,8 +1,8 @@
-import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
+import '../common/utf16_length_formatter.dart';
 import '../errors/error_messages.dart';
 import '../theme/app_colors.dart';
 import 'loading.dart';
@@ -80,6 +80,8 @@ class _ReportFormState extends State<ReportForm> {
       return;
     }
     final dio = context.read<ApiClient>().dio;
+    // 부모가 준 콜백은 미리 잡아 둔다: 401로 로그인이 풀리면 이 위젯이 먼저 사라져(mounted=false)도 안내는 띄워야 한다
+    final onNeedLogin = widget.onNeedLogin;
     final detail = _detail.text.trim();
     setState(() {
       _sending = true;
@@ -109,10 +111,12 @@ class _ReportFormState extends State<ReportForm> {
         },
         _sendFailed,
       );
-      if (!mounted) return;
       if (info is NeedLogin) {
-        widget.onNeedLogin(); // 양식은 그대로 둔다
-      } else if (info is ErrorMessage) {
+        onNeedLogin(); // 양식은 그대로 둔다. 화면이 사라졌어도 부모에게는 알린다(mounted 검사 전)
+        return;
+      }
+      if (!mounted) return;
+      if (info is ErrorMessage) {
         setState(() {
           _message = info.message;
           // 409(이미 신고함)·404(이미 지워진 대상)이면 더 보낼 수 없으니 양식을 닫는다
@@ -142,7 +146,8 @@ class _ReportFormState extends State<ReportForm> {
             child: OutlinedButton(style: smallButtonStyle, onPressed: _handleOpen, child: const Text('신고')),
           ),
         if (_open) _buildBox(),
-        if (_message != null) Notice(kind: NoticeKind.error, message: _message),
+        // 양식이 닫혀 작업 줄의 한 칸일 때는 글자 폭만큼만, 열려 있으면 줄 전체
+        if (_message != null) Notice(kind: NoticeKind.error, message: _message, shrinkWrap: !_open),
       ],
     );
     // 열려 있으면 작업 줄(Wrap)에서 한 줄을 다 차지한다 (React의 .report-open { flex: 1 1 100% })
@@ -198,7 +203,8 @@ class _ReportFormState extends State<ReportForm> {
                 hintText: '자세한 내용 (선택)',
                 hintStyle: TextStyle(color: AppColors.muted),
               ),
-              inputFormatters: [LengthLimitingTextInputFormatter(_detailMax)],
+              // UTF-16 길이로 제한 (카운터의 text.length와 같은 단위)
+              inputFormatters: const [Utf16LengthFormatter(_detailMax)],
               minLines: 2,
               maxLines: 2,
               keyboardType: TextInputType.multiline,

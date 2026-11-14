@@ -1,6 +1,6 @@
-import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../common/utf16_length_formatter.dart';
 import '../theme/app_colors.dart';
 
 // 위에 라벨 글자가 있는 입력칸 (React의 <label>제목<input placeholder="제목"/></label> + .field 아래 여백 16).
@@ -54,7 +54,8 @@ class LabeledField extends StatelessWidget {
                 hintText: hint,
                 hintStyle: const TextStyle(color: AppColors.muted),
               ),
-              inputFormatters: [if (maxLength != null) LengthLimitingTextInputFormatter(maxLength)],
+              // UTF-16 길이로 제한한다 (React maxLength와 같은 단위, 이모지 = 2)
+              inputFormatters: [if (maxLength != null) Utf16LengthFormatter(maxLength!)],
               // 여러 줄 칸은 줄 수를 고정하고(10줄) 넘치면 안에서 스크롤된다
               minLines: lines,
               maxLines: lines,

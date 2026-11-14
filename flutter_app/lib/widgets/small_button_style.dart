@@ -15,18 +15,27 @@ final ButtonStyle smallFilledButtonStyle = FilledButton.styleFrom(
   padding: const EdgeInsets.symmetric(horizontal: AppSizes.space3),
 );
 
-// 위험 버튼 모양 (React의 .btn-danger): 평소엔 빨간 글자·선만, 마우스를 올리면 옅은 빨강, 누르면 진한 빨강
-final ButtonStyle dangerSmallButtonStyle = smallButtonStyle
-    .merge(
-      OutlinedButton.styleFrom(
-        foregroundColor: AppColors.danger,
-        side: const BorderSide(color: AppColors.danger),
-      ),
-    )
-    .copyWith(
-      backgroundColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.pressed)) return AppColors.dangerStrong;
-        if (states.contains(WidgetState.hovered)) return AppColors.dangerSoft;
-        return null;
-      }),
-    );
+// 위험 버튼의 색 (React의 .btn-danger): 평소엔 빨간 글자·선만, 마우스를 올리면 옅은 빨강 배경,
+// 누르는 동안엔 React의 :active처럼 배경·선이 진한 빨강(danger-strong)이고 글자는 본문색(ink).
+// 비활성은 React의 opacity 0.5처럼 반투명. 크기는 건드리지 않아 확인 창(보통 크기)과 작업 줄(작은 크기)이 같이 쓴다.
+final ButtonStyle dangerButtonStyle = OutlinedButton.styleFrom().copyWith(
+  foregroundColor: WidgetStateProperty.resolveWith((states) {
+    if (states.contains(WidgetState.disabled)) return AppColors.danger.withValues(alpha: 0.5);
+    if (states.contains(WidgetState.pressed)) return AppColors.ink;
+    return AppColors.danger;
+  }),
+  side: WidgetStateProperty.resolveWith((states) {
+    if (states.contains(WidgetState.disabled)) return BorderSide(color: AppColors.danger.withValues(alpha: 0.5));
+    if (states.contains(WidgetState.pressed)) return const BorderSide(color: AppColors.dangerStrong);
+    return const BorderSide(color: AppColors.danger);
+  }),
+  backgroundColor: WidgetStateProperty.resolveWith((states) {
+    if (states.contains(WidgetState.disabled)) return null;
+    if (states.contains(WidgetState.pressed)) return AppColors.dangerStrong;
+    if (states.contains(WidgetState.hovered)) return AppColors.dangerSoft;
+    return null;
+  }),
+);
+
+// 작은 위험 버튼 (글 상세·댓글의 [삭제])
+final ButtonStyle dangerSmallButtonStyle = smallButtonStyle.merge(dangerButtonStyle);

@@ -133,8 +133,9 @@ class _PostDetailPageState extends State<PostDetailPage> {
           if (post != null)
             Padding(
               padding: const EdgeInsets.only(bottom: AppSizes.space4),
+              // React .actions처럼 세로 가운데 정렬 (공감·신고 밑에 안내가 붙어 키가 달라도 버튼 줄이 어긋나 보이지 않게)
               child: Wrap(
-                crossAxisAlignment: WrapCrossAlignment.start,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 spacing: AppSizes.space2,
                 runSpacing: AppSizes.space2,
                 children: [

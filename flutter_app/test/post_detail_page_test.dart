@@ -110,7 +110,8 @@ void main() {
 
     _test('공감 숫자는 글의 likeCount로 시작한다', (tester) async {
       await _open(tester, _adapter(post: FakeReply(200, postJson(likeCount: 12))));
-      expect(find.text('🤍 공감 12'), findsOneWidget);
+      expect(find.text('공감 12'), findsOneWidget);
+      expect(find.byIcon(Icons.favorite_border), findsOneWidget); // 안 누른 상태는 빈 하트
     });
 
     _test('주소의 id 글자는 인코딩해서 요청한다 (/posts/a%3Fb → GET /posts/a%3Fb)', (tester) async {
@@ -380,6 +381,59 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(Dialog), findsNothing);
       expect(adapter.count('DELETE', '/posts/7'), 0);
+    });
+  });
+
+  group('신고 연결 (상세 ↔ ReportForm)', () {
+    // 남의 글(작성자 id 2)을 같은 학교 회원(id 5)이 본다
+    final other = FakeReply(200, postJson(author: {'id': 2, 'nickname': '남'}));
+    final reasons = FakeReply(200, [
+      {'code': 'SPAM', 'name': '광고·스팸'},
+    ]);
+
+    // 신고 열기 → 사유 고르기
+    Future<void> openAndPick(WidgetTester tester) async {
+      await tester.tap(_report);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('report-reason')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('광고·스팸').last);
+      await tester.pumpAndSettle();
+    }
+
+    _test('신고 열기 → 사유 선택 → [신고 보내기]하면 POST /posts/7/reports 가 한 번 나간다', (tester) async {
+      final adapter = _adapter(post: other)
+        ..on('GET', '/report-reasons', reasons)
+        ..on('POST', '/posts/7/reports', FakeReply(201));
+      await _open(tester, adapter, user: _seoulUser(id: 5));
+      await openAndPick(tester);
+      await tester.tap(find.widgetWithText(OutlinedButton, '신고 보내기'));
+      await tester.pumpAndSettle();
+      expect(adapter.count('POST', '/posts/7/reports'), 1);
+      expect(find.text('신고가 접수됐습니다'), findsOneWidget);
+    });
+
+    _test('신고 401 + 재발급 401 → 로그인이 풀려 신고 양식이 사라져도 "다시 로그인해 주세요"가 보이고 주소는 그대로', (tester) async {
+      final adapter = _adapter(post: other)
+        ..on('GET', '/report-reasons', reasons)
+        ..on('POST', '/posts/7/reports', FakeReply(401))
+        ..on('POST', '/auth/refresh', FakeReply(401));
+      final app = await _open(tester, adapter, user: _seoulUser(id: 5));
+      await openAndPick(tester);
+      await tester.tap(find.widgetWithText(OutlinedButton, '신고 보내기'));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pumpAndSettle();
+
+      expect(app.auth.user, isNull);
+      expect(find.text('다시 로그인해 주세요'), findsOneWidget);
+      expect(find.text('신고하지 못했습니다'), findsNothing);
+      expect(_uri(app), '/posts/7');
+    });
+
+    _test('안내문 고르는 순서: 미인증 + 학교 없는 글이면 "학교 없는 글" 문구가 아니라 미인증 문구', (tester) async {
+      await _open(tester, _adapter(post: FakeReply(200, postJson(school: null))), user: userJson(id: 5));
+      expect(find.text('학교 인증 후 같은 학교 글에만 댓글·공감·신고할 수 있어요'), findsOneWidget);
+      expect(find.text('학교가 정해지지 않은 옛 글은 읽기만 할 수 있어요'), findsNothing);
     });
   });
 }

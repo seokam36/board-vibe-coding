@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:board_web/common/format_date.dart';
 import 'package:board_web/widgets/comment_section.dart';
+import 'package:board_web/widgets/relogin_notice.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -69,7 +70,9 @@ Finder _btn(int id, String text) =>
     find.descendant(of: _row(id), matching: find.widgetWithText(OutlinedButton, text));
 // 댓글 영역 안의 [로그인] 링크 (상단바에도 같은 글자가 있어서 영역 안에서만 찾는다)
 final _sectionLogin = find.descendant(of: find.byType(CommentSection), matching: find.text('로그인'));
-final _newField =find.byKey(const ValueKey('comment-new'));
+// 댓글 영역 안의 로그인 안내 (영역 밖의 같은 안내와 섞이지 않게)
+final _reloginInSection = find.descendant(of: find.byType(CommentSection), matching: find.byType(ReloginNotice));
+final _newField = find.byKey(const ValueKey('comment-new'));
 final _editField = find.byKey(const ValueKey('comment-edit'));
 final _register = find.widgetWithText(FilledButton, '등록');
 final _save = find.widgetWithText(FilledButton, '저장');
@@ -347,6 +350,10 @@ void main() {
       expect(find.text('다시 로그인해 주세요'), findsOneWidget);
       expect(find.text('로그인'), findsWidgets);
       expect(find.text('댓글을 등록하지 못했습니다'), findsNothing);
+      expect(_reloginInSection, findsOneWidget); // 안내는 댓글 영역 안에 하나만
+      // 로그인이 풀려서 새 댓글 칸은 사라지고 로그인 링크 문구가 보인다
+      expect(_newField, findsNothing);
+      expect(find.text('로그인하면 댓글을 쓸 수 있습니다 '), findsOneWidget);
     });
 
     _test('다시 등록하면 이전 실패 문구는 지워진다', (tester) async {
@@ -483,6 +490,10 @@ void main() {
       await _waitRefresh(tester);
       expect(find.text('다시 로그인해 주세요'), findsOneWidget);
       expect(find.text('수정하지 못했습니다'), findsNothing);
+      expect(_reloginInSection, findsOneWidget);
+      // 쓰던 편집칸과 입력값은 그대로 남는다
+      expect(_editField, findsOneWidget);
+      expect(_fieldText(tester, _editField), '내가 쓴 댓글');
     });
   });
 
@@ -585,6 +596,7 @@ void main() {
       await _waitRefresh(tester);
       expect(find.text('다시 로그인해 주세요'), findsOneWidget);
       expect(find.text('삭제하지 못했습니다'), findsNothing);
+      expect(_reloginInSection, findsOneWidget);
     });
   });
 
@@ -674,11 +686,154 @@ void main() {
         ..on('GET', '/report-reasons', FakeReply(200, reasons))
         ..on('POST', '/comments/2/reports', FakeReply(401))
         ..on('POST', '/auth/refresh', FakeReply(401));
+      adapter.on('DELETE', '/comments/1', FakeReply(500));
       await _open(tester, adapter, user: _user());
+      // 먼저 삭제 실패 문구를 띄워 둔다
+      await tester.tap(_btn(1, '삭제'));
+      await tester.pumpAndSettle();
+      await tester.tap(_dialogBtn('삭제'));
+      await tester.pumpAndSettle();
+      expect(find.text('삭제하지 못했습니다'), findsOneWidget);
+
       await fillAndSend(tester);
       await _waitRefresh(tester);
       expect(find.text('다시 로그인해 주세요'), findsOneWidget);
       expect(find.text('신고하지 못했습니다'), findsNothing);
+      expect(_reloginInSection, findsOneWidget);
+      expect(find.text('삭제하지 못했습니다'), findsNothing); // 앞서 뜬 실패 문구는 지워진다
+    });
+  });
+
+  // _posting(등록 중)과 _busy(저장·삭제 중)는 서로 막지 않는다
+  group('등록 중/저장 중 분리', () {
+    _test('등록 중에도 내 댓글의 [수정]·[삭제]는 눌린다', (tester) async {
+      final gate = Completer<void>();
+      final adapter = _adapter()..on('POST', '/posts/7/comments', FakeReply(201, _c(10, '새', authorId: 5), gate));
+      await _open(tester, adapter, user: _user());
+      await tester.enterText(_newField, '새');
+      await tester.tap(_register);
+      await tester.pump();
+      expect(find.text('등록 중...'), findsOneWidget);
+      expect(_enabled(tester, _btn(1, '수정')), isTrue);
+      expect(_enabled(tester, _btn(1, '삭제')), isTrue);
+      gate.complete();
+      await tester.pumpAndSettle();
+    });
+
+    _test('저장 중에도 [등록]은 눌린다', (tester) async {
+      final gate = Completer<void>();
+      final adapter = _adapter()..on('PUT', '/comments/1', FakeReply(200, _c(1, '고침', authorId: 5), gate));
+      await _open(tester, adapter, user: _user());
+      await tester.tap(_btn(1, '수정'));
+      await tester.pumpAndSettle();
+      await tester.tap(_save);
+      await tester.pump();
+      expect(find.text('저장 중...'), findsOneWidget);
+      expect(tester.widget<FilledButton>(_register).onPressed, isNotNull);
+      expect(find.text('등록 중...'), findsNothing);
+      gate.complete();
+      await tester.pumpAndSettle();
+    });
+  });
+
+  // 내 댓글이 둘(1, 4)
+  group('수정 중 상태 전환', () {
+    final two = [_c(1, '첫 내 댓글', authorId: 5), _c(2, '남의 댓글', authorId: 6), _c(4, '둘째 내 댓글', authorId: 5)];
+
+    _test('1번 수정 중 다른 댓글 [수정] → 입력칸은 하나, 값은 새 댓글 내용, 1번은 원래 글자', (tester) async {
+      await _open(tester, _adapter(comments: FakeReply(200, two)), user: _user());
+      await tester.tap(_btn(1, '수정'));
+      await tester.pumpAndSettle();
+      await tester.enterText(_editField, '고치던 중');
+      await tester.tap(_btn(4, '수정'));
+      await tester.pumpAndSettle();
+      expect(_editField, findsOneWidget);
+      expect(find.descendant(of: _row(4), matching: _editField), findsOneWidget);
+      expect(_fieldText(tester, _editField), '둘째 내 댓글');
+      expect(find.text('첫 내 댓글'), findsOneWidget); // 1번은 원래 글자로 돌아온다
+      expect(_btn(1, '수정'), findsOneWidget);
+    });
+
+    _test('1번 수정 중 다른 댓글 삭제 성공 → 1번 편집·입력값 유지', (tester) async {
+      final adapter = _adapter(comments: FakeReply(200, two))..on('DELETE', '/comments/4', FakeReply(204));
+      await _open(tester, adapter, user: _user());
+      await tester.tap(_btn(1, '수정'));
+      await tester.pumpAndSettle();
+      await tester.enterText(_editField, '고치던 중');
+      await tester.tap(_btn(4, '삭제'));
+      await tester.pumpAndSettle();
+      await tester.tap(_dialogBtn('삭제'));
+      await tester.pumpAndSettle();
+      expect(_row(4), findsNothing);
+      expect(find.descendant(of: _row(1), matching: _editField), findsOneWidget);
+      expect(_fieldText(tester, _editField), '고치던 중');
+    });
+
+    _test('실패 문구가 떠 있을 때 [수정]을 누르면 문구가 지워진다', (tester) async {
+      final adapter = _adapter(comments: FakeReply(200, two))..on('DELETE', '/comments/4', FakeReply(500));
+      await _open(tester, adapter, user: _user());
+      await tester.tap(_btn(4, '삭제'));
+      await tester.pumpAndSettle();
+      await tester.tap(_dialogBtn('삭제'));
+      await tester.pumpAndSettle();
+      expect(find.text('삭제하지 못했습니다'), findsOneWidget);
+      await tester.tap(_btn(1, '수정'));
+      await tester.pumpAndSettle();
+      expect(find.text('삭제하지 못했습니다'), findsNothing);
+    });
+  });
+
+  // 응답이 오기 전에 화면을 떠나도 예외 없이 응답을 버린다
+  group('응답 전 화면 떠나기', () {
+    FakeAdapter homeAdapter({FakeReply? comments}) => _adapter(comments: comments)
+      ..on('GET', '/schools', FakeReply(200, [_seoul]))
+      ..on('GET', '/categories', FakeReply(200, [{'code': 'CHAT', 'name': '잡담'}]))
+      ..on('GET', '/posts', FakeReply(200, []));
+
+    Future<void> leaveThenRelease(WidgetTester tester, TestApp app, Completer<void> gate) async {
+      app.router.go('/');
+      await tester.pumpAndSettle();
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
+
+    _test('목록 GET 중에 떠나기', (tester) async {
+      final gate = Completer<void>();
+      final app = await _open(tester, homeAdapter(comments: FakeReply(200, _three(), gate)), user: _user());
+      await leaveThenRelease(tester, app, gate);
+    });
+
+    _test('등록 POST 중에 떠나기', (tester) async {
+      final gate = Completer<void>();
+      final adapter = homeAdapter()..on('POST', '/posts/7/comments', FakeReply(201, _c(10, '새', authorId: 5), gate));
+      final app = await _open(tester, adapter, user: _user());
+      await tester.enterText(_newField, '새');
+      await tester.tap(_register);
+      await tester.pump();
+      await leaveThenRelease(tester, app, gate);
+    });
+
+    _test('저장 PUT 중에 떠나기', (tester) async {
+      final gate = Completer<void>();
+      final adapter = homeAdapter()..on('PUT', '/comments/1', FakeReply(200, _c(1, '고침', authorId: 5), gate));
+      final app = await _open(tester, adapter, user: _user());
+      await tester.tap(_btn(1, '수정'));
+      await tester.pumpAndSettle();
+      await tester.tap(_save);
+      await tester.pump();
+      await leaveThenRelease(tester, app, gate);
+    });
+
+    _test('삭제 DELETE 중에 떠나기', (tester) async {
+      final gate = Completer<void>();
+      final adapter = homeAdapter()..on('DELETE', '/comments/1', FakeReply(204, null, gate));
+      final app = await _open(tester, adapter, user: _user());
+      await tester.tap(_btn(1, '삭제'));
+      await tester.pumpAndSettle();
+      await tester.tap(_dialogBtn('삭제'));
+      await tester.pump();
+      await leaveThenRelease(tester, app, gate);
     });
   });
 }

@@ -410,6 +410,20 @@ void main() {
       expect(find.text('300/300'), findsOneWidget);
     });
 
+    testWidgets('이모지(UTF-16으로 2칸)가 섞여도 UTF-16 길이로 300까지, 반쪽 이모지는 남지 않는다', (tester) async {
+      await _pump(tester, _adapter());
+      await _open(tester);
+      await tester.enterText(_detailField, '😀' * 200); // 길이 400
+      await tester.pump();
+      expect(_detailText(tester).length, 300);
+      expect(find.text('300/300'), findsOneWidget); // 카운터도 text.length 기준
+      // 한도 경계(300번째 칸)에서 이모지가 쪼개지는 경우: 299까지만 남긴다
+      await tester.enterText(_detailField, 'a${'😀' * 200}');
+      await tester.pump();
+      expect(_detailText(tester).length, 299);
+      expect(find.text('299/300'), findsOneWidget);
+    });
+
     testWidgets('글자를 쓸 때마다 카운터가 바뀐다 (공백도 센다)', (tester) async {
       await _pump(tester, _adapter());
       await _open(tester);

@@ -44,6 +44,14 @@ String _uri(TestApp app) => app.router.routerDelegate.currentConfiguration.uri.t
 Finder get _button => find.ancestor(of: find.textContaining('공감 '), matching: find.byType(OutlinedButton));
 bool _enabled(WidgetTester tester) => tester.widget<OutlinedButton>(_button).onPressed != null;
 
+// 버튼 안의 글자("공감 N")와 하트 아이콘(눌림=꽉 찬 하트, 아님=빈 하트)을 같이 확인한다.
+// 이모지 대신 번들 아이콘을 쓰므로 모양은 글자가 아니라 아이콘으로 구분한다.
+void _expectLike(WidgetTester tester, {required bool liked, required int count}) {
+  expect(find.descendant(of: _button, matching: find.text('공감 $count')), findsOneWidget);
+  expect(find.descendant(of: _button, matching: find.byIcon(Icons.favorite)), liked ? findsOneWidget : findsNothing);
+  expect(find.descendant(of: _button, matching: find.byIcon(Icons.favorite_border)), liked ? findsNothing : findsOneWidget);
+}
+
 Future<void> _tapLike(WidgetTester tester) async {
   await tester.tap(_button);
   await tester.pumpAndSettle();
@@ -54,7 +62,7 @@ void main() {
     testWidgets('누르면 /login 으로 가고 요청은 없다 (likes/me도 안 묻는다)', (tester) async {
       final adapter = _adapter();
       final app = await _open(tester, adapter);
-      expect(find.text('🤍 공감 3'), findsOneWidget);
+      _expectLike(tester, liked: false, count: 3);
       expect(_enabled(tester), isTrue);
       await _tapLike(tester);
       expect(_uri(app), '/login');
@@ -68,12 +76,12 @@ void main() {
       final adapter = _adapter();
       await _open(tester, adapter, user: _user());
       expect(adapter.count('GET', '/posts/7/likes/me'), 1);
-      expect(find.text('🤍 공감 3'), findsOneWidget);
+      _expectLike(tester, liked: false, count: 3);
     });
 
     testWidgets('liked:true면 ❤️ + 눌린 모양(청자 배경)', (tester) async {
       await _open(tester, _adapter(liked: true), user: _user());
-      expect(find.text('❤️ 공감 3'), findsOneWidget);
+      _expectLike(tester, liked: true, count: 3);
       final style = tester.widget<OutlinedButton>(_button).style!;
       expect(style.backgroundColor!.resolve({}), const Color(0xFF1E3A33)); // celadonSoft
     });
@@ -87,28 +95,28 @@ void main() {
     testWidgets('likes/me가 실패해도 무시: 🤍로 두고 버튼은 쓸 수 있다, 안내 문구 없음', (tester) async {
       final adapter = _adapter(likesMe: false)..on('GET', '/posts/7/likes/me', FakeReply(500));
       await _open(tester, adapter, user: _user());
-      expect(find.text('🤍 공감 3'), findsOneWidget);
+      _expectLike(tester, liked: false, count: 3);
       expect(_enabled(tester), isTrue);
       expect(find.byType(Notice), findsNothing);
     });
 
     testWidgets('계정이 바뀌면(로그아웃) 눌린 상태는 사라진다', (tester) async {
       final app = await _open(tester, _adapter(liked: true), user: _user());
-      expect(find.text('❤️ 공감 3'), findsOneWidget);
+      _expectLike(tester, liked: true, count: 3);
       app.auth.clearUser();
       await tester.pumpAndSettle();
-      expect(find.text('🤍 공감 3'), findsOneWidget);
+      _expectLike(tester, liked: false, count: 3);
     });
 
     testWidgets('다른 계정으로 로그인하면 그 계정 기준으로 다시 묻고, 이전 계정의 눌림은 안 이어진다', (tester) async {
       final adapter = _adapter(liked: true)..on('GET', '/posts/7/likes/me', FakeReply(200, {'liked': false}));
       final app = await _open(tester, adapter, user: _user());
-      expect(find.text('❤️ 공감 3'), findsOneWidget);
+      _expectLike(tester, liked: true, count: 3);
       app.auth.updateUser(AuthUser.fromJson(_user(id: 6)));
       await tester.pump(const Duration(milliseconds: 50));
       await tester.pumpAndSettle();
       expect(adapter.count('GET', '/posts/7/likes/me'), 2);
-      expect(find.text('🤍 공감 3'), findsOneWidget);
+      _expectLike(tester, liked: false, count: 3);
     });
   });
 
@@ -119,13 +127,13 @@ void main() {
       await _open(tester, adapter, user: _user());
       await tester.tap(_button);
       await tester.pump(const Duration(milliseconds: 50));
-      expect(find.text('🤍 공감 3'), findsOneWidget); // 아직 그대로
+      _expectLike(tester, liked: false, count: 3); // 아직 그대로
       expect(_enabled(tester), isFalse);
       expect(adapter.count('POST', '/posts/7/likes'), 1);
 
       gate.complete();
       await tester.pumpAndSettle();
-      expect(find.text('❤️ 공감 4'), findsOneWidget);
+      _expectLike(tester, liked: true, count: 4);
       expect(_enabled(tester), isTrue);
     });
 
@@ -135,14 +143,14 @@ void main() {
       await _tapLike(tester);
       expect(adapter.count('DELETE', '/posts/7/likes'), 1);
       expect(adapter.count('POST', '/posts/7/likes'), 0);
-      expect(find.text('🤍 공감 2'), findsOneWidget);
+      _expectLike(tester, liked: false, count: 2);
     });
 
     testWidgets('응답 숫자가 내 기대와 달라도(다른 사람이 눌러 7) 응답 값을 그대로 보여 준다', (tester) async {
       final adapter = _adapter()..on('POST', '/posts/7/likes', FakeReply(201, {'likeCount': 7, 'liked': true}));
       await _open(tester, adapter, user: _user());
       await _tapLike(tester);
-      expect(find.text('❤️ 공감 7'), findsOneWidget);
+      _expectLike(tester, liked: true, count: 7);
     });
 
     testWidgets('실패한 뒤 다시 누르면 이전 안내 문구가 지워진다', (tester) async {
@@ -173,7 +181,7 @@ void main() {
       await _open(tester, adapter, user: _user());
       expect(_enabled(tester), isTrue);
       await _tapLike(tester);
-      expect(find.text('🤍 공감 2'), findsOneWidget);
+      _expectLike(tester, liked: false, count: 2);
       expect(_enabled(tester), isFalse); // 취소했으니 이제는 공감할 수 없다
     });
 
@@ -189,16 +197,16 @@ void main() {
   });
 
   group('실패 문구', () {
-    // (설명, 눌려 있었는지, 상태, 기대 문구, 이후 글자)
-    final cases = <(String, bool, int, String, String)>[
-      ('POST 409 → 상태를 "공감함"으로 맞추고 이미 공감 안내', false, 409, ErrorMessages.postAlreadyLiked, '❤️ 공감 3'),
-      ('POST 404 → 글 없음 문구', false, 404, ErrorMessages.postNotFound, '🤍 공감 3'),
-      ('POST 403 → 학교 인증 문구', false, 403, ErrorMessages.schoolGatePostAction, '🤍 공감 3'),
-      ('POST 500 → 처리하지 못했습니다', false, 500, ErrorMessages.actionFailed, '🤍 공감 3'),
-      ('POST 400 → 처리하지 못했습니다', false, 400, ErrorMessages.actionFailed, '🤍 공감 3'),
-      ('DELETE 404 → "공감하지 않은 글입니다" + 상태를 🤍로 맞춤', true, 404, '공감하지 않은 글입니다', '🤍 공감 3'),
-      ('DELETE 403 → 취소 실패(새로고침 안내), 학교 인증 문구가 아님', true, 403, '취소하지 못했습니다. 새로고침 후 다시 시도해 주세요', '❤️ 공감 3'),
-      ('DELETE 500 → 처리하지 못했습니다', true, 500, ErrorMessages.actionFailed, '❤️ 공감 3'),
+    // (설명, 눌려 있었는지, 상태, 기대 문구, 이후에 눌린 모양인지)
+    final cases = <(String, bool, int, String, bool)>[
+      ('POST 409 → 상태를 "공감함"으로 맞추고 이미 공감 안내', false, 409, ErrorMessages.postAlreadyLiked, true),
+      ('POST 404 → 글 없음 문구', false, 404, ErrorMessages.postNotFound, false),
+      ('POST 403 → 학교 인증 문구', false, 403, ErrorMessages.schoolGatePostAction, false),
+      ('POST 500 → 처리하지 못했습니다', false, 500, ErrorMessages.actionFailed, false),
+      ('POST 400 → 처리하지 못했습니다', false, 400, ErrorMessages.actionFailed, false),
+      ('DELETE 404 → "공감하지 않은 글입니다" + 상태를 🤍로 맞춤', true, 404, '공감하지 않은 글입니다', false),
+      ('DELETE 403 → 취소 실패(새로고침 안내), 학교 인증 문구가 아님', true, 403, '취소하지 못했습니다. 새로고침 후 다시 시도해 주세요', true),
+      ('DELETE 500 → 처리하지 못했습니다', true, 500, ErrorMessages.actionFailed, true),
     ];
     for (final (name, wasLiked, status, message, after) in cases) {
       testWidgets(name, (tester) async {
@@ -207,7 +215,7 @@ void main() {
         await _tapLike(tester);
         expect(find.text(message), findsOneWidget);
         expect(tester.widget<Notice>(find.widgetWithText(Notice, message)).kind, NoticeKind.error);
-        expect(find.text(after), findsOneWidget);
+        _expectLike(tester, liked: after, count: 3);
         expect(find.text('다시 로그인해 주세요'), findsNothing);
       });
     }
@@ -217,7 +225,7 @@ void main() {
       await _open(tester, adapter, user: _user());
       await _tapLike(tester);
       expect(find.text('서버에 연결할 수 없습니다'), findsOneWidget);
-      expect(find.text('🤍 공감 3'), findsOneWidget);
+      _expectLike(tester, liked: false, count: 3);
     });
 
     testWidgets('실패한 뒤에도 버튼은 다시 눌러 볼 수 있다', (tester) async {
@@ -235,7 +243,7 @@ void main() {
       await _tapLike(tester);
       await _tapLike(tester);
       expect(adapter.count('DELETE', '/posts/7/likes'), 1);
-      expect(find.text('🤍 공감 2'), findsOneWidget);
+      _expectLike(tester, liked: false, count: 2);
     });
 
     testWidgets('401(재발급도 401) → 버튼 안 "다시 로그인해 주세요" + 로그인 링크, 다른 실패 문구 없음', (tester) async {
@@ -253,6 +261,46 @@ void main() {
       await tester.tap(find.descendant(of: find.byType(Notice), matching: find.text('로그인')));
       await tester.pumpAndSettle();
       expect(_uri(app), '/login');
+    });
+  });
+
+  group('늦게 온 likes/me 응답', () {
+    testWidgets('likes/me가 늦는 사이 눌러서 결과가 나오면, 늦게 온 likes/me는 그 결과를 덮어쓰지 않는다', (tester) async {
+      final gate = Completer<void>();
+      final adapter = _adapter(likesMe: false)
+        ..on('GET', '/posts/7/likes/me', FakeReply(200, {'liked': false}, gate)) // 옛 응답: "안 눌렀음"
+        ..on('POST', '/posts/7/likes', FakeReply(201, {'likeCount': 4, 'liked': true}));
+      useTallScreen(tester);
+      await pumpApp(tester, location: '/posts/7', user: _user(), adapter: adapter);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pumpAndSettle();
+
+      await _tapLike(tester);
+      _expectLike(tester, liked: true, count: 4);
+
+      gate.complete(); // 이제서야 옛 likes/me 도착
+      await tester.pumpAndSettle();
+      _expectLike(tester, liked: true, count: 4); // 그대로 (옛 응답은 버려짐)
+    });
+
+    testWidgets('계정을 바꾼 뒤 이전 계정의 늦은 likes/me는 버린다', (tester) async {
+      final gate = Completer<void>();
+      final adapter = _adapter(likesMe: false)
+        ..on('GET', '/posts/7/likes/me', FakeReply(200, {'liked': true}, gate)) // 5번 계정의 옛 응답 (늦음)
+        ..on('GET', '/posts/7/likes/me', FakeReply(200, {'liked': false})); // 6번 계정의 응답
+      useTallScreen(tester);
+      final app = await pumpApp(tester, location: '/posts/7', user: _user(), adapter: adapter);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pumpAndSettle();
+
+      app.auth.updateUser(AuthUser.fromJson(_user(id: 6)));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pumpAndSettle();
+      _expectLike(tester, liked: false, count: 3);
+
+      gate.complete(); // 옛 계정의 "눌렀음"이 늦게 도착
+      await tester.pumpAndSettle();
+      _expectLike(tester, liked: false, count: 3); // 새 계정 화면을 건드리지 않는다
     });
   });
 

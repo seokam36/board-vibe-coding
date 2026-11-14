@@ -81,6 +81,9 @@ class _LikeButtonState extends State<LikeButton> {
     }
     final dio = context.read<ApiClient>().dio;
     final wasLiked = _isLiked(user);
+    // 번호를 올려 두면, 아직 오는 중인 "내가 눌렀는지"(likes/me) 옛 응답은 도착해도 버려진다
+    // (방금 누른 결과를 옛 응답이 덮어쓰지 않게)
+    _seq++;
     setState(() {
       _busy = true;
       _message = null;
@@ -160,11 +163,22 @@ class _LikeButtonState extends State<LikeButton> {
           child: OutlinedButton(
             style: style,
             onPressed: enabled ? _click : null,
-            child: Text('${liked ? '❤️' : '🤍'} 공감 $_count'),
+            // 하트는 이모지(🤍/❤️) 대신 앱에 번들된 Material 아이콘으로 그린다.
+            // 이모지는 번들 글꼴에 없어서 상세를 열 때마다 구글에서 Noto 이모지 글꼴 조각을 받아 왔는데,
+            // 아이콘은 이미 앱 안에 있어 그 외부 요청이 사라진다. 색은 버튼 글자색(눌림이면 청자 글자색)을 따른다.
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(liked ? Icons.favorite : Icons.favorite_border, size: 16),
+                const SizedBox(width: AppSizes.space1),
+                Text('공감 $_count'),
+              ],
+            ),
           ),
         ),
-        if (_message != null) Notice(kind: NoticeKind.error, message: _message),
-        if (_needLogin) const ReloginNotice(),
+        // 작업 줄 안이라 안내는 글자 폭만큼만 (수정·삭제 버튼을 옆줄로 밀어내지 않게)
+        if (_message != null) Notice(kind: NoticeKind.error, message: _message, shrinkWrap: true),
+        if (_needLogin) const ReloginNotice(shrinkWrap: true),
       ],
     );
   }
