@@ -303,7 +303,7 @@ class _PostRow extends StatelessWidget {
             spacing: AppSizes.space2,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              _CategoryBadge(code: post.category.code, name: post.category.name),
+              CategoryBadge(code: post.category.code, name: post.category.name),
               if (showSchool) AppBadge(text: post.school?.name ?? '학교 미지정', school: true),
               // 제목만 링크 (행 전체가 아니다)
               _RowLink(title: post.title, onTap: () => context.go('/posts/${post.id}')),
@@ -322,26 +322,6 @@ class _PostRow extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-// 말머리 뱃지: code마다 색이 다르다 (CHAT 회색, QUESTION 파랑, CAMPUS_LIFE 청자).
-// 모르는 code는 React의 .badge 기본처럼 색 없는 뱃지(ink 글자, 배경 없음)
-class _CategoryBadge extends StatelessWidget {
-  const _CategoryBadge({required this.code, required this.name});
-
-  final String code;
-  final String name;
-
-  @override
-  Widget build(BuildContext context) {
-    final (ink, bg) = switch (code) {
-      'CHAT' => (AppColors.muted, AppColors.badgeChatBg),
-      'QUESTION' => (AppColors.badgeQuestionInk, AppColors.badgeQuestionBg),
-      'CAMPUS_LIFE' => (AppColors.celadonInk, AppColors.celadonSoft),
-      _ => (AppColors.ink, Colors.transparent),
-    };
-    return AppBadge(text: name, ink: ink, bg: bg);
   }
 }
 

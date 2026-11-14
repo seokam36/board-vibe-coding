@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'support/fake_adapter.dart';
+import 'support/post_json.dart';
 
 void main() {
   testWidgets('init이 끝나기 전엔 로딩 문구만, 끝나면 화면이 보인다', (tester) async {
@@ -42,7 +43,8 @@ void main() {
     final adapter = FakeAdapter()
       ..on('GET', '/csrf', FakeReply(200, {'headerName': 'X-XSRF-TOKEN'}))
       ..on('GET', '/auth/me', FakeReply(401))
-      ..on('POST', '/auth/refresh', FakeReply(401));
+      ..on('POST', '/auth/refresh', FakeReply(401))
+      ..on('GET', '/posts/7', FakeReply(200, postJson(title: '깊은 주소의 글'))); // S16-f1: 진짜 상세 화면이 글을 불러온다
 
     await tester.pumpWidget(
       BoardApp(
@@ -51,7 +53,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('글 상세 (id: 7)'), findsOneWidget);
+    expect(find.text('깊은 주소의 글'), findsOneWidget); // S16-f1: 자리표시 대신 글 제목으로 확인
   });
 
   testWidgets('/csrf 가 실패해도 로딩은 끝나고 화면이 보인다', (tester) async {

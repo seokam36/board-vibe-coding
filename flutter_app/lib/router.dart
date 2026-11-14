@@ -6,6 +6,7 @@ import 'pages/login_page.dart';
 import 'pages/not_found_page.dart';
 import 'pages/placeholder_page.dart';
 import 'pages/post_create_page.dart';
+import 'pages/post_detail_page.dart';
 import 'pages/post_edit_page.dart';
 import 'pages/post_list_page.dart';
 import 'pages/signup_page.dart';
@@ -103,7 +104,15 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
             caseSensitive: false,
             builder: (context, state) => const PostCreatePage(),
           ),
-          _route('/posts/:id', '글 상세'),
+          GoRoute(
+            path: '/posts/:id',
+            caseSensitive: false,
+            // id가 바뀌면(다른 글로 이동) 상태를 새로 만들도록 key를 id로 준다
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return PostDetailPage(key: ValueKey(id), id: id);
+            },
+          ),
           GoRoute(
             path: '/posts/:id/edit',
             caseSensitive: false,

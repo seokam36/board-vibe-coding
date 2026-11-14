@@ -8,6 +8,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'support/fake_adapter.dart';
 import 'support/loaded_auth.dart';
+import 'support/post_json.dart';
 
 const _seoul = {'id': 1, 'name': '서울대'};
 const _busan = {'id': 2, 'name': '부산대'};
@@ -351,14 +352,14 @@ void main() {
     });
 
     testWidgets('제목만 링크: 누르면 /posts/{id} 로 간다', (tester) async {
-      final app = await pumpApp(
-        tester,
-        adapter: _adapter(posts: [FakeReply(200, [_post(10, '첫 글'), _post(11, '둘째 글')])]),
-      );
+      // S16-f1: 상세 화면이 진짜가 되어, 상세가 불러올 글(GET /posts/11)도 준비한다
+      final adapter = _adapter(posts: [FakeReply(200, [_post(10, '첫 글'), _post(11, '둘째 글')])])
+        ..on('GET', '/posts/11', FakeReply(200, postJson(id: 11, title: '상세에서 본 글')));
+      final app = await pumpApp(tester, adapter: adapter);
       await tester.tap(find.text('둘째 글'));
       await tester.pumpAndSettle();
       expect(_uri(app), '/posts/11');
-      expect(find.text('글 상세 (id: 11)'), findsOneWidget);
+      expect(find.text('상세에서 본 글'), findsOneWidget);
     });
   });
 

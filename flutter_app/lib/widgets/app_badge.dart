@@ -35,3 +35,24 @@ class AppBadge extends StatelessWidget {
     );
   }
 }
+
+// 말머리 뱃지: code마다 색이 다르다 (CHAT 회색, QUESTION 파랑, CAMPUS_LIFE 청자).
+// 모르는 code는 React의 .badge 기본처럼 색 없는 뱃지(ink 글자, 배경 없음).
+// 글 목록의 행과 글 상세가 같이 쓴다.
+class CategoryBadge extends StatelessWidget {
+  const CategoryBadge({super.key, required this.code, required this.name});
+
+  final String code;
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final (ink, bg) = switch (code) {
+      'CHAT' => (AppColors.muted, AppColors.badgeChatBg),
+      'QUESTION' => (AppColors.badgeQuestionInk, AppColors.badgeQuestionBg),
+      'CAMPUS_LIFE' => (AppColors.celadonInk, AppColors.celadonSoft),
+      _ => (AppColors.ink, Colors.transparent),
+    };
+    return AppBadge(text: name, ink: ink, bg: bg);
+  }
+}
