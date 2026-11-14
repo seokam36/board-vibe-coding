@@ -2,13 +2,18 @@
 
 // 학교 한 곳 (GET /schools, 글 응답 안의 school)
 class School {
-  const School({required this.id, required this.name});
+  const School({required this.id, required this.name, this.emailDomains = const []});
 
   final int id;
   final String name;
+  // 인증용 메일 도메인 (GET /schools 에만 있다. 글 응답의 school에는 없어 빈 목록)
+  final List<String> emailDomains;
 
-  factory School.fromJson(Map<String, dynamic> json) =>
-      School(id: json['id'] as int, name: json['name'] as String);
+  factory School.fromJson(Map<String, dynamic> json) => School(
+        id: json['id'] as int,
+        name: json['name'] as String,
+        emailDomains: ((json['emailDomains'] as List<dynamic>?) ?? const []).cast<String>(),
+      );
 }
 
 // 말머리 한 종류 (GET /categories, 글 응답 안의 category). code는 요청에 보내는 값, name은 화면에 보여 줄 이름

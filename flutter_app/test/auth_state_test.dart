@@ -194,4 +194,24 @@ void main() {
       expect(auth.expiredPath, isNull);
     });
   });
+
+  group('refreshUser', () {
+    test('/auth/me 를 다시 받아 회원 정보를 바꾸고 알린다', () async {
+      await initLoggedIn();
+      adapter.on('GET', '/auth/me', FakeReply(200, userJson(nickname: '새이름', school: {'id': 5, 'name': '연세대'})));
+      var notified = 0;
+      auth.addListener(() => notified++);
+      await auth.refreshUser();
+      expect(auth.user?.nickname, '새이름');
+      expect(auth.user?.verifiedSchool?.name, '연세대');
+      expect(notified, 1);
+    });
+
+    test('실패하면 조용히 넘어가고 기존 회원 정보를 그대로 둔다', () async {
+      await initLoggedIn();
+      adapter.on('GET', '/auth/me', FakeReply(500));
+      await auth.refreshUser();
+      expect(auth.user?.nickname, '홍길동');
+    });
+  });
 }

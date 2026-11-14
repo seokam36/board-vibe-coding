@@ -7,12 +7,13 @@ import '../auth/auth_state.dart';
 import '../auth/auth_user.dart';
 import '../errors/error_messages.dart';
 import '../theme/app_colors.dart';
-import '../widgets/app_badge.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/notice.dart';
 import '../widgets/page_frame.dart';
 import '../widgets/panel.dart';
 import '../widgets/relogin_notice.dart';
+import '../widgets/school_verification_section.dart';
+import '../widgets/section_parts.dart';
 import '../widgets/small_button_style.dart';
 
 // 이 화면만 쓰는 문구는 여기에 둔다 (React의 MyPage와 같은 글자)
@@ -44,8 +45,8 @@ class MyPage extends StatelessWidget {
                 ],
               ),
             ),
-          // 학교 인증 자리 (메일 인증 폼은 S16-g2에서 채운다)
-          _SchoolSection(school: user?.verifiedSchool),
+          // 학교 인증: 인증했으면 뱃지, 아직이면 메일 인증 폼
+          const SchoolVerificationSection(),
           const _NicknameForm(),
           const _PasswordForm(),
           const _WithdrawForm(),
@@ -62,72 +63,9 @@ class MyPage extends StatelessWidget {
   }
 }
 
-// 판 안의 작은 제목 (React의 h2). danger면 빨간 글자 (React의 .panel-danger h2)
-class _Heading extends StatelessWidget {
-  const _Heading(this.text, {this.danger = false});
-
-  final String text;
-  final bool danger;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSizes.space3),
-      child: Semantics(
-        header: true,
-        headingLevel: 2,
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: AppSizes.fsRow,
-            fontWeight: FontWeight.w700,
-            color: danger ? AppColors.danger : AppColors.ink,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// 입력칸 아래 작은 안내 글자 (React의 .hint)
-class _Hint extends StatelessWidget {
-  const _Hint(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: AppSizes.space1, bottom: AppSizes.space4),
-      child: Text(text, style: const TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.muted)),
-    );
-  }
-}
-
-// 학교 인증 자리: 인증했으면 뱃지 + 안내, 아직이면 안내 한 줄 (폼은 g2)
-class _SchoolSection extends StatelessWidget {
-  const _SchoolSection({required this.school});
-
-  final VerifiedSchool? school;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = school;
-    return Panel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _Heading('학교 인증'),
-          if (s != null) ...[
-            AppBadge(text: '학교 인증 완료 · ${s.name}', ink: AppColors.celadonInk, bg: AppColors.celadonSoft),
-            const _Hint('졸업 후에도 유지돼요'),
-          ] else
-            const Text('학교 메일로 인증하면 글쓰기·댓글·공감·신고를 할 수 있어요'),
-        ],
-      ),
-    );
-  }
-}
+// 제목·안내 글자는 학교 인증 섹션과 같이 쓰는 공용 부품 (이 파일 안에서는 예전 이름 그대로 부른다)
+typedef _Heading = SectionHeading;
+typedef _Hint = FieldHint;
 
 // ---------- 닉네임 변경 ----------
 class _NicknameForm extends StatefulWidget {

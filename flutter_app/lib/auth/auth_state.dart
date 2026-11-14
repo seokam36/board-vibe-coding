@@ -72,6 +72,17 @@ class AuthState extends ChangeNotifier {
     _notify();
   }
 
+  // /auth/me 를 다시 받아 회원 정보를 맞춘다. 다른 기기에서 이미 학교 인증을 했을 때 등.
+  // 실패해도 조용히 넘어간다(화면엔 이미 안내 문구가 있다)
+  Future<void> refreshUser() async {
+    try {
+      final res = await _api.dio.get<Map<String, dynamic>>('/auth/me');
+      updateUser(AuthUser.fromJson(res.data!));
+    } catch (_) {
+      // 무시
+    }
+  }
+
   // 비밀번호 변경·탈퇴 성공 때: 서버가 이미 쿠키를 지웠으므로 /auth/logout 을 또 부르지 않고 화면 상태만 비운다
   void clearUser() {
     _expiredPath = null;
