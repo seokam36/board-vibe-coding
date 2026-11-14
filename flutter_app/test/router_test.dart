@@ -39,8 +39,7 @@ void main() {
     ('/admin/reports', '신고 관리'),
     ('/admin/reports/7/conversation', '신고된 대화 보기 (id: 7)'),
     // S16-h1: /visa-reviews·/visa-reviews/stats·/visa-reviews/:id 는 진짜 화면이 되어 아래 별도 테스트로 옮겼다
-    ('/visa-reviews/new', '비자 후기 쓰기'),
-    ('/visa-reviews/7/edit', '비자 후기 수정 (id: 7)'),
+    // S16-h2: /visa-reviews/new·/visa-reviews/:id/edit 는 진짜 화면이 되어 아래 별도 테스트로 옮겼다
     ('/visa-plan', '내 비자 일정'),
     ('/market', '중고·나눔 목록'),
     ('/market/new', '중고·나눔 쓰기'),
@@ -60,7 +59,6 @@ void main() {
   // 완료 조건 2: id 화면 8개가 주소의 id를 그대로 보여 준다(화면마다 다른 숫자로 섞임 확인)
   const idPages = <(String, String, String)>[
     ('/admin/reports/103/conversation', '신고된 대화 보기', '103'),
-    ('/visa-reviews/105/edit', '비자 후기 수정', '105'),
     ('/market/106', '중고·나눔 상세', '106'),
     ('/market/107/edit', '중고·나눔 수정', '107'),
     ('/messages/108', '대화', '108'),
@@ -93,6 +91,14 @@ void main() {
     final adapter = FakeAdapter();
     await pumpApp(tester, location: '/posts/102/edit', user: userJson(), adapter: adapter);
     expect(adapter.count('GET', '/posts/102'), 1);
+  });
+
+  // S16-h2: 후기 수정은 진짜 화면이 되어 "(id: 105)" 글자 대신 그 id로 후기를 불러오는 요청으로 확인한다
+  testWidgets('후기 수정 화면은 주소 /visa-reviews/105/edit 의 id 105 로 후기를 불러온다', (tester) async {
+    final adapter = FakeAdapter();
+    await pumpApp(tester, location: '/visa-reviews/105/edit', user: userJson(), adapter: adapter);
+    expect(adapter.count('GET', '/visa-reviews/105'), 1);
+    expect(find.text('비자 후기 수정'), findsOneWidget);
   });
 
   // 사용자 결정: 숫자가 아닌 id도 라우터는 거르지 않고 글자 그대로 넘긴다(처리는 각 화면 단계에서)

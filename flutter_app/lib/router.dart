@@ -11,7 +11,9 @@ import 'pages/post_detail_page.dart';
 import 'pages/post_edit_page.dart';
 import 'pages/post_list_page.dart';
 import 'pages/signup_page.dart';
+import 'pages/visa_review_create_page.dart';
 import 'pages/visa_review_detail_page.dart';
+import 'pages/visa_review_edit_page.dart';
 import 'pages/visa_review_list_page.dart';
 import 'pages/visa_review_stats_page.dart';
 import 'widgets/app_shell.dart';
@@ -143,7 +145,11 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
               applicationType: state.uri.queryParameters['applicationType'] ?? '',
             ),
           ),
-          _route('/visa-reviews/new', '비자 후기 쓰기'),
+          GoRoute(
+            path: '/visa-reviews/new',
+            caseSensitive: false,
+            builder: (context, state) => const VisaReviewCreatePage(), // S16-h2: 진짜 쓰기 화면
+          ),
           // 고정 주소 stats는 :id 보다 먼저 적어야 "stats"가 id로 잡히지 않는다
           GoRoute(
             path: '/visa-reviews/stats',
@@ -163,7 +169,15 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
               return VisaReviewDetailPage(key: ValueKey(id), id: id);
             },
           ),
-          _route('/visa-reviews/:id/edit', '비자 후기 수정'),
+          GoRoute(
+            path: '/visa-reviews/:id/edit',
+            caseSensitive: false,
+            // id가 바뀌면 입력 상태를 새로 만들도록 key를 id로 준다
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return VisaReviewEditPage(key: ValueKey(id), id: id);
+            },
+          ),
           _route('/visa-plan', '내 비자 일정'),
           _route('/market', '중고·나눔 목록'),
           _route('/market/new', '중고·나눔 쓰기'),
