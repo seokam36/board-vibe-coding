@@ -320,3 +320,4 @@
 | 2026-11-14 | S16-c2 | 첫 로딩 정리: c2a 측정(React vs Flutter 변형 5개·폰트 후보 3개) 뒤 IBM Plex Sans KR woff2 400·700 번들(family 'Roboto'), canvaskit 자체 호스팅·서비스워커 끔(커스텀 bootstrap), cupertino_icons 제거. 첫 화면 구글 요청 0, 기준선 3.68MB·A 0.61초·B 20.8초 | 5503bbe |
 | 2026-11-14 | S16-d1 | Flutter 서버 통로: dio ApiClient(XSRF 자동, 401 → refresh single-flight → 1회 재시도), AuthState(provider, /csrf→/auth/me 시작 대기, login·logout·expiredPath), 에러 문구 사전 React와 동일, 테스트 100개. 실제 백엔드로 시작 흐름 확인 | 77d7471 |
 | 2026-11-14 | S16-d2 | 디자인 토큰·공용 부품(Notice·Loading·ReloginNotice·확인 창)·상단바·로그인·회원가입·로그아웃·로그인 문지기(보호 10개, expiredPath 예외). 테스트 204개, 실제 백엔드로 가입→로그인→보호 화면 새로고침→로그아웃 확인 | 3703fb6, 28e27c2 |
+| 2026-11-14 | S16-e | 글 목록(필터 주소 동기화·행·뱃지·formatDate) + 글쓰기(미인증 게이트·말머리 검사) + 글 수정(기록 교체). 공용 SelectField·AppBadge·LabeledField·Panel. 테스트 300개, 실제 백엔드로 목록·글쓰기·수정 확인 | 8a36e67, a8173ba |
