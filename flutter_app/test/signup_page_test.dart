@@ -152,6 +152,6 @@ void main() {
     await tester.tap(find.text('목록으로'));
     await tester.pumpAndSettle();
     expect(_path(app), '/');
-    expect(find.text('글 목록'), findsOneWidget);
+    expect(find.text('전체 게시판'), findsOneWidget);
   });
 }

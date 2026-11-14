@@ -11,7 +11,10 @@ abstract final class AppColors {
   static const celadon = Color(0xFF63BBA8); // 포인트: 링크, 주요 버튼 바탕, 포커스
   static const celadonSoft = Color(0xFF1E3A33); // 포인트의 어두운 배경
   static const celadonInk = Color(0xFF8FD5C4); // 청자 배경 위에 올리는 글자
-  static const danger = Color(0xFFF0907A); // 삭제·에러 글자
+  static const badgeChatBg = Color(0xFF262F2C); // 말머리 뱃지: 잡담 배경(글자는 muted)
+  static const badgeQuestionInk = Color(0xFFA9C2F0); // 말머리 뱃지: 질문 글자
+  static const badgeQuestionBg = Color(0xFF1F2B42); // 말머리 뱃지: 질문 배경
+  static const danger =Color(0xFFF0907A); // 삭제·에러 글자
   static const dangerStrong = Color(0xFFA13A27); // 위험 버튼을 누르고 있을 때
   static const dangerSoft = Color(0xFF3A2521); // 에러 안내의 배경
   static const infoSoft = Color(0xFF222D2A); // 일반 안내의 배경
@@ -34,6 +37,7 @@ abstract final class AppSizes {
   static const fsBody = 15.0;
   static const fsRow = 17.0;
   static const fsTitle = 22.0;
+  static const fsBoard = 30.0; // 목록 머리말(가장 크고 굵은 글자)
 
   static const pageMaxWidth = 720.0; // 본문 폭
 }

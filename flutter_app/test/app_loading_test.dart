@@ -24,13 +24,13 @@ void main() {
     );
     await tester.pump();
     expect(find.text('불러오는 중...'), findsOneWidget);
-    expect(find.text('글 목록'), findsNothing);
+    expect(find.text('전체 게시판'), findsNothing); // S16-e1: "글 목록" 자리표시 대신 글 목록 화면 머리말로 확인
     expect(find.text('비자 후기'), findsNothing); // 상단바도 아직 없다
 
     gate.complete();
     await tester.pumpAndSettle();
     expect(find.text('불러오는 중...'), findsNothing);
-    expect(find.text('글 목록'), findsOneWidget);
+    expect(find.text('전체 게시판'), findsOneWidget);
     expect(find.text('비자 후기'), findsOneWidget); // 상단바가 나타났다
     // 시작 확인이 정해진 순서로 한 번씩 일어났다
     expect(adapter.count('GET', '/csrf'), 1);
@@ -63,7 +63,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('글 목록'), findsOneWidget);
+    expect(find.text('전체 게시판'), findsOneWidget);
     expect(adapter.count('GET', '/auth/me'), 0);
   });
 

@@ -51,7 +51,8 @@ void main() {
 
     expect(adapter.count('POST', '/auth/login'), 1);
     expect(_path(app), '/');
-    expect(find.text('글 목록'), findsOneWidget);
+    // S16-e1: "글 목록" 자리표시 대신 진짜 글 목록 화면의 머리말로 홈 도착을 확인한다
+    expect(find.text('전체 게시판'), findsOneWidget);
     expect(find.text('철수 님'), findsOneWidget);
     expect(app.auth.user?.nickname, '철수');
   });
@@ -111,7 +112,7 @@ void main() {
 
     gate.complete();
     await tester.pumpAndSettle();
-    expect(find.text('글 목록'), findsOneWidget);
+    expect(find.text('전체 게시판'), findsOneWidget);
   });
 
   testWidgets('비밀번호 칸에서 Enter 를 치면 제출된다', (tester) async {
@@ -185,6 +186,6 @@ void main() {
     await tester.tap(find.text('목록으로'));
     await tester.pumpAndSettle();
     expect(_path(app), '/');
-    expect(find.text('글 목록'), findsOneWidget);
+    expect(find.text('전체 게시판'), findsOneWidget);
   });
 }

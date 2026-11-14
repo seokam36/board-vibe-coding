@@ -20,7 +20,7 @@ Future<GoRouter> _start(WidgetTester tester, String location) async {
 void main() {
   // 완료 조건 1: 주소 21개 → 화면 이름 (id 있는 주소는 id까지)
   const pages = <(String, String)>[
-    ('/', '글 목록'),
+    ('/', '전체 게시판'), // S16-e1: "글 목록" 자리표시 대신 진짜 글 목록 화면의 머리말로 확인한다
     ('/signup', '회원가입'),
     ('/login', '아이디'), // S16-d2a: 로그인은 진짜 화면이 되어 "아이디" 입력칸 라벨로 확인한다
     ('/posts/new', '글쓰기'),
@@ -111,7 +111,7 @@ void main() {
 
       await tester.tap(find.text('홈으로'));
       await tester.pumpAndSettle();
-      expect(find.text('글 목록'), findsOneWidget);
+      expect(find.text('전체 게시판'), findsOneWidget); // S16-e1: 진짜 글 목록 화면의 머리말
       expect(find.text(notFoundText), findsNothing);
     });
   }
@@ -134,7 +134,7 @@ void main() {
         .handlePlatformMessage('flutter/navigation', message, (_) {});
     await tester.pumpAndSettle();
 
-    expect(find.text('글 목록'), findsOneWidget);
+    expect(find.text('전체 게시판'), findsOneWidget); // S16-e1: 진짜 글 목록 화면의 머리말
     expect(find.text('글 상세 (id: 1)'), findsNothing);
   });
 }

@@ -4,6 +4,7 @@ import 'auth/auth_state.dart';
 import 'pages/login_page.dart';
 import 'pages/not_found_page.dart';
 import 'pages/placeholder_page.dart';
+import 'pages/post_list_page.dart';
 import 'pages/signup_page.dart';
 import 'widgets/app_shell.dart';
 
@@ -72,7 +73,16 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [
-          _route('/', '글 목록'),
+          GoRoute(
+            path: '/',
+            caseSensitive: false,
+            // 필터의 진짜 값은 주소 쿼리(?schoolId·?category). 탈퇴 화면이 extra로 넘긴 안내 문구도 전달한다
+            builder: (context, state) => PostListPage(
+              schoolId: state.uri.queryParameters['schoolId'] ?? '',
+              category: state.uri.queryParameters['category'] ?? '',
+              notice: state.extra is String ? state.extra as String : null,
+            ),
+          ),
           GoRoute(
             path: '/signup',
             caseSensitive: false,

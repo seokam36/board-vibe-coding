@@ -85,7 +85,7 @@ void main() {
       await tester.tap(find.text('게시판'));
       await tester.pumpAndSettle();
       expect(app.router.routerDelegate.currentConfiguration.uri.path, '/');
-      expect(find.text('글 목록'), findsOneWidget);
+      expect(find.text('전체 게시판'), findsOneWidget);
       semantics.dispose();
     });
 
@@ -95,8 +95,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('쪽지'), findsOneWidget);
       expect(find.textContaining('쪽지 ('), findsNothing);
-      // 가짜 서버에 간 요청이 하나도 없다 (unread 포함)
-      expect(app.adapter.calls, isEmpty);
+      // S16-e1: 시작 화면이 글 목록이라 목록 요청(/schools·/categories·/posts)은 간다. 그 밖의 요청(unread 포함)은 없다
+      const listPaths = {'/api/schools', '/api/categories', '/api/posts'};
+      expect(app.adapter.calls.where((c) => !listPaths.contains(c.path)), isEmpty);
     });
   });
 
@@ -111,7 +112,7 @@ void main() {
       expect(find.text('회원가입'), findsOneWidget);
       expect(find.text('로그아웃'), findsNothing);
       expect(find.text('홍길동 님'), findsNothing);
-      expect(find.text('글 목록'), findsOneWidget);
+      expect(find.text('전체 게시판'), findsOneWidget);
     });
 
     testWidgets('실패: 로그인 상태 유지 + 상단바 아래에 안내, 다시 누르면 안내가 지워진다', (tester) async {
