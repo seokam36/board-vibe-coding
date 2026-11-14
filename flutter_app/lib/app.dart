@@ -7,13 +7,17 @@ import 'auth/auth_state.dart';
 import 'router.dart';
 import 'site_name.dart';
 import 'theme/app_theme.dart';
+import 'visa/visa_plan_store.dart';
 import 'widgets/loading.dart';
 import 'widgets/page_frame.dart';
 
 // 앱 전체의 뼈대. 서버 통로(ApiClient)와 로그인 상태(AuthState)를 만들어 앱 전체에 나눠 주고,
 // 주소에 따라 화면을 바꾸는 라우터를 연결한다.
 class BoardApp extends StatefulWidget {
-  const BoardApp({super.key, this.initialLocation = '/', this.apiClient, this.authState});
+  const BoardApp({super.key, this.initialLocation = '/', this.apiClient, this.authState, this.now});
+
+  // 테스트에서 "지금 시각"을 고정하려고 받는다(비자 일정의 서울 오늘 계산용). 없으면 진짜 지금.
+  final DateTime Function()? now;
 
   // 테스트에서 시작 주소를 바꿔 보려고 받는다. 없으면 '/'에서 시작.
   final String initialLocation;
@@ -45,17 +49,23 @@ class _BoardAppState extends State<BoardApp> {
             normalizePath(_router.routerDelegate.currentConfiguration.uri.path),
       );
 
+  // 내 비자 일정 보관소: 로그인 상태(AuthState)를 구독해, 학교 인증 회원일 때만 일정을 한 번 불러온다
+  late final VisaPlanStore _visaPlan;
+
   @override
   void initState() {
     super.initState();
     // 우리가 만든 AuthState일 때만 시작 확인(/csrf → /auth/me)을 한다
     if (widget.authState == null) _auth.init();
+    // 첫 화면을 그리기 전에 만들어 둔다 (이미 로그인한 AuthState가 들어오면 여기서 바로 일정 요청을 시작)
+    _visaPlan = VisaPlanStore(auth: _auth, now: widget.now);
   }
 
   @override
   void dispose() {
     // 우리가 만든 것만 정리한다 (밖에서 넣어 준 건 넣은 쪽이 정리)
     _router.dispose(); // 로그인 상태 구독을 먼저 끊고
+    _visaPlan.dispose(); // 보관소도 로그인 상태 구독을 끊는다 (AuthState보다 먼저)
     if (widget.authState == null) _auth.dispose();
     super.dispose();
   }
@@ -66,6 +76,7 @@ class _BoardAppState extends State<BoardApp> {
       providers: [
         Provider<ApiClient>.value(value: _api),
         ChangeNotifierProvider<AuthState>.value(value: _auth),
+        ChangeNotifierProvider<VisaPlanStore>.value(value: _visaPlan),
       ],
       child: MaterialApp.router(
         title: siteName,

@@ -40,8 +40,8 @@ void main() {
     ('/admin/reports/7/conversation', '신고된 대화 보기 (id: 7)'),
     // S16-h1: /visa-reviews·/visa-reviews/stats·/visa-reviews/:id 는 진짜 화면이 되어 아래 별도 테스트로 옮겼다
     // S16-h2: /visa-reviews/new·/visa-reviews/:id/edit 는 진짜 화면이 되어 아래 별도 테스트로 옮겼다
-    ('/visa-plan', '내 비자 일정'),
-    ('/market', '중고·나눔 목록'),
+    // S16-i1: /visa-plan 은 진짜 화면이 되어 visa_plan_page_test.dart 로 옮겼다
+    // S16-j1: /market 은 진짜 화면이 되어 market_list_page_test.dart 로 옮겼다
     ('/market/new', '중고·나눔 쓰기'),
     ('/market/7', '중고·나눔 상세 (id: 7)'),
     ('/market/7/edit', '중고·나눔 수정 (id: 7)'),

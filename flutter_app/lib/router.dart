@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart' show ValueKey;
 
 import 'auth/auth_state.dart';
 import 'pages/login_page.dart';
+import 'pages/market_list_page.dart';
 import 'pages/my_page.dart';
 import 'pages/not_found_page.dart';
 import 'pages/placeholder_page.dart';
@@ -15,6 +16,7 @@ import 'pages/visa_review_create_page.dart';
 import 'pages/visa_review_detail_page.dart';
 import 'pages/visa_review_edit_page.dart';
 import 'pages/visa_review_list_page.dart';
+import 'pages/visa_plan_page.dart';
 import 'pages/visa_review_stats_page.dart';
 import 'widgets/app_shell.dart';
 
@@ -178,8 +180,22 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
               return VisaReviewEditPage(key: ValueKey(id), id: id);
             },
           ),
-          _route('/visa-plan', '내 비자 일정'),
-          _route('/market', '중고·나눔 목록'),
+          GoRoute(
+            path: '/visa-plan',
+            caseSensitive: false,
+            builder: (context, state) => const VisaPlanPage(), // S16-i1: 진짜 내 비자 일정 화면
+          ),
+          // S16-j1: 중고·나눔 목록은 진짜 화면. 필터·검색어의 진짜 값은 주소 쿼리
+          GoRoute(
+            path: '/market',
+            caseSensitive: false,
+            builder: (context, state) => MarketListPage(
+              schoolId: state.uri.queryParameters['schoolId'] ?? '',
+              tradeType: state.uri.queryParameters['tradeType'] ?? '',
+              status: state.uri.queryParameters['status'] ?? '',
+              q: state.uri.queryParameters['q'] ?? '',
+            ),
+          ),
           _route('/market/new', '중고·나눔 쓰기'),
           _route('/market/:id', '중고·나눔 상세'),
           _route('/market/:id/edit', '중고·나눔 수정'),
