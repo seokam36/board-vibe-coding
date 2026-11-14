@@ -267,6 +267,12 @@ export const test = base.extend<{ api: Awaited<ReturnType<typeof mockApi>> }>({
   api: [
     // 인자 이름을 provide로 쓴 이유: Playwright 문서는 use라 부르지만, React 쪽 mockApi와 같은 이름으로 맞췄다
     async ({ page }, provide) => {
+      // 느린 CI 러너를 로컬에서 흉내 내는 스위치: E2E_CPU_THROTTLE=6 이면 CPU를 6배 느리게 한다 (CDP). 평소(없음)에는 꺼 둔다
+      const throttle = Number(process.env.E2E_CPU_THROTTLE || 0)
+      if (throttle > 1) {
+        const cdp = await page.context().newCDPSession(page)
+        await cdp.send('Emulation.setCPUThrottlingRate', { rate: throttle })
+      }
       const api = await mockApi(page)
       await provide(api)
       await api.waitIdle()
@@ -280,18 +286,38 @@ export const test = base.extend<{ api: Awaited<ReturnType<typeof mockApi>> }>({
 // ---- Flutter 웹 전용 도우미 ----
 
 // Flutter 웹의 글 입력칸은 locator.fill()이 안 먹는 경우가 있어서
-// "칸 클릭 → 잠깐 대기(포커스가 자리 잡게) → 키보드로 직접 입력" 방식을 쓴다.
-// 대기는 입력칸이 눌린 뒤 Flutter가 숨은 입력 요소를 만드는 시간이라 고정 대기가 불가피하다(그 외 대기는 화면 내용 기다리기로).
+// "칸 클릭 → 포커스가 자리 잡힐 때까지 기다림 → 키보드로 직접 입력 → 그 칸의 값 확인" 방식을 쓴다.
+//
+// 왜 이렇게 튼튼하게 하나: 느린 CI 러너에서는 Flutter가 포커스를 옮기는 동안 "낡은 입력 요소"가
+// 잠깐 activeElement로 남아 있어서, 그때 친 글자가 새 칸(Flutter 컨트롤러)에 안 들어간 적이 있다.
+// 그래서 (1) 우리가 누른 그 칸이 포커스를 가졌는지 (2) 그 상태가 연속으로 유지되는지(안정) 보고 친 뒤,
+// (3) 그 칸 자체의 값이 기대한 글자인지 확인한다. 값이 틀리면 칸을 비우고 처음부터 다시 시도한다(최대 3번).
 export async function typeInto(page: Page, name: string | RegExp, text: string) {
-  await page.getByRole('textbox', { name }).first().click()
-  // 고정 대기 대신: Flutter가 숨은 입력 요소(INPUT/TEXTAREA)를 만들고 포커스를 줄 때까지 기다린다
-  await page.waitForFunction(() => ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName ?? ''))
-  await page.keyboard.type(text)
-  // 입력 뒤 포커스가 있는 입력 요소의 값 끝이 방금 친 글자인지 확인한다 (글자가 빠졌으면 여기서 바로 실패)
-  await page.waitForFunction(
-    (t) => (document.activeElement as HTMLInputElement | null)?.value?.endsWith(t) ?? false,
-    text,
-  )
+  const field = page.getByRole('textbox', { name }).first()
+  for (let attempt = 1; ; attempt++) {
+    await field.click()
+    await expect(field).toBeFocused()
+    // 안정: 그 칸이 연속 3번(약 50ms 간격) 계속 포커스를 가질 때까지 기다린다 (포커스가 옮겨지는 중이면 중간에 풀린다)
+    let streak = 0
+    await expect
+      .poll(async () => (streak = (await field.evaluate((e) => e === document.activeElement)) ? streak + 1 : 0), {
+        intervals: [50],
+        timeout: 10_000,
+      })
+      .toBeGreaterThanOrEqual(3)
+    await page.keyboard.type(text)
+    try {
+      // 그 칸 자체(요소)의 값이 방금 친 글자인지 본다. Flutter가 받은 값이 칸에 반영되므로 글자가 빠졌으면 여기서 걸린다
+      await expect(field).toHaveValue(text, { timeout: 5_000 })
+      return
+    } catch (err) {
+      if (attempt >= 3) throw err
+      // 실패: 칸을 비우고(전체 선택 + 지우기) 다시 시도한다
+      await field.click()
+      await page.keyboard.press('ControlOrMeta+A')
+      await page.keyboard.press('Backspace')
+    }
+  }
 }
 
 // 앱이 뜰 때까지 기다린다: 상단바가 그려지면(비로그인은 "회원가입", 로그인은 "로그아웃" 버튼) 첫 로딩이 끝난 것.
