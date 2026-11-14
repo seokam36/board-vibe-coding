@@ -150,7 +150,8 @@ jobs:
 
       # 웹 빌드가 되는지 확인
       - name: 웹 빌드
-        run: flutter build web
+        # --web-content-hash: 파일 이름에 내용 해시를 붙인다(운영 nginx가 해시 붙은 파일만 오래 캐시하므로 같은 방식으로 빌드)
+        run: flutter build web --web-content-hash
 
   # backend, frontend, e2e가 모두 성공하고, main 브랜치 push일 때만 실행된다.
   # (다른 브랜치 push, PR에서는 건너뜀. e2e가 실패하면 이미지 push도 막힌다)

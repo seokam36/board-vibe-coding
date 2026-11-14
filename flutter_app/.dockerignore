@@ -1,0 +1,7 @@
+# 이미지에 필요한 것(빌드 결과와 nginx 설정)만 도커 빌드 컨텍스트로 보낸다
+# (소스·.dart_tool 등을 보내면 느리고 불필요하다)
+*
+!build/web
+!nginx.conf
+# 빌드 식별용 숨김 파일: 앱 동작에 필요 없으니 공개로 내보내지 않는다
+build/web/.last_build_id
