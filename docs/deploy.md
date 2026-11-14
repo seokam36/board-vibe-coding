@@ -160,7 +160,7 @@ S13(중고거래·사진)과 S14(쪽지)를 한 번에 배포한 뒤에 봅니�
   이미지까지 되돌리고 싶다면 아래 "Flyway(표 변경) 문제와 되돌리기"의 (a) "이전 이미지로 되돌리기"를 따릅니다(CI가 커밋마다 40자리 SHA 태그를 남겨 두므로 미리 태그를 붙여 둘 필요가 없습니다).
 
 ## 웹 화면: Flutter로 교체 (S16-n2)
-운영 `web` 이미지가 React(`frontend/`)에서 **Flutter 웹**(`flutter_app/`)으로 바뀌었습니다. `/v2` 같은 별도 주소 없이 통째로 교체합니다.
+운영 `web` 이미지가 React에서 **Flutter 웹**(`flutter_app/`)으로 바뀌었습니다. `/v2` 같은 별도 주소 없이 통째로 교체합니다.
 - 이미지 이름은 그대로 `seokam36/demo-web`(`:latest`, `:<커밋 SHA>`)이라 **EC2의 `docker-compose.yml`을 바꿀 필요가 없습니다**(포트 80, 볼륨 없음, healthcheck 없음 - Flutter 이미지와 그대로 맞음. Deploy 워크플로의 헬스체크는 `/actuator/health`를 nginx 경유로 부르는데 Flutter nginx.conf에도 같은 블록이 있습니다).
 - 만드는 방법: CI의 `flutter` 작업이 `flutter build web --web-content-hash`로 `build/web`을 만들고 e2e까지 통과시킨 뒤, 그 결과를 `images` 작업이 받아 `flutter_app/Dockerfile`(빌드 없이 COPY만)로 이미지에 담습니다. 그래서 Flutter 검사가 실패하면 이미지도 올라가지 않습니다.
 - nginx 설정(`flutter_app/nginx.conf`)은 React 때와 같은 `/api` 전달(사진 올리기 `client_max_body_size 11m`·`proxy_read_timeout 150s` 포함)과 `/actuator/health` 열기, `/api/actuator` 404를 갖습니다. 달라진 점: 해시 붙은 파일(`main.dart.<해시>.js`)만 1년 immutable 캐시, `index.html` 등 나머지는 `no-cache`, 없는 `/assets/...`·`/canvaskit/...`은 404, 그 밖의 주소는 `index.html`(딥링크), JSON도 gzip 압축.
@@ -185,7 +185,7 @@ S13(중고거래·사진)과 S14(쪽지)를 한 번에 배포한 뒤에 봅니�
   5. 브라우저에서 React 화면이 뜨는지 봅니다(강력 새로고침).
 - **주의**: 위 "(a) 이전 이미지로 되돌리기"의 주의 박스와 똑같습니다. image 줄을 SHA로 고정해 두면 **다음 Deploy도 React를 받습니다.** 고친 Flutter 이미지가 `latest`로 올라온 뒤(Actions 초록) `cp docker-compose.yml.bak-latest docker-compose.yml`로 원복하고 `grep`으로 `demo-web:latest`인지 확인한 다음 Deploy를 누릅니다.
 - 되돌리기 전에 서버에서 옛 React 이미지가 이미지 정리(prune)로 지워졌어도 괜찮습니다. SHA 태그로 Docker Hub에서 다시 받습니다.
-- React 앱(`frontend/`)을 지우는 단계(S16-p) 뒤에도 이미 올라간 SHA 태그 이미지는 Docker Hub에 남아 있어 되돌릴 수 있습니다(저장소의 코드는 없어지지만 이미지는 그대로).
+- React 앱 코드는 S16-p에서 저장소에서 지웠습니다. 그래도 이미 올라간 SHA 태그 이미지는 Docker Hub에 남아 있어 되돌릴 수 있습니다(코드는 없어졌지만 이미지는 그대로). 코드가 필요하면 S16-p 이전 커밋(`git show 80431c3:frontend/...`)에서 볼 수 있습니다.
 
 ## 메일 발송 (S10)
 학교 메일 인증 코드를 실제로 보내는 설정입니다. 값은 모두 EC2 `~/board/.env`에만 두고 이 파일·저장소에는 적지 않습니다.

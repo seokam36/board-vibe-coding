@@ -7,7 +7,7 @@ FROM nginx:1.30-alpine
 
 # 빌드 결과(화면 파일)를 nginx가 서빙하는 폴더로 복사
 COPY build/web /usr/share/nginx/html
-# 우리 설정이 nginx 기본 설정(default.conf)을 대체한다 (frontend/Dockerfile과 같은 위치)
+# 우리 설정이 nginx 기본 설정(default.conf)을 대체한다 (옛 React 이미지의 frontend/Dockerfile과 같은 위치, S16-p에서 삭제)
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

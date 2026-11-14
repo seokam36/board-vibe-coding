@@ -1,7 +1,7 @@
 import { expect, FIRST_LOAD, fakePosts, fakeUser, test, typeInto, waitForApp } from './mockApi'
 
 // 핵심 흐름 3가지: 목록 보기 / 로그인 / 글 상세 보기 (백엔드 없이 가짜 응답으로)
-// React의 frontend/e2e/core-flow.spec.ts와 같은 흐름을 Flutter 웹 화면으로 옮겼다.
+// 옛 React e2e(core-flow.spec.ts, S16-p에서 삭제)와 같은 흐름을 Flutter 웹 화면으로 옮겼다.
 test('비로그인으로 목록을 열면 글 2개와 로그인 링크가 보인다', async ({ page }) => {
   await page.goto('/')
   // 첫 로딩이 끝날 때까지 먼저 기다린다 (Flutter 웹은 첫 로딩이 느리다)

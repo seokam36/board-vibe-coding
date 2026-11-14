@@ -11,6 +11,3 @@ HELP.md
 .env.*
 Dockerfile
 .dockerignore
-
-# 프론트엔드(node_modules 등)는 백엔드 이미지 빌드에 필요 없다
-frontend

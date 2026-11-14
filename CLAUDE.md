@@ -11,8 +11,7 @@
 
 ## 명령어
 - 빌드 `./gradlew build` / 테스트 `./gradlew test` / 실행 `./gradlew bootRun` / DB `docker compose up -d`
-- 프론트(frontend 폴더): 단위 테스트 `npm test`(Vitest) / 브라우저 테스트 `npm run test:e2e`(Playwright, 백엔드 불필요)
-- Flutter 웹(flutter_app 폴더, S16에서 React 대체 중): 검사 `flutter analyze` / 테스트 `flutter test` / 빌드 `flutter build web` / 개발 실행 `flutter run -d chrome`(web_dev_config.yaml이 /api를 8080으로 넘김) / 브라우저 e2e(flutter_app/e2e): 먼저 `flutter build web --web-content-hash`, 그다음 e2e 폴더에서 `npm test`(백엔드 불필요)
+- Flutter 웹(flutter_app 폴더, 화면): 검사 `flutter analyze` / 테스트 `flutter test` / 빌드 `flutter build web` / 개발 실행 `flutter run -d chrome`(web_dev_config.yaml이 /api를 8080으로 넘김) / 브라우저 e2e(flutter_app/e2e): 먼저 `flutter build web --web-content-hash`, 그다음 e2e 폴더에서 `npm test`(백엔드 불필요)
 
 ## 코드 규칙
 - 패키지: com.example.demo.{도메인}.{controller|service|repository|domain|dto}

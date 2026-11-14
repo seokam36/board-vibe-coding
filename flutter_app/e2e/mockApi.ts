@@ -3,8 +3,8 @@ import type { Page } from '@playwright/test'
 import { deflateSync } from 'node:zlib'
 
 // Flutter 웹 e2e용 가짜 서버(백엔드 없이 /api 응답을 흉내 낸다).
-// frontend/e2e/mockApi.ts에서 "핵심 흐름·실패 스펙에 필요한 부분만" 옮겼다.
-// React는 나중에 지워지므로 frontend를 import하지 않는다 (그래서 타입도 여기서 간단히 직접 정의한다).
+// 옛 React e2e의 mockApi.ts(S16-p에서 삭제)에서 "핵심 흐름·실패 스펙에 필요한 부분만" 옮겼다.
+// 독립된 폴더라 타입도 여기서 간단히 직접 정의한다.
 // 응답 모양은 docs/api.md 기준이다.
 
 // ---- 가짜 데이터 ----

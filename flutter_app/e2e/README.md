@@ -7,7 +7,7 @@
 - 테스트는 **`flutter test` 위젯 테스트(flutter_app/test, 화면·문구·요청 본문을 세세하게)가 주력**이다.
 - e2e는 위젯 테스트가 못 보는 것만 맡는다: 진짜 브라우저·진짜 라우팅(주소 이동)·진짜 입력·진짜 파일 창.
 - 그래서 **핵심 흐름과 대표 실패만** 옮겼다(아래 "옮김/안 옮김 표"). 나머지는 위젯 테스트가 덮는다.
-- React(`frontend/e2e`)는 나중에 지워지므로 이 폴더는 frontend를 import하지 않고 node_modules도 따로 쓴다.
+- 옛 React e2e(`frontend/e2e`)는 S16-p에서 삭제했다. 이 폴더는 처음부터 독립이라 자기 node_modules를 따로 쓴다.
 
 ## 실행 방법
 
@@ -44,7 +44,7 @@ npx playwright test                    # 3) serve.mjs가 build/web을 포트 517
 - 글 입력칸은 `locator.fill()`이 안 먹는 경우가 있다. `typeInto()`(칸 클릭 → 0.3초 대기 → 키보드로 입력)를 쓴다.
 - 이동 직후 바로 누르지 말고 새 화면 내용이 보일 때까지 기다린 뒤 행동한다(CI 불안정의 원인이었다).
 
-## 옮김 / 안 옮김 표 (React `frontend/e2e` 스펙 16개 전부)
+## 옮김 / 안 옮김 표 (옛 React `frontend/e2e` 스펙 16개 전부, S16-p에서 삭제됨)
 
 테스트 수는 React 스펙의 `test(` 개수다(합 324개). Flutter 쪽 e2e는 10개.
 "옮김"은 그 스펙 중 핵심 흐름·대표 실패만 골라 옮겼다는 뜻이다.

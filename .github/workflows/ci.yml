@@ -1,6 +1,6 @@
 # CI: 코드를 올릴 때마다 자동으로 테스트·빌드를 돌려서 망가졌는지 알려준다.
-# CD 1: main에 push되고 테스트(백엔드·React 프론트·React e2e·Flutter)가 모두 통과하면 Docker 이미지를 빌드해 Docker Hub에 올린다. (EC2 배포는 아직 안 함)
-# 운영 web 이미지(seokam36/demo-web)는 S16-n2부터 React가 아니라 Flutter 웹으로 만든다. (React 작업은 삭제 단계 전까지 테스트용으로만 돈다)
+# CD 1: main에 push되고 테스트(백엔드·Flutter)가 모두 통과하면 Docker 이미지를 빌드해 Docker Hub에 올린다. (EC2 배포는 아직 안 함)
+# 운영 web 이미지(seokam36/demo-web)는 Flutter 웹(flutter_app)으로 만든다.
 name: CI
 
 on:
@@ -12,7 +12,7 @@ on:
 # 같은 브랜치에 새로 push하면 아직 돌고 있는 이전 실행은 취소한다(시간 낭비 방지).
 # 단, main은 도는 실행을 취소하지 않는다: 이미지 push 도중 끊기면 backend 이미지만 새것인 반쪽 상태가 될 수 있다.
 # (main은 도는 실행을 끝까지 두고, 기다리는 실행은 가장 최신 1개만 남긴다. 중간 커밋은 건너뛸 수 있다)
-# 참고: 취소가 아니어도 backend push 뒤 frontend가 실패하면 한쪽만 갱신될 수 있다.
+# 참고: 취소가 아니어도 backend push 뒤 web 이미지 단계가 실패하면 한쪽만 갱신될 수 있다.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -48,80 +48,8 @@ jobs:
           name: test-reports
           path: build/reports/tests
 
-  frontend:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10   # 멈춰도 10분 만에 끊는다
-    defaults:
-      run:
-        working-directory: frontend   # 프론트 명령은 frontend 폴더에서 실행
-    steps:
-      - uses: actions/checkout@v7
-
-      # Node 24 (frontend/Dockerfile과 같은 버전) + npm 캐시.
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      # package-lock.json 그대로 정확히 설치한다.
-      - name: 의존성 설치
-        run: npm ci
-
-      # 코드 스타일·문제를 검사한다.
-      - name: 린트
-        run: npm run lint
-
-      # 순수 함수 단위 테스트(Vitest)를 돌린다.
-      - name: 단위 테스트
-        run: npm test
-
-      # 타입 검사 + 프로덕션 빌드가 되는지 확인한다.
-      - name: 빌드
-        run: npm run build
-
-  # 브라우저 e2e 테스트(Playwright): 진짜 Chromium으로 화면을 눌러 보며 핵심 흐름을 확인한다.
-  # 백엔드는 필요 없다(API 응답을 가짜로 대체). Vite 서버는 playwright.config.ts의 webServer가 직접 띄운다.
-  e2e:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15   # 멈춰도 15분 만에 끊는다
-    defaults:
-      run:
-        working-directory: frontend   # 프론트 명령은 frontend 폴더에서 실행
-    steps:
-      - uses: actions/checkout@v7
-
-      # Node 24 + npm 캐시 (frontend 작업과 동일).
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      # package-lock.json 그대로 정확히 설치한다.
-      - name: 의존성 설치
-        run: npm ci
-
-      # 테스트용 Chromium 브라우저와 리눅스 필수 라이브러리를 설치한다. (CI=true면 config가 chromium 채널 = 진짜 Chromium의 새 headless 모드를 쓴다)
-      - name: Playwright 브라우저 설치
-        run: npx playwright install --with-deps chromium
-
-      # e2e 테스트 실행. CI에서는 실패 시 2번 재시도, html 리포트를 만든다.
-      - name: e2e 테스트
-        run: npm run test:e2e
-
-      # 실패했을 때만 리포트를 올려 원인을 볼 수 있게 한다.
-      # upload-artifact의 path는 working-directory 영향을 안 받으므로 저장소 루트 기준으로 쓴다.
-      - name: 실패 시 e2e 리포트 업로드
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: playwright-report
-          path: frontend/playwright-report
-          if-no-files-found: ignore
-
   # Flutter 웹 앱(flutter_app): 정적 분석, 위젯 테스트, 웹 빌드, 브라우저 e2e를 확인하고,
-  # 빌드 결과(build/web)를 images 작업이 쓰도록 올려 둔다. (S16 교체 기간 동안 React와 나란히 돈다)
+  # 빌드 결과(build/web)를 images 작업이 쓰도록 올려 둔다.
   flutter:
     runs-on: ubuntu-latest
     timeout-minutes: 25   # e2e가 늘어서 15 -> 25분. 멈춰도 25분 만에 끊는다
@@ -201,10 +129,10 @@ jobs:
           if-no-files-found: error
           include-hidden-files: true
 
-  # backend, frontend, e2e, flutter가 모두 성공하고, main 브랜치 push일 때만 실행된다.
-  # (다른 브랜치 push, PR에서는 건너뜀. e2e나 Flutter 검사가 실패하면 이미지 push도 막힌다)
+  # backend, flutter가 모두 성공하고, main 브랜치 push일 때만 실행된다.
+  # (다른 브랜치 push, PR에서는 건너뜀. Flutter 검사(e2e 포함)가 실패하면 이미지 push도 막힌다)
   images:
-    needs: [backend, frontend, e2e, flutter]
+    needs: [backend, flutter]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20   # 멈춰도 20분 만에 끊는다
@@ -243,7 +171,7 @@ jobs:
           name: flutter-web
           path: flutter_app/build/web
 
-      # 이미지 이름은 React 때와 같다(seokam36/demo-web). EC2 compose를 안 바꿔도 이 이미지를 받는다.
+      # 이미지 이름은 옛 React 때와 같다(seokam36/demo-web). EC2 compose를 안 바꿔도 이 이미지를 받는다.
       # 되돌리기: S16-n2 직전 커밋의 sha 태그가 React 마지막 이미지다. (docs/deploy.md 참고)
       - name: 웹 이미지(Flutter) 빌드·push
         uses: docker/build-push-action@v7

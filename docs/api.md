@@ -6,7 +6,7 @@
 허용되지 않은 주소에서 브라우저로 요청하면 403이 반환된다 (curl 등 브라우저가 아닌 요청은 CORS 대상이 아님).
 
 배포 환경(EC2)에서는 nginx를 거치므로 API가 `/api` 아래에 있다 (예: `/api/posts`, `/api/posts/1`). nginx가 `/api`를 떼고 백엔드에 전달하므로 이 문서의 URL 자체는 그대로다.
-헬스체크는 `/actuator/health` 그대로 쓴다 (`/api` 없음). 로컬 브라우저도 Vite 프록시 `/api`를 쓴다(`refresh_token` 쿠키 Path=`/api/auth`가 붙으려면 필요). curl 등은 `http://localhost:8080`에 직접 요청해도 된다.
+헬스체크는 `/actuator/health` 그대로 쓴다 (`/api` 없음). 로컬 브라우저도 Flutter 개발 서버 프록시(`flutter_app/web_dev_config.yaml`)로 `/api`를 쓴다(`refresh_token` 쿠키 Path=`/api/auth`가 붙으려면 필요). curl 등은 `http://localhost:8080`에 직접 요청해도 된다.
 글 작성 응답의 `Location` 헤더는 백엔드 기준(`/posts/{id}`)이며 nginx가 바꾸지 않는다. 배포 환경에서 API로 따라가려면 앞에 `/api`를 붙인다 (현재 프론트는 `Location`을 사용하지 않음).
 
 ## CSRF 보호 (모든 POST/PUT/DELETE 공통)

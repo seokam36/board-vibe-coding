@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// Flutter 웹 e2e 설정. React(frontend/playwright.config.ts)와 같은 방식이지만 서버가 다르다:
+// Flutter 웹 e2e 설정. 옛 React e2e(S16-p에서 삭제)와 같은 방식이지만 서버가 다르다:
 // 개발 서버가 아니라 "미리 빌드해 둔 build/web"을 serve.mjs로 보여 준다 (먼저 flutter build web --web-content-hash).
 const isCI = !!process.env.CI
 
