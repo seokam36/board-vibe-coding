@@ -1,178 +1,72 @@
 # 작업 인수인계
 
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
+자세한 결정·기록은 docs/backlog.md(각 S번호 항목 + "끝난 일" 표), 배포는 docs/deploy.md, API는 docs/api.md.
 
-마지막 갱신: 2026-11-13 밤 집 PC (**S16 시작: research·planner 끝, 결정 10개 승인, S16-a 완료·push(9ee2f2c)**. Notion 갱신은 또 서버 시간 초과로 못 함)
+마지막 갱신: 2026-11-14 집 PC (**S16 끝: 화면 React → Flutter 웹 교체·운영 배포·React 삭제**)
 
 ## 지금 어디까지
-- **S0~S14 + UI1~UI3 완료·배포됨.** 운영은 S13-h(2026-11-13, 커밋 4f1c7c0 이미지) 이미지, **V13까지 적용**. 배포 확인: health UP, `PHOTO_STORAGE=s3`, Flyway 9~13 success, S3 오류 로그 0, 브라우저로 사진 올리기·보기·지우기(실제 S3 왕복 처음). **미확인: 운영에서 쪽지·대화 신고**(학교 인증된 두 번째 계정이 없음), 사진 지운 뒤 `사진 파일 삭제에 실패` 0건 로그는 사용자에게 명령만 줌(결과 못 받음).
-- **방향 결정(2026-11-11):** 이 프로젝트는 학습·포트폴리오(A)가 중심, 실제 사용자(B)는 되면 좋은 것. 비자 일정 캘린더(.ics)는 보류. 다음 큰 기능은 **S13 중고거래·나눔 → S14 쪽지 → S15 글 번역**. **S13과 S14를 다 만든 뒤 한 번에 배포**(쪽지가 없으면 연락 수단이 없어서).
-- **S13(중고거래·나눔) a~d 완료, push됨(f8071ad), S13-h로 배포됨.** 결정 전부 backlog S13 항목.
-  - S13-a: V9 `market_items`(판매자 FK ON DELETE CASCADE, CHECK 거래 방식·상태·가격(나눔 0 / 판매 1~10,000,000)) + `POST /market-items`(학교 인증 회원, 학교는 인증 학교 복사) · `GET /market-items/{id}`(공개).
-  - S13-b: `GET /market-items`(공개, schoolId·tradeType·status 필터) · `PUT /{id}`(본인만, 관리자도 403) · `DELETE /{id}`(본인·관리자).
-  - S13-c: `PUT /{id}/status`(본인만). 전환 규칙은 `ItemStatus.canChangeTo` 한 곳(ON_SALE↔RESERVED, →DONE, DONE에서 못 나감). 상태 변경·내용 수정 모두 **조건부 UPDATE**(where status=from / status<>DONE), 0행이면 existsById로 404/409. status는 `updatable=false`, 엔티티에 내용·상태 바꾸는 메서드 없음(일부러). 완료 글은 내용 수정 409, 삭제만.
-  - S13-d: 화면 `/market`·`/market/:id`·`/market/new`·`/market/:id/edit`, 상단바 "중고·나눔". 판매자만 갈 수 있는 상태 버튼, [거래 완료] 확인 창, 관리자는 남의 글에 [삭제]만.
-  - S13-e(9f31e26): **V10** reports.market_item_id(FK CASCADE·UNIQUE) + ck_reports_target `num_nonnulls(...)=1`. `POST /market-items/{id}/reports`(같은 학교 인증 회원만), 관리자 목록 MARKET_ITEM("중고" 배지, postId null).
-  - S13-f(ee82020): `GET /market-items?q=` 제목 검색(대소문자 무시, %·_·\ 이스케이프, NUL·50자 초과 400, 표 변경 없음), /market 검색창.
-- **S13-g 사진 g1~g6 전부 완료, push됨(aa330ad), S13-h로 배포됨.**
-  - g6-3(2e55f28): `S3PhotoStorage` + `S3ClientConfig`(`app.photo.storage=${PHOTO_STORAGE:local}`, s3일 때만 켜짐, 버킷·리전 비면 시작 실패, 시작 때 HeadBucket 실패면 시작 실패, apache5 풀 100·대기 3s·연결 3s·소켓 10s·attempt 30s·call 60s, 자격 증명은 기본 체인=EC2 IAM 역할). NoSuchKey → empty, SdkException → PhotoStorageException, open 실패 때 abort. key 검사는 공용 `PhotoKeys`. 의존성 AWS SDK BOM 2.57.13 + s3(netty exclude) + apache5-client. 테스트는 Mockito 가짜 S3Client(진짜 S3·LocalStack 안 씀).
-  - g6-4(f2d3358): `PhotoCleanupJob.scheduledRun`이 **처음 성공한 실행**에서 INFO "사진 청소부 첫 실행: n개 처리" 한 줄(실패면 WARN "첫 실행에 실패", 깃발 유지). bootRun `--app.photo.cleanup-interval=PT5S`로 실제 확인.
-  - g6-5(aa330ad): nginx 사진 올리기 전용 칸 `location ~ ^/api/market-items/[0-9]+/photos$`(11m·`proxy_read_timeout 150s`, 나머지 /api/는 기본 1m·60s). compose app에 `PHOTO_STORAGE: ${PHOTO_STORAGE:-s3}`·`PHOTO_S3_BUCKET: ${PHOTO_S3_BUCKET:-}`·`PHOTO_S3_REGION: ${PHOTO_S3_REGION:-ap-northeast-2}`. .env.example 사진 단락. **deploy.md "사진 저장 (S13-g6)"**: 배포 날 1~5단계(홉 제한·.env 버킷·compose scp 먼저·Deploy·확인), 실제 로그 글자 기준 시작 실패 표, 되돌리기 주의. 로컬에서 실제 web 이미지로 사진 3MB 통과·10.5MB 스프링 413·12MB nginx 413·글 3MB nginx 413 확인.
-  - g6-1(b6274d9): 느린 올리기 vs 청소부 경합 → `PhotoDeleteQueue.dequeueIfUntouched`(delete … returning attempts, 쪽지 2줄·attempts 0일 때만 true)를 insertLocked에서 INSERT 전에, 아니면 log.warn + 503.
-  - g6-2(1bda40e): 공개 사진 GET을 스트림으로. `StoredPhoto`(InputStream+길이), `PhotoStorage.open` **추상 메서드**(S3 구현도 반드시 구현), 컨트롤러 `ResponseEntity<InputStreamResource>`+Content-Length 직접. Range는 항상 200 전체. 풀 3개로 30개 동시 요청 전부 200 확인.
-  - g1(3d6fa5c): `photo.service.ImageProcessor`(매직 바이트 JPEG·PNG → 헤더로 긴 변 10,000·총 4천만 상한 → **디코딩 때 건너뛰며 읽기 n=올림(긴 변/4096)** → 2048 + 썸네일 320 → 형식 유지 재인코딩으로 GPS 제거) + `photo.repository.PhotoStorage`·`LocalPhotoStorage`(./uploads, `app.photo.local-dir`). 의존성 metadata-extractor 2.19.0.
-  - g2(ee7f6af): **V11** `market_item_photos`(글 FK CASCADE, uk_ 키, content_type CHECK) + `photo_delete_queue`. `POST /market-items/{id}/photos`(판매자 본인, 관리자 403, DONE 409, 글당 10장, 싼 확인 → Semaphore(2) 5초 503 → 자리 얻은 뒤 바이트 읽기 → 창고 put(트랜잭션 밖) → 글 FOR UPDATE 안에서 재확인·10장·INSERT). 단건·수정·상태변경 응답에 `photos`, 목록엔 없음. multipart 10MB/11MB, max-swallow-size 11MB.
-  - g3(1447777): `GET …/photos/{photoId}?size=thumb`(공개, SecurityConfig에 이 GET 한 줄만, 1년 immutable 캐시, nosniff), `DELETE` 같은 주소(글 잠금 안에서 장부 먼저, 파일은 커밋 뒤).
-  - g4(7a92036): `PhotoDeleteQueue`(창고 delete는 전부 여기) + `PhotoCleanupJob`(@Scheduled 10분, 10분 지난 줄만 SKIP LOCKED 100개, 사진 행에 살아 있는 키는 줄만 삭제). 글 삭제·탈퇴·사진 지우기는 장부 삭제와 큐 INSERT를 한 트랜잭션, 올리기는 put 전에 큐 등록하고 성공 트랜잭션에서 뺌. `SchedulingConfig`(app.scheduling.enabled=false면 꺼짐).
-  - g5-1(01f0442): `GET /market-items` 응답을 목록 전용 `MarketItemListResponse`로 분리(+ `coverPhoto` = id 최소 사진, 없으면 null). `findCoverPhotos`(min(id) group by) 글 1000개당 쿼리 1번. 화면: 목록 72px 썸네일, 상세 4:3 큰 사진 + 썸네일 버튼 줄.
-  - g5-2(c81f651, 프론트만): 수정 화면 `MarketPhotoEditor`(즉시 올리기·지우기, useConfirm), 글쓰기는 미리보기 → 저장 = 글 POST → 사진 차례로 → 상세(일부 실패 안내는 router state, 읽은 뒤 replace로 지움). `marketPhotoUpload.ts`(사전 검사, 한 장씩, 401·403·404·409·네트워크·timeout 5분 중단 / 400·413·503 계속). 올리는 중 [저장]·[취소] 잠금, 저장 중 사진 영역 잠금.
-- Notion: S13 카드에 S13-a~g4 + g5-1·g6-1~g6-5 단계 페이지(g5-2는 프론트만이라 안 씀), 도구 사전에 "ImageIO · metadata-extractor"·"AWS S3 · AWS SDK". 진행 현황 S13 줄 "남은 것: 배포(S14 쪽지와 함께)". **메인 페이지 아키텍처 그림에 S3는 S13-h 배포 때 추가.**
-- **S14(쪽지) a~h 전부 완료, S13-h로 배포됨.** 결정 9개 전부 backlog S14 항목(대화방 방식, 같은 학교 인증만 시작, 거래완료는 새 대화만 409, 글 삭제·탈퇴해도 대화 남음, 남의 방은 관리자도 404, 1~1000자, 신고는 S14-f).
-  - S14-a(987bc2f): **V12** `conversations`(글·구매자·판매자 FK 전부 SET NULL, item_title 복사, `uk_conversations_item_buyer`, ck 구매자≠판매자) + `messages`(대화 CASCADE, sender SET NULL, read_at) + 인덱스 5개. `POST /market-items/{id}/conversations`(같은 글+구매자면 기존 방, `INSERT … ON CONFLICT DO NOTHING RETURNING id`).
-  - S14-b(d546ae0): `GET /conversations`(쿼리 고정, N+1 없음) · `GET /conversations/{id}`(쪽지 id 오름차순) · `POST /conversations/{id}/messages`(상대 탈퇴 409). 쪽지 저장은 `ConversationService.appendMessage` 한 곳(방 행 NO KEY UPDATE 뒤 시각 재기).
-  - S14-c(62bba67): `PUT /conversations/{id}/read` {"lastMessageId"}(사용자 결정 "본 쪽지까지만", 소수 400은 MarkReadRequest 칸 전용 변환기) · `GET /conversations/unread-count` · 목록 unreadCount. 세기·읽음 조건은 전부 `sender.id IS DISTINCT FROM 나`.
-  - S14-d(80851f1, 프론트만): 상세 "판매자에게 쪽지"(SellerMessageBox) · `/messages` 쪽지함 · `/messages/:id` 대화(ConversationView를 key로 감쌈) · 상단바 "쪽지" 링크(숫자 없음) · 공용 MessageComposer. 실제 백엔드로 보내기·답장·쪽지함 브라우저 확인.
-  - S14-e(프론트만): `messages/UnreadProvider.tsx`+`unreadContext.ts`(`useUnread()` = {count, refresh}). 로그인했을 때만 GET unread-count, **로그인·회원 교체·주소(pathname) 바뀔 때마다** 다시 받음(결정 ⑦, 요청 번호 seq로 마지막 응답만 반영). 상단바 "쪽지 (n)"(0이면 "쪽지"). ConversationPage가 대화를 불러온 뒤 쪽지가 있으면 마지막 id로 PUT read → refresh, PUT 실패는 무시. mockApi 기본 응답에 unread-count·PUT /conversations/3/read(정확한 키). e2e 269개.
-  - S14-f1(백엔드): **V13** `reports.conversation_id`(fk_reports_conversation CASCADE, uk_reports_conversation_reporter (방, 신고자), ck_reports_target = 넷 중 정확히 하나) + `POST /conversations/{id}/reports`(401 → 미인증 403 → 신고자 회원 행 `lockForKeyShare` → 방 없음·비참가자 404 → 중복 409; 같은 학교 검사 없음) + 관리자 목록 CONVERSATION(preview=item_title, author=신고자 아닌 참가자) + 기각 200. `ReportResponse`·`AdminReportResponse`의 "나머지는 댓글" 가정을 4분기 + IllegalStateException으로 고침. **사용자 결정**: 관리자는 신고된 대화의 방 전체를 계속 볼 수 있다(f2), 처리는 보기+기각만, 안 읽은 부분 인덱스는 안 함. 신고자 잠금 줄은 지금 테스트로 못 지키는 보험(FK 트리거 이름 순서에 기대는 우연을 피하려는 것, 추론이며 재현 못 함). 전체 테스트 1299.
-  - S14-f2(백엔드): `GET /admin/reports/{id}/conversation`(관리자만, 방 전체·기각된 신고도 읽음·read_at 안 바뀜·잠금 없음, 대화 신고가 아닌 신고 id는 404, 응답 {reportId, conversationId, itemTitle, buyer, seller, messages[{id, sender, content, createdAt}]}, 사람은 id·nickname뿐). `GET /conversations/{id}`는 관리자에게 계속 404. 쪽지 쿼리 1번(left join fetch sender). 전체 테스트 1318. 미룬 것: 쪽지 수 상한·페이징 없음, 감사 기록 없음(backlog "나중(S14-f2 리뷰)").
-  - S14-f3(프론트만): 대화 화면 [신고] 버튼 = 기존 `ReportForm` 재사용(label '대화'). 대화일 때만 404·400·403 문구가 다름(REPORT_REASON_INVALID 새로, 403은 VISA_SCHOOL_REQUIRED_RETRY). 인증 회원에게만 버튼(미인증은 숨김). ConversationPage의 `replied`·`reportLoginLost` 깃발은 `user && !user.verifiedSchool` 조건 하나로 대체. e2e 296개. **알려진 빈틈**: 새 e2e "읽음 PUT 401…"은 옛 조건으로도 통과해 그 빈틈을 못 지킴(backlog "나중(S14-f3 리뷰)").
-  - S14-f4(프론트만): 관리자 신고 목록에 대화 신고 = 배지 "쪽지" + [대화 보기](`/admin/reports/{신고 id}/conversation`, **방 id 아님**) + [문제 없음]만(삭제 없음). 새 화면 `AdminConversationPage`(관리자만·읽기 전용, 방 전체, 보낸 사람은 id 비교, `key={id}`+`ignore`). `mockApi.loginAdmin` export. e2e 327개. 전체 e2e가 컴퓨터가 바쁠 때 가끔 느리거나 1개씩 실패하는 알려진 불안정(backlog "나중(S14-f4 리뷰)": `messages*.spec`·market·visa-banner 몇 줄, `ECONNREFUSED /conversations/3` 로그 포함). **S14(쪽지) 전 단계 끝.**
-  - S14-g(a091f3e, 백엔드): 대화 보기 두 API가 쪽지를 DB에서 id desc **201통만**(Spring Data `Limit`, 실제 SQL LIMIT) → 201통이면 `hasMore:true` + 가장 오래된 1통 버림 → 오름차순. 상수 `message/service/RecentMessages.LIMIT=200` 한 곳, 두 응답 DTO에 `hasMore`. 테스트 설정 `hibernate.query.fail_on_pagination_over_collection_fetch=true`. 저장소가 정말 201개만 꺼내는지 `RecentMessagesRepositoryTests`. 전체 1334. Notion 단계 페이지 있음.
-  - S14-h(19bcccd, 프론트만): 쪽지함 줄 안 읽은 수 배지(`formatUnreadBadge`, 100 이상 "99+", sr-only "안 읽은 쪽지 N개"), hasMore면 대화 화면·관리자 대화 보기 목록 위 회색 안내(프론트 상수 `RECENT_MESSAGE_LIMIT=200`, 서버와 손으로 맞춤). e2e 340.
-  - **잠금 규칙(S14 핵심)**: 탈퇴(`UserService.withdraw`)는 회원 행 FOR UPDATE를 맨 먼저 잡는다. 쪽지 쓰기·답장·읽음 처리·대화 신고는 전부 **회원 행 FOR KEY SHARE(`UserRepository.lockForKeyShare`, id 순)를 먼저** 잡고 그다음 방·쪽지 행. 순서를 어기면 실제로 40P01 교착 → 500이 났다(S14-a에서 재현).
-- **S16(React → Flutter 웹 교체) 진행 중.** research·planner 결과와 사용자 결정 10개, 단계 목록(a~p), S16-a 실측은 전부 backlog S16 항목에 있음.
-  - 결정 요약: 운영엔 /v2 없이 끝(S16-n)에 web 이미지를 통째 교체 · 폴더 `flutter_app/` · 테스트는 `flutter test` 위젯 테스트+가짜 응답 + 묶음마다 손 확인표 · `dio` · `provider` · Material 3 + 색·폭 720px만 맞춤 · 중간 단계도 main에 push · React 삭제는 배포 확인 뒤(S16-p) · 백엔드·DB 변경 없음(필요하면 멈추고 묻기).
-  - S16-a(9ee2f2c): Flutter 3.50.0 / Dart 3.14.0 설치, `flutter_app/`(웹만, 새 패키지 없음) 실험 화면. 한글 입력 합격(사용자 직접). 처음 치는 글자에 잠깐 □ = 한글 폰트를 fonts.gstatic.com에서 조각으로 받아서(canvaskit도 www.gstatic.com) → S16-c 후보로 폰트·엔진 자체 담기. Ctrl+F는 1/1만 세고 이동 안 함, 드래그 선택 안 됨(알려진 한계). 첫 로딩 React 421KB vs Flutter 약 2.4MB+엔진 2MB+폰트 0.2MB, 지금 nginx엔 gzip 없음. Playwright(msedge)가 ensureSemantics 켠 Flutter 화면에서 getByRole·getByLabel·한글 fill 됨. tester·review는 실험 단계라 생략(메인이 analyze·test 직접 확인).
-- Notion: S14 카드(번호 15)에 S14-a·b·c·**g** 단계 페이지 + "S14 전체 정리와 코드 리뷰". 카드 표 g·h 줄 완료로 갱신 끝. **아직 못 한 것(2026-11-13 Notion 서버 오류로 실패)**: 상위 페이지 "진행 현황"의 S13·S14 줄 체크(괄호에 "S13-h에서 한 번에 배포"), S13·S14 카드 요약에 배포됨, 메인 페이지 아키텍처 그림에 S3 추가, 도구 사전에 IAM 역할·IMDS(홉 제한) 페이지가 필요한지 확인(S3·AWS SDK 페이지는 이미 있음).
+- **S0~S14 + UI1~UI3 + S16 완료·배포됨.** 백엔드·DB는 S13-h 이후 그대로(**V13까지**). 운영 화면은 2026-11-14 Deploy #18(커밋 dbef29b 이미지)부터 **Flutter 웹**.
+- **S16(React → Flutter 웹)**: 단계 a~p 전부 끝. 결정·단계별 기록은 backlog S16 항목과 "끝난 일" 표.
+  - 코드: `flutter_app/`(lib = 화면·서버 통로, test = 위젯 테스트 1274개, e2e = Playwright 10개 + 옮김/안 옮김 표·손 확인표가 `flutter_app/e2e/README.md`).
+  - CI: `backend` + `flutter`(analyze → test → build web --web-content-hash → e2e → build/web 아티팩트) → `images`(demo-web = Flutter). React 작업·`frontend/` 폴더는 S16-p(40af723)에서 삭제.
+  - 운영 확인(사용자): 목록·상세·새로고침 딥링크·로그인·사진 올리기·화면 이동 OK. 첫 배포 때 "화면 이동 시 0.3초 겹침" → NoTransitionPage로 고쳐 재배포.
+  - 첫 로딩: 전송 4.0MB, 빠른 조건 약 0.9초 / 느린 모바일 조건 약 23초(React는 0.76MB·4초) — 알려진 한계로 받아들임. Ctrl+F·글자 선택 제한도 알려진 한계.
+  - 되돌리기: 화면만 React로 = `seokam36/demo-web:80431c308c0ad7d6d519a597ed21f3e63840ce6b`(docs/deploy.md "web만 React로 되돌리기"). 옛 React 코드는 `git show 80431c3:frontend/...`.
+- **방향**: 학습·포트폴리오 중심. 다음 큰 기능 순서는 **S17 AI → S15 글 번역**(사용자 결정 2026-11-12).
 
 ## 다음에 할 일
-- **바로 다음 행동: S16-b 준비.** research 먼저(개발 때 Flutter 화면과 `/api`를 같은 출처로 맞추는 방법 — Flutter 개발 서버 프록시 설정 또는 로컬 nginx, 백엔드 CORS 변경 금지 / `--web-content-hash` 실제 동작) → planner로 S16-b 완료 조건 확정(주소 22개 빈 화면·go_router·#없는 주소·뒤로 가기·404 화면·CI에 flutter 작업(analyze·test·build web), images 작업은 그대로) → **build 전에 사용자에게 쉬운 말로 설명하고 OK** → build → tester → review.
-- Notion 갱신(위 "아직 못 한 것" 4가지)은 Notion이 되면 아무 때나. 2026-11-13엔 두 번 다 "연결됨"인데 fetch·search 시간 초과. S16-a는 실험 단계라 Notion 단계 페이지를 쓸지 사용자에게 물어볼 것(도구 사전에 Flutter 페이지는 필요).
-- 순서 S16 → S17 AI → S15 번역(사용자 결정 2026-11-12).
-- 운영 확인 남은 것(선택): 학교 인증된 두 번째 계정이 생기면 docs/deploy.md "S13·S14 배포 후 확인" 4·5번(쪽지·대화 신고). 사진을 지운 뒤 서버에서 `docker compose --profile prod logs app | grep -c '사진 파일 삭제에 실패'`가 0인지.
-- **EC2는 2026-11-13 배포 뒤 켜져 있을 수 있다.** 안 쓰면 콘솔에서 중지(퍼블릭 IP는 켤 때마다 바뀜).
-- (나중, 사용자 결정) 포트폴리오 트러블슈팅 정리: g6-1은 "옛 코드로 되돌리면 테스트 6개 실패" 재현 증거 있음. g6-2를 트러블슈팅으로 쓰려면 b6274d9(통째 읽기) vs 이후를 작은 힙으로 동시 요청해 메모리 전후 측정이 필요. **S13-h의 CI 빨간불(11-12~13, 아래 주의할 점)도 트러블슈팅 후보**(원인 추적: 같은 테스트 2개만 매번 실패 → 로컬 Edge·Chrome 통과 → CI만 headless shell → channel 변경으로 초록).
+- **바로 다음 행동: 에이전트 설정 정리 승인받기** (사용자 승인 필요, 다음 세션부터 적용)
+  - `.claude/agents/tester.md`: 허용 경로 hook `./scripts/allow-only.sh src/test/ frontend/e2e/`와 본문의 frontend 안내(23·24·28행)를 `flutter_app/test/`·`flutter_app/e2e/`로. 지금은 tester가 flutter_app/test를 못 써서 build가 테스트까지 썼다.
+  - deploy 에이전트 허용 경로에 `flutter_app/Dockerfile`·`nginx.conf`·`.dockerignore` 추가 검토.
+  - `.claude/skills/explain/SKILL.md` 13행 "화면(React)… frontend에서"를 flutter_app/lib 기준으로.
+- 그다음 S17(AI) 기획: 메인 대화가 backlog에 항목 추가 → planner.
+- Notion: S16은 프론트(화면) 작업이라 단계 기록은 안 씀(사용자 규칙). 도구 사전에 Flutter·go_router·dio·provider 개념 페이지가 필요한지 사용자에게 물어볼 것. 2026-11-13에 못 한 Notion 갱신(진행 현황 S13·S14 줄 체크, 카드 요약 "배포됨", 아키텍처 그림에 S3, IAM 역할·IMDS 페이지 필요 여부)도 남아 있음.
+- **EC2는 2026-11-14 배포 뒤 켜져 있을 수 있다.** 안 쓰면 콘솔에서 중지.
+- 운영 확인 남은 것(선택): 학교 인증된 두 번째 계정이 생기면 deploy.md "S13·S14 배포 후 확인" 4·5번(쪽지·대화 신고). `flutter_app/e2e/README.md` 손 확인표(아이폰 사진 선택, 한글 입력 조합 검색, 스크린리더 등).
+- (나중, 포트폴리오 트러블슈팅 후보) g6-1(옛 코드로 테스트 6개 실패 재현), S13-h CI 빨간불(headless shell → chromium 채널), S16 CI e2e "두 번째 칸 글자 빠짐"(로컬 재현 실패, 누른 칸 기준 입력 + 재시도로 해결), S16 화면 겹침(MaterialPage 300ms + 투명 배경, 고치기 전 실패 테스트 있음).
 
 ## 진행 중인 단계
-- S16 진행 중: S16-a 끝(9ee2f2c·d4bd816, push됨), S16-b는 research부터. 이번에 생긴 "나중": 한글 폰트·canvaskit 자체 담기(S16-c 후보), nginx gzip, 드래그 선택(SelectionArea) 검토 — 전부 backlog S16 S16-a 실측 줄.
-- 운영 서버 상태 메모: EC2 `~/board/.env`에 `PHOTO_S3_BUCKET` 들어감(값은 저장소에 안 씀), `docker-compose.yml`은 S13-g6 버전으로 교체, 옛 파일은 `docker-compose.yml.bak-20261113`. IMDS 홉 제한 2·IMDSv2 필수·역할 `board-ec2-role` 확인함.
-- 커밋 안 된 변경: 이 handoff 갱신 커밋만 남음, `.claude/launch.json`(일부러 커밋 안 함, 집 PC엔 S16-a 측정용 `flutter-web-build`(8765)·`react-dist`(8766) 정적 서버 항목 추가됨).
-- 미룬 것(S14-g·S14-h·S13-h): backlog의 "나중(S14-g 리뷰)"·"나중(S14-h 리뷰)"·"나중(S13-h)" 줄(200통 넘는 방은 화면이 잘렸다는 것 외엔 이전 쪽지 볼 방법 없음, e2e 도우미 중복, 프론트·서버 200 상수 손으로 맞춤, 운영 쪽지 미확인).
-- 미룬 것(S14): backlog S14 항목의 "나중(S14-a~d 리뷰)"·"나중(S14-e 리뷰)"·"나중(S14-f1 리뷰)"·"나중(S14-f2 리뷰)"·"나중(S14-f3 리뷰)"·"나중(S14-f4 리뷰)"·"나중(S14 전체 리뷰)" 줄(전각 공백 쪽지, 목록 페이징, 안 읽은 수 부분 인덱스, 문자열 숫자 "1" 받아짐, 관리자 열람 감사 기록(관리자 늘리기 전 필수), 쪽지 횟수 제한, 신고 남용, 접근성, e2e 중복, 새 e2e "읽음 PUT 401"이 옛 조건으로도 통과하는 빈틈 등).
-- 미룬 것(S13-g5): backlog S13 항목의 "나중(S13-g5-1 리뷰)"·"나중(S13-g5-2 리뷰)" 줄(키보드 Enter로 파일 선택 창이 실제로 열리는지 사람 확인, 아이폰 실기기 HEIC·48MP 확인, 글쓰기 401 뒤 재로그인 안내 등).
-- 미룬 것(S13): backlog S13 항목의 "나중(S13-a 리뷰)"·"나중(S13-b 리뷰)"·"나중(S13-c 리뷰)"·"나중(S13-d 리뷰)" 줄(가격 5000.9·"5000" 문자열 받아짐 확인, 비자 후기 수정 중 삭제 500, 학교별 머리말, 가격 굵기 등).
-- 미룬 것(S12): backlog S12 항목의 "나중(S12-c 리뷰)"·"나중(S12-d 리뷰)" 줄 · S12-a 리뷰: 배열·숫자 날짜(`[2026,12,31]`, `20818`)도 LocalDate로 받아짐(후기 날짜와 함께 Jackson 설정 한 곳에서 막기) · upsert `@Modifying`에 clearAutomatically 없음(upsert 뒤 다시 읽는 코드가 생기면) · "오늘 이후여야 합니다" 400 문구(오늘도 허용) · 덮어쓰기 때 created_at 유지 단언 · FlywayExistingBaselineTests가 V8 성공 행을 직접 단언하지 않음 · S12-b: 계산 로직이 DTO(VisaPlanResponse.of) 안(두 번째 사용처 생기면 domain으로) · 띠 자정 넘김 자동 갱신 없음(새로고침하면 반영)
-- 미룬 것(UI3 리뷰): "본인 글/댓글/후기만 수정할 수 있습니다" 3형제를 함수 하나로(라벨만 다른 문구는 함수형 사전 허용으로 원칙 정하기) · errorMessage.ts 맨 위 파일 안내 주석 · SignupPage '가입하지 못했습니다' 2번 지역 상수 · 문구 자체 변경(CSRF 403과 학교 인증 403 섞임, 어미 통일, 학교 인증 403 변형 3종, 수정 403의 CSRF 미고려) — backlog UI3 "나중"
-- 미룬 것(UI2 리뷰): CI e2e 리포트가 실패 때만 올라가 재시도로 통과한 불안정 테스트는 안 보임(`if: !cancelled()` 후보) · Chromium 캐시 · 관리자 남의 글 삭제 장면이 `.first()`(글 삭제 버튼이 댓글보다 먼저라는 DOM 순서에 기댐)
-- 미룬 것(S11 파트 리뷰 "나중"): 날짜를 숫자·배열로 보내도 Jackson이 받아 줌(S12-a에서 확인됨, 위 S12 항목과 함께 처리) · 1건짜리 통계도 "평균"으로 보임(화면은 건수 같이 표시) · 한 회원 중복 작성은 backlog 알려진 한계
-- 미룬 것(S11-e 리뷰): 목록·통계 화면의 요청·에러 문구 중복을 훅으로(세 번째 사용처 생길 때) · 탭이 주소 쿼리를 통째로 붙임(쿼리 늘면 필터 3개만) · PostCreatePage·VisaReviewCreatePage의 같은 6줄 → useVerifiedSchool 훅 · 상세에서 삭제 후 목록으로 갈 때 필터 사라짐(글도 같음) · "목록으로"도 필터 안 들고 감
-- 미룬 것(S11 리뷰): 후기 수정 중 다른 쪽이 삭제하면 500(글 수정과 같은 한계) · 테스트의 `@MockitoBean Clock`이 컨텍스트를 따로 띄움(느려지면 공용 MutableClock) · RecordingSender를 공용 테스트 설정으로 · SecurityConfig `/visa-reviews/stats` 명시 matcher는 `{id}` 규칙과 중복(의도 표시용)
-- 미룬 것(S10 리뷰 "나중"): 메일 해시가 소금 없는 SHA-256(Redis·DB 털리면 사전 역산 가능 → 나중에 HMAC로 둘 다) · Redis Cluster로 가면 인증 Lua 키(5개)가 한 슬롯에 안 묶임 · 인증 테스트 헬퍼(RecordingSender·sha256) 중복 · 409 "다른 계정이 쓴 메일"이 존재 여부를 조금 알려 줌 · Gmail 하루 약 500통 한도(근본 해결은 도메인 + AWS SES) · SMTP 장애 중 연타하면 요청마다 최대 ~25초 스레드 점유 · 운영 gmail.com 임시 도메인 테스트 뒤 그 시간대 인증 계정 수 확인 단계 · 인증 설정값 @Validated · api.md 400·410 문구는 실제 본문에 없음 · 운영 MAIL_MODE 빠지면 조용히 log 모드
-- 미룬 것(S9 리뷰 "나중"): 관리자 목록 페이징 · 기각된 신고는 같은 사람이 재신고 불가 · 관리자 삭제로 처리하면 신고 이력 없음 · 서버 에러 message가 브라우저에 안 감(include-message never, 화면은 상태코드로 문구 — S10도 이 전제로 400/410 등으로 나눔) · SecurityConfig `BearerTokenResolver` deprecated 경고 · JPQL enum 전체 경로 리터럴 · `ReportResponse.ReasonInfo` 중복 DTO · 유령 토큰의 글·댓글 수정은 401이 아니라 403.
-- 미룬 것(UI1 리뷰): (CSRF 403 문구 섞임은 backlog UI3 "나중"으로 옮김) · /admin/reports 비로그인 시 /login 대신 안내만 · Google Fonts 대신 셀프 호스팅.
-- 미룬 것(S8 이전): 글 목록 페이징 + 목록 응답에서 본문 빼기 · 댓글 수정 중 글이 CASCADE로 사라지면 500 · `Location: /comments/{id}`인데 단건 GET 없음 · 학교·말머리 목록 중복 코드 훅으로 · `.gitattributes` 줄바꿈 규칙(서브에이전트가 LF로 저장해 CRLF 경고가 계속 뜸, 내용엔 영향 없음).
-- 선택 정리(급하지 않음): EC2 콘솔 옛 `demo-key` 삭제, IAM 옛 키 태그 삭제, 노트북 `~/.ssh/deploy-actions` 개인키 삭제.
+- 없음. (S16 끝, 모든 커밋 push됨)
+- 커밋 안 된 변경: `.claude/launch.json`(일부러 커밋 안 함, 집 PC 전용 미리보기 설정. React 항목은 이제 의미 없음).
+- 미룬 것: backlog 각 S번호 항목의 "나중(…리뷰)" 줄. 큰 것만:
+  - S16: 미리보기 cacheWidth만(가로로 긴 사진 살짝 확대), file_picker 하나의 input 재사용, Safari·VoiceOver 파일 선택 실측, e2e mockApi에 타입 검사 없음(api.md 바뀌면 조용히 낡음), Flutter 엔진이 바뀌면 e2e `typeInto`(입력 요소=activeElement 가정)가 먼저 깨짐.
+  - S14: 관리자 대화 열람 감사 기록(관리자 늘리기 전 필수), 쪽지 횟수 제한·페이징, 200통 넘는 방의 이전 쪽지.
+  - S13: 가격 "5000" 문자열·5000.9 받아짐 확인, 아이폰 HEIC·48MP.
+  - S12·S11: 배열·숫자 날짜가 LocalDate로 받아짐(Jackson 설정 한 곳에서 막기), 수정 중 삭제 500.
+  - S10: 메일 해시 소금 없음(HMAC), Gmail 하루 500통 한도.
+  - S9 이전: 목록 페이징, 관리자 목록 페이징, `.gitattributes` 줄바꿈 규칙.
+- 운영 서버 메모: EC2 `~/board/.env`에 `PHOTO_S3_BUCKET`(값은 저장소에 안 씀), compose는 S13-g6 버전(옛 파일 `docker-compose.yml.bak-20261113`). IMDS 홉 제한 2·IMDSv2 필수·역할 `board-ec2-role`. S16은 compose 변경 없음(이미지 이름 그대로).
+- 선택 정리: EC2 콘솔 옛 `demo-key` 삭제, IAM 옛 키 태그 삭제, 노트북 `~/.ssh/deploy-actions` 개인키 삭제.
 
 ## 주의할 점
 - 새 컴퓨터에서는 먼저 `git pull`. 끝나면 커밋·push.
-- **Flutter(S16)**: 집 PC는 `C:\Users\seoka\flutter`(git clone --depth 1 -b stable, 3.50.0), 사용자 PATH에 `...\flutter\bin` 추가함(새 터미널부터 적용, 그 전엔 전체 경로 `C:\Users\seoka\flutter\bin\flutter.bat`). 웹만이라 doctor의 Android·Visual Studio ❌는 무시. 첫 실행은 Dart SDK·패키지 받느라 20분 넘게 걸렸다. **노트북엔 아직 설치 안 함** → 같은 방법으로 설치 후 `flutter doctor`(Chrome ✅면 됨).
-- **집 PC 스마트 앱 컨트롤을 사용자가 2026-11-13에 껐다.** 켜져 있을 때 dartvm.exe를 막아 flutter.bat가 아무 오류 없이 무한 재시도했다(겉보기엔 "오래 걸림"). 막힘 확인은 이벤트 로그 `Microsoft-Windows-CodeIntegrity/Operational`(Id 3077/3033 "did not meet the Enterprise signing level"). 아래 oxlint·Playwright 브라우저 차단도 같은 원인이었을 가능성이 높음(꺼진 뒤 lint는 아직 안 돌려 봄). 노트북에서 같은 증상이면 같은 로그부터 확인.
-- **Git Bash `sed -i`로 docs 파일을 고치지 말 것**: 2026-11-13 backlog 한 칸 고치려다 줄바꿈 때문에 47줄이 바뀌었다(커밋 전 `git checkout --`로 되돌림, 그 파일은 이미 커밋돼 있었음). Edit 도구로.
-- **CI e2e 브라우저(2026-11-13)**: `playwright.config.ts`는 CI에서 `channel: 'chromium'`(진짜 Chromium 새 headless), 로컬은 Edge(`msedge`). 기본값(chrome-headless-shell)에서는 뒤로 가기 테스트 2개(market-photo-upload:593, market-search:136)가 11-12부터 CI에서만 계속 실패해 **images가 안 올라갔다**(S14-g 한 번만 통과). CI가 빨강이면 Docker Hub latest가 옛 버전이므로 Deploy 전에 그 커밋 CI(images 포함) 초록 확인 필수. CI 로그는 비로그인 API로 못 받음 → 사용자 Chrome으로 Actions 잡 페이지를 읽었다. `messages.spec.ts:74`는 여전히 CI에서 재시도로 통과(flaky).
-- **집 PC에서 `npm run lint`(oxlint) 실행 불가**: Windows 애플리케이션 제어 정책이 `oxlint.win32-x64-msvc.node`를 막음(재설치로 안 풀림, 보안 설정이라 그대로 둠). lint는 CI·노트북에서 확인. 이 PC에 `gh` CLI도 없음(공개 저장소라 curl로 GitHub API 조회는 됨).
-- **사용자에게 서버 명령을 줄 때 `<서버IP>`·`<버킷 이름>` 같은 자리표시를 쓰지 말 것**: 2026-11-13에 그대로 복사돼 .env에 `<버킷 이름>`이 들어갔다. 실제 값을 넣은 완성 명령을 주거나 "이 부분만 바꿔"를 한 줄로 분리. 사용자 터미널은 PowerShell이라 키 경로는 `"$HOME\.ssh\board-ec2"`. 서버 안/내 PC 중 어디서 칠 명령인지 매번 표시.
-- **표(테이블)를 바꾸는 기능은 새 V 파일**(다음은 `V14__add_...sql`, 이름은 `add_`, UNIQUE는 `uk_` 관례)로. 커밋된 V 파일은 고치지 않는다. ddl-auto는 validate 유지.
-- **FK·UNIQUE·CHECK 제약에는 반드시 이름**을 지어라. 서비스가 제약 이름으로 404/401/409를 구분한다(`ConstraintViolations`). V1의 `posts.author_id` FK만 해시 이름이라 글쓰기는 "23503이면 401".
-- **DB 오류 메시지 언어는 영어(기본값) 유지.** `lc_messages`를 바꾸면 경쟁 상황에서 500(docs/deploy.md).
-- 경쟁 조건 테스트는 `LockRaceSupport`, 유령 토큰은 `TestLogin.행없는_회원_토큰(jwtEncoder)`, 인증 회원은 `TestLogin.인증된_사용자(...)`·`학교_인증_처리(jdbc, username, 학교명)`. 글쓰기·댓글·공감·신고 테스트는 **인증 회원 + 같은 학교 글**이어야 한다.
-- 테스트에서 메일 발송 결과를 보려면 `@Primary` 가짜 `VerificationMailSender`(SchoolEmailCodeApiTests의 RecordingSender 참고). 인증 Redis 키는 `email-verify*`(코드·cooldown·daily·pair·target), 테스트 전후 정리.
-- 인증 관련 Redis 키 이름·막혔을 때 운영자가 푸는 법은 docs/deploy.md "학교 인증 코드가 막혔다는 문의가 오면".
-- 로컬에서 실제 메일 확인하려면 `.env`에 MAIL_* + `MAIL_MODE=smtp`. 학교 도메인만 허용이라 개인 Gmail로 받으려면 **로컬 DB에만** `insert into school_email_domains (school_id, domain) select id,'gmail.com' from schools where name='연세대학교';` 후 테스트, 끝나면 delete. 화면 확인은 `MAIL_MODE=log`로 켜고 서버 로그의 `[가짜 메일 발송] ... code=`를 읽는다.
-- 옛 이미지로 되돌리기: V3~V7은 칸 추가(NULL/DEFAULT)·새 표만이라 되돌려도 뜬다(docs/deploy.md (b)). 단 V7 후 S10 이미지면 **후기 쓴 회원 탈퇴가 500**. V2 되돌리기 주의도 같은 곳.
-- 관리자는 운영 DB SQL로만 지정(docs/deploy.md "관리자 지정·해제"). 지정 후 다시 로그인해야 토큰에 반영.
+- **노트북에서 Flutter 작업하려면 준비 2가지**:
+  1. Flutter 3.50.0 설치: `git clone --depth 1 -b stable https://github.com/flutter/flutter.git %USERPROFILE%\flutter` → PATH에 `...\flutter\bin` → `flutter doctor`(웹만이라 Chrome ✅면 됨, Android·VS ❌ 무시). 첫 실행은 20분 넘게 걸릴 수 있음.
+  2. 로컬 `.env`에 `CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5175`(.env.example 주석 참고). Flutter 개발 서버 프록시(web_dev_config.yaml, 포트 5175)가 Host를 바꿔서, 이게 없으면 로그인 등 POST가 403.
+- **Flutter 웹 작업 메모**:
+  - 이동은 `context.go`만(router.dart 주석). 모든 경로는 `_page()` = NoTransitionPage(전환 시간 0). `builder:`로 되돌리면 화면이 0.3초 겹친다(no_transition_test가 잡음).
+  - 실제 브라우저 자동 확인: Flutter 입력칸은 `fill()` 대신 "칸 클릭 → 그 칸 포커스 확인 → `keyboard.type` → `toHaveValue`"(e2e `typeInto`). 공감 버튼은 role=switch, 에러 안내는 role=alert인데 글자가 aria-label(`toHaveAccessibleName`). 상단바·목록 글은 link가 아니라 text로 잡힘.
+  - e2e는 빌드된 build/web을 시험한다: 항상 `flutter build web --web-content-hash` 다음 `flutter_app/e2e`에서 `npm test`. 로컬은 Edge(msedge), CI는 chromium 채널. 로컬에서 통과해도 CI(리눅스 headless)에서만 깨질 수 있다.
+  - 첫 로딩 측정은 nginx 이미지 + 백엔드 연결이 있어야 한다(앱이 시작 때 /csrf·/auth/me를 기다림). 단독 nginx 컨테이너면 /api가 DNS 대기로 멈춰 "불러오는 중"만 보인다.
+  - Flutter build 경고 "canvaskit은 해시 없음" → nginx가 /canvaskit/를 no-cache로 둠(의도).
+- **집 PC 스마트 앱 컨트롤은 2026-11-13에 끔.** 켜져 있으면 dartvm.exe·oxlint·Playwright 브라우저를 오류 없이 막는다(이벤트 로그 `Microsoft-Windows-CodeIntegrity/Operational` Id 3077/3033). 노트북에서 비슷하면 같은 로그부터.
+- **이 PC엔 `gh` CLI가 없다.** CI 상태는 `curl https://api.github.com/repos/seokam36/board-vibe-coding/actions/runs`(공개 저장소). 비로그인 API는 **시간당 60번** — 30초마다 조회하면 금방 막힌다(2분 간격으로). CI 로그 본문은 API로 못 받음 → 사용자 Chrome으로 Actions 잡 페이지 읽기.
+- **Deploy 전에 그 커밋 CI(images 포함)가 초록인지 확인 필수.** 빨강이면 Docker Hub latest는 옛 버전이다. main에서는 기다리는 실행이 최신 1개만 남아 중간 커밋 images가 건너뛰어질 수 있다(되돌리기용 커밋은 따로 push해서 images를 받아 둔 이유).
+- **Git Bash `sed -i`로 docs 파일을 고치지 말 것**(줄바꿈 때문에 수십 줄이 바뀐 적 있음). Edit 도구로.
+- **사용자에게 서버 명령을 줄 때 `<서버IP>`·`<버킷 이름>` 같은 자리표시를 쓰지 말 것**(그대로 복사돼 .env에 들어간 적 있음). 실제 값 넣은 완성 명령 또는 "이 부분만 바꿔"를 한 줄로. 사용자 터미널은 PowerShell, 키 경로 `"$HOME\.ssh\board-ec2"`. 서버/내 PC 어디서 칠지 매번 표시. 집 PC EC2 키는 암호가 있어 ssh·scp는 사용자가 직접.
+- **표(테이블)를 바꾸는 기능은 새 V 파일**(다음은 `V14__add_...sql`, UNIQUE는 `uk_` 관례). 커밋된 V 파일은 고치지 않는다. ddl-auto는 validate.
+- **FK·UNIQUE·CHECK 제약에는 반드시 이름**(서비스가 제약 이름으로 404/401/409 구분, `ConstraintViolations`). V1의 `posts.author_id` FK만 해시 이름이라 글쓰기는 "23503이면 401".
+- **잠금 순서(S14)**: 탈퇴는 회원 행 FOR UPDATE 먼저. 쪽지 쓰기·답장·읽음·대화 신고는 회원 행 FOR KEY SHARE(`lockForKeyShare`, id 순) 먼저, 그다음 방·쪽지. 어기면 40P01 교착 → 500.
+- **DB 오류 메시지 언어는 영어(기본값) 유지.** `lc_messages`를 바꾸면 경쟁 상황에서 500.
+- 경쟁 조건 테스트는 `LockRaceSupport`, 유령 토큰은 `TestLogin.행없는_회원_토큰(jwtEncoder)`, 인증 회원은 `TestLogin.인증된_사용자(...)`·`학교_인증_처리(jdbc, username, 학교명)`. 글쓰기·댓글·공감·신고 테스트는 인증 회원 + 같은 학교 글.
+- 테스트 메일은 `@Primary` 가짜 `VerificationMailSender`(SchoolEmailCodeApiTests의 RecordingSender). 인증 Redis 키 `email-verify*`, 막혔을 때 푸는 법은 deploy.md "학교 인증 코드가 막혔다는 문의가 오면".
+- 로컬 실제 메일: `.env`에 MAIL_* + `MAIL_MODE=smtp`. 개인 Gmail로 받으려면 **로컬 DB에만** gmail.com을 school_email_domains에 넣었다가 끝나면 삭제. 화면 확인은 `MAIL_MODE=log` + 서버 로그 `[가짜 메일 발송] ... code=`.
+- 옛 이미지로 되돌리기(app): V3~V7은 되돌려도 뜬다(deploy.md (b)). V7 후 S10 이미지면 후기 쓴 회원 탈퇴가 500.
+- 관리자는 운영 DB SQL로만 지정(deploy.md "관리자 지정·해제"), 지정 후 재로그인.
 - **Jackson 3 설정 이름 함정**: 숫자 enum 막기는 `spring.jackson.datatype.enum.fail-on-numbers-for-enums`(옛 이름이면 앱이 안 뜸).
-- 집 PC PowerShell은 `npm.ps1`을 막는다. `.claude/launch.json`의 frontend는 `npm.cmd`. 노트북 launch.json의 powershell은 전체 경로(`C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`)여야 preview가 찾는다.
-- 집 PC에서 다른 프로젝트(oncare)가 8080·5173을 쓰고 있을 수 있다(물어보고 끄거나 다른 포트).
-- 백엔드를 끈 채 화면을 열면 Vite 프록시 502 → 각 화면의 기본 실패 문구(정상).
-- **Windows Git Bash `curl -d`에 한글 JSON을 넣으면 400.** UTF-8 파일로 만들어 `--data-binary @파일`로 보낸다. psql에 한글 SQL도 파일로(`docker cp` 후 `-f`).
-- PostgreSQL 컨테이너의 정렬이 한글 가나다순과 달라 학교 이름 순서는 서버 코드에서 정렬.
-- **운영 테스트 계정 = `wntjrdka`(연세대 인증, 2026-11-10 SQL로 지정).** 배포 후 인증 회원이 필요한 확인은 이 계정으로 로그인만 하면 된다(가입·메일 인증 반복 X, 비밀번호는 사용자만 앎). 테스트로 쓴 글·후기는 확인 뒤 삭제해 통계 오염 방지. 다른 계정을 인증시키려면 [서버] `UPDATE users SET verified_school_id = (SELECT id FROM schools WHERE name = '연세대학교'), verified_at = now() WHERE username = '...';` 후 재로그인.
-- 실제 메일 인증 흐름까지 운영에서 봐야 할 때만(S10-h 방법): gmail.com을 잠깐 연세대 도메인으로 INSERT → 인증 → **꼭 DELETE**. 그 사이엔 누구나 gmail로 연세대 인증 가능하니 짧게.
-- 글쓰기 화면은 학교를 고르지 않고 인증한 학교로 고정(S10-f 설계). "다른 학교 글쓰기 막힘"은 화면에서 확인 불가, 테스트가 지킨다.
-- 집 PC 로컬 DB: V8까지 적용됨. 연습 계정 `visa_me`(경희대 인증)·`visa_other`(고려대 인증)·`visa_new`(미인증)·`visa_admin`(관리자)·`visa_plan01`(경희대 인증, 비자 일정 2026-12-08 등록됨)과 연습 후기 몇 개가 있다(로컬 전용). 비밀번호는 세션 임시 폴더에만 적어 둬서 사라짐 → 필요하면 새로 가입 후 SQL로 `verified_school_id`·`role` 지정. 회원가입 API는 CSRF 필요(`GET /csrf` 쿠키 → `X-XSRF-TOKEN` 헤더).
-- 브라우저 확인 요령: 로그인 풀림은 페이지 JS로 `/api/auth/logout`을 먼저 부르고 저장을 누르면 재현된다. 콘솔 에러는 탭에 계속 쌓이니 파일 버전(`?t=` 숫자)으로 옛 기록인지 구분.
-- **비자 후기 "오늘"은 `Clock` 빈(ClockConfig, Asia/Seoul) 기준.** 서버는 UTC라 `LocalDate.now()`·`@PastOrPresent`를 쓰면 서울 밤에 오늘이 미래로 판정된다. 후기 테스트는 `@MockitoBean Clock`으로 서울 2026-11-09 12:00 고정(VisaReviewApiTests·VisaReviewListUpdateDeleteTests와 같은 설정을 써야 컨텍스트를 같이 씀).
-- 후기 날짜 규칙: 결과일 ≥ 접수일, 둘 다 ≤ 서울 오늘, **접수일 ≥ 오늘-5년, 처리 ≤ 365일**(테스트 시계 기준 5년 경계 = 2021-11-09).
-- **users를 가리키는 FK를 새로 만들면** `UsersForeignKeyGuardTests`가 실패한다(의도). ON DELETE를 주거나 `UserService.withdraw`에 clearAuthor를 추가하고 테스트의 허용 목록도 갱신.
-- 후기 작성 테스트는 **인증 회원**이어야 한다(`TestLogin.인증된_사용자`·`학교_인증_처리`). 수정·삭제는 인증 불필요. 탈퇴는 `UserService.withdraw`가 posts·comments·visa_reviews 작성자를 비운 뒤 회원 삭제(작성자 FK에 ON DELETE 없음).
-- SecurityConfig의 `GET /visa-reviews/{id}` 공개 규칙은 `/visa-reviews/` 아래 한 칸짜리 GET을 전부 공개로 만든다(`/stats`도 명시해 둠). 로그인 전용 GET을 그 아래 두려면 따로 막아야 한다.
-- **Vite 옛 파일 문제가 이번에도 여러 번 났다**(서브에이전트가 고친 직후 화면이 하얗게 비고 `xxx is not defined`). build가 프론트를 고친 뒤에는 브라우저 확인 전에 frontend 서버를 항상 껐다 켠다.
-- Flyway 테스트 `FlywayExistingBaselineTests`는 "새로 적용되는 V 파일 수"를 하드코딩한다(지금 12개·기록장 13행 + V13 성공 행 단언) → V14를 만들면 같이 고쳐야 한다.
-- **tester가 이제 `frontend/e2e/`에도 쓸 수 있다**(`.claude/agents/tester.md` 허용 경로, 2026-11-10). 에이전트 설정은 세션 시작 때만 읽혀서, 바꾼 그 세션에서는 반영 안 됐다(그래서 S12-c·d e2e는 메인 대화가 씀). 화면 코드 `frontend/src/`는 여전히 못 씀.
-- **build 보고를 그대로 믿지 말 것**: S12-c에서 build가 "npm run build 통과"라고 했는데 실제로는 e2e 파일 import 확장자(`'./mockApi'` → `'./mockApi.ts'`)로 tsc가 실패했다. 커밋 전에 메인이 `npm test`·`npm run build`·`npm run lint`·`npm run test:e2e`를 직접 한 번 돌린다.
-- **e2e에서 날짜를 입력하는 장면은 브라우저 시계를 고정**한다: `test.beforeEach(async ({ page }) => { await page.clock.setFixedTime(new Date('2026-11-10T03:00:00Z')) })`(visa-plan·visa-banner spec). 날짜 칸에 `min=오늘`이 있어서 고정 안 하면 날짜가 지나면서 테스트가 깨진다.
-- e2e 도우미: `loginVerified(api)`는 이제 `e2e/mockApi.ts`에서 export(두 spec 중복 제거). mockApi 기본 응답에 `/users/me/visa-plan` GET·PUT(일정 없음)·DELETE(204)가 있다. 인증 회원으로 로그인하는 모든 장면에서 보관소가 GET을 부른다.
-- 테스트가 진짜로 지키는지 볼 때는 고친 줄을 잠깐 바꿔 실패를 확인한다(S12에서 여러 번 함). 원본은 꼭 임시 폴더에 복사해 두고 복사본으로 되돌린다(`git checkout --` 금지).
-- 노트북 로컬 DB: 이제 기록장이 있고 V6까지 적용됨. 연습 계정 `mailtest01`(연세대 인증), `koreauser`(고려대 인증, 가짜 해시), `newbie`(미인증), 비밀번호는 연습용. 글 3개(연세대·고려대·학교 미지정).
-- `.env`는 git에 없다. `.env.example`을 복사해 채운다. 필요한 키: DB_*, POSTGRES_*, JWT_SECRET, REDIS_PASSWORD, (선택) MAIL_*. **`.env`는 캡처해서 공유하지 말 것.**
-- 로컬 `docker compose up -d`는 postgres + redis만(app은 `profiles: prod`). Docker Desktop이 꺼져 있으면 먼저 켠다. **꺼진 채 `./gradlew test`를 돌리면 Testcontainers가 못 떠서 테스트 대부분(650개+)이 컨텍스트 로딩 실패**한다(코드 문제 아님). Docker Desktop 위치는 PC마다 다르다: 한 PC는 `%LOCALAPPDATA%\Programs\DockerDesktop\Docker Desktop.exe`, 집 PC는 `C:\Program Files\Docker\Docker\Docker Desktop.exe`.
-- `./gradlew bootRun`은 `.env`를 자동으로 읽지 않는다. PowerShell에서 환경변수로 넣고 실행.
-- 프론트 로컬 실행: `frontend`에서 `npm install` 후 `npm run dev` → http://localhost:5173(반드시 5173으로).
-- **프론트 테스트**: 단위 `npm test`(Vitest 5.1, `src/**/*.test.ts`만, node 환경) / 브라우저 `npm run test:e2e`(Playwright 1.65, `e2e/*.spec.ts`만, Vite를 **5174** `--strictPort`로 직접 띄움, 백엔드 불필요). 서버 응답은 `e2e/mockApi.ts` 가짜 응답: 테스트에서 `api.override({'GET /posts': {status: 500}})`·`api.setLoggedIn(true)`로 바꾸고, **준비 안 한 /api 요청이 있으면 테스트 실패**(새 화면이 새 주소를 부르면 mockApi에 추가). 새 PC는 `npx playwright install chromium` 한 번(수백 MB). `tsconfig.node.json`이 e2e도 타입 검사해서 e2e 타입 오류는 `npm run build`·Docker 이미지 빌드도 막는다(가짜 데이터가 types.ts와 어긋나면 잡으려는 의도). 도우미: `minePost()`(작성자가 로그인 사용자인 글), `loginVerified(api)`(학교 인증 회원으로 로그인). 에러 문구는 `getByRole('alert')` + `toHaveText('전체 문구')`로 검사(부분 일치 금지).
-- **에러 문구를 고치거나 새로 쓸 때**: 2곳 이상 같은 글자면 `errorMessage.ts`의 `ERROR_MESSAGES`에 넣고 `errorMessage.test.ts`의 사전 전체 `toEqual`에도 한 줄 추가(안 하면 테스트 실패). 문구 글자를 바꾸면 `e2e/error-messages.spec.ts` 기대 문구도 같이 바꿔야 CI가 통과한다.
-- **Windows 보안 정책(앱 제어)이 내려받은 실행 파일을 막는 PC가 있다**(UI2 시작한 PC): `npm run lint`와 Playwright가 내려받은 chrome-headless-shell이 `spawn UNKNOWN`. 우회하지 말 것. 그 PC는 lint를 CI에서 확인, Playwright는 로컬에서 정식 Edge(`channel: 'msedge'`, `PW_CHANNEL=chrome`으로 변경 가능), CI는 기본 Chromium. **UI2·UI3를 끝낸 PC는 막히지 않음**(lint 정상, `CI=true`로 내려받은 Chromium도 실행됨). 새 PC는 `npm install` 후 `npx playwright install chromium` 한 번.
-- **커밋 안 된 파일을 테스트로 일부러 망가뜨릴 때 `git checkout --`로 되돌리지 말 것**(커밋 안 된 작업까지 날아감). 먼저 임시 폴더에 복사해 두고 그 복사본으로 되돌린다.
-- 프론트만 바꾸는 단계는 `refactor:`가 아니라 CLAUDE.md 형식(feat/fix/test/chore) 중 하나로 커밋(2adf68f만 `refactor:`로 잘못 달림).
-- 자동 보안 검사(security-guidance 플러그인)가 커밋 뒤 네트워크 문제로 못 끝나는 일이 있다(897f944·3b99fbd). 로그 `~/.claude/security/log.txt`.
-- 서브에이전트가 띄운 테스트 서버가 8080·5173을 잡고 있을 수 있다. 막히면 작업 관리자에서 끄거나 재부팅.
-- 테스트(Gradle + Testcontainers) 도는 동안 CPU·메모리가 크게 오른다(정상). 편집기 Java 분석기(JDT)는 롬복을 못 알아봐서 "getId() 없음" 같은 가짜 빨간 줄을 띄운다 — `./gradlew test`가 기준.
-- 서브에이전트 쓰기 제한 훅(scripts/allow-only.sh)은 jq가 필요하다. deploy 에이전트는 docs/deploy.md도 쓸 수 있다. **deploy는 `frontend/nginx.conf`·`.env.example`을 못 쓴다**(g6-5에서 막혀 사용자 결정으로 메인이 직접 고침). 또 필요하면 허용 목록을 넓힐지 사용자에게 묻는다(에이전트 설정은 세션 시작 때만 읽힘).
-- Claude 앱이 대화마다 worktree를 만들 수 있다. 그 안의 커밋은 main에 합쳐야 IntelliJ(main)에 보인다.
-- 포맷한 Windows에서 Docker가 안 켜지면: 관리자 터미널에서 `dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart` → `wsl --install --no-distribution` → 재부팅.
-- 처음 git push할 때 Git Credential Manager 로그인 창이 뜬다(한 번 하면 저장).
-- **EC2**: Amazon Linux, ssh 사용자는 **`ec2-user`**. 탄력적 IP가 없어 켤 때마다 퍼블릭 IP가 바뀐다(콘솔에서 확인). 다 쓰면 "중지"(종료 아님).
-- **EC2 접속 키는 PC마다 따로**: 노트북·집 PC 각각 `~/.ssh/board-ec2`(별개 키). 보안그룹 SSH 규칙은 설명 `laptop`·`home-pc`. IP가 바뀌면 그 줄만 "내 IP"로 다시 저장. **집 인터넷 IP는 유동이라 자주 바뀐다**: ssh가 `Connection timed out`이면 먼저 이걸 의심(2026-11-09에도 바뀌어 있었음).
-- **집 PC `board-ec2` 키에는 암호(passphrase)가 있어** Claude가 ssh·scp를 대신 못 한다. 서버 명령·scp는 사용자가 직접 치고 결과를 붙여 준다.
-- 명령을 칠 때 **프롬프트로 PC·서버 구분**: `PS C:\...>`는 PC, `[ec2-user@...]$`는 서버. PC 창에서 `docker exec board-postgres ... psql`을 치면 로컬 DB에 들어간다. psql 나가기는 `\q`(역슬래시, 한글 키보드는 ₩), `board-#`로 바뀌면 문장이 안 끝난 상태 → Ctrl+C 후 `\q`.
-- Windows PowerShell에서는 `C:\Windows\System32\OpenSSH\ssh.exe`(scp.exe도 같은 폴더) 전체 경로로. ssh 안에서 붙여넣기는 오른쪽 클릭. 프롬프트가 서버인지 PC인지 확인.
-- 배포 방법: EC2 켜기 → Actions에서 main **CI가 images까지 초록** 확인 → Deploy → Run workflow. EC2가 꺼져 있으면 Deploy가 "EC2 상태·IP 확인"에서 멈춤. CI·Deploy 상태는 GitHub 공개 API로 메인 대화가 확인 가능.
-- Deploy가 배포 직전에 DB를 자동 백업한다(~/board/backups). 실패·되돌리기는 docs/deploy.md "Flyway(표 변경) 문제와 되돌리기".
-- docker-compose.yml을 바꾸면 Deploy만으로는 반영 안 됨. 먼저 scp로 서버에 복사. 서버 compose의 image 줄을 옛 SHA로 바꾸면 다음 Deploy도 그 SHA를 받으니 원복 필수.
-- 헬스체크에 Redis가 포함돼 Redis가 죽으면 503 → Deploy 실패(의도). 메일 헬스체크는 꺼 둠(Gmail 장애로 배포 안 막힘).
-- gh CLI가 없다. CI·Actions 결과는 브라우저 또는 GitHub 공개 API로.
-- main에 push할 때마다 Docker Hub에 커밋 SHA 태그가 쌓인다(되돌리기에 쓴다).
-- Windows에서 새 실행 스크립트를 커밋하면 실행 권한이 빠진다. 리눅스 러너용이면 `git update-index --chmod=+x <파일>`.
-- Boot 4는 Jackson 3라 import가 `tools.jackson.databind`. postgresql 드라이버는 runtimeOnly라 `PSQLException`을 main 코드에서 못 쓴다.
-- Docker Hub 429면 AWS 미러: `docker pull public.ecr.aws/docker/library/redis:8.10.3-alpine` → `docker tag ... redis:8.10.3-alpine`(postgres도 같은 방식).
-- 사용자 선호: 입문자라 새 도구는 비유 한 줄씩. 백엔드에 관심. 정리는 **실제 코드 5~20줄 + 한 줄 해설**(채팅·Notion), 흐름도는 ASCII 코드 블록. 보고는 짧게. **도구 쓰기 전 설명 문장까지 전부 한국어**(영어 섞으면 지적받음). **명령어를 치라고 할 때는 왜 치는지 + 조각별 뜻을 같이**(2026-11-09 요청). S번호가 끝나면 백엔드 로직 정리 + 전체 코드 리뷰를 같이 보여주고 Notion 카드에도 남긴다. **프론트만 바꾸는 단계는 Notion에 쓰지 않는다.** 화면 작업은 frontend-design 스킬 + docs/design.md.
-- **build 전에 "이번 단계에서 무엇을 만드는지" 쉬운 말로 설명하고 OK를 받는다**(큰 계획 OK는 단계 build 승인이 아님. 2026-11-11 지적받음).
-- **테스트가 진짜로 버그를 잡는지 확인하는 법(S13에서 3번 씀):** 고친 줄을 잠깐 빼고 그 테스트만 돌려 실패하는지 본다. 원본은 임시 폴더에 복사 → 복사본으로 되돌리고 `cmp`로 같은지 확인.
-- 로컬 백엔드 띄우기: `.claude/launch.json`의 backend는 `.env`를 환경변수로 넣고 `gradlew.bat bootRun`을 부르는 ps1을 가리킨다. 그 ps1은 세션 임시 폴더에 있어서 새 세션에선 없음 → 다시 만들기. **PowerShell 5.1 스크립트 안에 한글 경로를 쓰면 깨진다**(경로는 `(Get-Location).Path`로, .env는 `[IO.File]::ReadAllLines(..., UTF8)`로 읽기).
-- 집 PC `.claude/launch.json`의 backend는 ps1 없이 `.env`를 읽어 `gradlew.bat bootRun`을 부르는 한 줄 명령(그대로 preview_start 가능). 집 PC 로컬 DB는 이제 V12까지(S14-d 브라우저 확인 때 적용). 쪽지 연습 계정 `s14_seller`·`s14_buyer`(둘 다 경희대 인증, SQL로 지정, 비밀번호는 세션 임시 폴더에만 → 필요하면 새로 가입), 연습 중고 글 5번 "S14 쪽지 확인용 전기포트"와 대화방 1개(쪽지 3통). 그 전부터 있던 연습 중고 글 4개(`visa_me`, "중고 자전거 팝니다"·"iPad 9세대 팝니다"·"50% 할인 책상"·"전기밥솥 나눔")가 있다.
-- **서브에이전트가 셸(perl·sed)로 파일을 고치면 템플릿 문자열 `${...}`가 지워진다**(S13-e에서 신고 주소가 `/market-items//reports`가 됨, e2e가 잡음). build·tester에게 "파일 수정은 Edit 도구로, 끝나면 git diff에서 `${` 확인"을 꼭 적어 준다.
-- **build 보고를 그대로 믿지 말 것(또 나옴)**: S13-e에서 "types.ts postId number|null로 고쳤다"고 했는데 안 고쳐져 있었다(review가 잡음). 중요한 주장은 메인이 grep으로 확인.
-- **Criteria에서 `cb.literal(값)`은 SQL에 값이 그대로 박힌다**(S13-f 로그로 확인). 사용자 입력은 `((HibernateCriteriaBuilder) cb).value(값)`로 바인딩.
-- 노트북 로컬 DB(OneDrive\Desktop 경로인 PC): 이제 V11까지 적용. 연습 계정 `market_seller1`(고려대 인증, 중고 글 1개 DONE), `photo_check1`·`photo_check2`(연세대 인증, SQL로 지정, 사진 있는 연습 글 2개 + 사진 없는 글 1개). 비밀번호는 매번 임의로 만들어 남기지 않음 → 필요하면 새로 가입 + SQL 인증. 새 계정 인증은 `MAIL_MODE=log`로 띄우고 서버 로그의 `[가짜 메일 발송] ... code=`를 읽는다. 이 PC의 `.claude/launch.json` backend는 옛 세션 임시 폴더의 run-backend.ps1을 가리키는데 아직 남아 있어 그대로 동작함(없어지면 다시 만들기).
-- **사진 관련 테스트 설정**: 테스트 설정 파일(`src/test/resources/config/application.properties`)에 `app.photo.local-dir=임시 폴더`·`app.scheduling.enabled=false`. 청소부는 테스트에서 `PhotoCleanupJob.runOnce()`를 직접 부르고, 시간 경과는 큐 줄의 created_at을 SQL로 과거로 돌려 흉내 낸다(`@MockitoBean Clock`은 컨텍스트를 새로 띄움). 창고 실패 흉내는 `PhotoDeleteQueue`·서비스의 창고 필드를 ReflectionTestUtils로 바꿔 끼운다. 멀티파트 413·swallow는 MockMvc가 못 봐서 `MarketItemPhotoUploadLimitTests`(RANDOM_PORT)만 실제 포트.
-- **max-swallow-size 테스트는 설정을 지키지 못한다**: 설정을 빼도 로컬 RANDOM_PORT 테스트가 통과했다(연결 끊김 재현 안 됨). g5-2에서 실제 백엔드(Vite 프록시 경유)로 10.5MB 직접 POST → 413이 깔끔히 오고 다음 요청 200, 로그아웃 뒤 올리기 → 401 재로그인 안내까지 확인. nginx 뒤 413은 g6-5에서 로컬 nginx+app 컨테이너로 확인함(운영은 S13-h).
-- **로컬에서 운영과 같은 nginx→app 구성 확인법(g6-5)**: 루트 Dockerfile·frontend/Dockerfile로 임시 태그 이미지를 빌드하고, 스크래치 폴더의 override compose로 이미지 태그·`PHOTO_STORAGE=local`·web 포트 18080을 바꿔 `--profile prod up --no-deps`. 응답 주체는 본문으로 구분(nginx HTML vs 스프링 JSON). 끝나면 컨테이너·임시 이미지 삭제. nginx 설정 문법은 `docker run --rm <web 이미지> nginx -t`.
-- **compose `:?`는 프로필과 상관없이 파일 전체를 해석해서** prod 전용 변수에 쓰면 로컬 `docker compose up`도 깨진다. 선택 값은 `:-`로. `docker compose --profile prod config | grep -c ...`로 값을 출력하지 않고 확인한다.
-- **Notion이 글 속 `deploy.md` 같은 파일 이름을 웹 링크(http://deploy.md)로, 표 칸의 ` + `를 `•`로 바꾼다.** 파일 이름은 `<code>`로 감싸고, 표 칸에서는 +를 피한다. 만든 뒤 fetch로 확인.
-- **e2e를 두 개 동시에 돌리지 말 것**: tester가 백그라운드로 `--repeat-each`를 돌리는 중에 메인이 `npm run test:e2e`를 돌려 16개가 실패했다(둘 다 5174 Vite를 씀). 끝난 뒤 다시 돌리면 전부 통과. 서브에이전트 보고에 "백그라운드로 넘어갔다"가 있으면 끝날 때까지 기다린다.
-- **build·tester의 "테스트가 진짜 지킨다"는 보고도 메인이 한 번 확인**: S14-f3에서 build가 추가한 e2e "읽음 PUT 401…"이 옛 조건으로 되돌려도 통과했다(빈틈을 못 지킴, backlog에 기록). 반대로 링크에 신고 id 대신 방 id를 넣는 식의 망가뜨리기는 메인이 직접 해서 e2e 4개가 실패하는 것을 확인했다. 방법: 원본을 스크래치패드에 복사 → Edit로 망가뜨림 → 해당 spec만 `npx playwright test <spec>` → 복사본으로 되돌리고 `cmp`.
-- **편집기의 빨간 줄(getId() undefined, blank final field 등)은 롬복 때문에 뜨는 가짜 오류**다. 빌드·테스트 결과(`./gradlew cleanTest test`, build/test-results XML 합산)가 기준. `./gradlew test`만 돌리면 UP-TO-DATE로 안 돌 수 있으니 `cleanTest test`.
-- 대화 신고·관리자 대화 보기에서 **신고 id와 방 id는 다르다**(관리자 화면 링크는 신고 id `r.id`, `target.id`는 방 id). 코드 주석·e2e에서 신고 7 / 방 12처럼 일부러 다르게 둔다.
-- 브라우저 확인 중 Browser 창이 가려져 있으면(hidden) canvas `toBlob`·타이머가 느려져 javascript_tool이 45초 시간 초과가 난다. 스크립트는 실제로 끝났을 수 있으니 다시 돌리기 전에 화면 상태를 먼저 본다.
-- 브라우저에서 사진 올리기를 확인할 때: canvas로 PNG File을 만들고 `DataTransfer`로 `input[type=file]`에 넣은 뒤 change 이벤트를 보낸다(진짜 업로드 흐름 그대로). 413 확인은 화면이 10MB를 미리 막으니 fetch로 직접 보낸다.
-- **tester는 `src/main`을 못 고친다**(훅). "일부러 망가뜨려 보기"가 필요하면 메인 대화가 직접 한다(스크래치패드에 복사 → Edit로 망가뜨림 → 테스트 → 복사본으로 되돌리고 해시 비교). build에게 시켜도 된다.
-- **build가 "Edit만 쓰라"는 지시를 어기고 python·heredoc을 쓴 적이 있다**(S13-g2·g3). 매번 `git diff`에서 `${`·역슬래시 줄을 확인한다.
-- **PowerShell에서 `git commit -F -` + here-string이 안 먹는다**(메시지가 경로로 해석됨). 메시지를 스크래치패드 파일로 쓰고 `-F 파일경로`로, 또는 Bash 도구로 커밋. PowerShell 문자열 안의 `${`도 변수로 해석돼 깨지니 grep은 Bash 도구로.
-- **Notion에 긴 한국어 페이지를 만들면 글자가 가끔 깨진다**(몰 초·쫔고·잠깔·잔못되면 등). 만든 뒤 꼭 fetch로 다시 읽고 update_content로 고친다. 고친 단어가 또 깨질 수 있어 다른 말로 바꾸는 게 안전.
-- **build가 heredoc 금지를 S14에서도 세 번 어겼다**(S14-c 새 파일 3개, S14-d types.ts `cat >>`). 매번 그 파일을 메인이 직접 열어 확인했고 깨진 곳은 없었다. 계속 확인할 것.
-- **review의 교착 추론은 꼭 재현부터**: S14-a 추론은 실제로 40P01이 났고(고침), S14-b 추론(답장 둘 + 글 삭제)은 pg_locks로 보니 안 났다(이미 KEY SHARE를 쥔 트랜잭션은 tuple 대기 줄에 서지 않음). 재현 테스트는 LockRaceSupport + 대기 단언, 고친 줄을 빼면 실패하는지까지.
-- **연속 두 요청의 시각을 isAfter로 비교하는 테스트는 Windows에서 가끔 실패**(시계 해상도 ~1ms라 같은 틱). 첫 행의 시각을 SQL로 과거로 돌려 놓고 비교(S14-c에서 ConversationStartApiTests 고침).
-- **e2e mockApi 기본 응답은 와일드카드(`*`) 말고 정확한 주소로**: `GET /conversations/*`가 `/conversations/unread-count`까지 삼켜서 "준비 안 한 요청이면 실패" 안전망이 꺼졌었다. 정확한 키가 `*`보다 먼저 쓰이므로, 기본을 정확한 키로 바꾸면 기존 `*` override도 정확한 키로 바꿔야 먹는다.
-- **같은 컴포넌트를 주소만 바꿔 재사용하는 화면은 key로 새로 그리기**: 브라우저 기록으로 /messages/5 → /messages/3 이동 시 React Router가 화면을 재사용해 다른 방으로 답장이 갈 뻔했다(ConversationPage가 ConversationView를 `key={id}`로 감쌈).
-- **사진 GET은 InputStreamResource라 Spring이 Range 처리를 건너뜀(항상 200 전체).** InputStreamResource를 상속한 클래스로 바꾸거나 ETag/304를 붙이면 스트림을 두 번 읽거나 안 닫힐 수 있다(컨트롤러 주석·MarketItemPhotoStreamTests가 지킴). 사진 GET 바로 뒤 Files.delete 성공 테스트가 Windows 핸들 누수를 잡는다.
-- DB 연결 풀을 줄여 확인할 때: bootRun 환경변수 `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=3`(g6-2에서 이걸로 동시 30개 확인).
-- 중고 글 수정·상태 변경은 **조건부 UPDATE**만 쓴다. 엔티티 값을 바꿔 저장(dirty checking)하면 모든 칸을 UPDATE해서 상태가 옛 값으로 돌아간다(S13-b 리뷰에서 발견). 비자 후기 수정에는 아직 "수정 중 삭제 → 500" 빈틈이 남아 있음.
+- 집 PC에서 다른 프로젝트(oncare)가 8080·5173·Redis 6380을 쓰고 있을 수 있다.
+- **Windows Git Bash `curl -d`에 한글 JSON을 넣으면 400.** UTF-8 파일 + `--data-binary @파일`. psql 한글 SQL도 파일로.
+- PostgreSQL 정렬이 한글 가나다순과 달라 학교 이름 순서는 서버 코드에서 정렬.
+- **운영 테스트 계정 = `wntjrdka`(연세대 인증).** 비밀번호는 사용자만 앎. 테스트 글·후기는 확인 뒤 삭제. 다른 계정 인증: [서버] `UPDATE users SET verified_school_id = (SELECT id FROM schools WHERE name = '연세대학교'), verified_at = now() WHERE username = '...';` 후 재로그인.
+- 로컬 DB에는 S16 확인용 테스트 계정·글·중고 글이 남아 있다(로컬 전용, 지워도 됨).
