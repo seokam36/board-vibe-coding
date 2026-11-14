@@ -313,3 +313,4 @@
 | 2026-11-13 | S16-a | Flutter 3.50 설치 + 실험 앱(`flutter_app/`, 웹만, 새 패키지 없음): 한글 입력 합격, 첫 로딩 React 0.4MB vs Flutter 약 3~5MB, Ctrl+F·글자 선택은 알려진 한계, 폰트·엔진을 구글 CDN에서 받음 | 9ee2f2c |
 | 2026-11-14 | S16-b | Flutter 라우팅 뼈대: go_router로 React와 같은 주소 21개 + 404 빈 화면(# 없는 주소, 대소문자 무시), 위젯 테스트 40개, CI flutter 작업, 개발 프록시(5175 → 8080, POST는 로컬 .env CORS 필요), 손 확인 6개 통과 | ffe8012 |
 | 2026-11-14 | S16-c1 | Flutter 빌드를 운영 모양 nginx 이미지로(`flutter_app/nginx.conf`·COPY 전용 Dockerfile): 해시 파일만 1년 캐시·나머지 no-cache, 없는 정적 파일 404, gzip(main.dart.js 2.42MB→0.73MB), CI 빌드에 --web-content-hash. 로컬 18080 web→app 확인, 18080 CORS 403 재현(운영 포트엔 없음) | e9d77d7 |
+| 2026-11-14 | S16-c2 | 첫 로딩 정리: c2a 측정(React vs Flutter 변형 5개·폰트 후보 3개) 뒤 IBM Plex Sans KR woff2 400·700 번들(family 'Roboto'), canvaskit 자체 호스팅·서비스워커 끔(커스텀 bootstrap), cupertino_icons 제거. 첫 화면 구글 요청 0, 기준선 3.68MB·A 0.61초·B 20.8초 | 5503bbe |
