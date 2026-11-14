@@ -390,6 +390,213 @@ void main() {
     });
   });
 
+  // 리뷰 반영: Enter 제출, 닉네임·탈퇴 잠금, 요청 중 화면 떠나기, 401 안내 위치
+  group('Enter 제출', () {
+    // 칸에 글자를 넣고 키보드 완료(Enter)만 눌러 본다
+    Future<void> enter(WidgetTester tester, Finder field, String text) async {
+      await tester.enterText(field, text);
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    _test('닉네임 칸에서 Enter: 요청 1번', (tester) async {
+      final adapter = FakeAdapter()..on('PUT', '/users/me/nickname', FakeReply(200, userJson(nickname: '철수')));
+      await pumpApp(tester, location: '/me', user: userJson(), adapter: adapter);
+      await enter(tester, _nicknameField, '철수');
+      await tester.pumpAndSettle();
+      expect(adapter.count('PUT', '/users/me/nickname'), 1);
+    });
+
+    _test('현재 비밀번호 칸에서 Enter: 요청 1번', (tester) async {
+      final adapter = FakeAdapter()..on('PUT', '/users/me/password', FakeReply(500));
+      await pumpApp(tester, location: '/me', user: userJson(), adapter: adapter);
+      await tester.enterText(_newField, 'newpw5678');
+      await enter(tester, _currentField, 'oldpw1234');
+      await tester.pumpAndSettle();
+      expect(adapter.count('PUT', '/users/me/password'), 1);
+    });
+
+    _test('새 비밀번호 칸에서 Enter: 요청 1번', (tester) async {
+      final adapter = FakeAdapter()..on('PUT', '/users/me/password', FakeReply(500));
+      await pumpApp(tester, location: '/me', user: userJson(), adapter: adapter);
+      await tester.enterText(_currentField, 'oldpw1234');
+      await enter(tester, _newField, 'newpw5678');
+      await tester.pumpAndSettle();
+      expect(adapter.count('PUT', '/users/me/password'), 1);
+    });
+
+    _test('탈퇴 칸에서 Enter: 확인 창 → [탈퇴] 뒤 요청 1번', (tester) async {
+      final adapter = FakeAdapter()..on('DELETE', '/users/me', FakeReply(500));
+      await pumpApp(tester, location: '/me', user: userJson(), adapter: adapter);
+      await enter(tester, _withdrawField, 'pw123456');
+      await tester.pumpAndSettle();
+      expect(find.text(_withdrawMessage), findsOneWidget);
+      expect(adapter.count('DELETE', '/users/me'), 0); // 확인 전에는 보내지 않는다
+      await tester.tap(find.widgetWithText(OutlinedButton, '탈퇴'));
+      await tester.pumpAndSettle();
+      expect(adapter.count('DELETE', '/users/me'), 1);
+    });
+  });
+
+  group('요청 중 잠금 (닉네임·탈퇴)', () {
+    _test('닉네임: "변경 중..." 잠금, 요청 1번, Enter 재입력 무시', (tester) async {
+      final gate = Completer<void>();
+      final adapter = FakeAdapter()..on('PUT', '/users/me/nickname', FakeReply(200, userJson(nickname: '철수'), gate));
+      await pumpApp(tester, location: '/me', user: userJson(), adapter: adapter);
+      await tester.enterText(_nicknameField, '철수');
+      await tester.tap(_nicknameButton);
+      await tester.pump(const Duration(milliseconds: 50));
+      final locked = find.widgetWithText(FilledButton, '변경 중...');
+      expect(locked, findsOneWidget);
+      expect(tester.widget<FilledButton>(locked).onPressed, isNull);
+      expect(adapter.count('PUT', '/users/me/nickname'), 1);
+
+      await tester.tap(_nicknameField);
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(adapter.count('PUT', '/users/me/nickname'), 1); // 잠겨 있어 무시
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(adapter.count('PUT', '/users/me/nickname'), 1);
+      expect(tester.widget<FilledButton>(_nicknameButton).onPressed, isNotNull);
+    });
+
+    _test('탈퇴: 잠금 중 Enter 재입력은 무시 (확인 창도 다시 안 뜬다)', (tester) async {
+      final gate = Completer<void>();
+      final adapter = _listAdapter()..on('DELETE', '/users/me', FakeReply(204, null, gate));
+      await pumpApp(tester, location: '/me', user: userJson(), adapter: adapter);
+      await tester.enterText(_withdrawField, 'pw123456');
+      await _withdraw(tester);
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.widgetWithText(OutlinedButton, '처리 중...'), findsOneWidget);
+
+      await tester.tap(_withdrawField);
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle(const Duration(milliseconds: 50));
+      expect(find.text(_withdrawMessage), findsNothing);
+      expect(adapter.count('DELETE', '/users/me'), 1);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(adapter.count('DELETE', '/users/me'), 1);
+    });
+  });
+
+  group('요청 중 화면 떠나기', () {
+    // 요청을 붙잡은 채 [목록으로] → 그다음 응답이 와도 예외 없이 끝나야 한다
+    Future<void> leave(WidgetTester tester, TestApp app) async {
+      await tester.tap(find.widgetWithText(OutlinedButton, '목록으로'));
+      await tester.pumpAndSettle();
+      expect(_path(app), '/');
+    }
+
+    _test('닉네임: 실패 응답이 화면을 떠난 뒤 와도 예외 없음', (tester) async {
+      final gate = Completer<void>();
+      final adapter = _listAdapter()..on('PUT', '/users/me/nickname', FakeReply(500, null, gate));
+      final app = await pumpApp(tester, location: '/me', user: userJson(), adapter: adapter);
+      await tester.enterText(_nicknameField, '철수');
+      await tester.tap(_nicknameButton);
+      await tester.pump(const Duration(milliseconds: 50));
+      await leave(tester, app);
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    _test('비밀번호: 실패 응답이 화면을 떠난 뒤 와도 예외 없음', (tester) async {
+      final gate = Completer<void>();
+      final adapter = _listAdapter()..on('PUT', '/users/me/password', FakeReply(500, null, gate));
+      final app = await pumpApp(tester, location: '/me', user: userJson(), adapter: adapter);
+      await tester.enterText(_currentField, 'oldpw1234');
+      await tester.enterText(_newField, 'newpw5678');
+      await tester.tap(_passwordButton);
+      await tester.pump(const Duration(milliseconds: 50));
+      await leave(tester, app);
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    _test('탈퇴: 실패 응답이 화면을 떠난 뒤 와도 예외 없음', (tester) async {
+      final gate = Completer<void>();
+      final adapter = _listAdapter()..on('DELETE', '/users/me', FakeReply(500, null, gate));
+      final app = await pumpApp(tester, location: '/me', user: userJson(), adapter: adapter);
+      await tester.enterText(_withdrawField, 'pw123456');
+      await _withdraw(tester);
+      await tester.pump(const Duration(milliseconds: 50));
+      await leave(tester, app);
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    _test('비밀번호: 화면을 떠난 뒤 성공 응답이 오면 /login 으로 간다', (tester) async {
+      final gate = Completer<void>();
+      final adapter = _listAdapter()..on('PUT', '/users/me/password', FakeReply(204, null, gate));
+      final app = await pumpApp(tester, location: '/me', user: userJson(), adapter: adapter);
+      await tester.enterText(_currentField, 'oldpw1234');
+      await tester.enterText(_newField, 'newpw5678');
+      await tester.tap(_passwordButton);
+      await tester.pump(const Duration(milliseconds: 50));
+      await leave(tester, app);
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(_path(app), '/login');
+      expect(app.auth.user, isNull);
+    });
+  });
+
+  group('401 안내 위치·로그인 상태', () {
+    const relogin = '다시 로그인해 주세요';
+
+    // 안내가 "해당 폼 제목"과 "그 폼 버튼" 사이에 있는지 (다른 폼 안에 뜨지 않았는지)
+    void expectBetween(WidgetTester tester, Finder heading, Finder button) {
+      final y = tester.getTopLeft(find.text(relogin)).dy;
+      expect(y, greaterThan(tester.getTopLeft(heading.first).dy));
+      expect(y, lessThan(tester.getTopLeft(button).dy));
+    }
+
+    _test('닉네임 401: 안내가 닉네임 폼 안에 뜬다', (tester) async {
+      final adapter = FakeAdapter()
+        ..on('PUT', '/users/me/nickname', FakeReply(401))
+        ..on('POST', '/auth/refresh', FakeReply(401));
+      await pumpApp(tester, location: '/me', user: userJson(), adapter: adapter);
+      await tester.enterText(_nicknameField, '철수');
+      await tester.tap(_nicknameButton);
+      await _settleReal(tester);
+      expectBetween(tester, find.text('닉네임 변경'), _nicknameButton);
+    });
+
+    _test('비밀번호 401: 안내가 비밀번호 폼 안에 뜨고, 로그인 상태 비움·버튼 되살아남', (tester) async {
+      final adapter = FakeAdapter()
+        ..on('PUT', '/users/me/password', FakeReply(401))
+        ..on('POST', '/auth/refresh', FakeReply(401));
+      final app = await pumpApp(tester, location: '/me', user: userJson(), adapter: adapter);
+      await tester.enterText(_currentField, 'oldpw1234');
+      await tester.enterText(_newField, 'newpw5678');
+      await tester.tap(_passwordButton);
+      await _settleReal(tester);
+      expectBetween(tester, find.text('비밀번호 변경'), _passwordButton);
+      expect(app.auth.user, isNull);
+      expect(tester.widget<FilledButton>(_passwordButton).onPressed, isNotNull);
+    });
+
+    _test('탈퇴 401: 안내가 탈퇴 폼 안에 뜨고, 로그인 상태 비움·버튼 되살아남', (tester) async {
+      final adapter = FakeAdapter()
+        ..on('DELETE', '/users/me', FakeReply(401))
+        ..on('POST', '/auth/refresh', FakeReply(401));
+      final app = await pumpApp(tester, location: '/me', user: userJson(), adapter: adapter);
+      await tester.enterText(_withdrawField, 'pw123456');
+      await _withdraw(tester);
+      await _settleReal(tester);
+      expectBetween(tester, find.text('회원 탈퇴'), _withdrawButton);
+      expect(app.auth.user, isNull);
+      expect(tester.widget<OutlinedButton>(_withdrawButton).onPressed, isNotNull);
+    });
+  });
+
   testWidgets('문지기: 비로그인으로 /me 에 오면 /login', (tester) async {
     final app = await pumpApp(tester, location: '/me');
     expect(_path(app), '/login');

@@ -235,21 +235,31 @@ class _PasswordFormState extends State<_PasswordForm> {
         children: [
           const _Heading('비밀번호 변경'),
           const Notice(kind: NoticeKind.info, message: _httpWarning),
-          TextField(
-            controller: _current,
-            decoration: const InputDecoration(labelText: '현재 비밀번호'),
-            obscureText: true,
-            autofillHints: const [AutofillHints.password],
-            textInputAction: TextInputAction.next,
-          ),
-          const SizedBox(height: AppSizes.space4),
-          TextField(
-            controller: _next,
-            decoration: const InputDecoration(labelText: '새 비밀번호'),
-            obscureText: true,
-            autofillHints: const [AutofillHints.newPassword],
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _submit(),
+          // 두 비밀번호 칸을 한 묶음으로: 브라우저가 "저장된 비밀번호 업데이트"를 제안할 수 있다
+          AutofillGroup(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: _current,
+                  decoration: const InputDecoration(labelText: '현재 비밀번호'),
+                  obscureText: true,
+                  autofillHints: const [AutofillHints.password],
+                  // React form처럼 어느 칸에서 Enter를 쳐도 제출한다
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _submit(),
+                ),
+                const SizedBox(height: AppSizes.space4),
+                TextField(
+                  controller: _next,
+                  decoration: const InputDecoration(labelText: '새 비밀번호'),
+                  obscureText: true,
+                  autofillHints: const [AutofillHints.newPassword],
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _submit(),
+                ),
+              ],
+            ),
           ),
           const _Hint('8~64자'),
           if (_needLogin) const ReloginNotice(),
