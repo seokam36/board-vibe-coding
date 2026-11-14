@@ -119,6 +119,39 @@ jobs:
           path: frontend/playwright-report
           if-no-files-found: ignore
 
+  # Flutter 웹 앱(flutter_app): 정적 분석, 위젯 테스트, 웹 빌드가 되는지 확인한다. (S16 교체 기간 동안 React와 나란히 돈다)
+  flutter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15   # 멈춰도 15분 만에 끊는다
+    defaults:
+      run:
+        working-directory: flutter_app   # flutter 명령은 flutter_app 폴더에서 실행
+    steps:
+      - uses: actions/checkout@v7
+
+      # Flutter SDK 설치 (로컬과 같은 3.50.0) + 캐시.
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.50.0
+          channel: stable
+          cache: true
+
+      - name: 의존성 설치
+        # --enforce-lockfile: pubspec.lock과 다른 버전을 몰래 받지 않는다(npm ci와 같은 역할)
+        run: flutter pub get --enforce-lockfile
+
+      # 코드 문제 검사
+      - name: 정적 분석
+        run: flutter analyze
+
+      # 위젯 테스트
+      - name: 테스트
+        run: flutter test
+
+      # 웹 빌드가 되는지 확인
+      - name: 웹 빌드
+        run: flutter build web
+
   # backend, frontend, e2e가 모두 성공하고, main 브랜치 push일 때만 실행된다.
   # (다른 브랜치 push, PR에서는 건너뜀. e2e가 실패하면 이미지 push도 막힌다)
   images:
