@@ -1,0 +1,11 @@
+{
+  "name": "board-flutter-e2e",
+  "private": true,
+  "description": "Flutter 웹 앱용 Playwright e2e (핵심 흐름·실패만). 백엔드 없이 page.route로 /api를 가짜 응답한다.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0"
+  }
+}

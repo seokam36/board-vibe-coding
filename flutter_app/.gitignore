@@ -46,3 +46,8 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# e2e (Playwright) 산출물
+e2e/node_modules
+e2e/test-results
+e2e/playwright-report
