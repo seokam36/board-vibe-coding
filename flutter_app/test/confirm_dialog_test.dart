@@ -135,11 +135,11 @@ void main() {
   testWidgets('창이 열린 채 주소가 바뀌면 false로 닫힌다', (tester) async {
     final app = await pumpApp(tester);
     final answer = await _open(tester);
-    app.router.go('/admin/reports'); // S16-j2: /market/:id 까지 진짜 화면이 되어, 아직 자리표시인 주소로 바꾼다
+    app.router.go('/login'); // S16-m: 자리표시 화면이 모두 진짜가 되어, 요청이 없는 로그인 화면으로 바꾼다
     await tester.pumpAndSettle();
     expect(answer.value, isFalse);
     expect(find.byType(Dialog), findsNothing);
-    expect(find.text('신고 관리'), findsOneWidget);
+    expect(find.text('아이디'), findsOneWidget);
   });
 
   testWidgets('창을 다 닫은 뒤 주소가 바뀌어도 아무 일 없다 (이전 창이 남지 않는다)', (tester) async {
@@ -147,7 +147,7 @@ void main() {
     final first = await _open(tester);
     await tester.tap(_cancel);
     await tester.pumpAndSettle();
-    app.router.go('/admin/reports');
+    app.router.go('/login');
     await tester.pumpAndSettle();
     expect(first.value, isFalse);
     expect(tester.takeException(), isNull);

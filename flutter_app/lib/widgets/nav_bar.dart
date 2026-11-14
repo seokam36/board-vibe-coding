@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../auth/auth_state.dart';
+import '../messages/unread_store.dart';
 import '../site_name.dart';
 import '../theme/app_colors.dart';
 import 'app_link.dart';
@@ -14,7 +15,7 @@ import 'notice.dart';
 const logoutFailedMessage = '로그아웃하지 못했습니다. 다시 시도해 주세요';
 
 // 모든 화면 맨 위 한 줄 (React의 NavBar): 왼쪽 홈 링크, 오른쪽 로그인 상태에 따른 메뉴.
-// 쪽지 개수(안 읽은 수)는 이번 단계에 없다: 숫자 없이 "쪽지"만 보이고 unread API도 부르지 않는다.
+// 쪽지 옆 숫자는 안 읽은 쪽지 수(UnreadStore)다. 비로그인이면 보관소가 0이고 API도 부르지 않는다.
 class NavBar extends StatefulWidget {
   const NavBar({super.key});
 
@@ -41,6 +42,7 @@ class _NavBarState extends State<NavBar> {
   Widget build(BuildContext context) {
     final user = context.watch<AuthState>().user;
     final school = user?.verifiedSchool;
+    final unread = context.watch<UnreadStore>().count;
 
     // 메뉴 항목들 (React와 같은 순서·조건). 비자 후기·중고·나눔은 로그인과 무관하게 누구나 본다
     final menu = <Widget>[
@@ -52,7 +54,8 @@ class _NavBarState extends State<NavBar> {
         if (school != null) _VerifiedBadge(schoolName: school.name),
         // 비자 일정은 학교 인증 회원에게만 보인다
         if (school != null) AppLink(label: '비자 일정', onTap: () => context.go('/visa-plan')),
-        AppLink(label: '쪽지', onTap: () => context.go('/messages')),
+        // 안 읽은 쪽지가 있으면 "쪽지 (3)"처럼 개수를 붙인다 (99+ 줄임 없이 숫자 그대로, 0이면 숫자 없음)
+        AppLink(label: unread > 0 ? '쪽지 ($unread)' : '쪽지', onTap: () => context.go('/messages')),
         AppLink(label: '내 정보', onTap: () => context.go('/me')),
         // 관리자에게만 보이는 메뉴
         if (user.isAdmin) AppLink(label: '신고 관리', onTap: () => context.go('/admin/reports')),

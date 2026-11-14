@@ -11,6 +11,7 @@ import '../market/market_format.dart';
 import '../market/market_photo_gallery.dart';
 import '../market/market_status_badge.dart';
 import '../market/models.dart';
+import '../messages/seller_message_box.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_badge.dart';
 import '../widgets/confirm_dialog.dart';
@@ -275,7 +276,8 @@ class _MarketDetailPageState extends State<MarketDetailPage> {
           // 실패 안내는 버튼 영역 밖에 둔다(로그인이 풀려 버튼이 사라져도 안내가 남게)
           if (_actionError != null) Notice(kind: NoticeKind.error, message: _actionError!),
           if (_needLogin) const ReloginNotice(),
-          // S16-l1: 여기에 "판매자에게 쪽지" 칸(SellerMessageBox)이 들어온다
+          // 판매자에게 쪽지 칸 (내 글·보낼 수 없는 사람이면 이유 한 줄). key=글 id라 다른 글로 가면 새로 만들어진다
+          if (item != null) SellerMessageBox(key: ValueKey(item.id), item: item),
           Align(
             alignment: Alignment.centerLeft,
             child: OutlinedButton(

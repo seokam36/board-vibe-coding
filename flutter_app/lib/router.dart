@@ -2,12 +2,17 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart' show ValueKey;
 
 import 'auth/auth_state.dart';
+import 'pages/admin_conversation_page.dart';
+import 'pages/admin_reports_page.dart';
+import 'pages/conversation_page.dart';
 import 'pages/login_page.dart';
 import 'pages/market_detail_page.dart';
+import 'pages/market_create_page.dart';
+import 'pages/market_edit_page.dart';
 import 'pages/market_list_page.dart';
+import 'pages/message_list_page.dart';
 import 'pages/my_page.dart';
 import 'pages/not_found_page.dart';
-import 'pages/placeholder_page.dart';
 import 'pages/post_create_page.dart';
 import 'pages/post_detail_page.dart';
 import 'pages/post_edit_page.dart';
@@ -20,17 +25,6 @@ import 'pages/visa_review_list_page.dart';
 import 'pages/visa_plan_page.dart';
 import 'pages/visa_review_stats_page.dart';
 import 'widgets/app_shell.dart';
-
-// 주소 하나를 "화면 이름"과 묶는 짧은 도우미. id가 있는 주소(:id)면 id를 글자 그대로 넘긴다.
-GoRoute _route(String path, String name) {
-  return GoRoute(
-    path: path,
-    // React Router처럼 대소문자를 가리지 않는다(/Login도 로그인). go_router 기본값은 가림.
-    caseSensitive: false,
-    builder: (context, state) =>
-        PlaceholderPage(name: name, id: state.pathParameters['id']),
-  );
-}
 
 // 경로 비교용 정리: 소문자로 바꾸고 끝의 / 를 뗀다.
 // 라우트가 대소문자를 가리지 않으므로(/Me 도 /me), 문지기 검사와 "로그인이 풀린 경로" 기록·비교가
@@ -136,8 +130,21 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
             caseSensitive: false,
             builder: (context, state) => const MyPage(), // S16-g1: 진짜 내 정보 화면
           ),
-          _route('/admin/reports', '신고 관리'),
-          _route('/admin/reports/:id/conversation', '신고된 대화 보기'),
+          // S16-m: 관리자 신고 관리·신고된 대화 보기는 진짜 화면. 탭의 진짜 값은 주소 쿼리(?status)
+          GoRoute(
+            path: '/admin/reports',
+            caseSensitive: false,
+            builder: (context, state) => AdminReportsPage(status: state.uri.queryParameters['status'] ?? ''),
+          ),
+          GoRoute(
+            path: '/admin/reports/:id/conversation',
+            caseSensitive: false,
+            // 신고 번호가 바뀌면 상태를 새로 만들도록 key를 id로 준다
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return AdminConversationPage(key: ValueKey(id), id: id);
+            },
+          ),
           // S16-h1: 비자 후기 목록·통계·상세는 진짜 화면. 필터의 진짜 값은 주소 쿼리
           GoRoute(
             path: '/visa-reviews',
@@ -197,7 +204,12 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
               q: state.uri.queryParameters['q'] ?? '',
             ),
           ),
-          _route('/market/new', '중고·나눔 쓰기'),
+          // S16-k1: 중고·나눔 쓰기는 진짜 화면 (/market/:id 보다 먼저 와야 "new"가 id로 읽히지 않는다)
+          GoRoute(
+            path: '/market/new',
+            caseSensitive: false,
+            builder: (context, state) => const MarketCreatePage(),
+          ),
           // S16-j2: 중고·나눔 상세는 진짜 화면. id가 바뀌면 상태를 새로 만들도록 key를 id로 준다.
           // extra(int)는 글쓰기에서 넘어온 "못 올린 사진 수" (그 밖의 모양은 없는 것으로 본다)
           GoRoute(
@@ -209,9 +221,29 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
               return MarketDetailPage(key: ValueKey(id), id: id, photoFailed: extra is int ? extra : null);
             },
           ),
-          _route('/market/:id/edit', '중고·나눔 수정'),
-          _route('/messages', '쪽지함'),
-          _route('/messages/:id', '대화'),
+          // S16-k1: 중고·나눔 수정은 진짜 화면. id가 바뀌면 입력 상태를 새로 만들도록 key를 id로 준다
+          GoRoute(
+            path: '/market/:id/edit',
+            caseSensitive: false,
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return MarketEditPage(key: ValueKey(id), id: id);
+            },
+          ),
+          // S16-l1: 쪽지함·대화는 진짜 화면. 대화는 id가 바뀌면(기록으로 건너뛰면) 새로 만들도록 key를 id로 준다
+          GoRoute(
+            path: '/messages',
+            caseSensitive: false,
+            builder: (context, state) => const MessageListPage(),
+          ),
+          GoRoute(
+            path: '/messages/:id',
+            caseSensitive: false,
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return ConversationPage(key: ValueKey(id), id: id);
+            },
+          ),
         ],
       ),
     ],

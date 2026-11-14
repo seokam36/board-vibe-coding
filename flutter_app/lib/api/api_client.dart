@@ -59,6 +59,8 @@ class ApiClient {
   static const _xsrfCookie = 'XSRF-TOKEN';
   static const _xsrfHeader = 'X-XSRF-TOKEN';
   static const _retryKey = 'retried'; // 재시도 표시: 이미 한 번 다시 보낸 요청이라는 뜻
+  // 요청 extra에 FormData 생성 함수(FormData Function())를 넣을 때 쓰는 이름. 401 재시도 때 본문을 새로 만든다
+  static const formDataFactoryKey = 'formDataFactory';
 
   // 재발급 대상에서 빼는 주소들. 이 주소의 401은 "재발급으로 해결될 문제"가 아니기 때문이다.
   // (refresh 자체가 401이면 무한 반복, login/signup 401은 아이디·비밀번호 오류, logout은 이미 로그아웃 상태)
@@ -102,6 +104,10 @@ class ApiClient {
     original.extra[_retryKey] = true;
     _refreshOnce().then(
       (_) {
+        // 파일 올리기(FormData)는 한 번 보내면 내용이 소진돼 다시 못 쓴다.
+        // 그래서 호출한 쪽이 extra에 "FormData를 새로 만드는 함수"를 넣어 두면 다시 보내기 직전에 새로 만들어 바꿔 끼운다
+        final factory = original.extra[formDataFactoryKey];
+        if (factory is FormData Function()) original.data = factory();
         // 새 쿠키가 생겼으니 원래 요청을 다시 보낸다 (성공하면 그 응답이 호출한 쪽에 간다)
         dio.fetch<dynamic>(original).then(
           handler.resolve,

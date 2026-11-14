@@ -36,17 +36,17 @@ void main() {
     ('/posts/new', '글쓰기'),
     ('/posts/7/edit', '글 수정'), // S16-e2: 진짜 글 수정 화면이 되어 제목 글자로 확인한다 (id는 아래 별도 테스트)
     ('/me', '학교 인증'), // S16-g1: 진짜 내 정보 화면이 되어 "학교 인증" 제목 글자로 확인한다 (상단바 "내 정보"와 겹치지 않게)
-    ('/admin/reports', '신고 관리'),
-    ('/admin/reports/7/conversation', '신고된 대화 보기 (id: 7)'),
+    // S16-m: 관리자 화면 둘은 진짜 화면이 되었다. 이 파일은 일반 회원으로 띄우므로 "관리자만" 안내로 연결을 확인한다
+    // (관리자일 때의 동작은 admin_reports_page_test.dart·admin_conversation_page_test.dart가 맡는다)
+    ('/admin/reports', '관리자만 볼 수 있습니다'),
+    ('/admin/reports/7/conversation', '관리자만 볼 수 있습니다'),
     // S16-h1: /visa-reviews·/visa-reviews/stats·/visa-reviews/:id 는 진짜 화면이 되어 아래 별도 테스트로 옮겼다
     // S16-h2: /visa-reviews/new·/visa-reviews/:id/edit 는 진짜 화면이 되어 아래 별도 테스트로 옮겼다
     // S16-i1: /visa-plan 은 진짜 화면이 되어 visa_plan_page_test.dart 로 옮겼다
     // S16-j1: /market 은 진짜 화면이 되어 market_list_page_test.dart 로 옮겼다
-    ('/market/new', '중고·나눔 쓰기'),
     // S16-j2: /market/:id 는 진짜 화면이 되어 market_detail_page_test.dart 로 옮겼다
-    ('/market/7/edit', '중고·나눔 수정 (id: 7)'),
-    ('/messages', '쪽지함'),
-    ('/messages/7', '대화 (id: 7)'),
+    // S16-k1: /market/new·/market/:id/edit 는 진짜 화면이 되어 market_write_pages_test.dart 로 옮겼다 (겹침 확인은 아래 fixedPages)
+    // S16-l1: /messages·/messages/:id 는 진짜 화면이 되어 message_pages_test.dart 로 옮겼다
   ];
   for (final (path, label) in pages) {
     testWidgets('주소 $path 로 시작하면 "$label" 화면이 보이고 404는 안 보인다', (tester) async {
@@ -58,10 +58,9 @@ void main() {
 
   // 완료 조건 2: id 화면 8개가 주소의 id를 그대로 보여 준다(화면마다 다른 숫자로 섞임 확인)
   const idPages = <(String, String, String)>[
-    ('/admin/reports/103/conversation', '신고된 대화 보기', '103'),
+    // S16-m: /admin/reports/:id/conversation 은 진짜 화면이 되어 id 확인도 admin_conversation_page_test.dart가 맡는다
     // S16-j2: /market/:id 는 진짜 화면이 되어 id 확인도 market_detail_page_test.dart 가 맡는다
-    ('/market/107/edit', '중고·나눔 수정', '107'),
-    ('/messages/108', '대화', '108'),
+    // S16-l1: /messages/:id 의 id 확인도 message_pages_test.dart 가 맡는다
   ];
   for (final (path, name, id) in idPages) {
     testWidgets('$name 화면은 주소 $path 의 id $id 를 그대로 보여 준다', (tester) async {
@@ -159,7 +158,7 @@ void main() {
   const fixedPages = <(String, String)>[
     ('/posts/new', '글쓰기'),
     ('/visa-reviews/new', '비자 후기 쓰기'),
-    ('/market/new', '중고·나눔 쓰기'),
+    ('/market/new', '중고·나눔 글쓰기'), // S16-k1: 진짜 화면 (미인증 로그인 사용자라 안내만 보인다)
   ];
   for (final (path, label) in fixedPages) {
     testWidgets('겹치는 주소 $path 는 "$label" 이고 id로 잘못 잡히지 않는다', (tester) async {

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'api/api_client.dart';
 import 'auth/auth_state.dart';
+import 'messages/unread_store.dart';
 import 'router.dart';
 import 'site_name.dart';
 import 'theme/app_theme.dart';
@@ -53,6 +54,7 @@ class _BoardAppState extends State<BoardApp> {
   // 내 비자 일정 보관소: 로그인 상태(AuthState)를 구독해, 학교 인증 회원일 때만 일정을 한 번 불러온다
   late final VisaPlanStore _visaPlan;
   final VisaBannerState _visaBanner = VisaBannerState();
+  late final UnreadStore _unread;
 
   @override
   void initState() {
@@ -61,11 +63,25 @@ class _BoardAppState extends State<BoardApp> {
     if (widget.authState == null) _auth.init();
     // 첫 화면을 그리기 전에 만들어 둔다 (이미 로그인한 AuthState가 들어오면 여기서 바로 일정 요청을 시작)
     _visaPlan = VisaPlanStore(auth: _auth, now: widget.now);
+    // 안 읽은 쪽지 수 보관소: 로그인 회원이 바뀔 때, 그리고 화면 경로가 바뀔 때마다 숫자를 다시 받는다
+    _unread = UnreadStore(auth: _auth);
+    _router.routerDelegate.addListener(_onRouteChanged);
+    _onRouteChanged(); // 지금 경로를 기억해 둔다 (첫 경로는 새로 받는 계기가 아니다)
+  }
+
+  // 라우터가 주소를 확정할 때마다 불린다. 경로(쿼리 뺀 주소)를 보관소에 알려 주면 이전과 다를 때만 다시 받는다.
+  // (GoRouterState.of를 build에서 쓰면 무한 반복 문제가 있어, 위젯이 아니라 라우터에 리스너를 단다)
+  void _onRouteChanged() {
+    final path = _router.routerDelegate.currentConfiguration.uri.path;
+    if (path.isEmpty) return; // 아직 첫 주소가 안 정해진 상태
+    _unread.onPathChanged(path);
   }
 
   @override
   void dispose() {
     // 우리가 만든 것만 정리한다 (밖에서 넣어 준 건 넣은 쪽이 정리)
+    _router.routerDelegate.removeListener(_onRouteChanged);
+    _unread.dispose();
     _router.dispose(); // 로그인 상태 구독을 먼저 끊고
     _visaBanner.dispose();
     _visaPlan.dispose(); // 보관소도 로그인 상태 구독을 끊는다 (AuthState보다 먼저)
@@ -80,6 +96,7 @@ class _BoardAppState extends State<BoardApp> {
         Provider<ApiClient>.value(value: _api),
         ChangeNotifierProvider<AuthState>.value(value: _auth),
         ChangeNotifierProvider<VisaPlanStore>.value(value: _visaPlan),
+        ChangeNotifierProvider<UnreadStore>.value(value: _unread), // 상단바 "쪽지 (n)"
         // 이번 화면에서 닫은 비자 띠 (화면을 옮겨도 유지)
         ChangeNotifierProvider<VisaBannerState>.value(value: _visaBanner),
       ],

@@ -97,15 +97,27 @@ void main() {
       semantics.dispose();
     });
 
-    testWidgets('쪽지는 숫자 없이 "쪽지"만 보이고, 안 읽은 쪽지 API는 한 번도 부르지 않는다', (tester) async {
-      final app = await pumpApp(tester, user: userJson());
+    testWidgets('쪽지: 안 읽은 수가 0이면 숫자 없이 "쪽지"만 보이고, 로그인 상태라 unread-count를 부른다', (tester) async {
+      // S16-l2: 상단바가 안 읽은 수를 붙인다(0이면 숫자 없음). 시작 때 한 번, 화면을 옮기면(글 목록 → 쪽지함) 또 한 번 부른다
+      final adapter = FakeAdapter()
+        ..on('GET', '/conversations/unread-count', FakeReply(200, {'count': 0}))
+        ..on('GET', '/conversations/unread-count', FakeReply(200, {'count': 0}));
+      final app = await pumpApp(tester, user: userJson(), adapter: adapter);
       await tester.tap(find.text('쪽지'));
       await tester.pumpAndSettle();
       expect(find.text('쪽지'), findsOneWidget);
       expect(find.textContaining('쪽지 ('), findsNothing);
-      // S16-e1: 시작 화면이 글 목록이라 목록 요청(/schools·/categories·/posts)은 간다. 그 밖의 요청(unread 포함)은 없다
-      const listPaths = {'/api/schools', '/api/categories', '/api/posts'};
+      // S16-e1: 시작 화면이 글 목록이라 목록 요청(/schools·/categories·/posts)은 간다. S16-l1: 쪽지함(/conversations)도 한 번.
+      // S16-l2: 안 읽은 수(/conversations/unread-count)가 더해진다. 그 밖의 요청은 없다
+      const listPaths = {
+        '/api/schools',
+        '/api/categories',
+        '/api/posts',
+        '/api/conversations',
+        '/api/conversations/unread-count',
+      };
       expect(app.adapter.calls.where((c) => !listPaths.contains(c.path)), isEmpty);
+      expect(app.adapter.count('GET', '/conversations/unread-count'), 2);
     });
   });
 

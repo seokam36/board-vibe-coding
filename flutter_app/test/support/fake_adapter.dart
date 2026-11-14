@@ -20,6 +20,13 @@ class FakeReply {
       gate = null,
       error = DioExceptionType.connectionError;
 
+  // 제한 시간 초과 (응답 없음). 사진 올리기의 시간 초과 문구 시험용
+  FakeReply.timeout()
+    : status = 0,
+      body = null,
+      gate = null,
+      error = DioExceptionType.receiveTimeout;
+
   final int status;
   final Object? body; // JSON으로 바꿔서 보낼 값
   final Completer<void>? gate; // 있으면 이게 완료될 때까지 응답을 붙잡아 둔다 (요청을 겹치게 만들 때)
