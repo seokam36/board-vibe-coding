@@ -111,11 +111,15 @@ test('q가 있을 때 400이면 검색어 50자 안내 문구가 보인다', asy
 
 test('Enter로 검색한 뒤에도 입력칸이 포커스를 유지한다', async ({ page, api }) => {
   api.override({ 'GET /market-items': { status: 200, body: [makeItem()] } })
+  const calls = recordList(page)
   await page.goto('/market')
   const input = page.getByLabel('제목 검색어')
   await input.fill('자전거')
   await input.press('Enter')
   await expect.poll(() => new URL(page.url()).searchParams.get('q')).toBe('자전거')
+  // 주소가 바뀐 뒤 화면이 새 q로 다시 그려질 때까지(=q로 목록을 다시 부를 때까지) 기다린다.
+  // 그 전에 타이핑하면 늦게 그려진 화면이 입력칸을 주소 값으로 덮어써 글자가 사라진다(느린 CI에서 실패, 2026-11-14)
+  await expect.poll(() => lastParam(calls, 'q')).toBe('자전거')
   await expect(input).toHaveValue('자전거')
   await expect(input).toBeFocused()
   // 이어서 바로 타이핑해도 입력칸에 들어간다
@@ -135,11 +139,15 @@ test('[검색] 버튼을 클릭한 뒤 입력칸 값이 주소 q와 맞다', asy
 
 test('뒤로 가기를 하면 입력칸이 주소의 q와 맞는다', async ({ page, api }) => {
   api.override({ 'GET /market-items': { status: 200, body: [makeItem()] } })
+  const calls = recordList(page)
   await page.goto('/market?q=자전거')
   await expect(page.getByLabel('제목 검색어')).toHaveValue('자전거')
   await page.getByLabel('제목 검색어').fill('노트북')
   await page.getByRole('button', { name: '검색' }).click()
   await expect.poll(() => new URL(page.url()).searchParams.get('q')).toBe('노트북')
+  // 화면이 "노트북"으로 실제 다시 그려진 뒤(=q=노트북으로 목록을 부른 뒤)에 뒤로 간다.
+  // 주소만 보고 바로 뒤로 가면 그 화면 전환이 끝나기 전이라 입력칸에 노트북이 남는다(느린 CI에서 실패, 2026-11-14)
+  await expect.poll(() => lastParam(calls, 'q')).toBe('노트북')
   await expect(page.getByLabel('제목 검색어')).toHaveValue('노트북')
   await page.goBack()
   await expect.poll(() => new URL(page.url()).searchParams.get('q')).toBe('자전거')

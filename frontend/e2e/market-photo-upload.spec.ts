@@ -603,12 +603,16 @@ test('글쓰기: 사진 실패 안내는 다른 화면에 갔다가 뒤로·앞�
 
   await page.getByRole('link', { name: '중고·나눔', exact: true }).click() // 앱 안에서 다른 화면으로
   await expect(page).toHaveURL(/\/market$/)
+  // 주소는 클릭 즉시 바뀌지만 화면은 조금 뒤에 그려진다. 목록이 실제로 그려진 것(=상세가 내려간 것)을 보고 뒤로 간다.
+  // (주소만 보고 바로 뒤로 가면 느린 컴퓨터에서 상세가 한 번도 안 내려가 안내가 남는다. 2026-11-14 CI에서 실제로 실패)
+  await expect(page.getByText('아직 올라온 글이 없습니다')).toBeVisible()
   await page.goBack() // 상세로 돌아옴
   await expect(page).toHaveURL(/\/market\/7$/)
   await expect(page.getByRole('heading', { name: '가짜 자전거' })).toBeVisible()
   await expect(page.getByRole('alert')).toHaveCount(0)
   await page.goForward()
   await expect(page).toHaveURL(/\/market$/)
+  await expect(page.getByText('아직 올라온 글이 없습니다')).toBeVisible() // 위와 같은 이유
   await page.goBack()
   await expect(page.getByRole('heading', { name: '가짜 자전거' })).toBeVisible()
   await expect(page.getByRole('alert')).toHaveCount(0)
