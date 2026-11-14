@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:board_web/common/format_date.dart';
 import 'package:board_web/widgets/notice.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -311,6 +312,25 @@ void main() {
       await tester.tap(_receivedField);
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+    });
+
+    _test('키보드: 칸에 포커스를 두고 Enter나 Space를 누르면 달력이 열린다', (tester) async {
+      await pumpApp(tester, location: _path, user: _verified(), adapter: _adapter());
+      final focus = tester.widget<EditableText>(find.descendant(of: _receivedField, matching: find.byType(EditableText))).focusNode;
+      focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.byType(DatePickerDialog), findsOneWidget);
+      await tester.tap(find.text('취소'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DatePickerDialog), findsNothing);
+
+      focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pumpAndSettle();
+      expect(find.byType(DatePickerDialog), findsOneWidget);
     });
 
     _test('[취소]하면 칸은 그대로다', (tester) async {

@@ -281,8 +281,9 @@ class _MarketListPageState extends State<MarketListPage> {
                                 // UTF-16 길이로 제한한다 (React maxLength와 같은 단위)
                                 inputFormatters: const [Utf16LengthFormatter(_maxSearchLength)],
                                 textInputAction: TextInputAction.search,
-                                // onEditingComplete를 주면 Enter 뒤에 포커스를 자동으로 잃지 않는다
-                                onEditingComplete: () {},
+                                // onEditingComplete를 주면 기본 동작(조합 확정 + 포커스 해제)을 대신한다.
+                                // 포커스는 남기되, 한글 조합 중인 마지막 글자가 빠지지 않게 조합은 직접 확정한다
+                                onEditingComplete: _search.clearComposing,
                                 onSubmitted: (_) => _submitSearch(),
                               ),
                             ),
@@ -315,7 +316,7 @@ class _MarketListPageState extends State<MarketListPage> {
                     style: const TextStyle(color: AppColors.muted),
                   ),
                 ),
-              for (var i = 0; i < items.length; i++) _MarketRow(item: items[i], first: i == 0),
+              for (var i = 0; i < items.length; i++) _MarketRow(key: ValueKey(items[i].id), item: items[i], first: i == 0),
             ],
           ),
         ],
@@ -326,7 +327,7 @@ class _MarketListPageState extends State<MarketListPage> {
 
 // 글 한 줄: 왼쪽 72px 썸네일 + 오른쪽 (상태 뱃지, 제목 링크 / 가격·학교·작성일). 작성자는 목록에 없다
 class _MarketRow extends StatelessWidget {
-  const _MarketRow({required this.item, required this.first});
+  const _MarketRow({super.key, required this.item, required this.first});
 
   final MarketListItem item;
   final bool first;

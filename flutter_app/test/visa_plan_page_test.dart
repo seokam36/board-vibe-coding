@@ -8,6 +8,7 @@ import 'package:board_web/common/external_link.dart';
 import 'package:board_web/router.dart' show normalizePath;
 import 'package:board_web/theme/app_colors.dart';
 import 'package:board_web/widgets/notice.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -627,6 +628,26 @@ void main() {
       await tester.tap(find.text('확인'));
       await tester.pumpAndSettle();
       expect(fieldText(tester), '2026-11-25');
+    });
+
+    test('키보드: 칸에 포커스를 두고 Enter나 Space를 누르면 달력이 열리고, "오늘" 표시는 서울 오늘이다', (tester) async {
+      await pumpWithPlan(tester, emptyPlanJson);
+      final focus = tester.widget<EditableText>(find.descendant(of: _field, matching: find.byType(EditableText))).focusNode;
+      focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      final dialog = tester.widget<DatePickerDialog>(find.byType(DatePickerDialog));
+      expect(dialog.currentDate, DateTime(2026, 11, 10));
+      await tester.tap(find.text('취소'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DatePickerDialog), findsNothing);
+
+      focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pumpAndSettle();
+      expect(find.byType(DatePickerDialog), findsOneWidget);
     });
 
     test('달력에서 [취소]하면 칸이 바뀌지 않는다', (tester) async {

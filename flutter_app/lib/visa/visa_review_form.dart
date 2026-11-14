@@ -5,6 +5,7 @@ import '../common/format_date.dart';
 import '../common/utf16_length_formatter.dart';
 import '../errors/error_messages.dart';
 import '../theme/app_colors.dart';
+import '../widgets/activate_on_key.dart';
 import '../widgets/app_badge.dart';
 import '../widgets/notice.dart';
 import '../widgets/panel.dart';
@@ -290,6 +291,7 @@ class _DateField extends StatelessWidget {
       initialDate: initial,
       firstDate: _firstDate,
       lastDate: lastDate,
+      currentDate: lastDate, // "오늘" 표시는 기기 시간대가 아니라 서울 오늘 기준 (lastDate가 곧 서울 오늘)
       initialEntryMode: DatePickerEntryMode.calendar, // 입력 모드 전환 버튼이 있어 직접 쓸 수도 있다
       helpText: label,
       cancelText: '취소',
@@ -316,16 +318,20 @@ class _DateField extends StatelessWidget {
           const SizedBox(height: AppSizes.space1),
           Semantics(
             label: label,
-            child: TextField(
-              key: fieldKey,
-              controller: controller,
-              readOnly: true,
-              showCursor: false,
-              enableInteractiveSelection: false,
-              onTap: () => _pick(context),
-              decoration: const InputDecoration(
-                hintText: 'yyyy-MM-dd',
-                hintStyle: TextStyle(color: AppColors.muted),
+            // Tab으로 포커스한 뒤 Enter·Space로도 달력이 열린다 (키보드 사용자용)
+            child: ActivateOnKey(
+              onActivate: () => _pick(context),
+              child: TextField(
+                key: fieldKey,
+                controller: controller,
+                readOnly: true,
+                showCursor: false,
+                enableInteractiveSelection: false,
+                onTap: () => _pick(context),
+                decoration: const InputDecoration(
+                  hintText: 'yyyy-MM-dd',
+                  hintStyle: TextStyle(color: AppColors.muted),
+                ),
               ),
             ),
           ),

@@ -14,6 +14,7 @@ import '../visa/visa_banner_text.dart';
 import '../visa/visa_disclaimer.dart' show hikoreaUrl;
 import '../visa/visa_plan.dart';
 import '../visa/visa_plan_store.dart';
+import '../widgets/activate_on_key.dart';
 import '../widgets/app_link.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/loading.dart';
@@ -467,6 +468,7 @@ class _PlanDateField extends StatelessWidget {
       initialDate: initial,
       firstDate: first,
       lastDate: last,
+      currentDate: first, // "오늘" 표시는 기기 시간대가 아니라 서울 오늘 기준 (first가 곧 서울 오늘)
       initialEntryMode: DatePickerEntryMode.calendar,
       helpText: _label,
       cancelText: '취소',
@@ -493,16 +495,20 @@ class _PlanDateField extends StatelessWidget {
           const SizedBox(height: AppSizes.space1),
           Semantics(
             label: _label,
-            child: TextField(
-              key: const ValueKey('visa-expiry-field'),
-              controller: controller,
-              readOnly: true,
-              showCursor: false,
-              enableInteractiveSelection: false,
-              onTap: () => _pick(context),
-              decoration: const InputDecoration(
-                hintText: 'yyyy-MM-dd',
-                hintStyle: TextStyle(color: AppColors.muted),
+            // Tab으로 포커스한 뒤 Enter·Space로도 달력이 열린다 (키보드 사용자용)
+            child: ActivateOnKey(
+              onActivate: () => _pick(context),
+              child: TextField(
+                key: const ValueKey('visa-expiry-field'),
+                controller: controller,
+                readOnly: true,
+                showCursor: false,
+                enableInteractiveSelection: false,
+                onTap: () => _pick(context),
+                decoration: const InputDecoration(
+                  hintText: 'yyyy-MM-dd',
+                  hintStyle: TextStyle(color: AppColors.muted),
+                ),
               ),
             ),
           ),

@@ -141,6 +141,16 @@ void main() {
       expect(_inputText(tester), '책');
     });
 
+    testWidgets('입력칸에 쓰다 만 글자가 있어도 드롭다운만 바꾸면 글자는 남고 주소의 q는 옛 값 그대로다', (tester) async {
+      final adapter = marketAdapter([FakeReply(200, []), FakeReply(200, [])]);
+      final app = await pumpApp(tester, location: '/market?q=%EC%B1%85', adapter: adapter);
+      await tester.enterText(_searchField, '쓰다만'); // 제출하지 않은 글자
+      await _pick(tester, _statusSelect, '판매중');
+      expect(_inputText(tester), '쓰다만');
+      expect(_uri(app), '/market?q=%EC%B1%85&status=ON_SALE');
+      expect(_lastQuery(adapter), {'q': '책', 'status': 'ON_SALE'});
+    });
+
     testWidgets('주소가 직접 바뀌어도(뒤로 가기 등) 다시 요청하고 드롭다운이 따라간다', (tester) async {
       final adapter = marketAdapter([FakeReply(200, []), FakeReply(200, [])]);
       final app = await pumpApp(tester, location: '/market', adapter: adapter);
@@ -277,6 +287,25 @@ void main() {
       expect(_inputText(tester), '자전거');
     });
 
+    testWidgets('한글 조합 중에 Enter를 눌러도 조합이 확정되어 요청 q가 전체 글자다 (포커스는 남는다)', (tester) async {
+      final adapter = marketAdapter([FakeReply(200, []), FakeReply(200, [])]);
+      await pumpApp(tester, location: '/market', adapter: adapter);
+      await tester.enterText(_searchField, '자전');
+      // 마지막 글자 "거"가 아직 조합 중인 상태를 만든다 (composing 범위가 있다)
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(text: '자전거', selection: TextSelection.collapsed(offset: 3), composing: TextRange(start: 2, end: 3)),
+      );
+      await tester.pump();
+      final controller = tester.widget<TextField>(_searchField).controller!;
+      expect(controller.value.composing, const TextRange(start: 2, end: 3));
+
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      expect(controller.value.composing, TextRange.empty); // 조합이 확정됐다
+      expect(_lastQuery(adapter), {'q': '자전거'});
+      expect(_searchFocused(tester), isTrue);
+    });
+
     testWidgets('검색어는 UTF-16 50칸까지만 입력된다 (이모지는 2칸)', (tester) async {
       await pumpApp(tester, location: '/market', adapter: marketAdapter([FakeReply(200, [])]));
       await tester.enterText(_searchField, 'a' * 60);
@@ -402,6 +431,10 @@ void main() {
       expect(formatPrice('SALE', 5000), '5,000원');
       expect(formatPrice('SALE', 123456), '123,456원');
       expect(formatPrice('SALE', 10000000), '10,000,000원');
+      // 서버가 안 보내는 값이지만 표기가 깨지지 않는다 (0, 음수)
+      expect(formatPrice('SALE', 0), '0원');
+      expect(formatPrice('SALE', -500), '-500원');
+      expect(formatPrice('SALE', -5000), '-5,000원');
     });
 
     test('사진 주소: 같은 출처 /api 경로, 썸네일이면 ?size=thumb', () {
@@ -460,6 +493,20 @@ void main() {
       expect(box, const Size(72, 72));
       expect(tester.takeException(), isNull);
       handle.dispose();
+    });
+
+    testWidgets('사진이 깨진 뒤 다른 사진으로 바뀌면 깨짐 표시가 지워져 새 사진을 다시 그린다', (tester) async {
+      MarketListItem item(int photoId) =>
+          MarketListItem.fromJson(marketItemJson(id: 5, title: '의자', coverPhoto: coverJson(id: photoId)));
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: MarketThumb(item: item(9)))));
+      await tester.pumpAndSettle(); // 테스트에선 사진 요청이 실패 → 빈칸
+      expect(find.byType(Image), findsNothing);
+
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: MarketThumb(item: item(10)))));
+      expect(find.byType(Image), findsOneWidget); // 새 사진은 처음부터 다시 시도한다
+      final image = tester.widget<Image>(find.byType(Image));
+      expect((image.image as NetworkImage).url, '/api/market-items/5/photos/10?size=thumb');
+      await tester.pumpAndSettle();
     });
 
     testWidgets('대표 사진이 없으면 72x72 회색 빈칸이고 Image도 이름도 없다', (tester) async {

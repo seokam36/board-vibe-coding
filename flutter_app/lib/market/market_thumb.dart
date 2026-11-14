@@ -21,6 +21,13 @@ class _MarketThumbState extends State<MarketThumb> {
   // 사진 파일이 깨졌을 때(errorBuilder) true. 빈칸으로 바꾸고 "대표 사진" 이름도 함께 뺀다 (React의 broken)
   bool _broken = false;
 
+  @override
+  void didUpdateWidget(MarketThumb old) {
+    super.didUpdateWidget(old);
+    // 다른 사진으로 바뀌면 "깨짐" 표시를 지운다 (옛 사진의 실패가 새 사진에 남지 않게)
+    if (old.item.coverPhoto?.id != widget.item.coverPhoto?.id) _broken = false;
+  }
+
   Widget get _empty => const ExcludeSemantics(
         child: SizedBox(
           width: MarketThumb.size,

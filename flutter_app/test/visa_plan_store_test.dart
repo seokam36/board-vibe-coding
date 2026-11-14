@@ -277,6 +277,19 @@ void main() {
       expect(store2.plan, isNull);
     });
 
+    test('GET이 날아가는 중에 setPlan이 오면 늦게 온 GET 응답이 저장한 값을 덮지 않는다', () async {
+      final gate = Completer<void>();
+      final adapter = FakeAdapter()..on('GET', _path, FakeReply(200, planJson(), gate)); // 옛 값(111일)
+      final store = _store(LoadedAuthState(adapter: adapter, user: _verified()));
+      await pumpEventQueue();
+      expect(store.status, VisaPlanStatus.loading);
+      store.setPlan(VisaPlan.empty); // 저장·삭제 직후의 더 새 값
+      gate.complete(); // 옛 응답이 이제 도착
+      await pumpEventQueue();
+      expect(store.status, VisaPlanStatus.ready);
+      expect(store.plan!.hasPlan, isFalse); // 옛 응답으로 되돌아가지 않았다
+    });
+
     test('바뀔 때마다 구독자에게 알린다', () async {
       final adapter = FakeAdapter()..on('GET', _path, FakeReply(200, planJson()));
       final store = _store(LoadedAuthState(adapter: adapter, user: _verified()));

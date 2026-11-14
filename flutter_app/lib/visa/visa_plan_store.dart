@@ -30,6 +30,7 @@ class VisaPlanStore extends ChangeNotifier {
   bool _needLogin = false;
   String? _loadedDay;
   int? _inFlight; // 지금 요청 중인 회원 (같은 요청을 두 번 보내지 않으려고)
+  int _gen = 0; // 세대 번호: GET 시작·setPlan마다 올라간다
   bool _disposed = false;
 
   VisaPlanStatus get status => _status;
@@ -74,14 +75,16 @@ class VisaPlanStore extends ChangeNotifier {
   Future<void> _load(int id) async {
     if (_inFlight == id) return;
     _inFlight = id;
+    final gen = ++_gen; // 이 요청의 세대 번호. 그사이 setPlan이 오면 번호가 달라져 늦은 응답을 버린다
     // 상태를 바꾸기 전에 "요청 중" 표시부터 지운다 (그 사이 reload가 와도 막히지 않게)
     void done() {
-      if (_inFlight == id) _inFlight = null;
+      if (_inFlight == id && _gen == gen) _inFlight = null;
     }
 
     try {
       final res = await _auth.api.dio.get<Map<String, dynamic>>('/users/me/visa-plan');
       done();
+      if (_gen != gen) return; // 요청 중에 저장·삭제 결과(setPlan)가 들어왔다: 더 새 값이므로 덮지 않는다
       _apply(id, () {
         _status = VisaPlanStatus.ready;
         _plan = VisaPlan.fromJson(res.data!);
@@ -89,6 +92,7 @@ class VisaPlanStore extends ChangeNotifier {
       });
     } catch (e) {
       done();
+      if (_gen != gen) return; // 실패 응답도 마찬가지로 더 새 값을 덮지 않는다
       final info = describeError(e, const {}, '일정을 불러오지 못했습니다');
       _apply(id, () {
         _status = VisaPlanStatus.failed;
@@ -111,6 +115,8 @@ class VisaPlanStore extends ChangeNotifier {
   // 저장·삭제 성공 뒤 화면 쪽에서 보관소를 바로 갱신한다 (띠도 같이 바뀐다). 대상이 아니면(로그인 풀림 등) 무시
   void setPlan(VisaPlan plan) {
     if (_userId == null) return;
+    _gen++; // 날아가는 중인 GET의 응답은 이 값보다 오래된 것이니 버리게 한다
+    _inFlight = null; // 이후 reload가 막히지 않게
     _status = VisaPlanStatus.ready;
     _plan = plan;
     _errorMessage = null;
