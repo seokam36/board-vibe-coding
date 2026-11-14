@@ -5,13 +5,18 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'support/loaded_auth.dart';
+
 const notFoundText = '페이지를 찾을 수 없습니다';
 
 // 시작 주소로 앱을 띄우는 도우미. 테스트마다 새 라우터를 만들고 끝나면 정리한다.
 Future<GoRouter> _start(WidgetTester tester, String location) async {
   final router = createRouter(initialLocation: location);
   addTearDown(router.dispose);
-  await tester.pumpWidget(BoardApp(router: router));
+  // 서버 확인(loading)이 끝난 상태의 가짜 로그인 상태를 넣어, 라우팅만 본다
+  final auth = LoadedAuthState();
+  addTearDown(auth.dispose);
+  await tester.pumpWidget(BoardApp(router: router, authState: auth));
   await tester.pumpAndSettle();
   return router;
 }

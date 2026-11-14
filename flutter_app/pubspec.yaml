@@ -39,6 +39,15 @@ dependencies:
   flutter_web_plugins:
     sdk: flutter
 
+  # 서버(백엔드) 호출용 HTTP 클라이언트 (React의 axios 역할)
+  dio: ^5.11.1
+
+  # 화면 어디서든 로그인 상태를 꺼내 쓰게 해 주는 공용 보관함 (React의 Context 역할)
+  provider: ^6.1.5+1
+
+  # 브라우저의 document.cookie를 읽으려고 필요 (XSRF-TOKEN 쿠키)
+  web: ^1.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
