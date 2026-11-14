@@ -25,6 +25,9 @@ class _BoardAppState extends State<BoardApp> {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+        // 모든 OS에서 같은 글꼴(번들한 IBM Plex Sans KR, pubspec에서 'Roboto' 이름으로 등록)을 쓰게 못 박는다.
+        // (안 적으면 맥·아이폰 브라우저는 테마 글꼴 이름이 달라져 엔진 기본값에 기대게 된다)
+        fontFamily: 'Roboto',
       ),
       routerConfig: _router,
     );

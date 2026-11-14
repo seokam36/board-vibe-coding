@@ -5,3 +5,6 @@
 !nginx.conf
 # 빌드 식별용 숨김 파일: 앱 동작에 필요 없으니 공개로 내보내지 않는다
 build/web/.last_build_id
+# 디버깅용 파일(크기만 크고 화면 동작에는 필요 없음)은 이미지에 넣지 않는다
+build/web/**/*.symbols
+build/web/**/*.map
