@@ -4,6 +4,7 @@ import 'auth/auth_state.dart';
 import 'pages/login_page.dart';
 import 'pages/not_found_page.dart';
 import 'pages/placeholder_page.dart';
+import 'pages/signup_page.dart';
 import 'widgets/app_shell.dart';
 
 // 주소 하나를 "화면 이름"과 묶는 짧은 도우미. id가 있는 주소(:id)면 id를 글자 그대로 넘긴다.
@@ -44,6 +45,7 @@ final _protectedPaths = <RegExp>[
 bool _isProtected(String normalizedPath) =>
     _protectedPaths.any((p) => p.hasMatch(normalizedPath));
 
+// 규칙: 화면 이동은 context.go만 쓴다(push로 쌓으면 pop이 redirect를 안 거쳐 문지기가 늦게 반응).
 // 시작 주소를 받아 라우터를 새로 만든다. (테스트마다 새 라우터가 필요해서 함수로 둠)
 // 순서 주의: /posts/new 같은 고정 주소를 /posts/:id 보다 먼저 적어야 "new"가 id로 잡히지 않는다.
 GoRouter createRouter({required AuthState authState, String initialLocation = '/'}) {
@@ -71,7 +73,11 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
         builder: (context, state, child) => AppShell(child: child),
         routes: [
           _route('/', '글 목록'),
-          _route('/signup', '회원가입'),
+          GoRoute(
+            path: '/signup',
+            caseSensitive: false,
+            builder: (context, state) => const SignupPage(),
+          ),
           GoRoute(
             path: '/login',
             caseSensitive: false,

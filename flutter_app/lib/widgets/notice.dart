@@ -9,10 +9,17 @@ enum NoticeKind { error, info, success }
 // info·success는 정중하게 알리는 상태(status)로 스크린리더에 알린다.
 // 글자만이면 message, 링크처럼 위젯이 섞이면 child를 쓴다.
 class Notice extends StatelessWidget {
-  const Notice({super.key, required this.kind, this.message, this.child})
-    : assert(message != null || child != null, 'message나 child 중 하나는 있어야 한다');
+  const Notice({
+    super.key,
+    required this.kind,
+    this.message,
+    this.child,
+    this.bottomMargin = AppSizes.space3,
+  }) : assert(message != null || child != null, 'message나 child 중 하나는 있어야 한다');
 
   final NoticeKind kind;
+  // 아래 여백 (기본 12). 상단바처럼 여백이 따로 필요 없는 곳은 0 (React의 .nav-notice .notice { margin: 0 })
+  final double bottomMargin;
   final String? message;
   final Widget? child;
 
@@ -32,7 +39,7 @@ class Notice extends StatelessWidget {
       role: isError ? SemanticsRole.alert : SemanticsRole.status,
       child: Container(
         width: double.infinity,
-        margin: const EdgeInsets.only(bottom: AppSizes.space3),
+        margin: EdgeInsets.only(bottom: bottomMargin),
         padding: const EdgeInsets.symmetric(
           horizontal: AppSizes.space3,
           vertical: AppSizes.space2,

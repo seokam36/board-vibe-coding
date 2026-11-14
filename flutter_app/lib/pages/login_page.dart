@@ -5,8 +5,8 @@ import 'package:provider/provider.dart';
 import '../auth/auth_state.dart';
 import '../errors/error_messages.dart';
 import '../theme/app_colors.dart';
+import '../widgets/auth_card.dart';
 import '../widgets/notice.dart';
-import '../widgets/page_frame.dart';
 
 // 로그인 화면 (React의 LoginPage). 클라이언트 검증은 없다: 빈 값도 서버로 보내고 서버의 400 문구를 보여 준다.
 class LoginPage extends StatefulWidget {
@@ -66,67 +66,54 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final notice = widget.notice;
-    return PageFrame(
-      // 카드: 최대 400 폭 가운데 (React의 panel auth-card)
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400),
-          child: Container(
-            margin: const EdgeInsets.only(top: AppSizes.space5),
-            padding: const EdgeInsets.all(AppSizes.space4),
-            decoration: BoxDecoration(
-              color: AppColors.paper,
-              border: Border.all(color: AppColors.line),
-              borderRadius: BorderRadius.circular(AppSizes.radiusPanel),
-            ),
-            child: AutofillGroup(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: AppSizes.space4),
-                    child: Text('로그인', style: Theme.of(context).textTheme.titleLarge),
-                  ),
-                  if (notice != null) Notice(kind: NoticeKind.info, message: notice),
-                  const Notice(kind: NoticeKind.info, message: 'HTTP라서 실제로 쓰는 비밀번호는 쓰지 마세요'),
-                  // 휴대폰이 첫 글자를 대문자로 바꾸면 로그인이 실패하므로 자동 대문자·맞춤법 검사를 끈다
-                  TextField(
-                    controller: _username,
-                    decoration: const InputDecoration(labelText: '아이디'),
-                    autofillHints: const [AutofillHints.username],
-                    textCapitalization: TextCapitalization.none,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    textInputAction: TextInputAction.next,
-                    onSubmitted: (_) => _submit(), // Enter로 제출
-                  ),
-                  const SizedBox(height: AppSizes.space4),
-                  TextField(
-                    controller: _password,
-                    decoration: const InputDecoration(labelText: '비밀번호'),
-                    obscureText: true,
-                    autofillHints: const [AutofillHints.password],
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _submit(),
-                  ),
-                  const SizedBox(height: AppSizes.space4),
-                  if (_error != null) Notice(kind: NoticeKind.error, message: _error),
-                  // 요청 중엔 버튼만 잠근다(입력칸은 그대로)
-                  FilledButton(
-                    onPressed: _saving ? null : _submit,
-                    child: Text(_saving ? '로그인 중...' : '로그인'),
-                  ),
-                  const SizedBox(height: AppSizes.space2),
-                  OutlinedButton(
-                    onPressed: () => context.go('/'),
-                    child: const Text('목록으로'),
-                  ),
-                ],
-              ),
-            ),
+    // 카드 틀(최대 400 폭 가운데)은 회원가입과 같이 쓰는 AuthCard
+    return AuthCard(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppSizes.space4),
+          // 제목은 스크린리더가 가장 큰 제목(React의 h1)으로 읽게 한다
+          child: Semantics(
+            header: true,
+            headingLevel: 1,
+            child: Text('로그인', style: Theme.of(context).textTheme.titleLarge),
           ),
         ),
-      ),
+        if (notice != null) Notice(kind: NoticeKind.info, message: notice),
+        const Notice(kind: NoticeKind.info, message: 'HTTP라서 실제로 쓰는 비밀번호는 쓰지 마세요'),
+        // 휴대폰이 첫 글자를 대문자로 바꾸면 로그인이 실패하므로 자동 대문자·맞춤법 검사를 끈다
+        TextField(
+          controller: _username,
+          decoration: const InputDecoration(labelText: '아이디'),
+          autofillHints: const [AutofillHints.username],
+          textCapitalization: TextCapitalization.none,
+          autocorrect: false,
+          enableSuggestions: false,
+          // Enter로 바로 제출하므로 키보드 버튼도 "이동(next)"이 아니라 "실행(go)"으로 맞춘다
+          textInputAction: TextInputAction.go,
+          onSubmitted: (_) => _submit(),
+        ),
+        const SizedBox(height: AppSizes.space4),
+        TextField(
+          controller: _password,
+          decoration: const InputDecoration(labelText: '비밀번호'),
+          obscureText: true,
+          autofillHints: const [AutofillHints.password],
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _submit(),
+        ),
+        const SizedBox(height: AppSizes.space4),
+        if (_error != null) Notice(kind: NoticeKind.error, message: _error),
+        // 요청 중엔 버튼만 잠근다(입력칸은 그대로)
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: Text(_saving ? '로그인 중...' : '로그인'),
+        ),
+        const SizedBox(height: AppSizes.space2),
+        OutlinedButton(
+          onPressed: () => context.go('/'),
+          child: const Text('목록으로'),
+        ),
+      ],
     );
   }
 }

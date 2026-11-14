@@ -2,6 +2,20 @@ import 'package:material_ui/material_ui.dart';
 
 import 'app_colors.dart';
 
+// 전환 효과 없이 새 화면을 그대로 보여 주는 빌더
+class _NoTransitionBuilder extends PageTransitionsBuilder {
+  const _NoTransitionBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) => child;
+}
+
 // 앱 전체 테마: 항상 어두운 청자 계열 (Material 3 기본 모양에 색·폭·크기만 React 디자인에 맞춘다)
 ThemeData buildAppTheme() {
   // 색 토큰을 Material 색 역할에 하나씩 꽂는다
@@ -55,6 +69,18 @@ ThemeData buildAppTheme() {
     // 모든 OS에서 같은 글꼴(번들한 IBM Plex Sans KR, pubspec에서 'Roboto' 이름으로 등록)을 쓰게 못 박는다.
     fontFamily: 'Roboto',
     textTheme: textTheme,
+    // 화면 전환 애니메이션 없음(React처럼 바로 바뀐다). 상단바가 본문 틀(PageFrame) 안에 들어 있어
+    // 전환 효과가 있으면 상단바까지 같이 번쩍이기 때문이다.
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: _NoTransitionBuilder(),
+        TargetPlatform.iOS: _NoTransitionBuilder(),
+        TargetPlatform.linux: _NoTransitionBuilder(),
+        TargetPlatform.macOS: _NoTransitionBuilder(),
+        TargetPlatform.windows: _NoTransitionBuilder(),
+        TargetPlatform.fuchsia: _NoTransitionBuilder(),
+      },
+    ),
     // 주요 버튼: 청자 바탕 + 어두운 글자, 높이 40, 모서리 6
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(

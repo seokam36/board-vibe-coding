@@ -76,7 +76,7 @@ class _BoardAppState extends State<BoardApp> {
         // React처럼 상단바도 아직 안 보인다.
         builder: (context, child) {
           if (context.watch<AuthState>().loading) {
-            return const Scaffold(body: PageFrame(child: Loading()));
+            return const Scaffold(body: PageFrame(showNavBar: false, child: Loading()));
           }
           return child ?? const SizedBox.shrink();
         },

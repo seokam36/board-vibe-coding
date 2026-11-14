@@ -94,14 +94,18 @@ class _NavBarState extends State<NavBar> {
                   spacing: AppSizes.space4,
                   runSpacing: AppSizes.space2,
                   children: [
-                    InkWell(
-                      onTap: () => context.go('/'),
-                      child: const Text(
-                        siteName,
-                        style: TextStyle(
-                          color: AppColors.celadon,
-                          fontWeight: FontWeight.w700,
-                          fontSize: AppSizes.fsRow,
+                    // 사이트 이름은 홈 링크: 스크린리더가 "링크"로 읽게 한다
+                    Semantics(
+                      link: true,
+                      child: InkWell(
+                        onTap: () => context.go('/'),
+                        child: const Text(
+                          siteName,
+                          style: TextStyle(
+                            color: AppColors.celadon,
+                            fontWeight: FontWeight.w700,
+                            fontSize: AppSizes.fsRow,
+                          ),
                         ),
                       ),
                     ),
@@ -118,7 +122,7 @@ class _NavBarState extends State<NavBar> {
               if (_error != null)
                 Padding(
                   padding: EdgeInsets.fromLTRB(pad, 0, pad, AppSizes.space3),
-                  child: Notice(kind: NoticeKind.error, message: _error),
+                  child: Notice(kind: NoticeKind.error, message: _error, bottomMargin: 0),
                 ),
             ],
           );

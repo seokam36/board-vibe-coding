@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:board_web/api/api_client.dart';
 import 'package:board_web/app.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'support/fake_adapter.dart';
 
@@ -67,6 +68,30 @@ void main() {
   });
 
   // 문지기는 시작 확인이 끝나기 전엔 판단을 미룬다: 로그인한 사람이 /me 를 새로고침해도 /login 으로 튕기지 않는다
+  // 로그인 안 한 채 보호 주소로 시작: 확인이 끝나기 전엔 보호 화면이 한 순간도 안 보이고, 끝나면 로그인 화면
+  testWidgets('비로그인으로 /me 시작: 로딩 중엔 내 정보 화면이 없고, 끝나면 로그인 화면', (tester) async {
+    final gate = Completer<void>();
+    final adapter = FakeAdapter()
+      ..on('GET', '/csrf', FakeReply(200, {'headerName': 'X-XSRF-TOKEN'}))
+      ..on('GET', '/auth/me', FakeReply(401, null, gate))
+      ..on('POST', '/auth/refresh', FakeReply(401));
+
+    await tester.pumpWidget(
+      BoardApp(
+        initialLocation: '/me',
+        apiClient: ApiClient(adapter: adapter, cookieReader: FakeCookies(), baseUrl: fakeBaseUrl),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('불러오는 중...'), findsOneWidget);
+    expect(find.text('내 정보 화면'), findsNothing);
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('불러오는 중...'), findsNothing);
+    expect(find.text('내 정보 화면'), findsNothing);
+    expect(find.widgetWithText(TextField, '아이디'), findsOneWidget); // 로그인 화면
+  });
+
   testWidgets('로그인한 채 보호 주소(/me)로 시작하면 로딩 뒤에도 /me 화면 (로딩 중 /login 으로 안 튕김)', (tester) async {
     final gate = Completer<void>();
     final adapter = FakeAdapter()

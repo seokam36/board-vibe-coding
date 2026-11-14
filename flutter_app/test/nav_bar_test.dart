@@ -77,6 +77,18 @@ void main() {
       expect(app.router.routerDelegate.currentConfiguration.uri.path, '/visa-reviews');
     });
 
+    testWidgets('사이트 이름은 홈 링크: 링크 시맨틱이 있고 누르면 "/"로 간다', (tester) async {
+      final semantics = tester.ensureSemantics();
+      final app = await pumpApp(tester, location: '/visa-reviews');
+      final data = tester.getSemantics(find.text('게시판')).getSemanticsData();
+      expect(data.flagsCollection.isLink, isTrue);
+      await tester.tap(find.text('게시판'));
+      await tester.pumpAndSettle();
+      expect(app.router.routerDelegate.currentConfiguration.uri.path, '/');
+      expect(find.text('글 목록'), findsOneWidget);
+      semantics.dispose();
+    });
+
     testWidgets('쪽지는 숫자 없이 "쪽지"만 보이고, 안 읽은 쪽지 API는 한 번도 부르지 않는다', (tester) async {
       final app = await pumpApp(tester, user: userJson());
       await tester.tap(find.text('쪽지'));
@@ -136,6 +148,19 @@ void main() {
       expect(app.router.routerDelegate.currentConfiguration.uri.path, '/login');
       expect(find.text('아이디'), findsOneWidget);
     });
+  });
+
+  testWidgets('화면이 짧아 스크롤하면 상단바도 본문과 같이 올라간다 (고정되지 않는다)', (tester) async {
+    tester.view.physicalSize = const Size(600, 300);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await pumpApp(tester, location: '/login');
+    final before = tester.getTopLeft(find.text('게시판')).dy;
+    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -200));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('게시판')).dy, lessThan(before));
   });
 
   testWidgets('375px 좁은 화면: 메뉴가 줄바꿈되고 넘침 에러가 없다 (관리자·인증·긴 닉네임)', (tester) async {

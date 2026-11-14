@@ -1,6 +1,7 @@
 // S16-d2a 로그인 화면 테스트: React LoginPage와 같은 동작(검증 없음, 문구 5종, 버튼만 잠금, 성공 시 홈)을 본다.
 import 'dart:async';
 
+import 'package:board_web/theme/app_colors.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -121,6 +122,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(adapter.count('POST', '/auth/login'), 1);
     expect(find.text('아이디 또는 비밀번호가 틀렸습니다'), findsOneWidget);
+  });
+
+  testWidgets('아이디 칸에서 Enter(키보드 "이동" 버튼 = go)를 쳐도 바로 제출된다', (tester) async {
+    final adapter = FakeAdapter()..on('POST', '/auth/login', FakeReply(401));
+    await pumpApp(tester, location: '/login', adapter: adapter);
+    // 키보드 버튼 모양이 "다음"이 아니라 "실행(go)"이다
+    expect(tester.widget<TextField>(_usernameField).textInputAction, TextInputAction.go);
+    await tester.tap(_usernameField); // 아이디 칸에 포커스
+    await tester.enterText(_usernameField, 'u');
+    await tester.testTextInput.receiveAction(TextInputAction.go);
+    await tester.pumpAndSettle();
+    expect(adapter.count('POST', '/auth/login'), 1);
+  });
+
+  testWidgets('제목 "로그인"은 최상위 제목(heading 1)으로 읽힌다', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await pumpApp(tester, location: '/login');
+    // 상단바 링크·버튼의 같은 글자와 구별하려고 "제목 크기(22)" 글자로 찾는다
+    final title = find.byWidgetPredicate(
+      (w) => w is Text && w.data == '로그인' && w.style?.fontSize == AppSizes.fsTitle,
+    );
+    final data = tester.getSemantics(title).getSemanticsData();
+    expect(data.flagsCollection.isHeader, isTrue);
+    expect(data.headingLevel, 1);
+    semantics.dispose();
   });
 
   testWidgets('다시 시도하면 이전 오류 문구는 지워진다', (tester) async {

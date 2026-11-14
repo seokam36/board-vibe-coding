@@ -37,6 +37,8 @@ class FakeCall {
 class FakeAdapter implements HttpClientAdapter {
   final Map<String, List<FakeReply>> _queues = {};
   final List<FakeCall> calls = [];
+  // 요청을 받을 때마다 보낸 본문(dio가 JSON으로 바꾸기 전의 값, 보통 Map)을 알려 준다 (본문을 확인하는 테스트용)
+  void Function(Object? data)? onRequestBody;
 
   // 'GET /auth/me' 같은 키로 응답을 줄 세운다. 큐가 비면 마지막 응답이 아니라 에러가 난다(테스트 실수 발견용).
   void on(String method, String path, FakeReply reply) {
@@ -57,6 +59,7 @@ class FakeAdapter implements HttpClientAdapter {
   ) async {
     final path = options.uri.path;
     calls.add(FakeCall(options.method, path, Map.of(options.headers)));
+    onRequestBody?.call(options.data);
     final queue = _queues['${options.method} $path'];
     if (queue == null || queue.isEmpty) {
       throw StateError('준비되지 않은 요청: ${options.method} $path');

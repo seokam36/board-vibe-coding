@@ -15,6 +15,7 @@ abstract final class AppColors {
   static const dangerStrong = Color(0xFFA13A27); // 위험 버튼을 누르고 있을 때
   static const dangerSoft = Color(0xFF3A2521); // 에러 안내의 배경
   static const infoSoft = Color(0xFF222D2A); // 일반 안내의 배경
+  static const backdrop = Color.fromRGBO(0, 0, 0, 0.6); // 확인 창 뒤를 덮는 어두운 막 (rgb(0 0 0 / 60%))
 }
 
 // 간격·모서리·글자 크기 (index.css의 --space-*, --radius-*, --fs-*)
