@@ -1,5 +1,5 @@
 # 배포 방법 (EC2, nginx 컨테이너)
-브라우저 -> EC2 80번 -> nginx(`web` 컨테이너). nginx가 화면 파일을 주고,
+브라우저 -> EC2 80번 -> nginx(`web` 컨테이너). 화면은 **Flutter 웹**(S16-n2부터, 아래 "웹 화면: Flutter로 교체 (S16-n2)" 참고)이고, nginx가 화면 파일을 주고,
 `/api/...` 는 `/api`를 떼고 백엔드(`app:8080`)로, `/actuator/health` 는 그대로 넘깁니다.
 화면과 API 주소가 같아서 CORS 설정이 필요 없습니다 (EC2 `.env`에 `CORS_ALLOWED_ORIGINS`는 넣지 않아도 됩니다).
 
@@ -110,11 +110,12 @@ EC2는 이미지를 받아 실행만 합니다. 저장소를 clone할 필요 없
 - 백엔드 이미지 `seokam36/demo:latest`가 Docker Hub에 올라가 있어야 합니다.
 - 퍼블릭 IP는 인스턴스를 시작할 때마다 바뀝니다 (탄력적 IP를 쓰지 않는 경우). 아래 `<퍼블릭IP>`는 그때그때 확인한 값으로 바꿉니다.
 
-1. (개발 PC) 이미지 빌드 (빌드 컨텍스트는 `frontend/`)
-   - `docker build -t seokam36/demo-web:latest frontend`
+1. (개발 PC) 이미지 빌드 (S16-n2부터 web 이미지는 Flutter. 빌드 컨텍스트는 `flutter_app/`이고, 이미지 안에서 빌드하지 않으니 **먼저 `build/web`을 만듭니다**)
+   - `cd flutter_app && flutter build web --web-content-hash && cd ..`
+   - `docker build -t seokam36/demo-web:latest flutter_app` (옛 `build/web`이 남아 있으면 그게 조용히 담기니 항상 빌드 직후에 합니다)
    - 백엔드 코드도 바뀌었다면 저장소 루트에서 `docker build -t seokam36/demo:latest .`
    - 개발 PC와 EC2(t3.micro, x86_64)의 아키텍처가 다르면(예: Apple Silicon) `--platform linux/amd64`를 붙입니다.
-   - API 주소는 빌드 인자 `VITE_API_BASE_URL`(기본값 `/api`)로 바뀝니다. 보통은 바꿀 필요가 없습니다.
+   - API 주소는 화면과 같은 주소의 `/api`로 고정이라 바꿀 설정이 없습니다(nginx가 app으로 넘김).
 2. (개발 PC) Docker Hub에 올리기: `docker login` 후 `docker push seokam36/demo-web:latest`
    (백엔드도 바꿨다면 `docker push seokam36/demo:latest`도)
 3. (AWS 콘솔) 보안 그룹 인바운드에 80(HTTP)이 열려 있는지 확인합니다. 예전에 8080을 열었다면 이제 닫아도 됩니다 (app은 외부 접근 안 함).
@@ -157,6 +158,34 @@ S13(중고거래·사진)과 S14(쪽지)를 한 번에 배포한 뒤에 봅니�
 - **S13 이후 주의**: compose만 옛 파일로 되돌리면 사진 저장이 조용히 `local`로 바뀝니다. 아래 "사진 저장 (S13-g6)"의 "되돌리기 주의"를 먼저 읽습니다.
 - 되돌리는 것은 compose 설정뿐입니다. 이미지는 `latest` 태그라 push할 때 Docker Hub의 옛 이미지가 덮어써지므로, 되돌려도 새 이미지가 그대로 쓰입니다.
   이미지까지 되돌리고 싶다면 아래 "Flyway(표 변경) 문제와 되돌리기"의 (a) "이전 이미지로 되돌리기"를 따릅니다(CI가 커밋마다 40자리 SHA 태그를 남겨 두므로 미리 태그를 붙여 둘 필요가 없습니다).
+
+## 웹 화면: Flutter로 교체 (S16-n2)
+운영 `web` 이미지가 React(`frontend/`)에서 **Flutter 웹**(`flutter_app/`)으로 바뀌었습니다. `/v2` 같은 별도 주소 없이 통째로 교체합니다.
+- 이미지 이름은 그대로 `seokam36/demo-web`(`:latest`, `:<커밋 SHA>`)이라 **EC2의 `docker-compose.yml`을 바꿀 필요가 없습니다**(포트 80, 볼륨 없음, healthcheck 없음 - Flutter 이미지와 그대로 맞음. Deploy 워크플로의 헬스체크는 `/actuator/health`를 nginx 경유로 부르는데 Flutter nginx.conf에도 같은 블록이 있습니다).
+- 만드는 방법: CI의 `flutter` 작업이 `flutter build web --web-content-hash`로 `build/web`을 만들고 e2e까지 통과시킨 뒤, 그 결과를 `images` 작업이 받아 `flutter_app/Dockerfile`(빌드 없이 COPY만)로 이미지에 담습니다. 그래서 Flutter 검사가 실패하면 이미지도 올라가지 않습니다.
+- nginx 설정(`flutter_app/nginx.conf`)은 React 때와 같은 `/api` 전달(사진 올리기 `client_max_body_size 11m`·`proxy_read_timeout 150s` 포함)과 `/actuator/health` 열기, `/api/actuator` 404를 갖습니다. 달라진 점: 해시 붙은 파일(`main.dart.<해시>.js`)만 1년 immutable 캐시, `index.html` 등 나머지는 `no-cache`, 없는 `/assets/...`·`/canvaskit/...`은 404, 그 밖의 주소는 `index.html`(딥링크), JSON도 gzip 압축.
+- 배포 절차는 위 "자동 배포"와 똑같습니다(Deploy 버튼). 바뀌는 건 화면 파일뿐이고 DB·백엔드는 영향이 없습니다.
+
+**첫 배포 뒤 확인할 것** (브라우저 `http://<퍼블릭IP>/`)
+1. **새로고침 딥링크**: `/posts/1`, `/market/1`을 주소창에서 직접 열거나 새로고침해도 화면이 뜨는지(JSON·404가 아니라). 첫 로딩은 React보다 느릴 수 있습니다(Flutter 엔진을 받음).
+2. **/api 전달**: 목록에 글이 보이고 로그인이 되는지. 또는 `http://<퍼블릭IP>/api/posts`가 JSON 배열을 주는지. `/actuator/health`가 UP인지.
+3. **사진 올리기**: 중고 글쓰기에서 3MB 안팎 사진을 올려 413·504 없이 되는지(nginx 한도 11m, 대기 150초가 Flutter 이미지에도 들어 있는지 보는 확인).
+4. **캐시 헤더** (**[PC]** Git Bash): `curl -sI http://<퍼블릭IP>/ | grep -i cache-control` 이 `no-cache`인지, 그리고 `curl -s http://<퍼블릭IP>/flutter_bootstrap.js | grep -o 'main\.dart\.[0-9a-f]\{8\}\.js'` 로 나온 파일 이름을 `curl -sI http://<퍼블릭IP>/<그 이름> | grep -i cache-control` 에 넣어 `public, max-age=31536000, immutable`인지 봅니다. 없는 파일(`/assets/x.png`)은 404여야 합니다.
+5. **옛 화면이 남지 않는지**: 이미 React 화면을 열어 본 브라우저는 강력 새로고침(Ctrl+Shift+R) 한 번 하고 확인합니다(React 파일은 해시 이름이라 새 화면과 섞이지는 않습니다).
+6. 손 확인표(`flutter_app/e2e/README.md`의 "손 확인표": 한글 입력, iPhone 사진 선택 등)도 이때 훑어봅니다.
+
+**web만 React로 되돌리기** (Flutter 화면에 문제가 있을 때. 백엔드·DB는 그대로 둡니다)
+- 되돌릴 이미지: **S16-n2 커밋 바로 앞 커밋(S16-n1, `80431c3`)의 SHA 태그** `seokam36/demo-web:80431c308c0ad7d6d519a597ed21f3e63840ce6b` 가 React 마지막 이미지입니다. (n1은 n2보다 먼저 따로 push해서 그 CI의 images가 React 이미지를 올렸습니다. 확인: **[PC]** `git log --oneline` 에서 n2 커밋(메시지에 `S16-n2`) 바로 아래 줄이 `80431c3`인지.)
+- 그 커밋의 CI에서 `images`까지 초록이었어야 태그가 있습니다. main에서는 기다리는 실행이 가장 최신 1개만 남아 중간 커밋의 images가 건너뛰어졌을 수 있으니, 그럼 GitHub Actions 탭에서 images가 초록이었던 가장 가까운 이전 커밋을 씁니다.
+- 순서 (app 되돌리기 (a)와 같은 방식이고, web 줄만 바꿉니다):
+  1. **[서버]** `cd ~/board && cp docker-compose.yml docker-compose.yml.bak-latest` — 지금 설정을 복사해 둡니다(이미 (a)로 만들어 둔 백업이 있으면 덮어쓰지 말고 다른 이름으로).
+  2. **[서버]** `sed -i 's#image: seokam36/demo-web:latest#image: seokam36/demo-web:80431c308c0ad7d6d519a597ed21f3e63840ce6b#' docker-compose.yml` — web 이미지 줄만 React 마지막 이미지로 바꿉니다.
+  3. **[서버]** `grep 'image: seokam36' docker-compose.yml` — web 줄이 `seokam36/demo-web:80431c308c0ad7d6d519a597ed21f3e63840ce6b`이고 app 줄은 그대로인지 확인합니다.
+  4. **[서버]** `docker compose --profile prod pull web && docker compose --profile prod up -d web` — web만 받아서 다시 띄웁니다.
+  5. 브라우저에서 React 화면이 뜨는지 봅니다(강력 새로고침).
+- **주의**: 위 "(a) 이전 이미지로 되돌리기"의 주의 박스와 똑같습니다. image 줄을 SHA로 고정해 두면 **다음 Deploy도 React를 받습니다.** 고친 Flutter 이미지가 `latest`로 올라온 뒤(Actions 초록) `cp docker-compose.yml.bak-latest docker-compose.yml`로 원복하고 `grep`으로 `demo-web:latest`인지 확인한 다음 Deploy를 누릅니다.
+- 되돌리기 전에 서버에서 옛 React 이미지가 이미지 정리(prune)로 지워졌어도 괜찮습니다. SHA 태그로 Docker Hub에서 다시 받습니다.
+- React 앱(`frontend/`)을 지우는 단계(S16-p) 뒤에도 이미 올라간 SHA 태그 이미지는 Docker Hub에 남아 있어 되돌릴 수 있습니다(저장소의 코드는 없어지지만 이미지는 그대로).
 
 ## 메일 발송 (S10)
 학교 메일 인증 코드를 실제로 보내는 설정입니다. 값은 모두 EC2 `~/board/.env`에만 두고 이 파일·저장소에는 적지 않습니다.
@@ -247,7 +276,7 @@ SQL
   - `PHOTO_STORAGE`: compose에서 기본 `s3`(빈 값이어도 `s3`로 채워짐). `local`이면 컨테이너 안 폴더에 저장하는데, 운영에는 사진 볼륨이 없어서 재배포하면 사라집니다. 보통 적지 않습니다.
   - `PHOTO_S3_BUCKET`: 버킷 이름 (**필수**, 비어 있으면 앱이 시작 때 실패).
   - `PHOTO_S3_REGION`: 기본 `ap-northeast-2`(서울). 서울이면 적지 않아도 됩니다.
-- nginx(`web`) 설정: **사진 올리기 주소**(`POST /api/market-items/{id}/photos`)에만 업로드 한도 `client_max_body_size 11m`(스프링 `max-request-size`와 같음)과 응답 대기 `proxy_read_timeout 150s`를 줍니다. 한도가 없으면 nginx 기본 1MB 때문에 3MB 사진도 413입니다. 대기 150초는 S3가 느릴 때(처리 자리 대기 최대 5초 + 이미지 처리 + put 2번 각 최대 60초) nginx가 먼저 504를 내서 "서버는 저장했는데 화면은 실패"가 되는 어긋남을 막습니다. 나머지 API는 nginx 기본값(본문 1MB, 대기 60초) 그대로입니다. 이 설정은 web 이미지 안에 있으므로 Deploy 버튼이 새 이미지를 받아 반영합니다.
+- nginx(`web`) 설정: **사진 올리기 주소**(`POST /api/market-items/{id}/photos`)에만 업로드 한도 `client_max_body_size 11m`(스프링 `max-request-size`와 같음)과 응답 대기 `proxy_read_timeout 150s`를 줍니다. 한도가 없으면 nginx 기본 1MB 때문에 3MB 사진도 413입니다. 대기 150초는 S3가 느릴 때(처리 자리 대기 최대 5초 + 이미지 처리 + put 2번 각 최대 60초) nginx가 먼저 504를 내서 "서버는 저장했는데 화면은 실패"가 되는 어긋남을 막습니다. 나머지 API는 nginx 기본값(본문 1MB, 대기 60초) 그대로입니다. 이 설정은 web 이미지 안에 있으므로 Deploy 버튼이 새 이미지를 받아 반영합니다. (S16-n2부터 이 설정은 `flutter_app/nginx.conf`에 있고 내용은 같습니다.)
 
 **운영에 적용하기**
 1. **[콘솔]** (처음 한 번) EC2 -> 인스턴스 -> 해당 인스턴스 선택 -> 작업 -> 인스턴스 설정 -> 인스턴스 메타데이터 옵션 수정에서 "메타데이터 응답 홉 제한"이 **2 이상**인지 확인합니다. **1이면 2로 바꾸고 저장합니다.** 1이면 컨테이너 안의 앱이 역할 자격 증명을 받지 못해서 시작할 때 HeadBucket(버킷 확인) 단계에서 실패합니다. 같은 인스턴스에 역할 `board-ec2-role`이 연결돼 있는지도 봅니다(작업 -> 보안 -> IAM 역할 수정).

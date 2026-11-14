@@ -1,5 +1,6 @@
 # CI: 코드를 올릴 때마다 자동으로 테스트·빌드를 돌려서 망가졌는지 알려준다.
-# CD 1: main에 push되고 테스트(백엔드·프론트·e2e)가 모두 통과하면 Docker 이미지를 빌드해 Docker Hub에 올린다. (EC2 배포는 아직 안 함)
+# CD 1: main에 push되고 테스트(백엔드·React 프론트·React e2e·Flutter)가 모두 통과하면 Docker 이미지를 빌드해 Docker Hub에 올린다. (EC2 배포는 아직 안 함)
+# 운영 web 이미지(seokam36/demo-web)는 S16-n2부터 React가 아니라 Flutter 웹으로 만든다. (React 작업은 삭제 단계 전까지 테스트용으로만 돈다)
 name: CI
 
 on:
@@ -119,10 +120,12 @@ jobs:
           path: frontend/playwright-report
           if-no-files-found: ignore
 
-  # Flutter 웹 앱(flutter_app): 정적 분석, 위젯 테스트, 웹 빌드가 되는지 확인한다. (S16 교체 기간 동안 React와 나란히 돈다)
+  # Flutter 웹 앱(flutter_app): 정적 분석, 위젯 테스트, 웹 빌드, 브라우저 e2e를 확인하고,
+  # 빌드 결과(build/web)를 images 작업이 쓰도록 올려 둔다. (S16 교체 기간 동안 React와 나란히 돈다)
   flutter:
     runs-on: ubuntu-latest
-    timeout-minutes: 15   # 멈춰도 15분 만에 끊는다
+    timeout-minutes: 25   # e2e가 늘어서 15 -> 25분. 멈춰도 25분 만에 끊는다
+    # run 단계만 flutter_app에서 실행한다. (uses 단계의 path 등은 이 설정의 영향을 안 받는다)
     defaults:
       run:
         working-directory: flutter_app   # flutter 명령은 flutter_app 폴더에서 실행
@@ -153,10 +156,55 @@ jobs:
         # --web-content-hash: 파일 이름에 내용 해시를 붙인다(운영 nginx가 해시 붙은 파일만 오래 캐시하므로 같은 방식으로 빌드)
         run: flutter build web --web-content-hash
 
-  # backend, frontend, e2e가 모두 성공하고, main 브랜치 push일 때만 실행된다.
-  # (다른 브랜치 push, PR에서는 건너뜀. e2e가 실패하면 이미지 push도 막힌다)
+      # Flutter e2e용 Node 24 + npm 캐시 (다른 작업과 같은 방식, 잠금 파일만 flutter_app/e2e 것)
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: flutter_app/e2e/package-lock.json
+
+      # e2e 전용 Playwright를 package-lock.json 그대로 설치한다.
+      - name: e2e 의존성 설치
+        working-directory: flutter_app/e2e
+        run: npm ci
+
+      # 테스트용 Chromium과 리눅스 필수 라이브러리 설치. (CI=1이면 설정 파일이 chromium 채널을 고른다)
+      - name: e2e Playwright 브라우저 설치
+        working-directory: flutter_app/e2e
+        run: npx playwright install --with-deps chromium
+
+      # 방금 빌드한 build/web을 진짜 브라우저로 눌러 본다. (serve.mjs가 정적 서버를 직접 띄운다)
+      - name: e2e 테스트
+        working-directory: flutter_app/e2e
+        env:
+          CI: '1'
+        run: npx playwright test
+
+      # 실패했을 때만 리포트를 올려 원인을 볼 수 있게 한다. (path는 저장소 루트 기준)
+      - name: 실패 시 Flutter e2e 리포트 업로드
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: flutter-playwright-report
+          path: flutter_app/e2e/playwright-report
+          if-no-files-found: ignore
+
+      # 빌드 결과를 images 작업에 넘긴다. (images는 다른 러너라서 파일을 직접 못 본다)
+      # 테스트를 통과한 바로 그 빌드가 이미지에 담기도록 images에서 다시 빌드하지 않는다.
+      # 이미지 만들 때만 쓰는 임시 파일이라 보관은 1일. 숨김 파일(.last_build_id)은 어차피 .dockerignore가 뺀다.
+      - name: 웹 빌드 결과 올리기
+        uses: actions/upload-artifact@v7
+        with:
+          name: flutter-web
+          path: flutter_app/build/web
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: true
+
+  # backend, frontend, e2e, flutter가 모두 성공하고, main 브랜치 push일 때만 실행된다.
+  # (다른 브랜치 push, PR에서는 건너뜀. e2e나 Flutter 검사가 실패하면 이미지 push도 막힌다)
   images:
-    needs: [backend, frontend, e2e]
+    needs: [backend, frontend, e2e, flutter]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20   # 멈춰도 20분 만에 끊는다
@@ -186,15 +234,24 @@ jobs:
           cache-from: type=gha,scope=backend
           cache-to: type=gha,scope=backend,mode=max
 
-      # 프론트 이미지: frontend/Dockerfile, 빌드 컨텍스트는 frontend/
-      # 빌드 인자 VITE_API_BASE_URL은 Dockerfile 기본값(/api)을 그대로 쓴다.
-      - name: 프론트 이미지 빌드·push
+      # 웹 이미지(Flutter): flutter 작업이 만들어 올린 build/web을 받아 flutter_app/build/web에 놓는다.
+      # flutter_app/Dockerfile은 빌드 없이 COPY만 하므로 이 폴더가 없으면 실패한다.
+      # (경로는 .dockerignore가 허용하는 build/web 그대로여야 한다)
+      - name: Flutter 웹 빌드 결과 받기
+        uses: actions/download-artifact@v8
+        with:
+          name: flutter-web
+          path: flutter_app/build/web
+
+      # 이미지 이름은 React 때와 같다(seokam36/demo-web). EC2 compose를 안 바꿔도 이 이미지를 받는다.
+      # 되돌리기: S16-n2 직전 커밋의 sha 태그가 React 마지막 이미지다. (docs/deploy.md 참고)
+      - name: 웹 이미지(Flutter) 빌드·push
         uses: docker/build-push-action@v7
         with:
-          context: frontend
+          context: flutter_app
           push: true
           tags: |
             seokam36/demo-web:latest
             seokam36/demo-web:${{ github.sha }}
-          cache-from: type=gha,scope=frontend
-          cache-to: type=gha,scope=frontend,mode=max
+          cache-from: type=gha,scope=flutter
+          cache-to: type=gha,scope=flutter,mode=max
