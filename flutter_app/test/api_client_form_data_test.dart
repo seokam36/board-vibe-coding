@@ -85,6 +85,26 @@ void main() {
     expect(adapter.count('POST', '/auth/refresh'), 1);
   });
 
+  test('재시도 직전 생성 함수가 예외를 던져도 요청 Future는 오류로 끝난다 (영원히 안 끝나지 않는다)', () async {
+    // 재발급은 성공하지만, 본문을 새로 만드는 함수가 그 자리에서 터지는 상황
+    adapter
+      ..on('POST', '/up', FakeReply(401, {}))
+      ..on('POST', '/auth/refresh', FakeReply(200, userJson()));
+
+    await expectLater(
+      client.dio
+          .post<Map<String, dynamic>>(
+            '/up',
+            data: makeForm(),
+            options: Options(extra: {ApiClient.formDataFactoryKey: () => throw StateError('만들기 실패')}),
+          )
+          // handler가 안 불리면 여기서 TimeoutException으로 실패한다
+          .timeout(const Duration(seconds: 2)),
+      throwsA(isA<DioException>().having((e) => e.response?.statusCode, 'status', 401)), // 원래 401 오류가 간다
+    );
+    expect(adapter.count('POST', '/up'), 1); // 다시 보내지는 못했다
+  });
+
   test('FormData가 아닌 요청(JSON)은 생성 함수 없이 그대로 재시도된다', () async {
     adapter
       ..on('POST', '/j', FakeReply(401, {}))

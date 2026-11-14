@@ -476,7 +476,8 @@ void main() {
       final item = MarketListItem.fromJson(marketItemJson(id: 5, title: '의자', coverPhoto: coverJson(id: 9)));
       await tester.pumpWidget(MaterialApp(home: Scaffold(body: MarketThumb(item: item))));
       final image = tester.widget<Image>(find.byType(Image));
-      expect((image.image as NetworkImage).url, '/api/market-items/5/photos/9?size=thumb');
+      // 메모리 절약용 ResizeImage 안의 원래 주소를 본다
+      expect(((image.image as ResizeImage).imageProvider as NetworkImage).url, '/api/market-items/5/photos/9?size=thumb');
       expect(image.width, 72);
       expect(image.height, 72);
       expect(find.bySemanticsLabel('의자 대표 사진'), findsOneWidget);
@@ -505,7 +506,7 @@ void main() {
       await tester.pumpWidget(MaterialApp(home: Scaffold(body: MarketThumb(item: item(10)))));
       expect(find.byType(Image), findsOneWidget); // 새 사진은 처음부터 다시 시도한다
       final image = tester.widget<Image>(find.byType(Image));
-      expect((image.image as NetworkImage).url, '/api/market-items/5/photos/10?size=thumb');
+      expect(((image.image as ResizeImage).imageProvider as NetworkImage).url, '/api/market-items/5/photos/10?size=thumb');
       await tester.pumpAndSettle();
     });
 

@@ -137,6 +137,8 @@ class _PhotoThumbButton extends StatelessWidget {
           child: Image.network(
             url,
             fit: BoxFit.cover,
+            // 56px 칸에 필요한 크기로만 풀어 메모리를 아낀다 (가로만 줘서 비율 유지)
+            cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
             // 썸네일이 깨져도 버튼(회색 칸)은 그대로 남긴다
             errorBuilder: (context, error, stack) => const SizedBox.shrink(),
           ),

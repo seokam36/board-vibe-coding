@@ -3,6 +3,7 @@
 // 수정 화면: 즉시 올리기·삭제 확인·잠금 규칙·화면 떠나기, 글쓰기 화면: 미리보기·저장 순서·실패 안내·잠금.
 import 'dart:async';
 
+import 'package:board_web/auth/auth_user.dart';
 import 'package:board_web/common/file_picker.dart';
 import 'package:board_web/market/models.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -525,6 +526,28 @@ void main() {
       }
     });
 
+    _test('사진을 올리는 중 폼이 숨겨졌다 다시 나와도 글자 [저장]이 잠긴 채로 남지 않는다', (tester) async {
+      final gate = Completer<void>();
+      final adapter = _editAdapter(photoIds: [1])..on('POST', _photosPath, FakeReply(201, photoJson(102), gate));
+      final app = await _openEdit(tester, adapter);
+      await _pickFiles(tester, [fakePhoto('a.jpg')]); // 올리는 중 (응답을 붙잡아 둠)
+      expect(_enabled(tester, _saveButton), isFalse);
+
+      // 로그인 사용자가 판매자가 아닌 사람으로 바뀌면 폼이 숨겨진다
+      app.auth.updateUser(AuthUser.fromJson(userJson(id: 2, school: marketSeoul)));
+      await tester.pumpAndSettle();
+      expect(_saveButton, findsNothing);
+
+      // 다시 판매자로 돌아오면 폼이 새로 나오고, 사진 올리기는 끝난 상태가 아니었어도 [저장]이 눌려야 한다
+      app.auth.updateUser(AuthUser.fromJson(_verified()));
+      await tester.pumpAndSettle();
+      expect(_saveButton, findsOneWidget);
+      expect(_enabled(tester, _saveButton), isTrue);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+    });
+
     _test('스크린리더 이름은 "사진 n 삭제", 미리보기 그림은 "사진 n"', (tester) async {
       final handle = tester.ensureSemantics();
       await _openEdit(tester, _editAdapter());
@@ -696,6 +719,17 @@ void main() {
       expect(adapter.count('POST', _photos9), 1); // 두 번째 사진은 안 갔다
       expect(_uri(app), '/nope-page'); // 상세(/market/9)로 끌려가지 않았다
       expect(log.released.toSet(), {'a.jpg', 'b.jpg'}); // 화면을 떠나며 미리보기 주소를 모두 반납
+    });
+
+    _test('미리보기 그림은 칸 크기(72px × 화면 배율)로 줄여서 푼다 (cacheWidth, 비율은 그대로)', (tester) async {
+      await _openCreate(tester, FakeAdapter());
+      await _pickFiles(tester, [fakePhoto('a.jpg')]);
+      final image = tester.widget<Image>(find.byType(Image));
+      final provider = image.image;
+      expect(provider, isA<ResizeImage>());
+      final expected = (72 * tester.view.devicePixelRatio).round();
+      expect((provider as ResizeImage).width, expected);
+      expect(provider.height, isNull); // 가로만 줄이면 세로는 비율대로 따라온다
     });
 
     _test('사전 검사에 걸리면 안내 문구가 뜨고 미리보기는 늘지 않는다 (받은 것만 담긴다)', (tester) async {

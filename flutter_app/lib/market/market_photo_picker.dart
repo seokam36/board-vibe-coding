@@ -167,6 +167,9 @@ class _PhotoItem extends StatelessWidget {
                       width: size,
                       height: size,
                       fit: BoxFit.cover,
+                      // 72px 칸에 원본 크기 그대로 풀면 큰 사진 10장에 메모리를 많이 쓴다.
+                      // 칸 크기(화면 배율 반영)로 줄여서 푼다. 가로만 줘서 사진 비율은 그대로 지킨다(둘 다 주면 찌그러짐)
+                      cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
                       errorBuilder: (context, error, stack) => const SizedBox.shrink(),
                     ),
                   ),

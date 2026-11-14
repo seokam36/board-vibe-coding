@@ -53,6 +53,8 @@ class _MarketThumbState extends State<MarketThumb> {
             width: MarketThumb.size,
             height: MarketThumb.size,
             fit: BoxFit.cover,
+            // 72px 칸에 필요한 크기로만 풀어 메모리를 아낀다 (가로만 줘서 비율 유지)
+            cacheWidth: (MarketThumb.size * MediaQuery.devicePixelRatioOf(context)).round(),
             errorBuilder: (context, error, stack) {
               // build 도중에 setState를 못 하니 그린 직후에 표시를 바꾼다. 그 사이엔 빈칸을 보여 준다
               WidgetsBinding.instance.addPostFrameCallback((_) {

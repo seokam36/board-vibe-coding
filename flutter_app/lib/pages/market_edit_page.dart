@@ -88,6 +88,15 @@ class _MarketEditPageState extends State<MarketEditPage> {
     final done = loaded?.status.code == 'DONE';
     final showForm = loaded != null && !notMine && !done;
 
+    // 사진 편집기가 바쁜 채로 화면에서 빠지면(폼 숨김) 편집기가 "바쁨 끝"을 알리지 못해 _photoBusy가 true로 남는다.
+    // 그러면 폼이 다시 나왔을 때 [저장]이 잠긴 채가 되므로, 폼이 숨겨진 사이에 되돌려 놓는다.
+    // (build 중에는 setState를 못 하니 그린 직후에 한다)
+    if (!showForm && _photoBusy) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _photoBusy) setState(() => _photoBusy = false);
+      });
+    }
+
     return PageFrame(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

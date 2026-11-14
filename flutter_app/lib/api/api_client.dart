@@ -59,7 +59,9 @@ class ApiClient {
   static const _xsrfCookie = 'XSRF-TOKEN';
   static const _xsrfHeader = 'X-XSRF-TOKEN';
   static const _retryKey = 'retried'; // 재시도 표시: 이미 한 번 다시 보낸 요청이라는 뜻
-  // 요청 extra에 FormData 생성 함수(FormData Function())를 넣을 때 쓰는 이름. 401 재시도 때 본문을 새로 만든다
+  // 요청 extra에 FormData 생성 함수(FormData Function())를 넣을 때 쓰는 이름. 401 재시도 때 본문을 새로 만든다.
+  // 주의: FormData를 보내는 요청은 재시도용 생성 함수가 필수다 (FormData는 한 번 보내면 소진돼서 같은 것을 다시 못 보낸다).
+  // 함수를 안 넣으면 401 재시도가 "already been finalized" 오류로 실패한다.
   static const formDataFactoryKey = 'formDataFactory';
 
   // 재발급 대상에서 빼는 주소들. 이 주소의 401은 "재발급으로 해결될 문제"가 아니기 때문이다.
@@ -104,15 +106,22 @@ class ApiClient {
     original.extra[_retryKey] = true;
     _refreshOnce().then(
       (_) {
-        // 파일 올리기(FormData)는 한 번 보내면 내용이 소진돼 다시 못 쓴다.
-        // 그래서 호출한 쪽이 extra에 "FormData를 새로 만드는 함수"를 넣어 두면 다시 보내기 직전에 새로 만들어 바꿔 끼운다
-        final factory = original.extra[formDataFactoryKey];
-        if (factory is FormData Function()) original.data = factory();
-        // 새 쿠키가 생겼으니 원래 요청을 다시 보낸다 (성공하면 그 응답이 호출한 쪽에 간다)
-        dio.fetch<dynamic>(original).then(
-          handler.resolve,
-          onError: (Object e) => handler.next(e is DioException ? e : err),
-        );
+        // try/catch: 생성 함수나 fetch가 그 자리에서 예외를 던져도 handler는 반드시 한 번 불려야 한다.
+        // (안 부르면 호출한 쪽 요청이 영원히 안 끝난다)
+        try {
+          // 파일 올리기(FormData)는 한 번 보내면 내용이 소진돼 다시 못 쓴다.
+          // 그래서 호출한 쪽이 extra에 "FormData를 새로 만드는 함수"를 넣어 두면 다시 보내기 직전에 새로 만들어 바꿔 끼운다
+          final factory = original.extra[formDataFactoryKey];
+          if (factory is FormData Function()) original.data = factory();
+          // 새 쿠키가 생겼으니 원래 요청을 다시 보낸다 (성공하면 그 응답이 호출한 쪽에 간다)
+          dio.fetch<dynamic>(original).then(
+            handler.resolve,
+            onError: (Object e) => handler.next(e is DioException ? e : err),
+          );
+        } catch (e) {
+          // 그 자리에서 던진 예외: DioException이면 그대로, 그 밖이면 원래 401 오류를 넘긴다
+          handler.next(e is DioException ? e : err);
+        }
       },
       onError: (Object refreshErr) {
         if (refreshErr is DioException &&

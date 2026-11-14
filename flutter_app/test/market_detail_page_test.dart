@@ -320,8 +320,12 @@ void main() {
       );
     }
 
-    String urlOf(WidgetTester tester, Finder within) =>
-        (tester.widget<Image>(find.descendant(of: within, matching: find.byType(Image))).image as NetworkImage).url;
+    String urlOf(WidgetTester tester, Finder within) {
+      var provider = tester.widget<Image>(find.descendant(of: within, matching: find.byType(Image))).image;
+      // 썸네일은 메모리 절약용 ResizeImage로 감싸져 있으니 안의 원래 주소를 꺼낸다 (큰 사진은 그대로)
+      if (provider is ResizeImage) provider = provider.imageProvider;
+      return (provider as NetworkImage).url;
+    }
 
     testWidgets('큰 사진은 본 사진 주소(썸네일 쿼리 없음), 이름 "사진 2 / 3", 4:3 틀 안에 contain', (tester) async {
       final handle = tester.ensureSemantics();
