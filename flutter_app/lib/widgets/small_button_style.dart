@@ -9,6 +9,12 @@ final ButtonStyle smallButtonStyle = OutlinedButton.styleFrom(
   padding: const EdgeInsets.symmetric(horizontal: AppSizes.space3),
 );
 
+// 작은 주요 버튼 (React의 .btn-sm.btn-primary): 크기만 작게, 색은 앱 테마의 주요 버튼 그대로
+final ButtonStyle smallFilledButtonStyle = FilledButton.styleFrom(
+  minimumSize: const Size(0, 36),
+  padding: const EdgeInsets.symmetric(horizontal: AppSizes.space3),
+);
+
 // 위험 버튼 모양 (React의 .btn-danger): 평소엔 빨간 글자·선만, 마우스를 올리면 옅은 빨강, 누르면 진한 빨강
 final ButtonStyle dangerSmallButtonStyle = smallButtonStyle
     .merge(

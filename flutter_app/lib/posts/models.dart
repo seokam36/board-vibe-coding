@@ -73,3 +73,23 @@ class Post {
     );
   }
 }
+
+// 댓글 한 건 (React의 Comment). 작성자가 탈퇴했으면 author가 null
+class Comment {
+  const Comment({required this.id, required this.content, required this.author, required this.createdAt});
+
+  final int id;
+  final String content;
+  final PostAuthor? author;
+  final String createdAt; // ISO-8601 UTC 문자열. 화면에는 formatDate를 거쳐서만 보여 준다
+
+  factory Comment.fromJson(Map<String, dynamic> json) {
+    final author = json['author'];
+    return Comment(
+      id: json['id'] as int,
+      content: json['content'] as String,
+      author: author == null ? null : PostAuthor.fromJson(author as Map<String, dynamic>),
+      createdAt: json['createdAt'] as String,
+    );
+  }
+}

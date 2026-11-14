@@ -10,6 +10,7 @@ import '../errors/error_messages.dart';
 import '../posts/models.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_badge.dart';
+import '../widgets/comment_section.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/like_button.dart';
 import '../widgets/loading.dart';
@@ -22,7 +23,7 @@ import '../widgets/school_gate_notice.dart';
 import '../widgets/small_button_style.dart';
 
 // 글 상세 화면 "/posts/:id" (React의 PostDetailPage).
-// 댓글 영역은 다음 단계(S16-f2)에서 이 화면 아래(목록으로 버튼 위)에 붙인다.
+// 댓글 영역(CommentSection)은 이 화면 아래(목록으로 버튼 위)에 붙는다.
 class PostDetailPage extends StatefulWidget {
   const PostDetailPage({super.key, required this.id});
 
@@ -169,7 +170,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
           // 삭제 실패 안내는 버튼 영역 밖에 둔다(로그인이 풀려 버튼이 사라져도 안내가 남게)
           if (_deleteError != null) Notice(kind: NoticeKind.error, message: _deleteError!),
           if (_needLogin) const ReloginNotice(),
-          // TODO(S16-f2): 여기에 댓글 영역이 들어온다
+          // 댓글 영역: 글을 불러왔을 때만. 비로그인은 안내 문구가 따로 있어 막지 않는다
+          if (post != null) CommentSection(postId: widget.id, canComment: user == null || canAct),
           Align(
             alignment: Alignment.centerLeft,
             child: OutlinedButton(

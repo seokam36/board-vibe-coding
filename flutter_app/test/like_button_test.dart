@@ -23,7 +23,9 @@ Map<String, dynamic> _user({Map<String, dynamic>? school = _seoul, int id = 5}) 
 
 // likesMe: false면 "내가 눌렀는지" 응답을 준비하지 않는다 (테스트가 직접 정할 때)
 FakeAdapter _adapter({bool liked = false, bool likesMe = true, int likeCount = 3, Map<String, dynamic>? school = _seoul}) {
-  final a = FakeAdapter()..on('GET', '/posts/7', FakeReply(200, postJson(likeCount: likeCount, school: school)));
+  final a = FakeAdapter()
+    ..on('GET', '/posts/7', FakeReply(200, postJson(likeCount: likeCount, school: school)))
+    ..on('GET', '/posts/7/comments', FakeReply(200, [])); // S16-f2: 상세가 댓글도 불러온다
   if (likesMe) a.on('GET', '/posts/7/likes/me', FakeReply(200, {'liked': liked}));
   return a;
 }

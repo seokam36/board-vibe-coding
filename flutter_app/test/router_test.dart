@@ -23,7 +23,9 @@ Future<GoRouter> _start(WidgetTester tester, String location, {FakeAdapter? adap
 
 // S16-f1: 글 상세는 진짜 화면이 되어 글을 불러온다. id 글 한 건을 돌려주는 가짜 서버 (제목은 "글 {id}")
 FakeAdapter _detailAdapter(String id) =>
-    FakeAdapter()..on('GET', '/posts/$id', FakeReply(200, postJson(title: '글 $id')));
+    FakeAdapter()
+      ..on('GET', '/posts/$id', FakeReply(200, postJson(title: '글 $id')))
+      ..on('GET', '/posts/$id/comments', FakeReply(200, [])); // S16-f2: 상세가 댓글도 불러온다
 
 void main() {
   // 완료 조건 1: 주소 21개 → 화면 이름 (id 있는 주소는 id까지)

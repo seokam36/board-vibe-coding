@@ -44,7 +44,8 @@ void main() {
       ..on('GET', '/csrf', FakeReply(200, {'headerName': 'X-XSRF-TOKEN'}))
       ..on('GET', '/auth/me', FakeReply(401))
       ..on('POST', '/auth/refresh', FakeReply(401))
-      ..on('GET', '/posts/7', FakeReply(200, postJson(title: '깊은 주소의 글'))); // S16-f1: 진짜 상세 화면이 글을 불러온다
+      ..on('GET', '/posts/7', FakeReply(200, postJson(title: '깊은 주소의 글'))) // S16-f1: 진짜 상세 화면이 글을 불러온다
+      ..on('GET', '/posts/7/comments', FakeReply(200, [])); // S16-f2: 댓글도 불러온다
 
     await tester.pumpWidget(
       BoardApp(
@@ -52,6 +53,9 @@ void main() {
         apiClient: ApiClient(adapter: adapter, cookieReader: FakeCookies(), baseUrl: fakeBaseUrl),
       ),
     );
+    await tester.pumpAndSettle();
+    // 글이 뜬 뒤에 시작하는 댓글 요청의 타이머가 끝나도록 한 번 더 흘려 보낸다 (S16-f2)
+    await tester.pump(const Duration(milliseconds: 50));
     await tester.pumpAndSettle();
     expect(find.text('깊은 주소의 글'), findsOneWidget); // S16-f1: 자리표시 대신 글 제목으로 확인
   });

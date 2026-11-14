@@ -23,6 +23,7 @@ Map<String, dynamic> _seoulUser({String role = 'USER', int id = 1}) => userJson(
 // 글 불러오기(+로그인 시 "내가 눌렀는지") 응답을 정한 가짜 서버
 FakeAdapter _adapter({FakeReply? post}) => FakeAdapter()
   ..on('GET', '/posts/7', post ?? FakeReply(200, postJson()))
+  ..on('GET', '/posts/7/comments', FakeReply(200, [])) // S16-f2: 글이 뜨면 댓글도 불러온다
   ..on('GET', '/posts/7/likes/me', FakeReply(200, {'liked': false}));
 
 Future<TestApp> _open(WidgetTester tester, FakeAdapter adapter, {Map<String, dynamic>? user}) async {
@@ -62,6 +63,9 @@ void main() {
       expect(find.text('제목입니다'), findsNothing);
       expect(_like, findsNothing);
       gate.complete();
+      await tester.pumpAndSettle();
+      // 글이 뜬 뒤에 시작하는 댓글 요청의 타이머가 끝나도록 한 번 더 흘려 보낸다 (S16-f2)
+      await tester.pump(const Duration(milliseconds: 50));
       await tester.pumpAndSettle();
       expect(find.text('불러오는 중...'), findsNothing);
       expect(find.text('제목입니다'), findsOneWidget);
