@@ -21,6 +21,8 @@ repositories {
 dependencyManagement {
 	imports {
 		mavenBom 'software.amazon.awssdk:bom:2.57.13'
+		// Spring AI 묶음(BOM): Ollama 모듈 버전을 맞춘다 (S17-b). 2.0.2 = Boot 4.x 공식 지원 안정 버전
+		mavenBom 'org.springframework.ai:spring-ai-bom:2.0.2'
 	}
 }
 
@@ -59,6 +61,8 @@ dependencies {
 	}
 	// 연결 풀 설정을 코드에서 하려면 컴파일 때도 필요해서 직접 선언 (이미 s3가 실행 때 가져오는 같은 라이브러리, SDK 2.57의 기본 HTTP 클라이언트)
 	implementation 'software.amazon.awssdk:apache5-client'
+	// 로컬 Ollama를 부르는 Spring AI 모듈 (S17-b). 스타터 대신 자동 설정 없는 모듈만 써서, 타임아웃·재시도를 우리가 직접 정한다
+	implementation 'org.springframework.ai:spring-ai-ollama'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	// 테스트에서 csrf() 같은 보안 헬퍼를 쓰기 위한 Spring Security 테스트 지원
 	testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
