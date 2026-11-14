@@ -1,24 +1,20 @@
 // S16-b 라우팅 뼈대 테스트: 주소마다 맞는 빈 화면이 뜨는지, id가 넘어가는지, 404·뒤로 가기가 되는지 본다.
-import 'package:board_web/app.dart';
-import 'package:board_web/router.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'support/fake_adapter.dart';
 import 'support/loaded_auth.dart';
 
 const notFoundText = '페이지를 찾을 수 없습니다';
 
-// 시작 주소로 앱을 띄우는 도우미. 테스트마다 새 라우터를 만들고 끝나면 정리한다.
+// 시작 주소로 앱을 띄우는 도우미.
+// S16-d2a부터 문지기가 생겨서, 비로그인이면 보호 주소(/posts/new, /me ...)가 /login 으로 바뀐다.
+// 이 파일은 "주소 → 화면 연결"만 보는 테스트라 로그인한 상태로 띄워 문지기 영향을 뺀다.
+// (비로그인일 때의 문지기 동작은 gatekeeper_test.dart에서 본다)
 Future<GoRouter> _start(WidgetTester tester, String location) async {
-  final router = createRouter(initialLocation: location);
-  addTearDown(router.dispose);
-  // 서버 확인(loading)이 끝난 상태의 가짜 로그인 상태를 넣어, 라우팅만 본다
-  final auth = LoadedAuthState();
-  addTearDown(auth.dispose);
-  await tester.pumpWidget(BoardApp(router: router, authState: auth));
-  await tester.pumpAndSettle();
-  return router;
+  final app = await pumpApp(tester, location: location, user: userJson());
+  return app.router;
 }
 
 void main() {
@@ -26,11 +22,11 @@ void main() {
   const pages = <(String, String)>[
     ('/', '글 목록'),
     ('/signup', '회원가입'),
-    ('/login', '로그인'),
+    ('/login', '아이디'), // S16-d2a: 로그인은 진짜 화면이 되어 "아이디" 입력칸 라벨로 확인한다
     ('/posts/new', '글쓰기'),
-    ('/posts/7', '글 상세 (id: 7)'),
+    ('/posts/7','글 상세 (id: 7)'),
     ('/posts/7/edit', '글 수정 (id: 7)'),
-    ('/me', '내 정보'),
+    ('/me', '내 정보 화면'),
     ('/admin/reports', '신고 관리'),
     ('/admin/reports/7/conversation', '신고된 대화 보기 (id: 7)'),
     ('/visa-reviews', '비자 후기 목록'),
@@ -82,7 +78,7 @@ void main() {
   });
 
   // React Router처럼 대소문자를 가리지 않는다
-  for (final (path, label) in const [('/Login', '로그인'), ('/Posts/5', '글 상세 (id: 5)')]) {
+  for (final (path, label) in const [('/Login', '아이디'),('/Posts/5', '글 상세 (id: 5)')]) {
     testWidgets('대소문자가 달라도($path) "$label" 화면이 뜬다', (tester) async {
       await _start(tester, path);
       expect(find.text(label), findsOneWidget);

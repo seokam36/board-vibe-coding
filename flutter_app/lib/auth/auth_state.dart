@@ -16,6 +16,9 @@ class AuthState extends ChangeNotifier {
   // 지금 어느 화면(경로)인지 알려 주는 함수. 로그인이 풀린 화면을 기억하려고 쓴다(라우터에서 넘겨받음)
   final String Function() _currentPath;
 
+  // 이 로그인 상태가 쓰는 서버 통로. 앱이 화면들에 같은 통로를 나눠 줄 때 쓴다
+  ApiClient get api => _api;
+
   AuthUser? _user;
   bool _loading = true;
   String? _expiredPath;
@@ -77,11 +80,12 @@ class AuthState extends ChangeNotifier {
   }
 
   // 만료된 화면을 떠나면 표시를 지운다. 안 지우면 나중에 같은 주소로 돌아왔을 때 비로그인인데도 문지기가 통과시킨다.
-  // (호출은 d2의 문지기에서 한다)
+  // 호출은 라우터의 redirect(문지기)에서 한다. redirect는 화면을 그리는 도중에 불리므로
+  // 여기서 notifyListeners()를 하면 "그리는 중에 다시 그리라"는 에러가 난다 → 일부러 알림 없이 값만 비운다.
+  // (이 값을 보고 그리는 화면은 없고, 문지기가 다음 판단에서 읽기만 한다)
   void clearExpiredIfPathChanged(String path) {
     if (_expiredPath != null && path != _expiredPath) {
       _expiredPath = null;
-      _notify();
     }
   }
 

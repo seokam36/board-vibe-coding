@@ -1,7 +1,10 @@
 import 'package:go_router/go_router.dart';
 
+import 'auth/auth_state.dart';
+import 'pages/login_page.dart';
 import 'pages/not_found_page.dart';
 import 'pages/placeholder_page.dart';
+import 'widgets/app_shell.dart';
 
 // 주소 하나를 "화면 이름"과 묶는 짧은 도우미. id가 있는 주소(:id)면 id를 글자 그대로 넘긴다.
 GoRoute _route(String path, String name) {
@@ -14,36 +17,90 @@ GoRoute _route(String path, String name) {
   );
 }
 
+// 경로 비교용 정리: 소문자로 바꾸고 끝의 / 를 뗀다.
+// 라우트가 대소문자를 가리지 않으므로(/Me 도 /me), 문지기 검사와 "로그인이 풀린 경로" 기록·비교가
+// 모두 이 함수를 거쳐 같은 글자로 맞춰져야 /ME 로 우회하거나 /Me 에서 풀렸을 때 어긋나지 않는다.
+String normalizePath(String path) {
+  final lower = path.toLowerCase();
+  return lower.length > 1 && lower.endsWith('/')
+      ? lower.substring(0, lower.length - 1)
+      : lower;
+}
+
+// 로그인한 사람만 볼 수 있는 주소 10개 (React의 RequireLogin으로 감싼 화면들). 정리된(소문자) 경로로 검사한다.
+final _protectedPaths = <RegExp>[
+  RegExp(r'^/posts/new$'),
+  RegExp(r'^/posts/[^/]+/edit$'),
+  RegExp(r'^/me$'),
+  RegExp(r'^/visa-reviews/new$'),
+  RegExp(r'^/visa-reviews/[^/]+/edit$'),
+  RegExp(r'^/visa-plan$'),
+  RegExp(r'^/market/new$'),
+  RegExp(r'^/market/[^/]+/edit$'),
+  RegExp(r'^/messages$'),
+  RegExp(r'^/messages/[^/]+$'),
+];
+
+bool _isProtected(String normalizedPath) =>
+    _protectedPaths.any((p) => p.hasMatch(normalizedPath));
+
 // 시작 주소를 받아 라우터를 새로 만든다. (테스트마다 새 라우터가 필요해서 함수로 둠)
 // 순서 주의: /posts/new 같은 고정 주소를 /posts/:id 보다 먼저 적어야 "new"가 id로 잡히지 않는다.
-GoRouter createRouter({String initialLocation = '/'}) {
+GoRouter createRouter({required AuthState authState, String initialLocation = '/'}) {
   return GoRouter(
     initialLocation: initialLocation,
-    // 로그인 검사는 아직 안 한다(전부 열림).
+    // 로그인 상태가 바뀌면(로그아웃·로그인 풀림 등) 문지기를 다시 돌린다
+    refreshListenable: authState,
+    // 문지기 (React의 RequireLogin). 주소가 바뀔 때마다, 그리고 로그인 상태가 바뀔 때마다 불린다.
+    // 반환값이 주소면 그리로 보내고(기록은 교체라 뒤로 가기로 못 돌아옴), null이면 통과.
+    redirect: (context, state) {
+      final path = normalizePath(state.uri.path);
+      // 로그인이 풀렸던 화면을 떠났다면 "풀림" 표시를 지운다 (안 지우면 나중에 그 주소로 와도 문이 열려 있다)
+      authState.clearExpiredIfPathChanged(path);
+      // 시작 확인(/auth/me)이 끝나기 전엔 로그인 여부를 모르니 판단을 미룬다 (끝나면 알림이 와서 다시 돈다)
+      if (authState.loading) return null;
+      if (!_isProtected(path)) return null;
+      // 로그인해 있다가 재발급 실패로 풀린 "그 화면"은 입력 내용을 지키려고 그대로 둔다
+      // (화면 안에서 401을 받으면 "다시 로그인해 주세요" 안내가 뜬다). 다른 경로면 expiredPath와 달라 /login 으로 간다.
+      if (authState.user == null && authState.expiredPath != path) return '/login';
+      return null;
+    },
+    // 상단바가 모든 화면 위에 보이도록 공통 틀(AppShell)로 감싼다
     routes: [
-      _route('/', '글 목록'),
-      _route('/signup', '회원가입'),
-      _route('/login', '로그인'),
-      _route('/posts/new', '글쓰기'),
-      _route('/posts/:id', '글 상세'),
-      _route('/posts/:id/edit', '글 수정'),
-      _route('/me', '내 정보'),
-      _route('/admin/reports', '신고 관리'),
-      _route('/admin/reports/:id/conversation', '신고된 대화 보기'),
-      _route('/visa-reviews', '비자 후기 목록'),
-      _route('/visa-reviews/new', '비자 후기 쓰기'),
-      _route('/visa-reviews/stats', '비자 후기 통계'),
-      _route('/visa-reviews/:id', '비자 후기 상세'),
-      _route('/visa-reviews/:id/edit', '비자 후기 수정'),
-      _route('/visa-plan', '내 비자 일정'),
-      _route('/market', '중고·나눔 목록'),
-      _route('/market/new', '중고·나눔 쓰기'),
-      _route('/market/:id', '중고·나눔 상세'),
-      _route('/market/:id/edit', '중고·나눔 수정'),
-      _route('/messages', '쪽지함'),
-      _route('/messages/:id', '대화'),
+      ShellRoute(
+        builder: (context, state, child) => AppShell(child: child),
+        routes: [
+          _route('/', '글 목록'),
+          _route('/signup', '회원가입'),
+          GoRoute(
+            path: '/login',
+            caseSensitive: false,
+            // 회원가입 화면이 extra로 넘겨준 안내 문구(문자열)가 있으면 보여 준다
+            builder: (context, state) =>
+                LoginPage(notice: state.extra is String ? state.extra as String : null),
+          ),
+          _route('/posts/new', '글쓰기'),
+          _route('/posts/:id', '글 상세'),
+          _route('/posts/:id/edit', '글 수정'),
+          _route('/me', '내 정보 화면'), // 상단바 링크 "내 정보"와 글자가 겹치지 않게 "화면"을 붙였다
+          _route('/admin/reports', '신고 관리'),
+          _route('/admin/reports/:id/conversation', '신고된 대화 보기'),
+          _route('/visa-reviews', '비자 후기 목록'),
+          _route('/visa-reviews/new', '비자 후기 쓰기'),
+          _route('/visa-reviews/stats', '비자 후기 통계'),
+          _route('/visa-reviews/:id', '비자 후기 상세'),
+          _route('/visa-reviews/:id/edit', '비자 후기 수정'),
+          _route('/visa-plan', '내 비자 일정'),
+          _route('/market', '중고·나눔 목록'),
+          _route('/market/new', '중고·나눔 쓰기'),
+          _route('/market/:id', '중고·나눔 상세'),
+          _route('/market/:id/edit', '중고·나눔 수정'),
+          _route('/messages', '쪽지함'),
+          _route('/messages/:id', '대화'),
+        ],
+      ),
     ],
-    // 위 주소에 없으면 404 화면
-    errorBuilder: (context, state) => const NotFoundPage(),
+    // 위 주소에 없으면 404 화면 (상단바는 똑같이 보인다)
+    errorBuilder: (context, state) => const AppShell(child: NotFoundPage()),
   );
 }

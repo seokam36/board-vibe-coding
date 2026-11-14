@@ -30,6 +30,9 @@ class AuthUser {
   // null이면 학교 미인증 → 읽기만 가능
   final VerifiedSchool? verifiedSchool;
 
+  // 관리자인지 판단하는 유일한 곳(React의 isAdmin). 화면에서 숨기는 건 편의일 뿐, 진짜 보호는 서버 검사
+  bool get isAdmin => role == UserRole.admin;
+
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     final school = json['verifiedSchool'];
     return AuthUser(
