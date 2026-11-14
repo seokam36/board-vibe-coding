@@ -12,7 +12,8 @@ import com.example.demo.market.domain.TradeType;
 // title = 제목 검색어(앞뒤 공백을 뺀 값, 없으면 null)
 public record MarketItemFilter(Long schoolId, TradeType tradeType, ItemStatus status, String title) {
 
-    private static final char ESCAPE = '\\'; // LIKE에서 "다음 글자는 그대로 찾아라"를 뜻하는 표시
+    // LIKE에서 "다음 글자는 그대로 찾아라"를 뜻하는 표시. MarketItemChatSearch도 같이 써서 한쪽만 바뀌는 사고를 막는다.
+    static final char ESCAPE = '\\';
 
     // 넘긴 조건만 AND로 건 Specification을 만든다
     public Specification<MarketItem> toSpecification() {
