@@ -1,5 +1,5 @@
 import 'package:go_router/go_router.dart';
-import 'package:material_ui/material_ui.dart' show ValueKey;
+import 'package:material_ui/material_ui.dart' show ValueKey, Widget;
 
 import 'auth/auth_state.dart';
 import 'pages/admin_conversation_page.dart';
@@ -53,6 +53,13 @@ final _protectedPaths = <RegExp>[
 bool _isProtected(String normalizedPath) =>
     _protectedPaths.any((p) => p.hasMatch(normalizedPath));
 
+// 화면 전환을 "즉시"로 만드는 헬퍼.
+// builder: 를 쓰면 go_router가 MaterialPage(전환 300ms)를 만들어, 그 시간 동안 이전 화면이 같이 그려져
+// (페이지 배경이 투명이라) 두 화면이 겹쳐 보였다. NoTransitionPage는 전환 시간이 0이라 바로 바뀐다.
+// key는 state.pageKey(경로 모양마다 고정)라서, 같은 모양 안에서 id만 바뀌는 건 child 쪽 ValueKey가 맡는다.
+NoTransitionPage<void> _page(GoRouterState state, Widget child) =>
+    NoTransitionPage<void>(key: state.pageKey, child: child);
+
 // 규칙: 화면 이동은 context.go만 쓴다(push로 쌓으면 pop이 redirect를 안 거쳐 문지기가 늦게 반응).
 // 시작 주소를 받아 라우터를 새로 만든다. (테스트마다 새 라우터가 필요해서 함수로 둠)
 // 순서 주의: /posts/new 같은 고정 주소를 /posts/:id 보다 먼저 적어야 "new"가 id로 잡히지 않는다.
@@ -78,176 +85,193 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
     // 상단바가 모든 화면 위에 보이도록 공통 틀(AppShell)로 감싼다
     routes: [
       ShellRoute(
-        builder: (context, state, child) => AppShell(child: child),
+        pageBuilder: (context, state, child) => _page(state, AppShell(child: child)),
         routes: [
           GoRoute(
             path: '/',
             caseSensitive: false,
             // 필터의 진짜 값은 주소 쿼리(?schoolId·?category). 탈퇴 화면이 extra로 넘긴 안내 문구도 전달한다
-            builder: (context, state) => PostListPage(
-              schoolId: state.uri.queryParameters['schoolId'] ?? '',
-              category: state.uri.queryParameters['category'] ?? '',
-              notice: state.extra is String ? state.extra as String : null,
+            pageBuilder: (context, state) => _page(
+              state,
+              PostListPage(
+                schoolId: state.uri.queryParameters['schoolId'] ?? '',
+                category: state.uri.queryParameters['category'] ?? '',
+                notice: state.extra is String ? state.extra as String : null,
+              ),
             ),
           ),
           GoRoute(
             path: '/signup',
             caseSensitive: false,
-            builder: (context, state) => const SignupPage(),
+            pageBuilder: (context, state) => _page(state, const SignupPage()),
           ),
           GoRoute(
             path: '/login',
             caseSensitive: false,
             // 회원가입 화면이 extra로 넘겨준 안내 문구(문자열)가 있으면 보여 준다
-            builder: (context, state) =>
-                LoginPage(notice: state.extra is String ? state.extra as String : null),
+            pageBuilder: (context, state) =>
+                _page(state, LoginPage(notice: state.extra is String ? state.extra as String : null)),
           ),
           GoRoute(
             path: '/posts/new',
             caseSensitive: false,
-            builder: (context, state) => const PostCreatePage(),
+            pageBuilder: (context, state) => _page(state, const PostCreatePage()),
           ),
           GoRoute(
             path: '/posts/:id',
             caseSensitive: false,
             // id가 바뀌면(다른 글로 이동) 상태를 새로 만들도록 key를 id로 준다
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return PostDetailPage(key: ValueKey(id), id: id);
+              return _page(state, PostDetailPage(key: ValueKey(id), id: id));
             },
           ),
           GoRoute(
             path: '/posts/:id/edit',
             caseSensitive: false,
             // id가 바뀌면(다른 글의 수정 주소로 이동) 입력 상태를 새로 만들도록 key를 id로 준다
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return PostEditPage(key: ValueKey(id), id: id);
+              return _page(state, PostEditPage(key: ValueKey(id), id: id));
             },
           ),
           GoRoute(
             path: '/me',
             caseSensitive: false,
-            builder: (context, state) => const MyPage(), // S16-g1: 진짜 내 정보 화면
+            pageBuilder: (context, state) => _page(state, const MyPage()), // S16-g1: 진짜 내 정보 화면
           ),
           // S16-m: 관리자 신고 관리·신고된 대화 보기는 진짜 화면. 탭의 진짜 값은 주소 쿼리(?status)
           GoRoute(
             path: '/admin/reports',
             caseSensitive: false,
-            builder: (context, state) => AdminReportsPage(status: state.uri.queryParameters['status'] ?? ''),
+            pageBuilder: (context, state) =>
+                _page(state, AdminReportsPage(status: state.uri.queryParameters['status'] ?? '')),
           ),
           GoRoute(
             path: '/admin/reports/:id/conversation',
             caseSensitive: false,
             // 신고 번호가 바뀌면 상태를 새로 만들도록 key를 id로 준다
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return AdminConversationPage(key: ValueKey(id), id: id);
+              return _page(state, AdminConversationPage(key: ValueKey(id), id: id));
             },
           ),
           // S16-h1: 비자 후기 목록·통계·상세는 진짜 화면. 필터의 진짜 값은 주소 쿼리
           GoRoute(
             path: '/visa-reviews',
             caseSensitive: false,
-            builder: (context, state) => VisaReviewListPage(
-              schoolId: state.uri.queryParameters['schoolId'] ?? '',
-              visaType: state.uri.queryParameters['visaType'] ?? '',
-              applicationType: state.uri.queryParameters['applicationType'] ?? '',
+            pageBuilder: (context, state) => _page(
+              state,
+              VisaReviewListPage(
+                schoolId: state.uri.queryParameters['schoolId'] ?? '',
+                visaType: state.uri.queryParameters['visaType'] ?? '',
+                applicationType: state.uri.queryParameters['applicationType'] ?? '',
+              ),
             ),
           ),
           GoRoute(
             path: '/visa-reviews/new',
             caseSensitive: false,
-            builder: (context, state) => const VisaReviewCreatePage(), // S16-h2: 진짜 쓰기 화면
+            pageBuilder: (context, state) => _page(state, const VisaReviewCreatePage()), // S16-h2: 진짜 쓰기 화면
           ),
           // 고정 주소 stats는 :id 보다 먼저 적어야 "stats"가 id로 잡히지 않는다
           GoRoute(
             path: '/visa-reviews/stats',
             caseSensitive: false,
-            builder: (context, state) => VisaReviewStatsPage(
-              schoolId: state.uri.queryParameters['schoolId'] ?? '',
-              visaType: state.uri.queryParameters['visaType'] ?? '',
-              applicationType: state.uri.queryParameters['applicationType'] ?? '',
+            pageBuilder: (context, state) => _page(
+              state,
+              VisaReviewStatsPage(
+                schoolId: state.uri.queryParameters['schoolId'] ?? '',
+                visaType: state.uri.queryParameters['visaType'] ?? '',
+                applicationType: state.uri.queryParameters['applicationType'] ?? '',
+              ),
             ),
           ),
           GoRoute(
             path: '/visa-reviews/:id',
             caseSensitive: false,
             // id가 바뀌면 상태를 새로 만들도록 key를 id로 준다
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return VisaReviewDetailPage(key: ValueKey(id), id: id);
+              return _page(state, VisaReviewDetailPage(key: ValueKey(id), id: id));
             },
           ),
           GoRoute(
             path: '/visa-reviews/:id/edit',
             caseSensitive: false,
             // id가 바뀌면 입력 상태를 새로 만들도록 key를 id로 준다
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return VisaReviewEditPage(key: ValueKey(id), id: id);
+              return _page(state, VisaReviewEditPage(key: ValueKey(id), id: id));
             },
           ),
           GoRoute(
             path: '/visa-plan',
             caseSensitive: false,
-            builder: (context, state) => const VisaPlanPage(), // S16-i1: 진짜 내 비자 일정 화면
+            pageBuilder: (context, state) => _page(state, const VisaPlanPage()), // S16-i1: 진짜 내 비자 일정 화면
           ),
           // S16-j1: 중고·나눔 목록은 진짜 화면. 필터·검색어의 진짜 값은 주소 쿼리
           GoRoute(
             path: '/market',
             caseSensitive: false,
-            builder: (context, state) => MarketListPage(
-              schoolId: state.uri.queryParameters['schoolId'] ?? '',
-              tradeType: state.uri.queryParameters['tradeType'] ?? '',
-              status: state.uri.queryParameters['status'] ?? '',
-              q: state.uri.queryParameters['q'] ?? '',
+            pageBuilder: (context, state) => _page(
+              state,
+              MarketListPage(
+                schoolId: state.uri.queryParameters['schoolId'] ?? '',
+                tradeType: state.uri.queryParameters['tradeType'] ?? '',
+                status: state.uri.queryParameters['status'] ?? '',
+                q: state.uri.queryParameters['q'] ?? '',
+              ),
             ),
           ),
           // S16-k1: 중고·나눔 쓰기는 진짜 화면 (/market/:id 보다 먼저 와야 "new"가 id로 읽히지 않는다)
           GoRoute(
             path: '/market/new',
             caseSensitive: false,
-            builder: (context, state) => const MarketCreatePage(),
+            pageBuilder: (context, state) => _page(state, const MarketCreatePage()),
           ),
           // S16-j2: 중고·나눔 상세는 진짜 화면. id가 바뀌면 상태를 새로 만들도록 key를 id로 준다.
           // extra(int)는 글쓰기에서 넘어온 "못 올린 사진 수" (그 밖의 모양은 없는 것으로 본다)
           GoRoute(
             path: '/market/:id',
             caseSensitive: false,
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
               final extra = state.extra;
-              return MarketDetailPage(key: ValueKey(id), id: id, photoFailed: extra is int ? extra : null);
+              return _page(
+                state,
+                MarketDetailPage(key: ValueKey(id), id: id, photoFailed: extra is int ? extra : null),
+              );
             },
           ),
           // S16-k1: 중고·나눔 수정은 진짜 화면. id가 바뀌면 입력 상태를 새로 만들도록 key를 id로 준다
           GoRoute(
             path: '/market/:id/edit',
             caseSensitive: false,
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return MarketEditPage(key: ValueKey(id), id: id);
+              return _page(state, MarketEditPage(key: ValueKey(id), id: id));
             },
           ),
           // S16-l1: 쪽지함·대화는 진짜 화면. 대화는 id가 바뀌면(기록으로 건너뛰면) 새로 만들도록 key를 id로 준다
           GoRoute(
             path: '/messages',
             caseSensitive: false,
-            builder: (context, state) => const MessageListPage(),
+            pageBuilder: (context, state) => _page(state, const MessageListPage()),
           ),
           GoRoute(
             path: '/messages/:id',
             caseSensitive: false,
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return ConversationPage(key: ValueKey(id), id: id);
+              return _page(state, ConversationPage(key: ValueKey(id), id: id));
             },
           ),
         ],
       ),
     ],
     // 위 주소에 없으면 404 화면 (상단바는 똑같이 보인다)
-    errorBuilder: (context, state) => const AppShell(child: NotFoundPage()),
+    // errorBuilder도 MaterialPage를 만들므로 errorPageBuilder로 즉시 전환 페이지를 쓴다
+    errorPageBuilder: (context, state) => _page(state, const AppShell(child: NotFoundPage())),
   );
 }
