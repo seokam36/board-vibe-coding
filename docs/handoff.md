@@ -16,11 +16,8 @@
 - **방향**: 학습·포트폴리오 중심. 다음 큰 기능 순서는 **S17 AI → S15 글 번역**(사용자 결정 2026-11-12).
 
 ## 다음에 할 일
-- **바로 다음 행동: 에이전트 설정 정리 승인받기** (사용자 승인 필요, 다음 세션부터 적용)
-  - `.claude/agents/tester.md`: 허용 경로 hook `./scripts/allow-only.sh src/test/ frontend/e2e/`와 본문의 frontend 안내(23·24·28행)를 `flutter_app/test/`·`flutter_app/e2e/`로. 지금은 tester가 flutter_app/test를 못 써서 build가 테스트까지 썼다.
-  - deploy 에이전트 허용 경로에 `flutter_app/Dockerfile`·`nginx.conf`·`.dockerignore` 추가 검토.
-  - `.claude/skills/explain/SKILL.md` 13행 "화면(React)… frontend에서"를 flutter_app/lib 기준으로.
-- 그다음 S17(AI) 기획: 메인 대화가 backlog에 항목 추가 → planner.
+- **바로 다음 행동: S17(AI) 기획** — 메인 대화가 backlog에 항목 추가 → planner.
+- 에이전트 설정은 2026-11-14 사용자 승인으로 Flutter 기준으로 바꿈(새 세션부터 적용): tester 허용 경로 `src/test/ flutter_app/test/ flutter_app/e2e/`, explain 스킬의 화면 안내. (검토만 남음: deploy 허용 경로에 `flutter_app/Dockerfile`·`nginx.conf`·`.dockerignore` 추가 — 필요해지면 사용자에게 묻기)
 - Notion: S16은 프론트(화면) 작업이라 단계 기록은 안 씀(사용자 규칙). 도구 사전에 Flutter·go_router·dio·provider 개념 페이지가 필요한지 사용자에게 물어볼 것. 2026-11-13에 못 한 Notion 갱신(진행 현황 S13·S14 줄 체크, 카드 요약 "배포됨", 아키텍처 그림에 S3, IAM 역할·IMDS 페이지 필요 여부)도 남아 있음.
 - **EC2는 2026-11-14 배포 뒤 켜져 있을 수 있다.** 안 쓰면 콘솔에서 중지.
 - 운영 확인 남은 것(선택): 학교 인증된 두 번째 계정이 생기면 deploy.md "S13·S14 배포 후 확인" 4·5번(쪽지·대화 신고). `flutter_app/e2e/README.md` 손 확인표(아이폰 사진 선택, 한글 입력 조합 검색, 스크린리더 등).
