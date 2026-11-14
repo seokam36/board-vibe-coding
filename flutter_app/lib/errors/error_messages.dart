@@ -111,6 +111,16 @@ abstract final class ErrorMessages {
   // 대화 보기를 불러오다 실패했을 때의 기본 문구
   static const conversationLoadFailed = '대화를 불러오지 못했습니다';
 
+  // --- 챗봇 ---
+  // 질문 400: 비었거나 공백뿐이거나 500자 초과
+  static const chatQuestionInvalid = '질문을 입력해 주세요 (최대 500자)';
+  // 503: 서버의 AI가 꺼져 있거나(LLM_MODE=off) 연결이 안 됨
+  static const chatUnavailable = '지금은 AI 챗봇을 쓸 수 없어요. 잠시 뒤 다시 시도해 주세요';
+  // 504(서버 시간 초과)와 화면 쪽 시간 초과(90초)에 같이 쓴다
+  static const chatTimeout = 'AI가 시간 안에 답하지 못했어요. 잠시 뒤 다시 시도해 주세요';
+  // 500 등 그 밖의 실패 기본 문구
+  static const chatFailed = '답을 받지 못했습니다';
+
   // --- 관리자 ---
   // 관리자 화면 403 / 관리자가 아닐 때 화면에 보이는 안내
   static const adminOnly = '관리자만 볼 수 있습니다';
@@ -156,6 +166,13 @@ int? getStatus(Object error) =>
 // 응답이 없는 네트워크 오류인지 확인 (연결 실패·시간 초과·취소 등 response가 없는 DioException)
 bool isNetworkError(Object error) =>
     error is DioException && error.response == null;
+
+// 제한 시간 초과로 끊긴 오류인지 (사진 올리기·챗봇이 쓴다)
+bool isTimeoutError(Object? error) =>
+    error is DioException &&
+    (error.type == DioExceptionType.receiveTimeout ||
+        error.type == DioExceptionType.sendTimeout ||
+        error.type == DioExceptionType.connectionTimeout);
 
 // 에러를 화면에 보여 줄 형태로 바꾼다. 분기 순서는 항상 같다:
 // 네트워크 오류 → 공용 문구 / (표에 없는) 401 → NeedLogin / 표에 있는 코드 → 그 문구 / 나머지 → 기본 문구

@@ -54,6 +54,8 @@ class _NavBarState extends State<NavBar> {
         if (school != null) _VerifiedBadge(schoolName: school.name),
         // 비자 일정은 학교 인증 회원에게만 보인다
         if (school != null) AppLink(label: '비자 일정', onTap: () => context.go('/visa-plan')),
+        // 중고 글 챗봇은 로그인한 회원 누구나 (학교 인증 불필요)
+        AppLink(label: '챗봇', onTap: () => context.go('/chat')),
         // 안 읽은 쪽지가 있으면 "쪽지 (3)"처럼 개수를 붙인다 (99+ 줄임 없이 숫자 그대로, 0이면 숫자 없음)
         AppLink(label: unread > 0 ? '쪽지 ($unread)' : '쪽지', onTap: () => context.go('/messages')),
         AppLink(label: '내 정보', onTap: () => context.go('/me')),

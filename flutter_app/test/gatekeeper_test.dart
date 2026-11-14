@@ -1,4 +1,4 @@
-// S16-d2a 문지기 테스트: 보호 주소 10개, 로그인 상태 통과, 로그인 풀림(expiredPath) 예외, 대소문자를 본다.
+// S16-d2a 문지기 테스트: 보호 주소 11개, 로그인 상태 통과, 로그인 풀림(expiredPath) 예외, 대소문자를 본다.
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fake_adapter.dart';
@@ -17,7 +17,7 @@ Future<void> _expire(WidgetTester tester, TestApp app) async {
 }
 
 void main() {
-  // 보호 주소 10개 (id 자리는 아무 값)
+  // 보호 주소 11개 (id 자리는 아무 값)
   const protectedPaths = [
     '/posts/new',
     '/posts/7/edit',
@@ -29,6 +29,7 @@ void main() {
     '/market/7/edit',
     '/messages',
     '/messages/7',
+    '/chat',
   ];
 
   for (final path in protectedPaths) {
@@ -54,7 +55,7 @@ void main() {
   }
 
   // 라우트가 대소문자를 가리지 않으므로 문지기도 대소문자로 우회되면 안 된다
-  for (final path in ['/ME', '/Posts/New', '/POSTS/5/EDIT', '/Messages/9', '/Visa-Plan']) {
+  for (final path in ['/ME', '/Posts/New', '/POSTS/5/EDIT', '/Messages/9', '/Visa-Plan', '/Chat']) {
     testWidgets('대소문자가 달라도($path) 비로그인이면 /login', (tester) async {
       final app = await pumpApp(tester, location: path);
       expect(_path(app), '/login');

@@ -40,6 +40,7 @@ void main() {
     // (관리자일 때의 동작은 admin_reports_page_test.dart·admin_conversation_page_test.dart가 맡는다)
     ('/admin/reports', '관리자만 볼 수 있습니다'),
     ('/admin/reports/7/conversation', '관리자만 볼 수 있습니다'),
+    ('/chat', '중고 글 챗봇'), // S17-d: 챗봇 화면 (자세한 동작은 chat_page_test.dart)
     // S16-h1: /visa-reviews·/visa-reviews/stats·/visa-reviews/:id 는 진짜 화면이 되어 아래 별도 테스트로 옮겼다
     // S16-h2: /visa-reviews/new·/visa-reviews/:id/edit 는 진짜 화면이 되어 아래 별도 테스트로 옮겼다
     // S16-i1: /visa-plan 은 진짜 화면이 되어 visa_plan_page_test.dart 로 옮겼다

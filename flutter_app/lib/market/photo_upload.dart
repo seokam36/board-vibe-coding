@@ -61,13 +61,6 @@ PhotoCheck checkPhotoFiles(List<PickedPhoto> files, int existing) {
   return PhotoCheck(accepted, notes.isEmpty ? null : notes.join(' '));
 }
 
-// 제한 시간 초과로 끊긴 오류인지
-bool isTimeoutError(Object? error) =>
-    error is DioException &&
-    (error.type == DioExceptionType.receiveTimeout ||
-        error.type == DioExceptionType.sendTimeout ||
-        error.type == DioExceptionType.connectionTimeout);
-
 // 사진 한 장 올리기 (multipart, 파트 이름 file). CSRF 헤더는 ApiClient가 붙인다
 Future<MarketPhoto> uploadOne(Dio dio, int itemId, PickedPhoto photo) async {
   final bytes = await photo.readBytes(); // 올리기 직전에 이 한 장만 읽는다

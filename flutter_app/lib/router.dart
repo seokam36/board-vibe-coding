@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart' show ValueKey, Widget;
 import 'auth/auth_state.dart';
 import 'pages/admin_conversation_page.dart';
 import 'pages/admin_reports_page.dart';
+import 'pages/chat_page.dart';
 import 'pages/conversation_page.dart';
 import 'pages/login_page.dart';
 import 'pages/market_detail_page.dart';
@@ -36,7 +37,7 @@ String normalizePath(String path) {
       : lower;
 }
 
-// 로그인한 사람만 볼 수 있는 주소 10개 (React의 RequireLogin으로 감싼 화면들). 정리된(소문자) 경로로 검사한다.
+// 로그인한 사람만 볼 수 있는 주소 11개 (React의 RequireLogin으로 감싼 화면들). 정리된(소문자) 경로로 검사한다.
 final _protectedPaths = <RegExp>[
   RegExp(r'^/posts/new$'),
   RegExp(r'^/posts/[^/]+/edit$'),
@@ -48,6 +49,7 @@ final _protectedPaths = <RegExp>[
   RegExp(r'^/market/[^/]+/edit$'),
   RegExp(r'^/messages$'),
   RegExp(r'^/messages/[^/]+$'),
+  RegExp(r'^/chat$'), // S17-d: 중고 글 챗봇
 ];
 
 bool _isProtected(String normalizedPath) =>
@@ -266,6 +268,12 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
               final id = state.pathParameters['id']!;
               return _page(state, ConversationPage(key: ValueKey(id), id: id));
             },
+          ),
+          // S17-d: 중고 글 챗봇 (로그인한 회원만, 문지기가 막는다)
+          GoRoute(
+            path: '/chat',
+            caseSensitive: false,
+            pageBuilder: (context, state) => _page(state, const ChatPage()),
           ),
         ],
       ),
