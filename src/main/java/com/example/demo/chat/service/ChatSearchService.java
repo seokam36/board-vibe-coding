@@ -43,6 +43,24 @@ public class ChatSearchService {
         return found.stream().map(ChatSearchService::toChatItem).toList();
     }
 
+    // S17-e3: AI가 양식에 채운 조건으로 찾는다(아직 ChatService는 안 부른다. e4에서 연결).
+    // keyword가 null이거나 쓸 단어가 없으면 DB를 부르지 않고 빈 목록. maxPrice가 null이면 가격 조건 없음(있으면 그 이하, 나눔 0원 포함).
+    // freeOnly=true면 나눔 글만, false면 판매·나눔 둘 다. 정렬은 맞은 단어 수 -> 최신순 -> id 순이고 조건(Specification) 안에서 정해진다.
+    // 그래서 여기서 sortBy를 부르지 않는다(부르면 그 정렬이 덮어쓴다).
+    @Transactional(readOnly = true)
+    public List<ChatMarketItem> searchByCondition(String keyword, Integer maxPrice, boolean freeOnly) {
+        if (keyword == null) {
+            return List.of();
+        }
+        List<String> keywords = keywordsOf(keyword);
+        if (keywords.isEmpty()) {
+            return List.of();
+        }
+        List<MarketItem> found = marketItemRepository.findBy(MarketItemChatSearch.openItemsByCondition(keywords, maxPrice, freeOnly),
+                q -> q.limit(MAX_ITEMS).project("school").all());
+        return found.stream().map(ChatSearchService::toChatItem).toList();
+    }
+
     // 공백(전각 포함)으로 쪼개 2글자 이상 단어만, 대소문자 무시로 중복을 빼고, 앞에서 10개까지
     static List<String> keywordsOf(String question) {
         Map<String, String> unique = new LinkedHashMap<>();
