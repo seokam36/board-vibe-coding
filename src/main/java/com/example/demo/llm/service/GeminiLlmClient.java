@@ -59,6 +59,8 @@ public class GeminiLlmClient implements LlmClient {
         if (baseUrl.contains("?") || baseUrl.contains("#")) {
             throw new IllegalArgumentException("baseUrl에는 ?와 #을 쓸 수 없습니다.");
         }
+        // 키·모델 검사는 LlmConfig.checkGemini와 일부러 두 겹이다: 거기는 설정 이름(GEMINI_API_KEY 등)을
+        // 알려 주고, 여기는 클라이언트 자체 방어다. 모델 정규식은 두 곳이 같아야 한다.
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalArgumentException("apiKey는 비어 있을 수 없습니다.");
         }

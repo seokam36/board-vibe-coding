@@ -58,6 +58,8 @@ public class LlmConfig {
 
     // gemini 모드 설정 검사. 메시지에는 변수 이름만 쓰고 값(특히 키)은 절대 쓰지 않는다.
     private static void checkGemini(LlmProperties.Gemini g) {
+        // 키·모델 검사는 GeminiLlmClient 생성자와 일부러 두 겹이다: 여기는 어느 설정(변수 이름)이
+        // 틀렸는지 알려 주고, 클라이언트는 자체 방어다. 모델 정규식은 두 곳이 같아야 한다.
         String key = g.apiKey();
         if (key == null || key.isBlank()) {
             throw new IllegalStateException("LLM_MODE=gemini인데 GEMINI_API_KEY가 비어 있습니다.");

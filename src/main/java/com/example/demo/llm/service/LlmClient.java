@@ -2,7 +2,7 @@ package com.example.demo.llm.service;
 
 import java.time.Duration;
 
-// AI(LLM)에게 질문하는 창구. 서비스 코드는 이 인터페이스만 알고, 뒤에서 무엇이 답하는지(끔/Ollama/나중에 Gemini)는 모른다.
+// AI(LLM)에게 질문하는 창구. 서비스 코드는 이 인터페이스만 알고, 뒤에서 무엇이 답하는지(끔/Ollama/Gemini)는 모른다.
 // 일반 호출(chat) + 구조화 호출(chatJson, JSON 양식) 두 가지. 도구 호출은 S17-e1 실측 결과 쓰지 않기로 했다.
 public interface LlmClient {
 

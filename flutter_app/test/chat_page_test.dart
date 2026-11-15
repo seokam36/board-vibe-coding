@@ -2,7 +2,7 @@
 import 'dart:async';
 
 import 'package:board_web/errors/error_messages.dart';
-import 'package:board_web/pages/chat_page.dart' show chatGuide, chatGuideExample;
+import 'package:board_web/pages/chat_page.dart' show chatGuide, chatGuideExample, chatPrivacyNotice;
 import 'package:board_web/widgets/notice.dart';
 import 'package:board_web/widgets/relogin_notice.dart';
 import 'package:flutter/semantics.dart';
@@ -82,24 +82,35 @@ void main() {
       expect(tester.takeException(), isNull); // 오버플로는 예외로 잡힌다
     });
 
-    // 안내 두 줄은 스크린리더에 한 덩어리(container)로 읽혀야 한다
-    _test('안내 두 줄이 스크린리더에 읽힌다(접근성 트리에 글자가 있다)', (tester) async {
+    // 안내 세 줄은 스크린리더에 한 덩어리(container)로 읽혀야 한다
+    _test('안내 세 줄이 스크린리더에 읽힌다(접근성 트리에 글자가 있다)', (tester) async {
       final semantics = tester.ensureSemantics();
       await _open(tester, FakeAdapter());
       final data = tester.getSemantics(find.text(chatGuide)).getSemanticsData();
       expect(data.label, contains(chatGuide));
       expect(data.label, contains(chatGuideExample));
+      expect(data.label, contains(chatPrivacyNotice)); // S18-g: 세 번째 줄(개인정보 안내)도 같은 덩어리
       semantics.dispose();
+    });
+
+    // S18-g: 질문이 구글 AI로 간다는 개인정보 안내가 늘 보이고, 320px에서도 넘치지 않는다
+    _test('구글 전송·개인정보 안내가 보이고 320px에서 넘치지 않는다', (tester) async {
+      tester.view.physicalSize = const Size(320, 1800);
+      await _open(tester, FakeAdapter());
+      expect(find.text('질문은 구글 AI로 전송돼요. 연락처 같은 개인정보는 쓰지 마세요.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.text(chatPrivacyNotice)).width, lessThanOrEqualTo(320));
     });
 
     // 320px·375px 두 폭 모두 오버플로(예외) 없음
     for (final w in [320.0, 375.0]) {
-      _test('폭 ${w.toInt()}px: 안내 두 줄이 화면 안에 들어오고 예외가 없다', (tester) async {
+      _test('폭 ${w.toInt()}px: 안내 세 줄이 화면 안에 들어오고 예외가 없다', (tester) async {
         tester.view.physicalSize = Size(w, 1800);
         await _open(tester, FakeAdapter());
         expect(tester.takeException(), isNull);
         expect(tester.getSize(find.text(chatGuide)).width, lessThanOrEqualTo(w));
         expect(tester.getSize(find.text(chatGuideExample)).width, lessThanOrEqualTo(w));
+        expect(tester.getSize(find.text(chatPrivacyNotice)).width, lessThanOrEqualTo(w)); // S18-g
       });
     }
 
@@ -299,6 +310,7 @@ void main() {
       expect(find.byWidgetPredicate((w) => w is Notice && w.kind == NoticeKind.error), findsNothing);
       expect(find.text(chatGuide), findsOneWidget); // 답이 나온 뒤에도 안내는 남는다
       expect(find.text(chatGuideExample), findsOneWidget);
+      expect(find.text(chatPrivacyNotice), findsOneWidget);
     });
 
     _test('type이 MARKET_ITEM이 아닌 출처 줄은 보이지 않는다', (tester) async {

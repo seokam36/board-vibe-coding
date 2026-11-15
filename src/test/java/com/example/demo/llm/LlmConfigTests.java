@@ -223,6 +223,19 @@ class LlmConfigTests {
         });
     }
 
+    // off는 가짜 AI 테스트 사정으로 ollama 값을 쓰고, 모르는 모드는 조용히 ollama 값을 주지 않고 예외다(LlmConfig가 막아서 실제론 안 닿는다)
+    @Test
+    void off는_올라마_예산이고_모르는_모드는_예외다() {
+        LlmProperties off = new LlmProperties("off", new LlmProperties.Ollama("http://localhost:11434", "m", Duration.ofSeconds(50)),
+                new LlmProperties.Gemini("https://x.example", "", "m", Duration.ofSeconds(20)));
+        assertThat(off.budget()).isEqualTo(Duration.ofSeconds(50));
+        assertThat(off.budgetVariable()).isEqualTo("OLLAMA_TIMEOUT");
+
+        LlmProperties weird = new LlmProperties("weird", off.ollama(), off.gemini());
+        assertThatThrownBy(weird::budget).isInstanceOf(IllegalStateException.class).hasMessageNotContaining("weird");
+        assertThatThrownBy(weird::budgetVariable).isInstanceOf(IllegalStateException.class);
+    }
+
     private static String rootMessage(Throwable t) {
         StringBuilder sb = new StringBuilder();
         for (; t != null; t = t.getCause()) sb.append(t.getMessage()).append('\n');

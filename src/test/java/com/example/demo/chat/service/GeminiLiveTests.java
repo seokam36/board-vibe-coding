@@ -26,7 +26,7 @@ class GeminiLiveTests {
         String json = client.chatJson(ChatService.FORM_PROMPT, "3만 원 이하 자전거 있어?", ChatService.FORM_SCHEMA, Duration.ofSeconds(30));
         System.out.println("LIVE JSON: " + json);
         var node = new tools.jackson.databind.ObjectMapper().readTree(json);
-        assertThat(node.path("keyword").asText()).contains("자전거");
+        assertThat(node.path("keyword").asString()).contains("자전거");
 
         // 2) 답 호출(chat): 비어 있지 않은 답
         String answer = client.chat("한국어로 한 문장으로만 짧게 답해.", "대한민국의 수도는 어디야?", Duration.ofSeconds(30));

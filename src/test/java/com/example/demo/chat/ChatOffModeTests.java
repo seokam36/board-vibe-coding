@@ -33,8 +33,9 @@ import jakarta.servlet.http.Cookie;
 import tools.jackson.databind.ObjectMapper;
 
 // S17-c: 가짜 AI(ScriptedLlmClient) 없이 진짜 OffLlmClient(LLM_MODE=off, 테스트 기본)로 본 POST /chat.
-// 가짜 AI를 안 끼워서 기본 테스트 컨텍스트를 다른 테스트와 같이 쓴다.
-@SpringBootTest
+// S18-g: 서버 전체 상한(분 3·하루 5)을 켜 둔 채로 돌린다. off는 상한을 아예 보지 않으니(맨 앞에서 503) 다른 테스트에는 영향이 없고,
+// 옛 ChatGlobalLimitOffTests(전체 카운터 키가 안 생김)를 여기로 합쳤다.
+@SpringBootTest(properties = { "app.chat.global-limit.per-minute=3", "app.chat.global-limit.per-day=5" })
 @Import(TestcontainersConfiguration.class)
 @AutoConfigureMockMvc
 class ChatOffModeTests {
@@ -64,7 +65,7 @@ class ChatOffModeTests {
 		jdbc.update("delete from market_items");
 		postRepository.deleteAll();
 		userRepository.deleteAll();
-		Set<String> keys = redis.keys("chat-rate-*");
+		Set<String> keys = redis.keys("chat-*"); // 개인 횟수(chat-rate-*)와 전체 횟수(chat-global-*) 모두 정리
 		if (keys != null && !keys.isEmpty()) {
 			redis.delete(keys);
 		}
@@ -106,6 +107,8 @@ class ChatOffModeTests {
 		}
 
 		assertThat(redis.keys("chat-rate-*")).isEmpty();
+		// S18-d: 서버 전체 상한이 켜져 있어도 off는 전체 카운터도 안 센다 (옛 ChatGlobalLimitOffTests)
+		assertThat(redis.keys("chat-global-*")).isEmpty();
 	}
 
 	// S17-f2: off면 동시 질문 자리도 잡지 않고 바로 503이다. 자리를 모두 쥐어 놓아도(대기 5초) 기다리지 않고 즉시 끝난다.

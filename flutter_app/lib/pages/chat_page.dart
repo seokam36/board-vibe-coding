@@ -21,12 +21,15 @@ import '../widgets/row_link.dart';
 // 조금 더 엄격하다 — 화면을 통과한 질문이 길이 때문에 400이 되지 않는다
 const chatMaxLength = 500;
 
-// 이 요청 하나에만 거는 화면 쪽 제한 시간: 서버 AI 제한(60초) + 여유. 다른 요청에는 안 걸린다
+// 이 요청 하나에만 거는 화면 쪽 제한 시간: 서버 AI 제한(제미나이 30초·올라마 60초 중 큰 쪽 60초) + 여유. 다른 요청에는 안 걸린다
 const _chatTimeout = Duration(seconds: 90);
 
 // 질문 칸 위 안내 문구(S18-d2). 서버의 "범위 안내" 답과 같은 뜻이다: 중고·나눔 글만 찾는다
 const chatGuide = '중고·나눔 글을 찾아 주는 챗봇이에요. 물건 이름과 가격을 넣어 물어보세요.';
 const chatGuideExample = '예) 3만 원 이하 자전거 있어?';
+// 질문 내용이 구글 AI(제미나이)로 넘어간다는 개인정보 안내(S18-g). 늘 보인다.
+// 운영(gemini) 기준 문구 — 로컬 ollama·off에서는 실제로 구글로 안 간다
+const chatPrivacyNotice = '질문은 구글 AI로 전송돼요. 연락처 같은 개인정보는 쓰지 마세요.';
 
 // 실패 상태코드별 문구. 401은 표에 두지 않는다 → describeError가 로그인 안내(NeedLogin)로 바꾼다
 const _chatErrors = <int, String>{
@@ -139,7 +142,7 @@ class _ChatPageState extends State<ChatPage> {
           // 늘 보이는 안내: AI 답은 틀릴 수 있으니 출처로 확인하게 한다
           const Notice(kind: NoticeKind.info, message: "AI 답은 틀릴 수 있어요. 아래 '참고한 글'에서 직접 확인해 주세요"),
           // 늘 보이는 사용 안내(S18-d2): 이 챗봇은 중고·나눔 글 찾기만 한다고 미리 알려 준다. 답이 나온 뒤에도 그대로 둔다.
-          // container: 두 줄을 스크린리더가 한 덩어리로 읽게 묶는다. Text는 길면 줄바꿈되어 320px에서도 넘치지 않는다
+          // container: 세 줄(범위·예시·구글 전송 안내)을 스크린리더가 한 덩어리로 읽게 묶는다. Text는 길면 줄바꿈되어 320px에서도 넘치지 않는다
           Semantics(
             container: true,
             child: const Padding(
@@ -149,6 +152,8 @@ class _ChatPageState extends State<ChatPage> {
                 children: [
                   Text(chatGuide, style: TextStyle(color: AppColors.ink, height: 1.5)),
                   Text(chatGuideExample, style: TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.muted, height: 1.5)),
+                  SizedBox(height: AppSizes.space1), // 예시 줄과 살짝 떼기
+                  Text(chatPrivacyNotice, style: TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.muted, height: 1.5)),
                 ],
               ),
             ),

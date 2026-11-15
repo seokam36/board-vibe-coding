@@ -12,7 +12,7 @@ import com.example.demo.config.ChatProperties;
 import lombok.extern.slf4j.Slf4j;
 
 // 챗봇 "동시 질문 자리"(S17-f2). 서버 전체에서 AI를 쓰는 질문을 동시에 max-concurrent개(기본 2)까지만 받는다.
-// 왜: Ollama는 내 PC 한 대라 질문이 몰리면 모두 느려져 줄줄이 504가 된다. 자리를 제한해 앞 질문부터 끝내 준다.
+// 왜: Ollama는 내 PC 한 대라 질문이 몰리면 모두 느려져 줄줄이 504가 된다. 제미나이도 구글 호출 한도와 서버 메모리를 지켜야 한다. 자리를 제한해 앞 질문부터 끝내 준다.
 // 📦 java.util.concurrent.Semaphore: "번호표 N장". acquire로 한 장 집고 release로 돌려놓는다. 서버(EC2) 1대라 메모리 안에서 세면 충분하다(Redis 불필요).
 @Slf4j
 @Component

@@ -114,7 +114,7 @@ abstract final class ErrorMessages {
   // --- 챗봇 ---
   // 질문 400: 비었거나 공백뿐이거나 500자 초과
   static const chatQuestionInvalid = '질문을 입력해 주세요 (최대 500자)';
-  // 503: 서버의 AI가 꺼져 있거나(LLM_MODE=off) 연결이 안 됨
+  // 503: AI가 꺼져 있거나(LLM_MODE=off), AI에 연결이 안 되거나(올라마 꺼짐·구글 오류), 서버 전체 질문 상한을 넘었거나, 동시에 답하는 자리가 없음
   static const chatUnavailable = '지금은 AI 챗봇을 쓸 수 없어요. 잠시 뒤 다시 시도해 주세요';
   // 504(서버 시간 초과)와 화면 쪽 시간 초과(90초)에 같이 쓴다
   static const chatTimeout = 'AI가 시간 안에 답하지 못했어요. 잠시 뒤 다시 시도해 주세요';

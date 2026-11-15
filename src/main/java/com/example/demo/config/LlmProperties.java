@@ -40,15 +40,25 @@ public record LlmProperties(
         }
     }
 
-    // 지금 모드의 "질문 하나 전체" 시간 예산. gemini 모드는 GEMINI_TIMEOUT, 그 밖(ollama)은 OLLAMA_TIMEOUT.
-    // off 모드에서는 ollama 값을 돌려준다. 운영 off는 ask() 맨 앞 503이라 안 쓰이지만,
+    // 지금 모드의 "질문 하나 전체" 시간 예산. gemini는 GEMINI_TIMEOUT, ollama는 OLLAMA_TIMEOUT.
+    // off도 ollama 값을 돌려준다. 운영 off는 ask() 맨 앞 503이라 안 쓰이지만,
     // 테스트는 off 모드 + 가짜 AI(ScriptedLlmClient)로 이 값을 예산으로 쓴다(ChatTimeBudgetConfigTests).
+    // 모르는 모드에 조용히 ollama 값을 주지 않도록 세 값만 명시한다(LlmConfig가 시작 때 이미 세 값만 허용해서 실제로는 닿지 않는다).
     public Duration budget() {
-        return "gemini".equals(mode) ? gemini.timeout() : ollama.timeout();
+        return switch (mode) {
+            case "gemini" -> gemini.timeout();
+            case "ollama", "off" -> ollama.timeout();
+            // 현재 값은 출력하지 않는다(LlmConfig와 같은 원칙)
+            default -> throw new IllegalStateException("알 수 없는 app.llm.mode (off, ollama, gemini만 가능)");
+        };
     }
 
-    // 위 예산을 정하는 환경변수 이름(오류 메시지용)
+    // 위 예산을 정하는 환경변수 이름(오류 메시지용). 모드별 규칙은 budget()과 같다
     public String budgetVariable() {
-        return "gemini".equals(mode) ? "GEMINI_TIMEOUT" : "OLLAMA_TIMEOUT";
+        return switch (mode) {
+            case "gemini" -> "GEMINI_TIMEOUT";
+            case "ollama", "off" -> "OLLAMA_TIMEOUT";
+            default -> throw new IllegalStateException("알 수 없는 app.llm.mode (off, ollama, gemini만 가능)");
+        };
     }
 }

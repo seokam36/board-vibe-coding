@@ -45,3 +45,6 @@ out/
 
 ### Uploads (S13-g, 로컬 사진 저장 폴더) ###
 uploads/
+
+### S18 bench run result (llm-bench-s18.mjs output) ###
+docs/bench-s18-run.json

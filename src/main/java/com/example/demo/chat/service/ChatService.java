@@ -41,7 +41,7 @@ public class ChatService {
     static final String NO_KEYWORD_ANSWER = "저는 중고·나눔 글만 찾아 드려요. 찾는 물건 이름을 넣어 다시 물어봐 주세요.";
 
     // 고정 문구(ResponseStatusException의 reason). spring.web.error.include-message(Boot 4 이름, 옛 server.error.*는 안 먹음) 기본값이 never라 응답 본문에는 나가지 않는다:
-    // 화면은 상태코드(503/504)로 보여 줄 문구를 정한다. 예외의 원인 메시지(Ollama 주소·오류 본문)는 어디에도 넣지 않는다.
+    // 화면은 상태코드(503/504)로 보여 줄 문구를 정한다. 예외의 원인 메시지(AI 주소·구글 오류 본문·키)는 어디에도 넣지 않는다.
     static final String UNAVAILABLE_MESSAGE = "AI를 지금 사용할 수 없습니다. 잠시 뒤에 다시 시도해 주세요.";
     static final String TIMEOUT_MESSAGE = "AI가 제한 시간 안에 답하지 못했습니다. 잠시 뒤에 다시 시도해 주세요.";
 
