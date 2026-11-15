@@ -1,0 +1,1142 @@
+{
+  "at": "2026-11-15T01:35:05.761Z",
+  "model": "qwen3:8b",
+  "tools": [
+    {
+      "q": "자전거 있어?",
+      "run": 1,
+      "called": false,
+      "argsType": null,
+      "maxPriceType": null,
+      "argsRaw": null,
+      "content": "#10987 자전거는 없어요.",
+      "ok": false,
+      "okLenient": false,
+      "ms": 564
+    },
+    {
+      "q": "자전거 있어?",
+      "run": 2,
+      "called": true,
+      "argsType": "object",
+      "maxPriceType": null,
+      "argsRaw": "{\"keyword\":\"자전거\"}",
+      "content": "",
+      "ok": true,
+      "okLenient": true,
+      "ms": 436
+    },
+    {
+      "q": "자전거 있어?",
+      "run": 3,
+      "called": true,
+      "argsType": "object",
+      "maxPriceType": null,
+      "argsRaw": "{\"keyword\":\"자전거\"}",
+      "content": "",
+      "ok": true,
+      "okLenient": true,
+      "ms": 447
+    },
+    {
+      "q": "3만 원 이하 자전거 있어?",
+      "run": 1,
+      "called": true,
+      "argsType": "object",
+      "maxPriceType": "number",
+      "argsRaw": "{\"keyword\":\"자전거\",\"maxPrice\":30000,\"tradeType\":\"SALE\"}",
+      "content": "",
+      "ok": false,
+      "okLenient": false,
+      "ms": 799
+    },
+    {
+      "q": "3만 원 이하 자전거 있어?",
+      "run": 2,
+      "called": true,
+      "argsType": "object",
+      "maxPriceType": "number",
+      "argsRaw": "{\"tradeType\":\"SALE\",\"keyword\":\"자전거\",\"maxPrice\":30000}",
+      "content": "",
+      "ok": false,
+      "okLenient": false,
+      "ms": 807
+    },
+    {
+      "q": "3만 원 이하 자전거 있어?",
+      "run": 3,
+      "called": true,
+      "argsType": "object",
+      "maxPriceType": "number",
+      "argsRaw": "{\"keyword\":\"자전거\",\"maxPrice\":30000,\"tradeType\":\"SALE\"}",
+      "content": "",
+      "ok": false,
+      "okLenient": false,
+      "ms": 784
+    },
+    {
+      "q": "무료 나눔 전공책 있어?",
+      "run": 1,
+      "called": true,
+      "argsType": "object",
+      "maxPriceType": null,
+      "argsRaw": "{\"keyword\":\"전공책\",\"tradeType\":\"FREE\"}",
+      "content": "",
+      "ok": true,
+      "okLenient": true,
+      "ms": 568
+    },
+    {
+      "q": "무료 나눔 전공책 있어?",
+      "run": 2,
+      "called": true,
+      "argsType": "object",
+      "maxPriceType": null,
+      "argsRaw": "{\"keyword\":\"전공책\",\"tradeType\":\"FREE\"}",
+      "content": "",
+      "ok": true,
+      "okLenient": true,
+      "ms": 575
+    },
+    {
+      "q": "무료 나눔 전공책 있어?",
+      "run": 3,
+      "called": true,
+      "argsType": "object",
+      "maxPriceType": null,
+      "argsRaw": "{\"keyword\":\"전공책\",\"tradeType\":\"FREE\"}",
+      "content": "",
+      "ok": true,
+      "okLenient": true,
+      "ms": 560
+    },
+    {
+      "q": "안녕",
+      "run": 1,
+      "called": false,
+      "argsType": null,
+      "maxPriceType": null,
+      "argsRaw": null,
+      "content": "안녕하세요! 도움이 필요하시면 말씀해주세요.",
+      "ok": true,
+      "okLenient": true,
+      "ms": 312
+    },
+    {
+      "q": "안녕",
+      "run": 2,
+      "called": false,
+      "argsType": null,
+      "maxPriceType": null,
+      "argsRaw": null,
+      "content": "안녕하세요! 도움이 필요하시면 말씀해주세요.",
+      "ok": true,
+      "okLenient": true,
+      "ms": 291
+    },
+    {
+      "q": "안녕",
+      "run": 3,
+      "called": false,
+      "argsType": null,
+      "maxPriceType": null,
+      "argsRaw": null,
+      "content": "안녕하세요! 도움이 필요하시면 언제든지 말씀해주세요.",
+      "ok": true,
+      "okLenient": true,
+      "ms": 338
+    },
+    {
+      "q": "Is there a rice cooker under 30000 won?",
+      "run": 1,
+      "called": true,
+      "argsType": "object",
+      "maxPriceType": "number",
+      "argsRaw": "{\"keyword\":\"rice cooker\",\"maxPrice\":30000}",
+      "content": "",
+      "ok": true,
+      "okLenient": true,
+      "ms": 625
+    },
+    {
+      "q": "Is there a rice cooker under 30000 won?",
+      "run": 2,
+      "called": true,
+      "argsType": "object",
+      "maxPriceType": "number",
+      "argsRaw": "{\"keyword\":\"rice cooker\",\"maxPrice\":30000}",
+      "content": "",
+      "ok": true,
+      "okLenient": true,
+      "ms": 612
+    },
+    {
+      "q": "Is there a rice cooker under 30000 won?",
+      "run": 3,
+      "called": true,
+      "argsType": "object",
+      "maxPriceType": "number",
+      "argsRaw": "{\"keyword\":\"rice cooker\",\"maxPrice\":30000}",
+      "content": "",
+      "ok": true,
+      "okLenient": true,
+      "ms": 614
+    },
+    {
+      "q": "5만원 이하 냉장고 파는 사람",
+      "run": 1,
+      "called": true,
+      "argsType": "object",
+      "maxPriceType": "number",
+      "argsRaw": "{\"keyword\":\"냉장고\",\"maxPrice\":50000,\"tradeType\":\"SALE\"}",
+      "content": "",
+      "ok": false,
+      "okLenient": true,
+      "ms": 791
+    },
+    {
+      "q": "5만원 이하 냉장고 파는 사람",
+      "run": 2,
+      "called": true,
+      "argsType": "object",
+      "maxPriceType": "number",
+      "argsRaw": "{\"keyword\":\"냉장고\",\"maxPrice\":50000,\"tradeType\":\"SALE\"}",
+      "content": "",
+      "ok": false,
+      "okLenient": true,
+      "ms": 789
+    },
+    {
+      "q": "5만원 이하 냉장고 파는 사람",
+      "run": 3,
+      "called": true,
+      "argsType": "object",
+      "maxPriceType": "number",
+      "argsRaw": "{\"keyword\":\"냉장고\",\"maxPrice\":50000,\"tradeType\":\"SALE\"}",
+      "content": "",
+      "ok": false,
+      "okLenient": true,
+      "ms": 792
+    },
+    {
+      "q": "밥솥 팔아?",
+      "run": 1,
+      "called": false,
+      "argsType": null,
+      "maxPriceType": null,
+      "argsRaw": null,
+      "content": "판매 중인 밥솥 정보를 알려드릴 수 있어. 검색해볼게요.",
+      "ok": false,
+      "okLenient": false,
+      "ms": 453
+    },
+    {
+      "q": "밥솥 팔아?",
+      "run": 2,
+      "called": false,
+      "argsType": null,
+      "maxPriceType": null,
+      "argsRaw": null,
+      "content": "판매 중인 밥솥이 있어요. #12789 (가격: 30000원, 나눔X)",
+      "ok": false,
+      "okLenient": false,
+      "ms": 650
+    },
+    {
+      "q": "밥솥 팔아?",
+      "run": 3,
+      "called": false,
+      "argsType": null,
+      "maxPriceType": null,
+      "argsRaw": null,
+      "content": "판매중인 밥솥이 없습니다.",
+      "ok": false,
+      "okLenient": false,
+      "ms": 223
+    },
+    {
+      "q": "노트북 나눔해?",
+      "run": 1,
+      "called": false,
+      "argsType": null,
+      "maxPriceType": null,
+      "argsRaw": null,
+      "content": "#1034567890: 노트북을 무료(나눔) 중이에요. 상태는 좋고, 배터리도 충분합니다. 관심 있으신가요?",
+      "ok": false,
+      "okLenient": false,
+      "ms": 865
+    },
+    {
+      "q": "노트북 나눔해?",
+      "run": 2,
+      "called": false,
+      "argsType": null,
+      "maxPriceType": null,
+      "argsRaw": null,
+      "content": "#107569 노트북이 있어요. 무료(나눔)입니다. 상관없이 가져가세요.",
+      "ok": false,
+      "okLenient": false,
+      "ms": 545
+    },
+    {
+      "q": "노트북 나눔해?",
+      "run": 3,
+      "called": false,
+      "argsType": null,
+      "maxPriceType": null,
+      "argsRaw": null,
+      "content": "#1085234567 노트북을 무료(나눔)으로 가지고 있어. 상태는 양호해. 2023년 모델이야.",
+      "ok": false,
+      "okLenient": false,
+      "ms": 835
+    }
+  ],
+  "twoTurn": {
+    "warm": [
+      {
+        "question": "3만 원 이하 자전거 있어?",
+        "turn1Args": "{\"keyword\":\"자전거\",\"maxPrice\":30000,\"tradeType\":\"SALE\"}",
+        "turn1Ms": 799,
+        "turn2Ms": 1182,
+        "totalMs": 1981,
+        "answer": "#204: 예약중이라서 구매할 수 없어요.  \n#205: 18000원에 판매중이에요.  \n#209: 28000원에 판매중이에요.",
+        "ground": {
+          "gotIds": [
+            "204",
+            "205",
+            "209"
+          ],
+          "gotPrices": [
+            18000,
+            28000
+          ],
+          "badIds": [],
+          "badPrices": [],
+          "ok": true
+        }
+      },
+      {
+        "question": "3만 원 이하 자전거 있어?",
+        "turn1Args": "{\"maxPrice\":30000,\"tradeType\":\"SALE\",\"keyword\":\"자전거\"}",
+        "turn1Ms": 840,
+        "turn2Ms": 1167,
+        "totalMs": 2007,
+        "answer": "#204: 예약중이라서 구매 못해요.  \n#205: 18000원에 판매중이에요.  \n#209: 28000원에 판매중이에요.",
+        "ground": {
+          "gotIds": [
+            "204",
+            "205",
+            "209"
+          ],
+          "gotPrices": [
+            18000,
+            28000
+          ],
+          "badIds": [],
+          "badPrices": [],
+          "ok": true
+        }
+      },
+      {
+        "question": "3만 원 이하 자전거 있어?",
+        "turn1Args": "{\"keyword\":\"자전거\",\"maxPrice\":30000,\"tradeType\":\"SALE\"}",
+        "turn1Ms": 778,
+        "turn2Ms": 1170,
+        "totalMs": 1948,
+        "answer": "#204: 예약중이라 예약이 필요해요.  \n#205: 18000원으로 판매중이에요.  \n#209: 28000원으로 판매중이에요.",
+        "ground": {
+          "gotIds": [
+            "204",
+            "205",
+            "209"
+          ],
+          "gotPrices": [
+            18000,
+            28000
+          ],
+          "badIds": [],
+          "badPrices": [],
+          "ok": true
+        }
+      }
+    ],
+    "cold": {
+      "question": "3만 원 이하 자전거 있어?",
+      "turn1Args": "{\"keyword\":\"자전거\",\"maxPrice\":30000,\"tradeType\":\"SALE\"}",
+      "turn1Ms": 3805,
+      "turn2Ms": 1214,
+      "totalMs": 5019,
+      "answer": "#204: 예약중이라서 구매 불가능해요.  \n#205: 18000원에 판매중이에요.  \n#209: 28000원에 판매중이에요.",
+      "ground": {
+        "gotIds": [
+          "204",
+          "205",
+          "209"
+        ],
+        "gotPrices": [
+          18000,
+          28000
+        ],
+        "badIds": [],
+        "badPrices": [],
+        "ok": true
+      }
+    },
+    "empty": [
+      {
+        "question": "3만 원 이하 자전거 있어?",
+        "turn1Args": "{\"keyword\":\"자전거\",\"maxPrice\":30000,\"tradeType\":\"SALE\"}",
+        "turn1Ms": 816,
+        "turn2Ms": 373,
+        "totalMs": 1189,
+        "answer": "3만 원 이하의 자전거는 판매 중인 글이 없습니다.",
+        "ground": {
+          "gotIds": [],
+          "gotPrices": [],
+          "badIds": [],
+          "badPrices": [],
+          "ok": true
+        }
+      },
+      {
+        "question": "3만 원 이하 자전거 있어?",
+        "turn1Args": "{\"tradeType\":\"SALE\",\"keyword\":\"자전거\",\"maxPrice\":30000}",
+        "turn1Ms": 782,
+        "turn2Ms": 434,
+        "totalMs": 1216,
+        "answer": "3만 원 이하의 자전거는 판매 중인 게시물이 없습니다.",
+        "ground": {
+          "gotIds": [],
+          "gotPrices": [],
+          "badIds": [],
+          "badPrices": [],
+          "ok": true
+        }
+      },
+      {
+        "question": "3만 원 이하 자전거 있어?",
+        "turn1Args": "{\"keyword\":\"자전거\",\"maxPrice\":30000,\"tradeType\":\"SALE\"}",
+        "turn1Ms": 793,
+        "turn2Ms": 360,
+        "totalMs": 1153,
+        "answer": "3만 원 이하로 판매 중인 자전거 글이 없습니다.",
+        "ground": {
+          "gotIds": [],
+          "gotPrices": [],
+          "badIds": [],
+          "badPrices": [],
+          "ok": true
+        }
+      }
+    ]
+  },
+  "structured": [
+    {
+      "q": "자전거 있어?",
+      "run": 1,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"자전거\"\n}",
+      "parseFail": false,
+      "ok": true,
+      "okLenient": true,
+      "ms": 409
+    },
+    {
+      "q": "자전거 있어?",
+      "run": 2,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"자전거\"\n}",
+      "parseFail": false,
+      "ok": true,
+      "okLenient": true,
+      "ms": 335
+    },
+    {
+      "q": "자전거 있어?",
+      "run": 3,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"자전거\"\n}",
+      "parseFail": false,
+      "ok": true,
+      "okLenient": true,
+      "ms": 355
+    },
+    {
+      "q": "3만 원 이하 자전거 있어?",
+      "run": 1,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"자전거\",\n  \"maxPrice\": 30000,\n  \"tradeType\": \"SALE\"\n}",
+      "parseFail": false,
+      "ok": false,
+      "okLenient": false,
+      "ms": 742
+    },
+    {
+      "q": "3만 원 이하 자전거 있어?",
+      "run": 2,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"자전거\",\n  \"maxPrice\": 30000,\n  \"tradeType\": \"SALE\"\n}",
+      "parseFail": false,
+      "ok": false,
+      "okLenient": false,
+      "ms": 746
+    },
+    {
+      "q": "3만 원 이하 자전거 있어?",
+      "run": 3,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"자전거\",\n  \"maxPrice\": 30000,\n  \"tradeType\": \"SALE\"\n}",
+      "parseFail": false,
+      "ok": false,
+      "okLenient": false,
+      "ms": 753
+    },
+    {
+      "q": "무료 나눔 전공책 있어?",
+      "run": 1,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"전공책\",\n  \"tradeType\": \"FREE\"\n}",
+      "parseFail": false,
+      "ok": true,
+      "okLenient": true,
+      "ms": 517
+    },
+    {
+      "q": "무료 나눔 전공책 있어?",
+      "run": 2,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"전공책\",\n  \"tradeType\": \"FREE\"\n}",
+      "parseFail": false,
+      "ok": true,
+      "okLenient": true,
+      "ms": 492
+    },
+    {
+      "q": "무료 나눔 전공책 있어?",
+      "run": 3,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"전공책\",\n  \"tradeType\": \"FREE\"\n}",
+      "parseFail": false,
+      "ok": true,
+      "okLenient": true,
+      "ms": 495
+    },
+    {
+      "q": "안녕",
+      "run": 1,
+      "raw": "{\"needSearch\": false}",
+      "parseFail": false,
+      "ok": true,
+      "okLenient": true,
+      "ms": 155
+    },
+    {
+      "q": "안녕",
+      "run": 2,
+      "raw": "{\"needSearch\": false}",
+      "parseFail": false,
+      "ok": true,
+      "okLenient": true,
+      "ms": 145
+    },
+    {
+      "q": "안녕",
+      "run": 3,
+      "raw": "{\"needSearch\": false}",
+      "parseFail": false,
+      "ok": true,
+      "okLenient": true,
+      "ms": 151
+    },
+    {
+      "q": "Is there a rice cooker under 30000 won?",
+      "run": 1,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"rice cooker\",\n  \"maxPrice\": 30000\n}",
+      "parseFail": false,
+      "ok": true,
+      "okLenient": true,
+      "ms": 594
+    },
+    {
+      "q": "Is there a rice cooker under 30000 won?",
+      "run": 2,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"rice cooker\",\n  \"maxPrice\": 30000\n}",
+      "parseFail": false,
+      "ok": true,
+      "okLenient": true,
+      "ms": 566
+    },
+    {
+      "q": "Is there a rice cooker under 30000 won?",
+      "run": 3,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"rice cooker\",\n  \"maxPrice\": 30000\n}",
+      "parseFail": false,
+      "ok": true,
+      "okLenient": true,
+      "ms": 552
+    },
+    {
+      "q": "5만원 이하 냉장고 파는 사람",
+      "run": 1,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"냉장고\",\n  \"maxPrice\": 50000,\n  \"tradeType\": \"SALE\"\n}",
+      "parseFail": false,
+      "ok": false,
+      "okLenient": true,
+      "ms": 748
+    },
+    {
+      "q": "5만원 이하 냉장고 파는 사람",
+      "run": 2,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"냉장고\",\n  \"maxPrice\": 50000,\n  \"tradeType\": \"SALE\"\n}",
+      "parseFail": false,
+      "ok": false,
+      "okLenient": true,
+      "ms": 732
+    },
+    {
+      "q": "5만원 이하 냉장고 파는 사람",
+      "run": 3,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"냉장고\",\n  \"maxPrice\": 50000,\n  \"tradeType\": \"SALE\"\n}",
+      "parseFail": false,
+      "ok": false,
+      "okLenient": true,
+      "ms": 775
+    },
+    {
+      "q": "밥솥 팔아?",
+      "run": 1,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"밥솥\",\n  \"tradeType\": \"SALE\"\n}",
+      "parseFail": false,
+      "ok": false,
+      "okLenient": true,
+      "ms": 532
+    },
+    {
+      "q": "밥솥 팔아?",
+      "run": 2,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"밥솥\",\n  \"tradeType\": \"SALE\"\n}",
+      "parseFail": false,
+      "ok": false,
+      "okLenient": true,
+      "ms": 503
+    },
+    {
+      "q": "밥솥 팔아?",
+      "run": 3,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"밥솥\",\n  \"tradeType\": \"SALE\"\n}",
+      "parseFail": false,
+      "ok": false,
+      "okLenient": true,
+      "ms": 492
+    },
+    {
+      "q": "노트북 나눔해?",
+      "run": 1,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"노트북\",\n  \"tradeType\": \"FREE\"\n}",
+      "parseFail": false,
+      "ok": true,
+      "okLenient": true,
+      "ms": 475
+    },
+    {
+      "q": "노트북 나눔해?",
+      "run": 2,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"노트북\",\n  \"tradeType\": \"FREE\"\n}",
+      "parseFail": false,
+      "ok": true,
+      "okLenient": true,
+      "ms": 474
+    },
+    {
+      "q": "노트북 나눔해?",
+      "run": 3,
+      "raw": "{\n  \"needSearch\": true,\n  \"keyword\": \"노트북\",\n  \"tradeType\": \"FREE\"\n}",
+      "parseFail": false,
+      "ok": true,
+      "okLenient": true,
+      "ms": 512
+    }
+  ],
+  "count": [
+    {
+      "n": 5,
+      "q": "자전거 있어?",
+      "run": 1,
+      "ok": true,
+      "missing": [],
+      "bad": [],
+      "fake": [],
+      "ms": 1421,
+      "answer": "#201 | 접이식 자전거 팝니다  \n#202 | 로드 자전거 판매  \n#203 | 어린이 자전거 나눔  \n#204 | 미니벨로 자전거  \n#205 | 중고 자전거 급처"
+    },
+    {
+      "n": 5,
+      "q": "자전거 있어?",
+      "run": 2,
+      "ok": true,
+      "missing": [],
+      "bad": [],
+      "fake": [],
+      "ms": 471,
+      "answer": "#201, #202, #204, #205, #203"
+    },
+    {
+      "n": 5,
+      "q": "자전거 있어?",
+      "run": 3,
+      "ok": true,
+      "missing": [],
+      "bad": [],
+      "fake": [],
+      "ms": 1311,
+      "answer": "#201 | 접이식 자전거 팝니다  \n#202 | 로드 자전거 판매  \n#203 | 어린이 자전거 나눔  \n#204 | 미니벨로 자전거  \n#205 | 중고 자전거 급처"
+    },
+    {
+      "n": 5,
+      "q": "3만 원 이하 자전거 있어?",
+      "run": 1,
+      "ok": false,
+      "missing": [
+        204
+      ],
+      "bad": [
+        201
+      ],
+      "fake": [],
+      "ms": 501,
+      "answer": "#201 | 35000원  \n#205 | 18000원"
+    },
+    {
+      "n": 5,
+      "q": "3만 원 이하 자전거 있어?",
+      "run": 2,
+      "ok": false,
+      "missing": [
+        204
+      ],
+      "bad": [
+        201
+      ],
+      "fake": [],
+      "ms": 286,
+      "answer": "#201, #203, #205"
+    },
+    {
+      "n": 5,
+      "q": "3만 원 이하 자전거 있어?",
+      "run": 3,
+      "ok": false,
+      "missing": [
+        204
+      ],
+      "bad": [
+        201
+      ],
+      "fake": [],
+      "ms": 295,
+      "answer": "#201, #203, #205"
+    },
+    {
+      "n": 5,
+      "q": "무료 나눔 자전거 있어?",
+      "run": 1,
+      "ok": true,
+      "missing": [],
+      "bad": [],
+      "fake": [],
+      "ms": 123,
+      "answer": "#203"
+    },
+    {
+      "n": 5,
+      "q": "무료 나눔 자전거 있어?",
+      "run": 2,
+      "ok": true,
+      "missing": [],
+      "bad": [],
+      "fake": [],
+      "ms": 105,
+      "answer": "#203"
+    },
+    {
+      "n": 5,
+      "q": "무료 나눔 자전거 있어?",
+      "run": 3,
+      "ok": true,
+      "missing": [],
+      "bad": [],
+      "fake": [],
+      "ms": 98,
+      "answer": "#203"
+    },
+    {
+      "n": 5,
+      "q": "10만 원 넘는 자전거 있어?",
+      "run": 1,
+      "ok": true,
+      "missing": [],
+      "bad": [],
+      "fake": [],
+      "ms": 278,
+      "answer": "#202 (120000원)"
+    },
+    {
+      "n": 5,
+      "q": "10만 원 넘는 자전거 있어?",
+      "run": 2,
+      "ok": true,
+      "missing": [],
+      "bad": [],
+      "fake": [],
+      "ms": 102,
+      "answer": "#202"
+    },
+    {
+      "n": 5,
+      "q": "10만 원 넘는 자전거 있어?",
+      "run": 3,
+      "ok": true,
+      "missing": [],
+      "bad": [],
+      "fake": [],
+      "ms": 285,
+      "answer": "#202 (120000원)"
+    },
+    {
+      "n": 5,
+      "q": "예약중인 자전거 있어?",
+      "run": 1,
+      "ok": true,
+      "missing": [],
+      "bad": [],
+      "fake": [],
+      "ms": 111,
+      "answer": "#204"
+    },
+    {
+      "n": 5,
+      "q": "예약중인 자전거 있어?",
+      "run": 2,
+      "ok": true,
+      "missing": [],
+      "bad": [],
+      "fake": [],
+      "ms": 99,
+      "answer": "#204"
+    },
+    {
+      "n": 5,
+      "q": "예약중인 자전거 있어?",
+      "run": 3,
+      "ok": true,
+      "missing": [],
+      "bad": [],
+      "fake": [],
+      "ms": 106,
+      "answer": "#204"
+    },
+    {
+      "n": 10,
+      "q": "자전거 있어?",
+      "run": 1,
+      "ok": false,
+      "missing": [
+        203,
+        207
+      ],
+      "bad": [],
+      "fake": [],
+      "ms": 786,
+      "answer": "#201, #202, #204, #205, #206, #208, #209, #210"
+    },
+    {
+      "n": 10,
+      "q": "자전거 있어?",
+      "run": 2,
+      "ok": false,
+      "missing": [
+        203,
+        207
+      ],
+      "bad": [],
+      "fake": [],
+      "ms": 763,
+      "answer": "#201, #202, #204, #205, #206, #208, #209, #210"
+    },
+    {
+      "n": 10,
+      "q": "자전거 있어?",
+      "run": 3,
+      "ok": false,
+      "missing": [
+        203,
+        207
+      ],
+      "bad": [],
+      "fake": [],
+      "ms": 761,
+      "answer": "#201, #202, #204, #205, #206, #208, #209, #210"
+    },
+    {
+      "n": 10,
+      "q": "3만 원 이하 자전거 있어?",
+      "run": 1,
+      "ok": false,
+      "missing": [
+        204
+      ],
+      "bad": [
+        201,
+        210
+      ],
+      "fake": [],
+      "ms": 392,
+      "answer": "#201, #205, #209, #210"
+    },
+    {
+      "n": 10,
+      "q": "3만 원 이하 자전거 있어?",
+      "run": 2,
+      "ok": false,
+      "missing": [
+        204
+      ],
+      "bad": [
+        201,
+        210
+      ],
+      "fake": [],
+      "ms": 393,
+      "answer": "#201, #205, #209, #210"
+    },
+    {
+      "n": 10,
+      "q": "3만 원 이하 자전거 있어?",
+      "run": 3,
+      "ok": false,
+      "missing": [
+        204
+      ],
+      "bad": [
+        201,
+        210
+      ],
+      "fake": [],
+      "ms": 390,
+      "answer": "#201, #205, #209, #210"
+    },
+    {
+      "n": 10,
+      "q": "무료 나눔 자전거 있어?",
+      "run": 1,
+      "ok": true,
+      "missing": [],
+      "bad": [],
+      "fake": [],
+      "ms": 210,
+      "answer": "#203, #207"
+    },
+    {
+      "n": 10,
+      "q": "무료 나눔 자전거 있어?",
+      "run": 2,
+      "ok": true,
+      "missing": [],
+      "bad": [],
+      "fake": [],
+      "ms": 214,
+      "answer": "#203, #207"
+    },
+    {
+      "n": 10,
+      "q": "무료 나눔 자전거 있어?",
+      "run": 3,
+      "ok": true,
+      "missing": [],
+      "bad": [],
+      "fake": [],
+      "ms": 200,
+      "answer": "#203, #207"
+    },
+    {
+      "n": 10,
+      "q": "10만 원 넘는 자전거 있어?",
+      "run": 1,
+      "ok": false,
+      "missing": [
+        202
+      ],
+      "bad": [
+        206
+      ],
+      "fake": [],
+      "ms": 205,
+      "answer": "#208, #206"
+    },
+    {
+      "n": 10,
+      "q": "10만 원 넘는 자전거 있어?",
+      "run": 2,
+      "ok": false,
+      "missing": [
+        202
+      ],
+      "bad": [],
+      "fake": [],
+      "ms": 432,
+      "answer": "#208 | 전기자전거 판매 (450000원)"
+    },
+    {
+      "n": 10,
+      "q": "10만 원 넘는 자전거 있어?",
+      "run": 3,
+      "ok": false,
+      "missing": [
+        202
+      ],
+      "bad": [
+        206
+      ],
+      "fake": [],
+      "ms": 199,
+      "answer": "#208, #206"
+    },
+    {
+      "n": 10,
+      "q": "예약중인 자전거 있어?",
+      "run": 1,
+      "ok": true,
+      "missing": [],
+      "bad": [],
+      "fake": [],
+      "ms": 117,
+      "answer": "#204"
+    },
+    {
+      "n": 10,
+      "q": "예약중인 자전거 있어?",
+      "run": 2,
+      "ok": true,
+      "missing": [],
+      "bad": [],
+      "fake": [],
+      "ms": 105,
+      "answer": "#204"
+    },
+    {
+      "n": 10,
+      "q": "예약중인 자전거 있어?",
+      "run": 3,
+      "ok": true,
+      "missing": [],
+      "bad": [],
+      "fake": [],
+      "ms": 108,
+      "answer": "#204"
+    }
+  ],
+  "review": [
+    {
+      "withLine": false,
+      "run": 1,
+      "sale": [
+        201,
+        202,
+        204,
+        205,
+        206,
+        208,
+        209,
+        210
+      ],
+      "share": [],
+      "ms": 774,
+      "answer": "#201, #202, #204, #205, #206, #208, #209, #210"
+    },
+    {
+      "withLine": false,
+      "run": 2,
+      "sale": [
+        201,
+        202,
+        204,
+        205,
+        206,
+        208,
+        209,
+        210
+      ],
+      "share": [],
+      "ms": 766,
+      "answer": "#201, #202, #204, #205, #206, #208, #209, #210"
+    },
+    {
+      "withLine": false,
+      "run": 3,
+      "sale": [
+        201,
+        202,
+        204,
+        205,
+        206,
+        208,
+        209,
+        210
+      ],
+      "share": [],
+      "ms": 752,
+      "answer": "#201, #202, #204, #205, #206, #208, #209, #210"
+    },
+    {
+      "withLine": true,
+      "run": 1,
+      "sale": [
+        201,
+        202,
+        204,
+        205,
+        206,
+        208,
+        209,
+        210
+      ],
+      "share": [
+        203,
+        207
+      ],
+      "ms": 1208,
+      "answer": "#201, #202, #204, #205, #206, #208, #209, #210  \n#203, #207 (나눔)"
+    },
+    {
+      "withLine": true,
+      "run": 2,
+      "sale": [
+        201,
+        202,
+        204,
+        205,
+        206,
+        208,
+        209,
+        210
+      ],
+      "share": [
+        203,
+        207
+      ],
+      "ms": 1082,
+      "answer": "#201, #202, #204, #205, #206, #208, #209, #210  \n#203, #207 (나눔)"
+    },
+    {
+      "withLine": true,
+      "run": 3,
+      "sale": [
+        201,
+        202,
+        204,
+        205,
+        206,
+        208,
+        209,
+        210
+      ],
+      "share": [
+        203,
+        207
+      ],
+      "ms": 1040,
+      "answer": "#201, #202, #204, #205, #206, #208, #209, #210  \n#203, #207 (나눔)"
+    }
+  ]
+}

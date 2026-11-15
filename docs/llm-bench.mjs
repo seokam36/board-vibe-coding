@@ -74,7 +74,7 @@ const TOOLS = [{
       properties: {
         keyword: { type: 'string', description: '찾을 물건 이름 (예: 자전거)' },
         maxPrice: { type: 'integer', description: '최대 가격(원). 조건이 없으면 생략' },
-        tradeType: { type: 'string', enum: ['SALE', 'SHARE'], description: 'SALE=판매, SHARE=무료 나눔. 조건이 없으면 생략' },
+        tradeType: { type: 'string', enum: ['SALE', 'FREE'], description: 'SALE=판매, FREE=무료 나눔. 조건이 없으면 생략' },
       },
       required: ['keyword'],
     },
@@ -82,7 +82,7 @@ const TOOLS = [{
 }];
 const TOOL_QUESTIONS = [
   { q: '3만 원 이하 자전거 있어?', expect: 'keyword=자전거, maxPrice=30000' },
-  { q: '무료 나눔하는 전공책 있어?', expect: 'keyword=전공책, tradeType=SHARE' },
+  { q: '무료 나눔하는 전공책 있어?', expect: 'keyword=전공책, tradeType=FREE' },
 ];
 
 const result = { at: new Date().toISOString(), models: {} };
