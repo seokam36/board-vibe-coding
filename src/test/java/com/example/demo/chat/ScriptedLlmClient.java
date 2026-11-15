@@ -21,7 +21,7 @@ import com.example.demo.llm.service.LlmUnavailableException;
 // S17-e5: "이 호출은 N초 걸린 척"(jsonTakes/chatTakes)도 할 수 있다. 진짜로 기다리지 않고 가짜 시계(SkewClock)를 앞으로 돌린다.
 public class ScriptedLlmClient implements LlmClient {
 
-	// 호출 한 번의 기록. schema는 chatJson일 때만 채워진다. timeout은 호출 쪽이 넘긴 제한 시간(제한 없는 2인자 chat이면 null).
+	// 호출 한 번의 기록. schema는 chatJson일 때만 채워진다. timeout은 호출 쪽이 넘긴 제한 시간.
 	public record Call(String system, String user, String schema, Duration timeout) {
 	}
 
@@ -139,11 +139,6 @@ public class ScriptedLlmClient implements LlmClient {
 	// 답 호출(chat)이 d만큼 걸린 척한다.
 	public void chatTakes(Duration d) {
 		chatTakes = d;
-	}
-
-	@Override
-	public String chat(String systemPrompt, String userMessage) {
-		return doChat(new Call(systemPrompt, userMessage, null, null));
 	}
 
 	@Override

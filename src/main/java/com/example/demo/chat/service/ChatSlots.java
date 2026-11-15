@@ -18,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class ChatSlots {
 
-    // 응답 본문에는 나가지 않는다(server.error.include-message 기본값 never). ChatService.UNAVAILABLE_MESSAGE와 같은 고정 문구라 원인이 드러나지 않는다.
+    // 응답 본문에는 나가지 않는다(spring.web.error.include-message 기본값 never, Boot 4 이름). ChatService.UNAVAILABLE_MESSAGE와 같은 고정 문구라 원인이 드러나지 않는다.
     static final String BUSY_MESSAGE = ChatService.UNAVAILABLE_MESSAGE;
 
     private final Semaphore permits;

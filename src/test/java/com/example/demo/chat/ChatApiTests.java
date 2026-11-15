@@ -48,7 +48,10 @@ import tools.jackson.databind.ObjectMapper;
 @ExtendWith(OutputCaptureExtension.class)
 class ChatApiTests {
 
-	static final String NO_RESULT = "관련 글을 찾지 못했어요. 다른 단어로 물어봐 주세요.";
+	// ChatService의 UNAVAILABLE_MESSAGE·TIMEOUT_MESSAGE와 같은 값(그 상수는 chat.service 안에서만 보여서 글자를 그대로 적었다)
+	static final String UNAVAILABLE_REASON = "AI를 지금 사용할 수 없습니다. 잠시 뒤에 다시 시도해 주세요.";
+	static final String TIMEOUT_REASON = "AI가 제한 시간 안에 답하지 못했습니다. 잠시 뒤에 다시 시도해 주세요.";
+	static final String NO_RESULT ="관련 글을 찾지 못했어요. 다른 단어로 물어봐 주세요.";
 
 	@Autowired MockMvc mockMvc;
 	@Autowired UserRepository userRepository;
@@ -154,7 +157,7 @@ class ChatApiTests {
 		JsonNode sources = om.readTree(질문("자전거").getContentAsString()).get("sources");
 
 		assertThat(sources).hasSize(2);
-		assertThat(sources.get(0).get("id").asLong()).isEqualTo(예약글); // 최신순
+		assertThat(sources.get(0).get("id").asLong()).isEqualTo(예약글); // 둘 다 "자전거" 한 단어에 맞아 단어 수가 같으니 최신 글이 먼저
 		assertThat(sources.get(0).get("status").get("code").asString()).isEqualTo("RESERVED");
 		assertThat(sources.get(1).get("id").asLong()).isEqualTo(본문글);
 	}
@@ -209,15 +212,17 @@ class ChatApiTests {
 	}
 
 	@Test
-	void 조건3_키워드도_질문도_쓸_단어가_없으면_검색_없이_0건_처리하고_답_호출은_안_한다() throws Exception {
+	void 조건3_AI_키워드가_한_글자인데_맞는_글이_없으면_0건_처리하고_답_호출은_안_한다() throws Exception {
 		올리기("자전거 팝니다", "내용", "SALE", 1000);
-		양식("책"); // AI 키워드가 한 글자라 비상구로 질문 단어를 찾지만, 질문도 한 글자뿐이라 쓸 단어가 없다
+		// 여기서는 "맞는 글이 없으면 0건 + 답 호출 없음"만 본다. AI 한 글자 keyword가 실제로 검색되는지(찾는 쪽)는 ChatFlowTests:209·322 근처가 본다.
+		양식("책");
 
 		MockHttpServletResponse r = 질문("a 가 나");
 
 		assertThat(r.getStatus()).isEqualTo(200);
 		assertThat(om.readTree(r.getContentAsString()).get("answer").asString()).isEqualTo(NO_RESULT);
-		assertThat(llm.chatCalls).isEmpty();
+		assertThat(llm.jsonCalls).hasSize(1); // 양식 호출은 했고
+		assertThat(llm.chatCalls).isEmpty(); // 줄 글이 없으니 답 호출은 안 한다
 	}
 
 	// ============ 조건 4: 거래완료 제외, 최대 5건, 본문 300자 ============
@@ -237,7 +242,9 @@ class ChatApiTests {
 	}
 
 	@Test
-	void 조건4_출처는_최신순_최대_5건이다() throws Exception {
+	void 조건4_출처는_맞은_단어_수가_같으면_최신순으로_최대_5건이다() throws Exception {
+		// 7건 모두 키워드 "자전거" 한 단어에 맞아 맞은 단어 수가 같다 -> 최신순(id 큰 순)으로 5건만 나온다
+		// (맞은 단어 수가 다른 경우의 순서는 ChatFlowTests.맞은_단어_수가_많은_글이_앞에_온다가 본다)
 		List<Long> ids = new ArrayList<>();
 		for (int i = 1; i <= 7; i++) {
 			ids.add(올리기("자전거 " + i + "호", "내용", "SALE", 1000));
@@ -352,7 +359,9 @@ class ChatApiTests {
 		MockHttpServletResponse r = 질문("자전거 비밀질문XYZ");
 
 		assertThat(r.getStatus()).isEqualTo(503);
-		assertThat(r.getContentAsString()).doesNotContain("SECRET").doesNotContain("10.9.8.7");
+		// MockMvc는 실제 서버의 /error 응답 본문을 만들지 않아 getContentAsString()은 늘 비어 있다(단언이 헛돈다).
+		// 그래서 여기서는 sendError에 실린 사유(getErrorMessage)가 고정 문구인지 본다. 진짜 응답 본문은 ChatRealServerTests가 본다.
+		assertThat(r.getErrorMessage()).isEqualTo(UNAVAILABLE_REASON).doesNotContain("SECRET").doesNotContain("10.9.8.7");
 		// 로그: 예외 종류만 한 줄(원인 종류 포함), 메시지·질문 내용은 없다
 		assertThat(output.getAll()).contains("LlmUnavailableException").contains("IllegalStateException");
 		assertThat(output.getAll()).doesNotContain("SECRET").doesNotContain("10.9.8.7").doesNotContain("비밀질문XYZ");
@@ -366,7 +375,7 @@ class ChatApiTests {
 		MockHttpServletResponse r = 질문("자전거");
 
 		assertThat(r.getStatus()).isEqualTo(504);
-		assertThat(r.getContentAsString()).doesNotContain("SECRET");
+		assertThat(r.getErrorMessage()).isEqualTo(TIMEOUT_REASON).doesNotContain("SECRET"); // MockMvc는 본문이 비어 사유(getErrorMessage)로 본다
 		assertThat(output.getAll()).contains("LlmTimeoutException").doesNotContain("SECRET");
 	}
 
@@ -385,7 +394,7 @@ class ChatApiTests {
 		MockHttpServletResponse r = 질문("자전거 비밀질문XYZ");
 
 		assertThat(r.getStatus()).isEqualTo(503);
-		assertThat(r.getContentAsString()).doesNotContain("SECRET");
+		assertThat(r.getErrorMessage()).isEqualTo(UNAVAILABLE_REASON).doesNotContain("SECRET"); // MockMvc는 본문이 비어 사유(getErrorMessage)로 본다
 		assertThat(output.getAll()).contains("LlmUnavailableException").doesNotContain("SECRET").doesNotContain("비밀질문XYZ");
 	}
 
@@ -396,7 +405,7 @@ class ChatApiTests {
 		MockHttpServletResponse r = 질문("자전거");
 
 		assertThat(r.getStatus()).isEqualTo(504);
-		assertThat(r.getContentAsString()).doesNotContain("SECRET");
+		assertThat(r.getErrorMessage()).isEqualTo(TIMEOUT_REASON).doesNotContain("SECRET"); // MockMvc는 본문이 비어 사유(getErrorMessage)로 본다
 		assertThat(output.getAll()).contains("LlmTimeoutException").doesNotContain("SECRET");
 	}
 

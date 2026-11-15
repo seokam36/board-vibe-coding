@@ -88,7 +88,7 @@ class OllamaLlmPoolLimitTests {
         for (int i = 0; i < max; i++) {
             Thread t = new Thread(() -> {
                 try {
-                    client.chat("지시", "질문");
+                    client.chat("지시", "질문", Duration.ofSeconds(10));
                 } catch (RuntimeException ignored) {
                     // 단언이 끝난 뒤 풀려 정상 답이 오거나, 정리 중 끊겨도 상관없다
                 }
@@ -101,7 +101,7 @@ class OllamaLlmPoolLimitTests {
         assertThat(hits.get()).as("가짜 서버에 걸린 호출 수").isEqualTo(max);
 
         long start = System.nanoTime();
-        assertThatThrownBy(() -> client.chat("지시", "질문")).isInstanceOf(LlmUnavailableException.class);
+        assertThatThrownBy(() -> client.chat("지시", "질문", Duration.ofSeconds(10))).isInstanceOf(LlmUnavailableException.class);
         assertThat(Duration.ofNanos(System.nanoTime() - start)).as("거절은 대기 없이 바로").isLessThan(Duration.ofSeconds(1));
 
         assertThat(aliveOllamaCallThreads() - before).as("새로 생긴 ollama-call 스레드 수").isLessThanOrEqualTo(max);
@@ -122,7 +122,7 @@ class OllamaLlmPoolLimitTests {
         for (int i = 0; i < max; i++) {
             Thread t = new Thread(() -> {
                 try {
-                    client.chat("지시", "질문");
+                    client.chat("지시", "질문", Duration.ofSeconds(1));
                 } catch (LlmTimeoutException ignored) {
                     // 기대한 시간 초과
                 }
@@ -140,7 +140,7 @@ class OllamaLlmPoolLimitTests {
         long deadline = System.nanoTime() + Duration.ofSeconds(2).toNanos();
         while (answer == null && System.nanoTime() < deadline) {
             try {
-                answer = client.chat("지시", "질문");
+                answer = client.chat("지시", "질문", Duration.ofSeconds(1));
             } catch (LlmUnavailableException busy) {
                 Thread.sleep(50);
             }
@@ -171,7 +171,7 @@ class OllamaLlmPoolLimitTests {
     void ollama_call_스레드는_데몬이라_종료를_막지_않는다() throws Exception {
         hang.set(false);
         OllamaLlmClient client = new OllamaLlmClient(startServer(), "m", Duration.ofSeconds(2), 2);
-        assertThat(client.chat("지시", "질문")).isEqualTo("안녕");
+        assertThat(client.chat("지시", "질문", Duration.ofSeconds(2))).isEqualTo("안녕");
         // 방금 호출로 만들어진 스레드가 있으면 전부 데몬이어야 한다(코어 0 + 60초 유휴 후 소멸)
         var threads = Thread.getAllStackTraces().keySet().stream()
                 .filter(t -> t.getName().equals("ollama-call") && t.isAlive()).toList();

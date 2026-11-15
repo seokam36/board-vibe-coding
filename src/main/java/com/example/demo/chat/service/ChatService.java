@@ -36,7 +36,7 @@ public class ChatService {
 
     static final String NO_RESULT_ANSWER = "관련 글을 찾지 못했어요. 다른 단어로 물어봐 주세요.";
 
-    // 고정 문구(ResponseStatusException의 reason). server.error.include-message 기본값이 never라 응답 본문에는 나가지 않는다:
+    // 고정 문구(ResponseStatusException의 reason). spring.web.error.include-message(Boot 4 이름, 옛 server.error.*는 안 먹음) 기본값이 never라 응답 본문에는 나가지 않는다:
     // 화면은 상태코드(503/504)로 보여 줄 문구를 정한다. 예외의 원인 메시지(Ollama 주소·오류 본문)는 어디에도 넣지 않는다.
     static final String UNAVAILABLE_MESSAGE = "AI를 지금 사용할 수 없습니다. 잠시 뒤에 다시 시도해 주세요.";
     static final String TIMEOUT_MESSAGE = "AI가 제한 시간 안에 답하지 못했습니다. 잠시 뒤에 다시 시도해 주세요.";
@@ -71,8 +71,7 @@ public class ChatService {
             "\"maxPrice\":{\"type\":\"integer\",\"description\":\"이 가격(원) 이하. 조건 없으면 생략\"}",
             "}}");
 
-    // 질문 하나에 AI 호출 2번이 나눠 쓰는 전체 시간 = OLLAMA_TIMEOUT. 설정이 이상하면(예: AI를 끈 모드라 검사를 안 거친 0) 이 기본값을 쓴다.
-    static final Duration DEFAULT_TIME_BUDGET = Duration.ofSeconds(60);
+    // (질문 하나에 AI 호출 2번이 나눠 쓰는 전체 시간 = OLLAMA_TIMEOUT은 아래 timeBudget()이 설정에서 바로 읽는다.)
     // 답 호출 전에 남은 시간이 이보다 짧으면 AI를 부르지 않고 시간 초과(504)로 끝낸다(1초 안에 답이 올 리 없다).
     static final Duration MIN_ANSWER_TIME = Duration.ofSeconds(1);
 
@@ -129,7 +128,10 @@ public class ChatService {
                 remaining = budget;
             }
             if (remaining.compareTo(MIN_ANSWER_TIME) < 0) {
-                throw new LlmTimeoutException("질문 전체 시간 예산을 답 호출 전에 다 썼습니다.", null); // 아래 catch와 같은 504 경로
+                // 답 호출을 부르지 않은 504다. 호출 중 시간 초과("챗봇 AI 호출 실패: LlmTimeoutException")와 로그가 같아 보이지 않게
+                // 여기서 따로 남기고 같은 504 응답을 던진다(예외는 ResponseStatusException이라 아래 catch를 지나지 않는다).
+                log.warn("챗봇 시간 예산 소진(답 호출 전, 양식 호출·검색에 예산을 다 씀) -> 504");
+                throw new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT, TIMEOUT_MESSAGE);
             }
             String answer = llmClient.chat(SYSTEM_PROMPT, buildUserMessage(items, stripped), remaining); // AI 2번째 호출
             return new ChatResponse(answer, items.stream().map(ChatSource::from).toList());
@@ -170,11 +172,12 @@ public class ChatService {
         return chatSearchService.searchByCondition(keyword, maxPrice, 1);
     }
 
-    // OLLAMA_TIMEOUT을 질문 전체 예산으로 쓴다. 비어 있거나 0 이하면(AI 끔 모드는 시작 때 이 값을 검사하지 않는다) 기본 60초.
-    // OffLlmClient는 시간을 보지 않고 바로 "사용 불가"를 던지므로 이 값이 무엇이든 시작·동작이 깨지지 않는다.
+    // OLLAMA_TIMEOUT을 질문 전체 예산으로 그대로 쓴다. 폴백(기본값)을 두지 않는 이유(S17-i 확인):
+    // - LlmProperties가 ollama·timeout에 기본값(60s)을 줘서 설정이 없어도 null이 아니다.
+    // - ollama 모드는 LlmConfig가 시작 때 0 이하를 거부한다(앱이 안 뜬다).
+    // - off 모드는 ask() 맨 앞의 isEnabled() 검사에서 AI·횟수 검사 전에 503으로 끝나 여기까지 오지 않는다.
     private Duration timeBudget() {
-        Duration configured = llmProperties.ollama() == null ? null : llmProperties.ollama().timeout();
-        return configured == null || configured.isZero() || configured.isNegative() ? DEFAULT_TIME_BUDGET : configured;
+        return llmProperties.ollama().timeout();
     }
 
     // AI가 준 가격 상한을 쓸 수 있는 값으로 고친다. 쓸 수 없으면 null(= 가격 조건 없음).

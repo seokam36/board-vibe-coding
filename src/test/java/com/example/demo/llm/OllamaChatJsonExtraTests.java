@@ -23,7 +23,7 @@ import com.sun.net.httpserver.HttpServer;
 // S17-e2 보강 검사: chatJson의 스레드 해제, 같은 클라이언트 연속 호출 때 format 새지 않음, chat 3인자의 잘못된 인자
 class OllamaChatJsonExtraTests {
 
-    private static final String SCHEMA = "{\"type\":\"object\",\"properties\":{\"needSearch\":{\"type\":\"boolean\"}},\"required\":[\"needSearch\"]}";
+    private static final String SCHEMA = "{\"type\":\"object\",\"properties\":{\"keyword\":{\"type\":\"string\"},\"maxPrice\":{\"type\":\"integer\"}}}"; // 챗봇 양식과 같은 모양
     private static final String OK = "{\"model\":\"m\",\"created_at\":\"2026-01-01T00:00:00Z\","
             + "\"message\":{\"role\":\"assistant\",\"content\":\"{}\"},\"done\":true}";
 
@@ -97,10 +97,10 @@ class OllamaChatJsonExtraTests {
         OllamaLlmClient client = new OllamaLlmClient("http://127.0.0.1:" + server.getAddress().getPort(), "m", Duration.ofSeconds(5));
 
         client.chatJson("지시", "질문1", SCHEMA, Duration.ofSeconds(5));
-        client.chat("지시", "질문2");
+        client.chat("지시", "질문2", Duration.ofSeconds(5));
         client.chat("지시", "질문3", Duration.ofSeconds(5));
         client.chatJson("지시", "질문4", SCHEMA, Duration.ofSeconds(5));
-        client.chat("지시", "질문5");
+        client.chat("지시", "질문5", Duration.ofSeconds(5));
 
         List<Boolean> hasFormat = new ArrayList<>();
         for (String b : bodies) hasFormat.add(b.contains("\"format\""));

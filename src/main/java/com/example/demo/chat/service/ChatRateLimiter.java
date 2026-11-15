@@ -25,7 +25,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ChatRateLimiter {
 
-    // 응답 본문에는 나가지 않는다(server.error.include-message 기본값 never). 화면은 상태코드(429)로 문구를 정한다.
+    // 응답 본문에는 나가지 않는다(spring.web.error.include-message 기본값 never, Boot 4 이름). 화면은 상태코드(429)로 문구를 정한다.
     static final String LIMIT_MESSAGE = "챗봇 질문 횟수를 모두 사용했습니다. 잠시 뒤에 다시 시도해 주세요.";
 
     private static final String MINUTE_PREFIX = "chat-rate-min:";

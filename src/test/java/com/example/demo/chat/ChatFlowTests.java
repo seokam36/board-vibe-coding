@@ -131,7 +131,7 @@ class ChatFlowTests {
 	}
 
 	@Test
-	void 양식_호출은_스키마에_세_칸만_있고_지시문에_공백으로_구분이_있고_tradeType은_없고_질문을_그대로_받는다() throws Exception {
+	void 양식_호출은_스키마에_keyword와_maxPrice_두_칸만_있고_지시문에_공백으로_구분이_있고_tradeType은_없고_질문을_그대로_받는다() throws Exception {
 		올리기("자전거 팝니다", "SALE", 30000);
 		llm.jsonReturns("{\"keyword\":\"자전거\"}");
 

@@ -70,8 +70,9 @@ class ChatTimeBudgetTests extends ChatTestBase {
 
 		assertThat(r.getStatus()).isEqualTo(504);
 		assertThat(llm.chatCalls).isEmpty();
-		assertThat(r.getContentAsString()).doesNotContain("예산"); // 응답 본문에 원인 메시지 없음
-		assertThat(output.getAll()).contains("LlmTimeoutException").doesNotContain("예산"); // 로그엔 예외 종류만
+		// 이 504는 AI를 부르지 않고 서버가 직접 낸 것이라 예외 클래스 로그가 아니라 "답 호출 전" 전용 로그가 남는다(호출 중 시간 초과 로그와 구분)
+		// (응답 본문에 원인 문구가 없는지는 MockMvc로 볼 수 없어 ChatRealServerTests가 진짜 서버로 본다)
+		assertThat(output.getAll()).contains("시간 예산 소진(답 호출 전").doesNotContain("LlmTimeoutException");
 	}
 
 	@Test

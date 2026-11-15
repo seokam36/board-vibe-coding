@@ -36,6 +36,7 @@ import com.example.demo.llm.service.LlmUnavailableException;
 class ChatConcurrencyTests extends ChatTestBase {
 
 	@Autowired ChatSlots slots;
+	@Autowired ScriptedLlmClient.SkewClock clock;
 
 	// 붙잡힌 AI 호출이 "들어왔다"를 알리는 신호와 "풀어 줘"를 기다리는 문. 누수 방지로 20초를 넘게 기다리지 않는다.
 	CountDownLatch 들어옴;
@@ -115,6 +116,26 @@ class ChatConcurrencyTests extends ChatTestBase {
 		assertThat(둘째.get(10, TimeUnit.SECONDS).getStatus()).isEqualTo(200);
 		assertThat(slots.availablePermits()).isEqualTo(2);
 		assertThat(질문("자전거 있어?").getStatus()).isEqualTo(200);
+	}
+
+	// 양식 호출이 예산(60초)을 다 써서 답 호출 없이 끝난 504도 자리를 돌려주고, 횟수는 딱 1회만 센다.
+	@Test
+	void 양식_호출이_예산을_다_써서_답_호출_전에_504여도_자리는_돌아오고_횟수는_1회만_센다() throws Exception {
+		llm.jsonReturns("{\"keyword\":\"자전거\"}");
+		llm.jsonTakes(java.time.Duration.ofSeconds(60)); // 가짜 시계가 60초 앞으로 가서 예산이 다 떨어진다
+
+		assertThat(질문("자전거 있어?").getStatus()).isEqualTo(504);
+		assertThat(llm.chatCalls).isEmpty();
+		assertThat(slots.availablePermits()).as("예산 소진 504 뒤").isEqualTo(2);
+
+		// 횟수 한도가 분당 5회다. 504가 1회로 셌다면 4번 더 통과하고 6번째(=504 포함)에서 429가 된다.
+		// (가짜 시계가 60초 앞으로 가 분 카운터가 바뀌었으니 되돌려서 같은 분으로 센다)
+		llm.jsonTakes(java.time.Duration.ZERO);
+		clock.advance(java.time.Duration.ofSeconds(-60));
+		for (int i = 0; i < 4; i++) {
+			assertThat(질문("자전거 있어?").getStatus()).as("504 뒤 " + (i + 1) + "번째").isEqualTo(200);
+		}
+		assertThat(질문("자전거 있어?").getStatus()).as("5회를 다 썼으니 429").isEqualTo(429);
 	}
 
 	@Test

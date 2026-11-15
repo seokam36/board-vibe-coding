@@ -105,11 +105,6 @@ public class OllamaLlmClient implements LlmClient {
     }
 
     @Override
-    public String chat(String systemPrompt, String userMessage) {
-        return chat(systemPrompt, userMessage, timeout);
-    }
-
-    @Override
     public String chat(String systemPrompt, String userMessage, Duration callTimeout) {
         checkTexts(systemPrompt, userMessage);
         // 옵션을 따로 넘기지 않는다 = 생성자에서 정한 기본 옵션(model, think 끔)만 쓴다. format은 실리지 않는다.

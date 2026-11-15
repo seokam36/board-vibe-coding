@@ -203,11 +203,6 @@ class ChatLiveTests {
 		}
 
 		@Override
-		public String chat(String s, String u) {
-			return inner.chat(s, u);
-		}
-
-		@Override
 		public String chat(String s, String u, java.time.Duration t) {
 			return inner.chat(s, u, t);
 		}

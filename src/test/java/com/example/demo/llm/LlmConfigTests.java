@@ -25,7 +25,7 @@ class LlmConfigTests {
         runner.run(ctx -> {
             LlmClient client = ctx.getBean(LlmClient.class);
             assertThat(client).isInstanceOf(OffLlmClient.class);
-            assertThatThrownBy(() -> client.chat("지시", "질문")).isInstanceOf(LlmUnavailableException.class);
+            assertThatThrownBy(() -> client.chat("지시", "질문", Duration.ofSeconds(5))).isInstanceOf(LlmUnavailableException.class);
         });
     }
 

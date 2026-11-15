@@ -70,7 +70,7 @@ class ChatRateLimitTests extends ChatTestBase {
 		MockHttpServletResponse r = 질문("자전거 있어?");
 
 		assertThat(r.getStatus()).isEqualTo(429);
-		assertThat(r.getContentAsString()).doesNotContain("횟수"); // 본문에 문구 없음(기존 방식)
+		// (응답 본문에 문구가 없는지는 MockMvc로 볼 수 없다: 본문이 늘 비어 있다. ChatRealServerRateLimitTests가 진짜 서버로 본다)
 		assertThat(llm.jsonCalls).hasSize(json);
 		assertThat(llm.chatCalls).hasSize(chat);
 	}

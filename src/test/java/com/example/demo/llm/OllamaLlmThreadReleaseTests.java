@@ -63,7 +63,7 @@ class OllamaLlmThreadReleaseTests {
         long before = ollamaCallThreads();
         OllamaLlmClient client = new OllamaLlmClient(
                 "http://127.0.0.1:" + server.getAddress().getPort(), "m", Duration.ofSeconds(1));
-        assertThatThrownBy(() -> client.chat("지시", "질문")).isInstanceOf(LlmTimeoutException.class);
+        assertThatThrownBy(() -> client.chat("지시", "질문", Duration.ofSeconds(1))).isInstanceOf(LlmTimeoutException.class);
 
         // 시간 초과 후 5초 안에 서버가 연결 끊김을 알아채야 한다
         boolean disconnected = writeFailedLatch.await(5, TimeUnit.SECONDS);

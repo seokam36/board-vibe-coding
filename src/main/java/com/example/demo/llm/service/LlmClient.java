@@ -13,9 +13,7 @@ public interface LlmClient {
     // 계약: systemPrompt·userMessage는 null·빈 값 금지(호출 쪽이 검증하고, 어기면 IllegalArgumentException). 빈 답은 돌려주지 않는다(LlmUnavailableException).
     // systemPrompt: AI의 역할·규칙을 알려 주는 지시문 / userMessage: 사용자가 실제로 물은 말
     // AI가 꺼져 있거나 서버에 닿지 않으면 LlmUnavailableException, 제한 시간을 넘기면 LlmTimeoutException
-    String chat(String systemPrompt, String userMessage);
-
-    // 같은 질문인데 "이번 호출 제한 시간"을 직접 정한다. 질문 하나의 전체 시간을 AI 호출 두 번이 나눠 쓸 때 쓴다.
+    // timeout = "이번 호출 제한 시간". 질문 하나의 전체 시간을 AI 호출 두 번이 나눠 쓰므로 호출마다 직접 정한다(제한 시간 없는 2인자 버전은 S17-i에서 지웠다).
     // timeout은 null·0·음수 금지(IllegalArgumentException). 구현의 기본 제한보다 길면 기본 제한까지만 기다린다.
     String chat(String systemPrompt, String userMessage, Duration timeout);
 
