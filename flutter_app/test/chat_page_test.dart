@@ -2,6 +2,7 @@
 import 'dart:async';
 
 import 'package:board_web/errors/error_messages.dart';
+import 'package:board_web/pages/chat_page.dart' show chatGuide, chatGuideExample;
 import 'package:board_web/widgets/notice.dart';
 import 'package:board_web/widgets/relogin_notice.dart';
 import 'package:flutter/semantics.dart';
@@ -63,6 +64,44 @@ void main() {
       expect(find.text('0 / 500'), findsOneWidget);
       expect(find.text('참고한 글'), findsNothing);
     });
+
+    // S18-d2: 질문 칸 위 사용 안내(범위 + 예시)
+    _test('질문 칸 위에 중고·나눔 안내와 예시 문구가 보인다', (tester) async {
+      await _open(tester, FakeAdapter());
+      expect(find.text('중고·나눔 글을 찾아 주는 챗봇이에요. 물건 이름과 가격을 넣어 물어보세요.'), findsOneWidget);
+      expect(find.text('예) 3만 원 이하 자전거 있어?'), findsOneWidget);
+      // 안내가 질문 칸보다 위에 있다
+      final guideY = tester.getTopLeft(find.text(chatGuide)).dy;
+      expect(guideY, lessThan(tester.getTopLeft(_field).dy));
+    });
+
+    _test('폭 320px에서도 안내 문구가 넘치지 않는다', (tester) async {
+      tester.view.physicalSize = const Size(320, 1800); // useTallScreen 뒤에 폭만 좁힌다
+      await _open(tester, FakeAdapter());
+      expect(find.text(chatGuide), findsOneWidget);
+      expect(tester.takeException(), isNull); // 오버플로는 예외로 잡힌다
+    });
+
+    // 안내 두 줄은 스크린리더에 한 덩어리(container)로 읽혀야 한다
+    _test('안내 두 줄이 스크린리더에 읽힌다(접근성 트리에 글자가 있다)', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await _open(tester, FakeAdapter());
+      final data = tester.getSemantics(find.text(chatGuide)).getSemanticsData();
+      expect(data.label, contains(chatGuide));
+      expect(data.label, contains(chatGuideExample));
+      semantics.dispose();
+    });
+
+    // 320px·375px 두 폭 모두 오버플로(예외) 없음
+    for (final w in [320.0, 375.0]) {
+      _test('폭 ${w.toInt()}px: 안내 두 줄이 화면 안에 들어오고 예외가 없다', (tester) async {
+        tester.view.physicalSize = Size(w, 1800);
+        await _open(tester, FakeAdapter());
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(find.text(chatGuide)).width, lessThanOrEqualTo(w));
+        expect(tester.getSize(find.text(chatGuideExample)).width, lessThanOrEqualTo(w));
+      });
+    }
 
     for (final path in ['/chat', '/Chat', '/chat/']) {
       _test('비로그인으로 $path 를 열면 /login', (tester) async {
@@ -245,6 +284,21 @@ void main() {
       await _tapSend(tester);
       expect(find.text(answer), findsOneWidget);
       expect(find.text('참고한 글'), findsNothing);
+    });
+
+    // S18-d2: 서버의 "범위 안내" 답(sources []) 도 정상 답 말풍선으로 그대로 보이고, 안내 두 줄도 그대로 남는다
+    _test('서버가 범위 안내 답을 주면 정상 답처럼 그대로 보이고 오류 안내는 없다', (tester) async {
+      const answer = '저는 중고·나눔 글만 찾아 드려요. 찾는 물건 이름을 넣어 다시 물어봐 주세요.';
+      final adapter = FakeAdapter()..on('POST', '/chat', FakeReply(200, chatJson(answer: answer)));
+      await _open(tester, adapter);
+      await _type(tester, '안녕');
+      await _tapSend(tester);
+      final bubble = find.byKey(const ValueKey('chat-answer'));
+      expect(find.descendant(of: bubble, matching: find.text(answer)), findsOneWidget);
+      expect(find.text('참고한 글'), findsNothing);
+      expect(find.byWidgetPredicate((w) => w is Notice && w.kind == NoticeKind.error), findsNothing);
+      expect(find.text(chatGuide), findsOneWidget); // 답이 나온 뒤에도 안내는 남는다
+      expect(find.text(chatGuideExample), findsOneWidget);
     });
 
     _test('type이 MARKET_ITEM이 아닌 출처 줄은 보이지 않는다', (tester) async {

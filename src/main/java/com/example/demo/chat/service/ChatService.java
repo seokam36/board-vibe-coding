@@ -26,7 +26,7 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 // 챗봇(S17-e4, C안): 질문 -> [AI 1번째 호출: 검색 조건 양식 채우기] -> 서버가 읽고 검색 -> [AI 2번째 호출: 찾은 글을 보고 답] -> 답과 출처.
-// AI 호출은 많아야 2번이다(루프 없음). 양식을 못 읽거나 키워드가 너무 길면 서버가 질문 단어로 대신 검색한다("비상구"). 키워드가 비면(인사 등) 고정 문구.
+// AI 호출은 많아야 2번이다(루프 없음). 양식을 못 읽거나 키워드가 너무 길면 서버가 질문 단어로 대신 검색한다("비상구"). 키워드가 비면(인사 등) 범위 안내 고정 문구, 검색 0건이면 "관련 글 없음" 고정 문구.
 // 이 클래스에는 @Transactional을 일부러 안 붙인다. DB 읽기는 ChatSearchService가 자기 트랜잭션 안에서 끝내고 DTO로 돌려주므로,
 // 오래 걸릴 수 있는 AI 호출 2번(합쳐서 최대 모드별 예산: gemini 30초·ollama 60초) 동안 DB 연결을 붙잡고 있지 않는다.
 @Slf4j
@@ -34,7 +34,11 @@ import tools.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 public class ChatService {
 
+    // 고정 답 두 가지(S18-d2). 둘 다 AI 2번째 호출 없이 200 + 빈 sources로 나간다. 뜻이 달라 문구를 나눴다:
+    // - 검색했는데 0건: 다른 단어로 다시 물어보라고 한다.
+    // - 물건 이름(keyword)이 없는 질문(인사·잡담·"학교 인증 어떻게 해?"): 이 챗봇은 중고·나눔 글 찾기만 한다고 범위를 알린다(AI 호출은 늘리지 않는다).
     static final String NO_RESULT_ANSWER = "관련 글을 찾지 못했어요. 다른 단어로 물어봐 주세요.";
+    static final String NO_KEYWORD_ANSWER = "저는 중고·나눔 글만 찾아 드려요. 찾는 물건 이름을 넣어 다시 물어봐 주세요.";
 
     // 고정 문구(ResponseStatusException의 reason). spring.web.error.include-message(Boot 4 이름, 옛 server.error.*는 안 먹음) 기본값이 never라 응답 본문에는 나가지 않는다:
     // 화면은 상태코드(503/504)로 보여 줄 문구를 정한다. 예외의 원인 메시지(Ollama 주소·오류 본문)는 어디에도 넣지 않는다.
@@ -121,9 +125,14 @@ public class ChatService {
                 log.warn("챗봇 시간 예산 소진(AI 호출 전) -> 504");
                 throw new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT, TIMEOUT_MESSAGE);
             }
-            List<ChatMarketItem> items = findItems(stripped, formBudget); // AI 1번째 호출 + 검색
+            SearchOutcome outcome = findItems(stripped, formBudget); // AI 1번째 호출 + 검색
+            if (outcome.noKeyword()) {
+                // 물건 이름이 없는 질문: 검색도 2번째 호출도 하지 않고 "중고·나눔 글만 찾는다"는 범위 안내를 준다
+                return new ChatResponse(NO_KEYWORD_ANSWER, List.of());
+            }
+            List<ChatMarketItem> items = outcome.items();
             if (items.isEmpty()) {
-                // 줄 글이 없으면 2번째 호출을 하지 않는다(AI가 아는 척 지어내는 것을 막고, 시간·자원도 아낀다). keyword가 빈 경우도 같다.
+                // 줄 글이 없으면 2번째 호출을 하지 않는다(AI가 아는 척 지어내는 것을 막고, 시간·자원도 아낀다).
                 return new ChatResponse(NO_RESULT_ANSWER, List.of());
             }
             // 답 호출에는 (예산 - 지난 시간)만 준다. 남은 시간이 없으면 AI를 부르지 않고 스스로 시간 초과 처리한다(LlmClient 계약).
@@ -153,29 +162,40 @@ public class ChatService {
     }
 
     // AI에게 양식을 채우게 해 검색한다. 정문 = AI가 준 키워드, 비상구 = 서버가 질문을 쪼갠 단어(아래 두 곳).
-    private List<ChatMarketItem> findItems(String question, Duration budget) {
+    private SearchOutcome findItems(String question, Duration budget) {
         ChatSearchForm form = readForm(llmClient.chatJson(FORM_PROMPT, question, FORM_SCHEMA, budget));
         if (form == null) {
             log.info("챗봇 비상구: 양식 JSON을 읽지 못함 -> 질문 단어로 검색"); // 질문·AI 원문은 로그에 남기지 않는다
-            return chatSearchService.searchByCondition(question, null);
+            return SearchOutcome.found(chatSearchService.searchByCondition(question, null));
         }
         // (나눔 조건 tradeType 칸은 양식에서 뺐다: S17-e4 결정. 틀려도 글이 사라지지 않고 더 보이는 쪽으로.)
         Integer maxPrice = validMaxPrice(form.maxPrice());
         String keyword = cleanKeyword(form.keyword()).strip();
         // keyword가 비면 = 물건 이름 없는 인사·잡담(예전 needSearch=false 자리). 비상구로 보내지 않는다("안녕"을 질문 단어로 검색하지 않게).
         if (keyword.isEmpty()) {
-            log.info("챗봇: AI keyword가 비어 고정 문구"); // 운영에서 빈도를 보려는 것. 질문·AI 원문은 남기지 않는다
-            return List.of();
+            log.info("챗봇: AI keyword가 비어 범위 안내 문구"); // 운영에서 빈도를 보려는 것. 질문·AI 원문은 남기지 않는다
+            return SearchOutcome.withoutKeyword();
         }
         // 전체가 너무 길면(AI가 같은 토큰을 반복하는 고장) 정문을 닫고 비상구②로 간다
         if (keyword.codePointCount(0, keyword.length()) > MAX_KEYWORD_LENGTH) {
             log.info("챗봇 비상구: 키워드가 너무 김 -> 질문 단어로 검색(가격 조건은 유지)");
-            return chatSearchService.searchByCondition(question, maxPrice);
+            return SearchOutcome.found(chatSearchService.searchByCondition(question, maxPrice));
         }
         // AI keyword는 군더더기 없는 물건 이름이라 한글 등 ASCII가 아닌 한 글자("책", "옷")도 쓴다. 대신 "책"이 책상에도 걸린다(알려진 한계).
         // 영문·숫자·기호 한 글자("a", "1", "?")는 버린다(ChatSearchService.keywordsOf).
-        // 단어가 하나도 안 남으면(제어 문자만, 기호 한 글자만 등) 검색 결과가 0건이라 고정 문구가 된다.
-        return chatSearchService.searchByCondition(keyword, maxPrice, 1);
+        // 쓸 단어가 하나도 안 남으면(영문·숫자·기호 한 글자만 등) 검색 결과가 0건이라 NO_RESULT_ANSWER가 된다(제어 문자만은 위에서 이미 끝났다).
+        return SearchOutcome.found(chatSearchService.searchByCondition(keyword, maxPrice, 1));
+    }
+
+    // findItems의 결과: 찾은 글 목록, 또는 "물건 이름(keyword)이 없었음" 표시(이 경우 검색은 하지 않았다).
+    private record SearchOutcome(List<ChatMarketItem> items, boolean noKeyword) {
+        static SearchOutcome found(List<ChatMarketItem> items) {
+            return new SearchOutcome(items, false);
+        }
+
+        static SearchOutcome withoutKeyword() {
+            return new SearchOutcome(List.of(), true);
+        }
     }
 
     // AI가 준 가격 상한을 쓸 수 있는 값으로 고친다. 쓸 수 없으면 null(= 가격 조건 없음).

@@ -40,6 +40,7 @@ import tools.jackson.databind.ObjectMapper;
 class ChatFlowTests {
 
 	static final String NO_RESULT = "관련 글을 찾지 못했어요. 다른 단어로 물어봐 주세요.";
+	static final String NO_KEYWORD = "저는 중고·나눔 글만 찾아 드려요. 찾는 물건 이름을 넣어 다시 물어봐 주세요.";
 
 	@Autowired MockMvc mockMvc;
 	@Autowired UserRepository userRepository;
@@ -174,7 +175,7 @@ class ChatFlowTests {
 	}
 
 	@Test
-	void keyword가_없거나_비었거나_공백뿐이면_200_고정_문구_빈_sources이고_답_호출은_0번이다() throws Exception {
+	void keyword가_없거나_비었거나_공백뿐이면_200_범위_안내_문구_빈_sources이고_답_호출은_0번이다() throws Exception {
 		올리기("안녕 자전거 팝니다", "SALE", 30000); // "안녕"을 질문 단어로 검색하는 비상구로 새면 이 글이 걸린다
 		// {}, 빈 값, 공백뿐, needSearch만 true(keyword 없음), 제어 문자만(정리 뒤 단어 0개)
 		for (String form : List.of("{}", "{\"keyword\":\"\"}", "{\"keyword\":\"   \"}", "{\"needSearch\":true}", "{\"keyword\":null}",
@@ -186,10 +187,27 @@ class ChatFlowTests {
 			MockHttpServletResponse r = 질문("안녕");
 
 			assertThat(r.getStatus()).as(form).isEqualTo(200);
-			assertThat(om.readTree(r.getContentAsString()).get("answer").asString()).as(form).isEqualTo(NO_RESULT);
+			// 물건 이름이 없으니 "중고·나눔 글만 찾는다"는 범위 안내다(검색 0건 문구와 다르다)
+			assertThat(om.readTree(r.getContentAsString()).get("answer").asString()).as(form).isEqualTo(NO_KEYWORD);
 			assertThat(출처ids(r)).as(form).isEmpty();
 			assertThat(llm.chatCalls).as(form).isEmpty();
 		}
+	}
+
+	// S18-d2: 두 고정 문구가 서로 다르다(keyword 빔 = 범위 안내, keyword는 있는데 검색 0건 = "관련 글 없음").
+	@Test
+	void keyword_빔과_검색_0건은_서로_다른_문구로_답한다() throws Exception {
+		llm.jsonReturns("{\"keyword\":\"\"}");
+		MockHttpServletResponse 비었을때 = 질문("학교 인증 어떻게 해?");
+		llm.jsonReturns("{\"keyword\":\"자전거\"}"); // 글이 없어 0건
+		MockHttpServletResponse 영건 = 질문("자전거 있어?");
+
+		assertThat(비었을때.getStatus()).isEqualTo(200);
+		assertThat(영건.getStatus()).isEqualTo(200);
+		String 비었을때답 = om.readTree(비었을때.getContentAsString()).get("answer").asString();
+		String 영건답 = om.readTree(영건.getContentAsString()).get("answer").asString();
+		assertThat(비었을때답).isEqualTo(NO_KEYWORD).isNotEqualTo(영건답);
+		assertThat(영건답).isEqualTo(NO_RESULT);
 	}
 
 	// S17-e5 결정: needSearch 칸은 뺐고, AI가 보내도 무시한다(false를 보내도 keyword가 있으면 검색한다).
@@ -370,6 +388,44 @@ class ChatFlowTests {
 
 		llm.jsonReturns(om.writeValueAsString(Map.of("keyword", 긴키워드, "maxPrice", 0))); // 0은 무시: 가격 조건 없음
 		assertThat(출처ids(질문("전공책 있어?"))).containsExactlyInAnyOrder(판매, 나눔, 비싼책);
+	}
+
+	// S18-d2 완료 조건 3: 비상구(JSON 깨짐·키워드 100자 초과)에서 질문 단어 검색이 0건이면 "범위 안내"가 아니라 "관련 글 없음" 문구다.
+	// 왜: 비상구는 keyword가 비어서 가는 길이 아니라 검색을 실제로 시도한 길이라 0건 문구가 맞다. 답 호출도 없어야 한다.
+	@Test
+	void 비상구에서_검색이_0건이면_JSON_깨짐도_100자_초과도_관련_글_없음_문구이고_범위_안내가_아니다() throws Exception {
+		올리기("노트북 팝니다", "SALE", 500000);
+
+		llm.jsonReturns("죄송해요"); // JSON 깨짐 -> 비상구①
+		MockHttpServletResponse 깨짐 = 질문("자전거 있어?");
+		assertThat(깨짐.getStatus()).isEqualTo(200);
+		assertThat(om.readTree(깨짐.getContentAsString()).get("answer").asString()).isEqualTo(NO_RESULT).isNotEqualTo(NO_KEYWORD);
+		assertThat(출처ids(깨짐)).isEmpty();
+		assertThat(llm.chatCalls).isEmpty();
+
+		llm.reset();
+		llm.chatReturns("답");
+		llm.jsonReturns(om.writeValueAsString(Map.of("keyword", "가".repeat(101)))); // 100자 초과 -> 비상구②
+		MockHttpServletResponse 김 = 질문("자전거 있어?");
+		assertThat(김.getStatus()).isEqualTo(200);
+		assertThat(om.readTree(김.getContentAsString()).get("answer").asString()).isEqualTo(NO_RESULT).isNotEqualTo(NO_KEYWORD);
+		assertThat(출처ids(김)).isEmpty();
+		assertThat(llm.chatCalls).isEmpty();
+	}
+
+	// 비상구에서 질문 단어가 2글자 미만뿐("책")이라 쓸 단어가 0개인 경우: 검색을 시도한 길이라 NO_RESULT(위 "책" 테스트와 같은 동작)다.
+	// 이 경우 의미상 "물건 이름 없음"에 가깝지만 현재 코드는 NO_RESULT를 준다 -> 보고서에 기록한다. 응답 모양은 200·빈 sources로 같다.
+	@Test
+	void 비상구에서_100자_초과_키워드와_한_글자_질문이면_관련_글_없음_문구다() throws Exception {
+		올리기("책 팝니다", "SALE", 1000);
+		llm.jsonReturns(om.writeValueAsString(Map.of("keyword", "가".repeat(101))));
+
+		MockHttpServletResponse r = 질문("책");
+
+		assertThat(r.getStatus()).isEqualTo(200);
+		assertThat(om.readTree(r.getContentAsString()).get("answer").asString()).isEqualTo(NO_RESULT);
+		assertThat(출처ids(r)).isEmpty();
+		assertThat(llm.chatCalls).isEmpty();
 	}
 
 	// ============ 예외 ============

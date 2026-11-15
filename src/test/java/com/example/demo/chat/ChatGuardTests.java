@@ -225,7 +225,7 @@ class ChatGuardTests extends ChatTestBase {
 
 		질문("질문비밀ZQX 안녕");
 
-		assertThat(output.getAll()).contains("AI keyword가 비어 고정 문구").doesNotContain("질문비밀ZQX").doesNotContain("AI원문비밀ZQX");
+		assertThat(output.getAll()).contains("AI keyword가 비어 범위 안내 문구").doesNotContain("질문비밀ZQX").doesNotContain("AI원문비밀ZQX");
 	}
 
 	// ---------- 프롬프트 주입 ----------

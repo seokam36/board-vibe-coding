@@ -24,6 +24,10 @@ const chatMaxLength = 500;
 // 이 요청 하나에만 거는 화면 쪽 제한 시간: 서버 AI 제한(60초) + 여유. 다른 요청에는 안 걸린다
 const _chatTimeout = Duration(seconds: 90);
 
+// 질문 칸 위 안내 문구(S18-d2). 서버의 "범위 안내" 답과 같은 뜻이다: 중고·나눔 글만 찾는다
+const chatGuide = '중고·나눔 글을 찾아 주는 챗봇이에요. 물건 이름과 가격을 넣어 물어보세요.';
+const chatGuideExample = '예) 3만 원 이하 자전거 있어?';
+
 // 실패 상태코드별 문구. 401은 표에 두지 않는다 → describeError가 로그인 안내(NeedLogin)로 바꾼다
 const _chatErrors = <int, String>{
   400: ErrorMessages.chatQuestionInvalid,
@@ -134,6 +138,21 @@ class _ChatPageState extends State<ChatPage> {
           ),
           // 늘 보이는 안내: AI 답은 틀릴 수 있으니 출처로 확인하게 한다
           const Notice(kind: NoticeKind.info, message: "AI 답은 틀릴 수 있어요. 아래 '참고한 글'에서 직접 확인해 주세요"),
+          // 늘 보이는 사용 안내(S18-d2): 이 챗봇은 중고·나눔 글 찾기만 한다고 미리 알려 준다. 답이 나온 뒤에도 그대로 둔다.
+          // container: 두 줄을 스크린리더가 한 덩어리로 읽게 묶는다. Text는 길면 줄바꿈되어 320px에서도 넘치지 않는다
+          Semantics(
+            container: true,
+            child: const Padding(
+              padding: EdgeInsets.only(bottom: AppSizes.space3),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(chatGuide, style: TextStyle(color: AppColors.ink, height: 1.5)),
+                  Text(chatGuideExample, style: TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.muted, height: 1.5)),
+                ],
+              ),
+            ),
+          ),
           Semantics(
             label: '질문',
             child: TextField(
@@ -141,7 +160,7 @@ class _ChatPageState extends State<ChatPage> {
               controller: _controller,
               focusNode: _focus,
               decoration: const InputDecoration(
-                hintText: '예: 3만 원 이하 자전거 있어?',
+                hintText: '질문을 입력하세요',
                 hintStyle: TextStyle(color: AppColors.muted),
               ),
               // UTF-16 길이로 제한한다 (이모지 = 2칸. 서버의 코드포인트 500자보다 조금 더 엄격해서 400이 안 난다)
