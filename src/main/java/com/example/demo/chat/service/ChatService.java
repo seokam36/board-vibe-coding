@@ -82,6 +82,7 @@ public class ChatService {
     static final int MAX_KEYWORD_LENGTH = 100;
 
     private final ChatSearchService chatSearchService;
+    private final ChatRateLimiter chatRateLimiter; // 회원별 횟수 제한(Redis)
     private final LlmClient llmClient;
     private final ObjectMapper objectMapper; // 📦 Jackson: JSON 글자 <-> 자바 객체
     // 시간 예산의 출처. LlmClient에 "기본 제한" 메서드를 새로 만들지 않고 설정값(OLLAMA_TIMEOUT)을 직접 읽는다(OffLlmClient도 고칠 필요 없음).
@@ -89,8 +90,15 @@ public class ChatService {
     // 📦 java.time.Clock: "지금 몇 시"를 알려 주는 시계. System.nanoTime() 대신 받아 쓰면 테스트가 가짜 시계로 바꿔 시간을 앞으로 돌릴 수 있다.
     private final Clock clock;
 
-    // question은 컨트롤러의 @Valid 검사를 통과한 값이다(비지 않음, 500자 이하).
-    public ChatResponse ask(String question) {
+    // question은 컨트롤러의 @Valid 검사를 통과한 값이다(비지 않음, 500자 이하). userId = 로그인한 회원(횟수 제한용).
+    // 순서(S17-f1): AI가 꺼져 있으면 횟수를 세지 않고 바로 503 -> 횟수 검사(넘으면 429) -> AI 호출.
+    // 횟수는 AI 호출 전에 딱 1번 센다. 고정 문구로 끝난 200, AI 503·504도 1회로 친다(되돌리지 않음).
+    public ChatResponse ask(Long userId, String question) {
+        if (!llmClient.isEnabled()) {
+            // 꺼진 모드에서는 어차피 항상 503이다. 헛되이 Redis 키를 만들거나 횟수를 쓰지 않게 먼저 끝낸다.
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, UNAVAILABLE_MESSAGE);
+        }
+        chatRateLimiter.countOrReject(userId); // 넘으면 429(아래 try 밖이라 AI 예외 처리와 섞이지 않는다)
         String stripped = question.strip();
         Instant start = clock.instant(); // 질문 전체 시간 재기 시작
         Duration budget = timeBudget();

@@ -70,6 +70,12 @@ public class OllamaLlmClient implements LlmClient {
                 .build();
     }
 
+    // 켜진 구현: Ollama로 실제 호출한다.
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
+
     @Override
     public String chat(String systemPrompt, String userMessage) {
         return chat(systemPrompt, userMessage, timeout);

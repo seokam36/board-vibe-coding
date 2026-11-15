@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -41,6 +43,7 @@ class ChatOffModeTests {
 	@Autowired JdbcTemplate jdbc;
 	@Autowired TokenService tokenService;
 	@Autowired ObjectMapper om;
+	@Autowired StringRedisTemplate redis;
 
 	Cookie 판매자쿠키;
 	Cookie 쿠키;
@@ -58,6 +61,10 @@ class ChatOffModeTests {
 		jdbc.update("delete from market_items");
 		postRepository.deleteAll();
 		userRepository.deleteAll();
+		Set<String> keys = redis.keys("chat-rate-*");
+		if (keys != null && !keys.isEmpty()) {
+			redis.delete(keys);
+		}
 	}
 
 	private MockHttpServletResponse 질문(String question) throws Exception {
@@ -83,7 +90,18 @@ class ChatOffModeTests {
 
 	@Test
 	void LLM_MODE_off이면_맞는_글이_0건이어도_503이다() throws Exception {
-		// S17-e4: 1번째 호출(양식)을 글이 있든 없든 하므로, AI가 꺼져 있으면 항상 503이다(예전에는 0건이면 200이었다)
+		// S17-f1: AI가 꺼져 있으면 AI를 부르기 전에 바로 503이다(글이 0건이어도 같고, 횟수도 안 센다)
 		assertThat(질문("자전거").getStatus()).isEqualTo(503);
+	}
+
+	// S17-f1: 꺼진 모드는 횟수를 세지 않고 바로 503이다 -> Redis에 chat-rate-* 키가 하나도 안 생긴다.
+	// (한도를 낮추지 않아도 키 유무로 "안 셌다"를 확인할 수 있다)
+	@Test
+	void off_모드에서_여러_번_물어도_전부_503이고_횟수_키가_안_생긴다() throws Exception {
+		for (int i = 0; i < 10; i++) {
+			assertThat(질문("자전거 있어?").getStatus()).as((i + 1) + "번째").isEqualTo(503);
+		}
+
+		assertThat(redis.keys("chat-rate-*")).isEmpty();
 	}
 }

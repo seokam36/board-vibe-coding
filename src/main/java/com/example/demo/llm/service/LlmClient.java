@@ -6,6 +6,10 @@ import java.time.Duration;
 // 일반 호출(chat) + 구조화 호출(chatJson, JSON 양식) 두 가지. 도구 호출은 S17-e1 실측 결과 쓰지 않기로 했다.
 public interface LlmClient {
 
+    // 이 구현이 AI를 실제로 부르는지(켜져 있는지). 끈 모드(OffLlmClient)만 false다.
+    // 챗봇이 "꺼져 있으면 횟수를 세지 않고 바로 503"을 하려고 쓴다(S17-f1). 기본 구현을 두지 않아서 새 구현은 반드시 true/false를 직접 정해야 한다.
+    boolean isEnabled();
+
     // 계약: systemPrompt·userMessage는 null·빈 값 금지(호출 쪽이 검증하고, 어기면 IllegalArgumentException). 빈 답은 돌려주지 않는다(LlmUnavailableException).
     // systemPrompt: AI의 역할·규칙을 알려 주는 지시문 / userMessage: 사용자가 실제로 물은 말
     // AI가 꺼져 있거나 서버에 닿지 않으면 LlmUnavailableException, 제한 시간을 넘기면 LlmTimeoutException

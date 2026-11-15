@@ -97,6 +97,12 @@ public class ScriptedLlmClient implements LlmClient {
 		};
 	}
 
+	// 가짜지만 "켜진 AI"처럼 행동한다(챗봇이 횟수 검사 후 AI를 부르는 길을 타게 한다).
+	@Override
+	public boolean isEnabled() {
+		return true;
+	}
+
 	public void jsonReturns(String text) {
 		jsonReply = () -> text;
 	}

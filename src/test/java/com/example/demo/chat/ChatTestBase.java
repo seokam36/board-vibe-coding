@@ -8,10 +8,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -40,6 +42,7 @@ abstract class ChatTestBase {
 	@Autowired TokenService tokenService;
 	@Autowired ObjectMapper om;
 	@Autowired ScriptedLlmClient llm;
+	@Autowired StringRedisTemplate redis;
 
 	Cookie 판매자쿠키;
 	Cookie 쿠키;
@@ -59,6 +62,15 @@ abstract class ChatTestBase {
 		jdbc.update("delete from market_items");
 		postRepository.deleteAll();
 		userRepository.deleteAll();
+		횟수키_지우기();
+	}
+
+	// S17-f1: 챗봇 횟수 제한 카운터(Redis chat-rate-* 키)를 지운다. 테스트끼리 횟수가 새지 않게 한다.
+	void 횟수키_지우기() {
+		Set<String> keys = redis.keys("chat-rate-*");
+		if (keys != null && !keys.isEmpty()) {
+			redis.delete(keys);
+		}
 	}
 
 	long 올리기(String title, String tradeType, Integer price) throws Exception {

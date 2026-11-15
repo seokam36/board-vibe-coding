@@ -1,7 +1,10 @@
 package com.example.demo.chat;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 
 import java.time.Duration;
@@ -16,10 +19,12 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import com.example.demo.TestcontainersConfiguration;
+import com.example.demo.chat.service.ChatRateLimiter;
 import com.example.demo.chat.service.ChatSearchService;
 
 // S17-e5: AI가 준 양식 값 검증(maxPrice 범위, keyword 길이)과 프롬프트 주입 방어.
@@ -31,6 +36,20 @@ import com.example.demo.chat.service.ChatSearchService;
 class ChatGuardTests extends ChatTestBase {
 
 	@MockitoSpyBean ChatSearchService searchService;
+	// 📦 같은 방식으로 횟수 제한기도 감시자로 바꿔 끼워, Redis 장애를 흉내 낸다(새 컨텍스트를 안 만들려고 이 클래스에 둠).
+	@MockitoSpyBean ChatRateLimiter rateLimiter;
+
+	@Test
+	void Redis_장애로_횟수_검사가_실패하면_500_예외가_나고_AI를_부르지_않는다() throws Exception {
+		올리기("자전거 팝니다", "SALE", 1000);
+		llm.jsonReturns("{\"keyword\":\"자전거\"}");
+		doThrow(new RedisConnectionFailureException("테스트용 Redis 장애")).when(rateLimiter).countOrReject(any());
+
+		// MockMvc는 처리 안 된 예외를 그대로 던진다(진짜 서버에서는 이 예외가 500 응답이 된다). 원인이 Redis 장애인지 본다.
+		assertThatThrownBy(() -> 질문("자전거 있어?")).hasRootCauseInstanceOf(RedisConnectionFailureException.class);
+		assertThat(llm.jsonCalls).isEmpty();
+		assertThat(llm.chatCalls).isEmpty();
+	}
 
 	// ---------- maxPrice 검증 ----------
 

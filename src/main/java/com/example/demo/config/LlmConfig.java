@@ -1,5 +1,7 @@
 package com.example.demo.config;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -16,10 +18,16 @@ import com.example.demo.llm.service.OllamaLlmClient;
 @EnableConfigurationProperties(LlmProperties.class)
 public class LlmConfig {
 
+    private static final Logger log = LoggerFactory.getLogger(LlmConfig.class);
+
     public LlmConfig(LlmProperties props) {
         String mode = props.mode();
         if (!"off".equals(mode) && !"ollama".equals(mode)) {
             throw new IllegalStateException("LLM_MODE는 off 또는 ollama여야 합니다 (현재 값은 출력하지 않음).");
+        }
+        if ("off".equals(mode)) {
+            // 시작할 때 한 번만 알린다(요청마다 로그를 남기지 않는다). 설정 값·비밀은 출력하지 않는다.
+            log.info("AI 꺼짐(LLM_MODE=off): /chat은 항상 503을 돌려줍니다.");
         }
         if ("ollama".equals(mode)) {
             // ollama 모드는 설정 값이 쓸 수 있는지 시작 때 확인한다(어떤 변수인지만 알리고 값은 출력 안 함)
