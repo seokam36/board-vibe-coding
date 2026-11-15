@@ -14,15 +14,16 @@
   - **운영은 AI off**(compose가 LLM_MODE를 안 넘김 → 챗봇 메뉴는 보이고 "지금은 AI 챗봇을 쓸 수 없어요" 503). 이유: t3.micro 1GB에 qwen3:8b(약 5GB) 불가.
   - S17-g(뜻 검색)는 뺐고 backlog "나중" 항목으로.
 - **S16(React → Flutter 웹)**: 끝. 코드 `flutter_app/`(위젯 테스트 1321개, e2e 11개, 손 확인표 `flutter_app/e2e/README.md`). 화면만 React로 되돌리기 = `seokam36/demo-web:80431c308c0ad7d6d519a597ed21f3e63840ce6b`(deploy.md).
-- **방향**: 학습·포트폴리오 중심. 남은 큰 기능 후보: **S15 글 번역**(2026-11-12 순서상 다음), backlog "나중": **운영 챗봇 AI를 API로 켜기(제미나이)**, 챗봇 뜻 검색(임베딩·pgvector), LLM 파인튜닝(LoRA) 학습 실험, 게시글 글자 검색.
+- **방향**: 학습·포트폴리오 중심. 남은 큰 기능 후보: **S15 글 번역**(2026-11-12 순서상 다음), backlog "나중": **운영 챗봇 AI를 API로 켜기(제미나이)**, **욕설·스팸 자동 검사**(금칙어 / AI는 제미나이 연결 뒤), 챗봇 뜻 검색(임베딩·pgvector), LLM 파인튜닝(LoRA) 학습 실험, 게시글 글자 검색.
 
 ## 다음에 할 일
-- **바로 다음 행동: 다음 큰 기능을 사용자와 정하기** — S15 글 번역 vs "운영 챗봇 AI를 API로 켜기(제미나이)". 둘 다 AI를 쓰므로 제미나이 연결을 먼저 하면 번역에도 쓸 수 있다(메인 추천). 정하면 backlog에 다음 S번호로 올리고 research → planner.
+- **먼저: S17 파트 전체 리뷰 권장 9개를 지금 정리할지 사용자에게 묻기**(2026-11-15 리뷰, 필수 0·권장 9·나중 9, 결과 요약은 Notion AI 챗봇 카드 "🧭 파트 전체 정리"). 권장은 거의 정리 작업: 옛 설계 테스트 이름·주석(ChatApiTests 조건3 "한 글자 비상구"·조건4 "최신순", ChatFlowTests "세 칸"), 안 쓰는 2인자 `LlmClient.chat(system,user)`, `OLLAMA_TIMEOUT` 설명(application.properties·.env.example)과 "60초 올리면 nginx·chat_page도" 주석, 닿지 않는 `DEFAULT_TIME_BUDGET`, 답 호출 전 예산 소진 로그 문구, MockMvc에서 헛도는 "본문에 원인 문구 없음" 단언(ChatRealServerTests에 503·504·429 추가), FORM_SCHEMA가 OllamaLlmClient를 통과하는지 CI 테스트, OllamaLiveTests 옛 needSearch 스키마. 나중 항목(OllamaLlmClient를 RestClient로, ChatService 나누기 등)은 다음 AI S번호 때.
+- **그다음: 다음 큰 기능을 사용자와 정하기** — S15 글 번역 vs "운영 챗봇 AI를 API로 켜기(제미나이)" (욕설·스팸 자동 검사도 후보, AI 방식이면 제미나이 연결 뒤). 둘 다 AI를 쓰므로 제미나이 연결을 먼저 하면 번역에도 쓸 수 있다(메인 추천). 정하면 backlog에 다음 S번호로 올리고 research → planner.
   - 제미나이를 하면: 사용자 요청대로 **Spring AI 모듈 대신 DAY15(수업)처럼 RestClient + Map + JsonNode**로 `GeminiLlmClient`를 만드는 쪽을 추천안으로. 참고: 사용자 Notion "SPRING" 페이지 day15(제미나이 `generateContent`, `generationConfig.responseMimeType=application/json`, 키는 헤더 `x-goog-api-key`). research 목록은 backlog 그 항목에.
   - 원하면 지금 `OllamaLlmClient`도 같은 스타일(RestClient로 Ollama HTTP 직접)로 다시 쓰는 항목을 backlog에 올릴지 묻기(아직 안 올림).
 - **EC2는 Deploy #19 확인 뒤 사용자가 중지하기로 함** — 켜져 있으면 콘솔에서 중지.
 - (선택) S17 손 확인: `.env`에 `LLM_MODE=ollama` → 백엔드 + `flutter run -d chrome` → 로그인 → 상단바 "챗봇". 확인표는 `flutter_app/e2e/README.md`.
-- Notion: S17 단계 기록(a·b·c·e1~e5·f1~f3) 완료, 카드 "배포됨"·진행 현황 S17 체크 완료. 남은 것(선택): 도구 사전에 Flutter·go_router·dio·provider 페이지 필요 여부, 아키텍처 그림에 S3·챗봇, IAM 역할·IMDS 페이지 필요 여부. Notion 코드 설명엔 라이브러리 것에 📦 표시(notion-guide.md).
+- Notion: S17 단계 기록(a·b·c·e1~e5·f1~f3) + 카드 "🧭 파트 전체 정리"(변천·흐름·안전장치·리뷰) 완료, 카드 "배포됨"·진행 현황 S17 체크 완료. 남은 것(선택): 도구 사전에 Flutter·go_router·dio·provider 페이지 필요 여부, 아키텍처 그림에 S3·챗봇, IAM 역할·IMDS 페이지 필요 여부. Notion 코드 설명엔 라이브러리 것에 📦 표시(notion-guide.md).
 - 운영 확인 남은 것(선택): 학교 인증된 두 번째 계정이 생기면 deploy.md "S13·S14 배포 후 확인" 4·5번. e2e 손 확인표(아이폰 사진, 한글 조합 검색, 스크린리더 등).
 - (나중, 포트폴리오 트러블슈팅 후보) g6-1(옛 코드로 테스트 6개 실패 재현), S13-h CI 빨간불, S16 CI e2e 글자 빠짐, S16 화면 겹침, **S17 실측 3건**(도구 호출 탈락·"나눔만"·needSearch), **S17 타임아웃 경주**(readTimeout이 본문까지 재서 504가 503이 되던 것, Spring 소스로 확인).
 
