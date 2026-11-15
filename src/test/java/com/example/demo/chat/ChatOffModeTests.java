@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 
@@ -23,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.example.demo.TestLogin;
 import com.example.demo.TestcontainersConfiguration;
 import com.example.demo.auth.service.TokenService;
+import com.example.demo.chat.service.ChatSlots;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.domain.User;
 import com.example.demo.user.repository.UserRepository;
@@ -44,6 +46,7 @@ class ChatOffModeTests {
 	@Autowired TokenService tokenService;
 	@Autowired ObjectMapper om;
 	@Autowired StringRedisTemplate redis;
+	@Autowired ChatSlots slots;
 
 	Cookie 판매자쿠키;
 	Cookie 쿠키;
@@ -103,5 +106,22 @@ class ChatOffModeTests {
 		}
 
 		assertThat(redis.keys("chat-rate-*")).isEmpty();
+	}
+
+	// S17-f2: off면 동시 질문 자리도 잡지 않고 바로 503이다. 자리를 모두 쥐어 놓아도(대기 5초) 기다리지 않고 즉시 끝난다.
+	@Test
+	void off_모드는_자리를_잡지_않고_자리가_꽉_차도_바로_503이다() throws Exception {
+		slots.acquire();
+		slots.acquire();
+		try {
+			long 시작 = System.nanoTime();
+			assertThat(질문("자전거 있어?").getStatus()).isEqualTo(503);
+			assertThat(Duration.ofNanos(System.nanoTime() - 시작)).as("자리 대기(5초)를 하지 않음").isLessThan(Duration.ofSeconds(3));
+			assertThat(slots.availablePermits()).isZero(); // 자리를 더 잡지도, 돌려주지도 않았다
+		} finally {
+			slots.release();
+			slots.release();
+		}
+		assertThat(slots.availablePermits()).isEqualTo(2);
 	}
 }

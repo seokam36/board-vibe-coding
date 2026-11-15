@@ -30,7 +30,8 @@ import jakarta.servlet.http.Cookie;
 // S17-f1: 챗봇 회원별 횟수 제한(분당 5회 + 하루 30회, 넘으면 429).
 // 테스트 기본 한도는 아주 크게 잡혀 있어서(test application.properties) 여기서만 5/30으로 덮어쓴다.
 // 가짜 AI(ScriptedLlmClient)와 가짜 시계(SkewClock)를 써서 진짜 AI·진짜 기다림 없이 "1분 뒤"·"다음 날"을 만든다.
-@SpringBootTest(properties = { "app.chat.rate-limit.per-minute=5", "app.chat.rate-limit.per-day=30" })
+// slot-wait=200ms는 ChatConcurrencyTests와 같은 설정으로 맞춰 스프링 컨텍스트를 같이 쓰려는 것(순서대로 묻는 이 테스트엔 영향 없음)
+@SpringBootTest(properties = { "app.chat.rate-limit.per-minute=5", "app.chat.rate-limit.per-day=30", "app.chat.slot-wait=200ms" })
 @Import({ TestcontainersConfiguration.class, ScriptedLlmClient.Config.class })
 @AutoConfigureMockMvc
 class ChatRateLimitTests extends ChatTestBase {

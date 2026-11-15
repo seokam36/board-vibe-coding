@@ -83,6 +83,7 @@ public class ChatService {
 
     private final ChatSearchService chatSearchService;
     private final ChatRateLimiter chatRateLimiter; // 회원별 횟수 제한(Redis)
+    private final ChatSlots chatSlots; // 동시 질문 자리(S17-f2)
     private final LlmClient llmClient;
     private final ObjectMapper objectMapper; // 📦 Jackson: JSON 글자 <-> 자바 객체
     // 시간 예산의 출처. LlmClient에 "기본 제한" 메서드를 새로 만들지 않고 설정값(OLLAMA_TIMEOUT)을 직접 읽는다(OffLlmClient도 고칠 필요 없음).
@@ -91,7 +92,7 @@ public class ChatService {
     private final Clock clock;
 
     // question은 컨트롤러의 @Valid 검사를 통과한 값이다(비지 않음, 500자 이하). userId = 로그인한 회원(횟수 제한용).
-    // 순서(S17-f1): AI가 꺼져 있으면 횟수를 세지 않고 바로 503 -> 횟수 검사(넘으면 429) -> AI 호출.
+    // 순서(S17-f1·f2): AI가 꺼져 있으면 횟수를 세지 않고 바로 503 -> 횟수 검사(넘으면 429) -> 동시 질문 자리(없으면 5초 뒤 503) -> AI 호출.
     // 횟수는 AI 호출 전에 딱 1번 센다. 고정 문구로 끝난 200, AI 503·504도 1회로 친다(되돌리지 않음).
     public ChatResponse ask(Long userId, String question) {
         if (!llmClient.isEnabled()) {
@@ -100,10 +101,22 @@ public class ChatService {
         }
         chatRateLimiter.countOrReject(userId); // 넘으면 429(아래 try 밖이라 AI 예외 처리와 섞이지 않는다)
         String stripped = question.strip();
-        Instant start = clock.instant(); // 질문 전체 시간 재기 시작
+        // 시작 시각은 자리 대기 "전"에 잡는다: 자리를 기다린 시간(최대 slot-wait)도 질문 전체 예산(60초)에서 빠진다.
+        Instant start = clock.instant();
         Duration budget = timeBudget();
+        chatSlots.acquire(); // 동시 질문 자리 잡기(없으면 5초 대기 후 503). 아래 finally에서 반드시 돌려준다
         try {
-            List<ChatMarketItem> items = findItems(stripped, budget); // AI 1번째 호출(예산 전체를 줌) + 검색
+            // 양식 호출에는 (예산 - 자리 대기에 쓴 시간)만 준다. 예산보다 크게는 주지 않는다(시계가 뒤로 간 경우 대비).
+            Duration formBudget = budget.minus(Duration.between(start, clock.instant()));
+            if (formBudget.compareTo(budget) > 0) {
+                formBudget = budget;
+            }
+            if (!formBudget.isPositive()) {
+                // AI를 부르지 않은 504다. logFailure의 "AI 호출 실패" 문구로 찍히면 오해하므로 여기서 따로 남기고 바로 던진다(자리는 finally가 돌려준다).
+                log.warn("챗봇 시간 예산 소진(AI 호출 전) -> 504");
+                throw new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT, TIMEOUT_MESSAGE);
+            }
+            List<ChatMarketItem> items = findItems(stripped, formBudget); // AI 1번째 호출 + 검색
             if (items.isEmpty()) {
                 // 줄 글이 없으면 2번째 호출을 하지 않는다(AI가 아는 척 지어내는 것을 막고, 시간·자원도 아낀다). keyword가 빈 경우도 같다.
                 return new ChatResponse(NO_RESULT_ANSWER, List.of());
@@ -126,6 +139,8 @@ public class ChatService {
         } catch (LlmTimeoutException e) {
             logFailure(e);
             throw new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT, TIMEOUT_MESSAGE);
+        } finally {
+            chatSlots.release(); // 정상·고정 문구·503·504·예상 밖 예외 어느 쪽이든 자리를 돌려준다
         }
     }
 

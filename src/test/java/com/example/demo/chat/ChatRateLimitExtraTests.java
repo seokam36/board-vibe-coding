@@ -26,7 +26,8 @@ import com.example.demo.chat.service.ChatRateLimiter;
 
 // S17-f1 추가 검사: 401·403은 세지 않는다 / 동시에 10개를 보내도 정확히 5개만 통과한다(Lua 원자성).
 // 가짜 시계(SkewClock)라 테스트 중 분이 안 바뀐다(진짜 시간이 흘러도 분 번호가 그대로라 "같은 분" 검사가 흔들리지 않는다).
-@SpringBootTest(properties = { "app.chat.rate-limit.per-minute=5", "app.chat.rate-limit.per-day=30" })
+// slot-wait=200ms는 ChatConcurrencyTests와 같은 설정으로 맞춰 스프링 컨텍스트를 같이 쓰려는 것(순서대로 묻는 이 테스트엔 영향 없음)
+@SpringBootTest(properties = { "app.chat.rate-limit.per-minute=5", "app.chat.rate-limit.per-day=30", "app.chat.slot-wait=200ms" })
 @Import({ TestcontainersConfiguration.class, ScriptedLlmClient.Config.class })
 @AutoConfigureMockMvc
 class ChatRateLimitExtraTests extends ChatTestBase {
