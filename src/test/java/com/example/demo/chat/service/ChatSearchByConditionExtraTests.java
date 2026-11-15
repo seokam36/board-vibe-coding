@@ -29,7 +29,7 @@ import com.example.demo.school.repository.SchoolRepository;
 import com.example.demo.user.domain.User;
 import com.example.demo.user.repository.UserRepository;
 
-// S17-e3 보강 검사: 조건 조합, 0원, 예약중, DTO 내용, 옛 검색 정렬 유지, 단어 10개 상한
+// S17-e3 보강 검사: 조건 조합, 0원, 예약중, DTO 내용, 단어 10개 상한 (옛 질문 단어 검색은 S17-e4에서 지워서 그 검사도 뺐다)
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 class ChatSearchByConditionExtraTests {
@@ -71,19 +71,11 @@ class ChatSearchByConditionExtraTests {
 	}
 
 	@Test
-	void 최대가격과_나눔만을_같이_쓰면_나눔만_나온다() {
-		글("자전거 판매", "x", TradeType.SALE, 10000);
-		long 나눔 = 글("자전거 나눔", "x", TradeType.FREE, 0);
-
-		assertThat(ids(service.searchByCondition("자전거", 30000, true))).containsExactly(나눔);
-	}
-
-	@Test
 	void 최대가격_0원이면_나눔_0원_글만_나온다() {
 		글("자전거 판매", "x", TradeType.SALE, 1000);
 		long 나눔 = 글("자전거 나눔", "x", TradeType.FREE, 0);
 
-		assertThat(ids(service.searchByCondition("자전거", 0, false))).containsExactly(나눔);
+		assertThat(ids(service.searchByCondition("자전거", 0))).containsExactly(나눔);
 	}
 
 	@Test
@@ -91,7 +83,7 @@ class ChatSearchByConditionExtraTests {
 		long 예약 = 글("자전거 예약", "x", TradeType.SALE, 1000);
 		jdbc.update("update market_items set status = 'RESERVED' where id = ?", 예약);
 
-		List<ChatMarketItem> got = service.searchByCondition("자전거", null, false);
+		List<ChatMarketItem> got = service.searchByCondition("자전거", null);
 		assertThat(ids(got)).containsExactly(예약);
 		assertThat(got.get(0).status()).isEqualTo(ItemStatus.RESERVED);
 	}
@@ -100,26 +92,17 @@ class ChatSearchByConditionExtraTests {
 	void 결과에_학교_이름이_채워지고_본문은_300자로_잘린다() {
 		글("자전거", "가".repeat(500), TradeType.SALE, 1000);
 
-		ChatMarketItem item = service.searchByCondition("자전거", null, false).get(0);
+		ChatMarketItem item = service.searchByCondition("자전거", null).get(0);
 		assertThat(item.schoolName()).isEqualTo("연세대학교");
 		assertThat(item.snippet()).hasSize(300);
 	}
 
 	@Test
-	void 옛_검색_searchMarketItems는_여전히_최신순이다() {
-		// 옛 검색에서는 단어 수가 많은 글이 오래됐어도 앞서지 않아야 한다(새 정렬이 옛 검색으로 번지지 않았는지)
-		long 두단어_옛 = 글("자전거 헬멧", "x", TradeType.SALE, 1000);
-		long 한단어_새 = 글("자전거만", "x", TradeType.SALE, 1000);
-
-		assertThat(ids(service.searchMarketItems("자전거 헬멧"))).containsExactly(한단어_새, 두단어_옛);
-	}
-
-	@Test
 	void 단어가_null이거나_비면_IllegalArgumentException() {
 		// 점수 식을 못 만들어 NPE(500)가 나던 자리: 조건을 만들 때 바로 호출 쪽 잘못으로 알린다
-		assertThatThrownBy(() -> MarketItemChatSearch.openItemsByCondition(null, null, false))
+		assertThatThrownBy(() -> MarketItemChatSearch.openItemsByCondition(null, null))
 				.isInstanceOf(IllegalArgumentException.class).hasMessage("keywords는 비어 있을 수 없습니다.");
-		assertThatThrownBy(() -> MarketItemChatSearch.openItemsByCondition(List.of(), null, false))
+		assertThatThrownBy(() -> MarketItemChatSearch.openItemsByCondition(List.of(), null))
 				.isInstanceOf(IllegalArgumentException.class).hasMessage("keywords는 비어 있을 수 없습니다.");
 	}
 
@@ -130,6 +113,6 @@ class ChatSearchByConditionExtraTests {
 		글("단어11 글", "x", TradeType.SALE, 1000);
 
 		String q = "단어01 단어02 단어03 단어04 단어05 단어06 단어07 단어08 단어09 단어10 단어11";
-		assertThat(ids(service.searchByCondition(q, null, false))).containsExactly(첫단어);
+		assertThat(ids(service.searchByCondition(q, null))).containsExactly(첫단어);
 	}
 }

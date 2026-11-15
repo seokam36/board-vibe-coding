@@ -28,8 +28,8 @@ import com.example.demo.user.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
 import tools.jackson.databind.ObjectMapper;
 
-// S17-c: 가짜(@MockitoBean) 없이 진짜 OffLlmClient(LLM_MODE=off, 테스트 기본)로 본 POST /chat.
-// 가짜가 없어서 기본 테스트 컨텍스트를 다른 테스트와 같이 쓴다.
+// S17-c: 가짜 AI(ScriptedLlmClient) 없이 진짜 OffLlmClient(LLM_MODE=off, 테스트 기본)로 본 POST /chat.
+// 가짜 AI를 안 끼워서 기본 테스트 컨텍스트를 다른 테스트와 같이 쓴다.
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 @AutoConfigureMockMvc
@@ -82,11 +82,8 @@ class ChatOffModeTests {
 	}
 
 	@Test
-	void LLM_MODE_off여도_맞는_글이_0건이면_200과_정해진_문구다() throws Exception {
-		MockHttpServletResponse r = 질문("자전거");
-
-		assertThat(r.getStatus()).isEqualTo(200);
-		assertThat(om.readTree(r.getContentAsString()).get("answer").asString())
-				.isEqualTo("관련 글을 찾지 못했어요. 다른 단어로 물어봐 주세요.");
+	void LLM_MODE_off이면_맞는_글이_0건이어도_503이다() throws Exception {
+		// S17-e4: 1번째 호출(양식)을 글이 있든 없든 하므로, AI가 꺼져 있으면 항상 503이다(예전에는 0건이면 200이었다)
+		assertThat(질문("자전거").getStatus()).isEqualTo(503);
 	}
 }

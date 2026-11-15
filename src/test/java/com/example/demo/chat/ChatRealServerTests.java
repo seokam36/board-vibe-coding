@@ -1,9 +1,6 @@
 package com.example.demo.chat;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -15,18 +12,15 @@ import java.net.http.HttpResponse.BodyHandlers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.example.demo.TestLogin;
 import com.example.demo.TestcontainersConfiguration;
 import com.example.demo.auth.service.TokenService;
-import com.example.demo.llm.service.LlmClient;
 import com.example.demo.market.domain.MarketItem;
 import com.example.demo.market.domain.TradeType;
 import com.example.demo.market.repository.MarketItemRepository;
@@ -41,7 +35,7 @@ import tools.jackson.databind.ObjectMapper;
 // S17-c 재검사: 진짜 서버(실제 포트)로 확인한다. MockMvc가 못 보는 "예상 밖 예외 -> 실제 500"과
 // sources.title == GET /market-items/{id}의 title, 예약중 나눔 글의 프롬프트를 본다. AI는 가짜.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, ScriptedLlmClient.Config.class })
 class ChatRealServerTests {
 
 	@LocalServerPort int port;
@@ -52,7 +46,7 @@ class ChatRealServerTests {
 	@Autowired JdbcTemplate jdbc;
 	@Autowired TokenService tokenService;
 	@Autowired ObjectMapper om;
-	@MockitoBean LlmClient llm;
+	@Autowired ScriptedLlmClient llm; // 대본 읽는 가짜 AI
 
 	final HttpClient client = HttpClient.newHttpClient();
 	String 로그인쿠키;
@@ -61,6 +55,8 @@ class ChatRealServerTests {
 	@BeforeEach
 	void 준비() {
 		정리();
+		llm.reset();
+		llm.jsonReturns("{\"needSearch\":true,\"keyword\":\"자전거\"}"); // 1번째 호출(양식): keyword 자전거
 		판매자 = TestLogin.인증된_사용자(userRepository, jdbc, "realseller", "연세대학교");
 		User 질문자 = TestLogin.사용자(userRepository, "realasker");
 		로그인쿠키 = "access_token=" + TestLogin.쿠키(tokenService, 질문자).getValue();
@@ -94,7 +90,7 @@ class ChatRealServerTests {
 	@Test
 	void 조건7_AI가_예상_밖_예외를_던지면_실제_서버는_500을_돌려준다() throws Exception {
 		저장("자전거 팝니다", TradeType.SALE, 1000);
-		when(llm.chat(anyString(), anyString())).thenThrow(new IllegalArgumentException("호출 쪽 버그"));
+		llm.chatThrows(new IllegalArgumentException("호출 쪽 버그"));
 
 		HttpResponse<String> r = 질문("자전거");
 
@@ -107,7 +103,7 @@ class ChatRealServerTests {
 		MarketItem item = 저장("자전거 팝니다", TradeType.SALE, 1000);
 		String 원본 = "자전거\n\n  팝니다";
 		jdbc.update("update market_items set title = ? where id = ?", 원본, item.getId());
-		when(llm.chat(anyString(), anyString())).thenReturn("답");
+		llm.chatReturns("답");
 
 		JsonNode source = om.readTree(질문("자전거").body()).get("sources").get(0);
 		HttpResponse<String> detail = client.send(HttpRequest.newBuilder(
@@ -123,13 +119,12 @@ class ChatRealServerTests {
 	void 추가_예약중_나눔_글은_프롬프트에_무료_나눔과_상태_예약중으로_들어간다() throws Exception {
 		MarketItem item = 저장("자전거 헬멧 나눔", TradeType.FREE, 0);
 		jdbc.update("update market_items set status = 'RESERVED' where id = ?", item.getId());
-		when(llm.chat(anyString(), anyString())).thenReturn("답");
+		llm.chatReturns("답");
 
 		assertThat(질문("헬멧").statusCode()).isEqualTo(200);
 
-		ArgumentCaptor<String> user = ArgumentCaptor.forClass(String.class);
-		verify(llm).chat(anyString(), user.capture());
-		assertThat(user.getValue()).contains("#" + item.getId() + " | 자전거 헬멧 나눔 | ").contains("가격 무료(나눔) | 상태 예약중");
+		assertThat(llm.chatCalls).hasSize(1);
+		assertThat(llm.chatCalls.get(0).user()).contains("#" + item.getId() + " | 자전거 헬멧 나눔 | ").contains("가격 무료(나눔) | 상태 예약중");
 	}
 
 	@Test

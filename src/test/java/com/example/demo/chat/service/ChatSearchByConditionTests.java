@@ -91,7 +91,7 @@ class ChatSearchByConditionTests {
 		jdbc.update("update market_items set status = 'DONE' where id = ?", 완료);
 		판매("책상", "무관", 10000);
 
-		assertThat(ids(service.searchByCondition("자전거", null, false))).containsExactlyInAnyOrder(제목, 본문, 예약)
+		assertThat(ids(service.searchByCondition("자전거", null))).containsExactlyInAnyOrder(제목, 본문, 예약)
 				.doesNotContain(완료);
 	}
 
@@ -101,17 +101,8 @@ class ChatSearchByConditionTests {
 		long 삼만오천 = 판매("자전거 B", "x", 35000);
 		long 무료 = 나눔("자전거 C", "x");
 
-		assertThat(ids(service.searchByCondition("자전거", 30000, false))).containsExactlyInAnyOrder(삼만, 무료);
-		assertThat(ids(service.searchByCondition("자전거", null, false))).containsExactlyInAnyOrder(삼만, 삼만오천, 무료);
-	}
-
-	@Test
-	void freeOnly가_true면_나눔만_false면_둘_다() {
-		long 판 = 판매("자전거 팝니다", "x", 5000);
-		long 나 = 나눔("자전거 드려요", "x");
-
-		assertThat(ids(service.searchByCondition("자전거", null, true))).containsExactly(나);
-		assertThat(ids(service.searchByCondition("자전거", null, false))).containsExactlyInAnyOrder(판, 나);
+		assertThat(ids(service.searchByCondition("자전거", 30000))).containsExactlyInAnyOrder(삼만, 무료);
+		assertThat(ids(service.searchByCondition("자전거", null))).containsExactlyInAnyOrder(삼만, 삼만오천, 무료);
 	}
 
 	@Test
@@ -119,7 +110,7 @@ class ChatSearchByConditionTests {
 		long 두단어 = 판매("자전거 헬멧 세트", "x", 1000); // 먼저 올린 글(더 오래됨)
 		long 한단어 = 판매("자전거만", "x", 1000); // 더 최신이지만 한 단어만
 
-		assertThat(ids(service.searchByCondition("자전거 헬멧", null, false))).containsExactly(두단어, 한단어);
+		assertThat(ids(service.searchByCondition("자전거 헬멧", null))).containsExactly(두단어, 한단어);
 	}
 
 	@Test
@@ -127,19 +118,19 @@ class ChatSearchByConditionTests {
 		long 두단어 = 판매("자전거 헬멧", "x", 1000);
 		long 양쪽한단어 = 판매("자전거", "자전거 자전거 상태 좋음", 1000); // 더 최신, 단어 1개만 맞음
 
-		assertThat(ids(service.searchByCondition("자전거 헬멧", null, false))).containsExactly(두단어, 양쪽한단어);
+		assertThat(ids(service.searchByCondition("자전거 헬멧", null))).containsExactly(두단어, 양쪽한단어);
 	}
 
 	@Test
 	void 점수가_같으면_최신순이고_createdAt이_같으면_id_큰_쪽이_앞이다() {
 		long 옛 = 판매("자전거 옛", "x", 1000);
 		long 새 = 판매("자전거 새", "x", 1000);
-		assertThat(ids(service.searchByCondition("자전거", null, false))).containsExactly(새, 옛);
+		assertThat(ids(service.searchByCondition("자전거", null))).containsExactly(새, 옛);
 
 		long 같은시각1 = 판매("자전거 동시1", "x", 1000);
 		long 같은시각2 = 판매("자전거 동시2", "x", 1000);
 		jdbc.update("update market_items set created_at = '2030-01-01 00:00:00' where id in (?, ?)", 같은시각1, 같은시각2);
-		assertThat(ids(service.searchByCondition("자전거", null, false))).containsExactly(같은시각2, 같은시각1, 새, 옛);
+		assertThat(ids(service.searchByCondition("자전거", null))).containsExactly(같은시각2, 같은시각1, 새, 옛);
 	}
 
 	@Test
@@ -150,7 +141,7 @@ class ChatSearchByConditionTests {
 			한단어[i] = 판매("자전거 " + i, "x", 1000); // 더 최신, 점수 1
 		}
 		// 점수 1짜리가 최신순으로 5개 -> 정렬이 LIMIT 앞이 아니면 두단어 글이 잘려 나간다
-		List<Long> got = ids(service.searchByCondition("자전거 헬멧", null, false));
+		List<Long> got = ids(service.searchByCondition("자전거 헬멧", null));
 		assertThat(got).hasSize(5);
 		assertThat(got.get(0)).isEqualTo(두단어);
 		assertThat(got).doesNotContain(한단어[0]); // 6번째로 밀린 건 점수 1 중 가장 오래된 글
@@ -163,14 +154,14 @@ class ChatSearchByConditionTests {
 		long 밑줄 = 판매("a_b 모델", "x", 1000);
 		판매("axb 모델", "x", 1000);
 
-		assertThat(ids(service.searchByCondition("100%", null, false))).containsExactly(퍼센트);
-		assertThat(ids(service.searchByCondition("a_b", null, false))).containsExactly(밑줄);
+		assertThat(ids(service.searchByCondition("100%", null))).containsExactly(퍼센트);
+		assertThat(ids(service.searchByCondition("a_b", null))).containsExactly(밑줄);
 	}
 
 	@Test
 	void 영어_대소문자를_무시한다() {
 		long 글 = 판매("rice cooker 팝니다", "x", 1000);
-		assertThat(ids(service.searchByCondition("Rice Cooker", null, false))).containsExactly(글);
+		assertThat(ids(service.searchByCondition("Rice Cooker", null))).containsExactly(글);
 	}
 
 	@Test
@@ -180,9 +171,9 @@ class ChatSearchByConditionTests {
 		stats.setStatisticsEnabled(true);
 		stats.clear();
 		try {
-			assertThat(service.searchByCondition("a", null, false)).isEmpty();
-			assertThat(service.searchByCondition("   ", null, false)).isEmpty();
-			assertThat(service.searchByCondition(null, null, false)).isEmpty();
+			assertThat(service.searchByCondition("a", null)).isEmpty();
+			assertThat(service.searchByCondition("   ", null)).isEmpty();
+			assertThat(service.searchByCondition(null, null)).isEmpty();
 			assertThat(stats.getPrepareStatementCount()).isZero();
 		} finally {
 			stats.setStatisticsEnabled(false);

@@ -1,10 +1,6 @@
 package com.example.demo.chat;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
@@ -14,7 +10,6 @@ import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -22,13 +17,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.example.demo.TestLogin;
 import com.example.demo.TestcontainersConfiguration;
 import com.example.demo.auth.service.TokenService;
-import com.example.demo.llm.service.LlmClient;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.domain.User;
 import com.example.demo.user.repository.UserRepository;
@@ -37,9 +30,9 @@ import jakarta.servlet.http.Cookie;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-// S17-c 빈틈 검사: 검색 경계(대소문자·LIKE 특수문자·1글자·다른 학교), 글자 수 경계(이모지), 삭제된 글·탈퇴 판매자.
+// S17-c 빈틈 검사(S17-e4: AI가 양식에 채운 keyword로 찾도록 고침): 검색 경계(대소문자·LIKE 특수문자·1글자·다른 학교), 글자 수 경계(이모지), 삭제된 글·탈퇴 판매자.
 @SpringBootTest
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, ScriptedLlmClient.Config.class })
 @AutoConfigureMockMvc
 class ChatEdgeTests {
 
@@ -51,7 +44,7 @@ class ChatEdgeTests {
 	@Autowired JdbcTemplate jdbc;
 	@Autowired TokenService tokenService;
 	@Autowired ObjectMapper om;
-	@MockitoBean LlmClient llm;
+	@Autowired ScriptedLlmClient llm; // 대본 읽는 가짜 AI
 
 	User 판매자;
 	Cookie 판매자쿠키;
@@ -63,7 +56,9 @@ class ChatEdgeTests {
 		판매자 = TestLogin.인증된_사용자(userRepository, jdbc, "edgeseller", "연세대학교");
 		판매자쿠키 = TestLogin.쿠키(tokenService, 판매자);
 		쿠키 = TestLogin.쿠키(tokenService, TestLogin.사용자(userRepository, "edgeasker"));
-		when(llm.chat(anyString(), anyString())).thenReturn("답");
+		llm.reset();
+		양식("자전거"); // 기본: AI가 keyword "자전거"를 채운다
+		llm.chatReturns("답");
 	}
 
 	@AfterEach
@@ -85,6 +80,17 @@ class ChatEdgeTests {
 		return om.readTree(r.getContentAsString()).get("id").asLong();
 	}
 
+	// 1번째 호출(양식)의 대본
+	private void 양식(String keyword) {
+		llm.jsonReturns(om.writeValueAsString(Map.of("needSearch", true, "keyword", keyword)));
+	}
+
+	// AI가 keyword를 이렇게 채웠을 때의 검색 결과(질문 글자는 검색에 안 쓰인다: 단어가 정상이면 정문으로 간다)
+	private MockHttpServletResponse 찾기(String keyword) throws Exception {
+		양식(keyword);
+		return 질문("검색 질문");
+	}
+
 	private MockHttpServletResponse 질문(String q) throws Exception {
 		return mockMvc.perform(post("/chat").contentType(MediaType.APPLICATION_JSON)
 				.content(om.writeValueAsString(Map.of("question", q))).cookie(쿠키).with(csrf())).andReturn().getResponse();
@@ -97,33 +103,34 @@ class ChatEdgeTests {
 	@Test
 	void 검색_영어_글_Bicycle을_소문자_bicycle로_물어도_찾는다() throws Exception {
 		올리기(판매자쿠키, "Bicycle for sale", "good");
-		assertThat(출처수(질문("bicycle"))).isEqualTo(1);
-		assertThat(출처수(질문("BICYCLE"))).isEqualTo(1);
+		assertThat(출처수(찾기("bicycle"))).isEqualTo(1);
+		assertThat(출처수(찾기("BICYCLE"))).isEqualTo(1);
 	}
 
 	@Test
-	void 검색_질문의_퍼센트와_밑줄은_와일드카드가_아니라_글자로만_찾는다() throws Exception {
+	void 검색_키워드의_퍼센트와_밑줄은_와일드카드가_아니라_글자로만_찾는다() throws Exception {
 		올리기(판매자쿠키, "자전거 팝니다", "내용");
 		올리기(판매자쿠키, "할인 100% 책상", "내용");
 		올리기(판매자쿠키, "a_b 케이블", "내용");
 
-		MockHttpServletResponse pct = 질문("100%");
+		MockHttpServletResponse pct = 찾기("100%");
 		assertThat(pct.getStatus()).isEqualTo(200);
 		assertThat(출처수(pct)).isEqualTo(1); // "100%" 글만, 전체가 걸리면 3
-		assertThat(출처수(질문("%%"))).isZero(); // "%%"가 와일드카드면 전부 걸린다
-		assertThat(출처수(질문("__"))).isZero(); // "_"가 와일드카드면 2글자 이상 글이 전부 걸린다
-		assertThat(출처수(질문("a_b"))).isEqualTo(1);
-		assertThat(출처수(질문("\\\\"))).isZero(); // 역슬래시 두 개도 오류 없이
+		assertThat(출처수(찾기("%%"))).isZero(); // "%%"가 와일드카드면 전부 걸린다
+		assertThat(출처수(찾기("__"))).isZero(); // "_"가 와일드카드면 2글자 이상 글이 전부 걸린다
+		assertThat(출처수(찾기("a_b"))).isEqualTo(1);
+		assertThat(출처수(찾기("\\\\"))).isZero(); // 역슬래시 두 개도 오류 없이
 	}
 
 	@Test
-	void 검색_한_글자_단어만_있는_질문은_0건이고_AI를_안_부른다() throws Exception {
+	void 검색_한_글자_키워드와_한_글자_질문_단어뿐이면_0건이고_답_호출은_안_한다() throws Exception {
 		올리기(판매자쿠키, "책 팝니다", "책 많음");
+		양식("책"); // 한 글자 키워드는 못 쓰니 비상구로 질문 단어를 찾는데, "책 줘"도 쓸 단어(2글자 이상)가 없다
 		MockHttpServletResponse r = 질문("책 줘");
 		assertThat(r.getStatus()).isEqualTo(200);
 		assertThat(om.readTree(r.getContentAsString()).get("answer").asString()).isEqualTo(NO_RESULT);
 		assertThat(출처수(r)).isZero();
-		verifyNoInteractions(llm);
+		assertThat(llm.chatCalls).isEmpty();
 	}
 
 	@Test
@@ -132,9 +139,8 @@ class ChatEdgeTests {
 		올리기(TestLogin.쿠키(tokenService, 고대판매자), "자전거 고대", "내용");
 		MockHttpServletResponse r = 질문("자전거");
 		assertThat(출처수(r)).isEqualTo(1);
-		ArgumentCaptor<String> user = ArgumentCaptor.forClass(String.class);
-		verify(llm).chat(anyString(), user.capture());
-		assertThat(user.getValue()).contains("고려대학교");
+		assertThat(llm.chatCalls).hasSize(1);
+		assertThat(llm.chatCalls.get(0).user()).contains("고려대학교");
 	}
 
 	@Test
@@ -148,16 +154,16 @@ class ChatEdgeTests {
 	@Test
 	void 길이_전각_공백만_있는_질문은_400이다() throws Exception {
 		assertThat(질문("\u3000\u3000\u3000").getStatus()).isEqualTo(400);
-		verifyNoInteractions(llm);
+		assertThat(llm.jsonCalls).isEmpty();
+		assertThat(llm.chatCalls).isEmpty();
 	}
 
 	@Test
 	void 본문_이모지가_경계에_걸려도_반쪽_글자_없이_300개로_자른다() throws Exception {
 		올리기(판매자쿠키, "자전거 팝니다", "가".repeat(299) + "😀".repeat(50));
 		질문("자전거");
-		ArgumentCaptor<String> user = ArgumentCaptor.forClass(String.class);
-		verify(llm).chat(anyString(), user.capture());
-		String msg = user.getValue();
+		assertThat(llm.chatCalls).hasSize(1);
+		String msg = llm.chatCalls.get(0).user();
 		assertThat(msg).contains("가".repeat(299) + "😀\n"); // 299 + 이모지 1개 = 300, 그 뒤는 잘림
 		assertThat(msg).doesNotContain("😀😀");
 		// 짝 없는 서로게이트(깨진 글자)가 없다

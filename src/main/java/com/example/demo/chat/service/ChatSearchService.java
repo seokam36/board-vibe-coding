@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,26 +28,13 @@ public class ChatSearchService {
 
     private final MarketItemRepository marketItemRepository;
 
-    // 질문의 단어로 판매중·예약중 글을 찾는다(최신순 최대 5건). 쓸 단어가 없으면 DB를 부르지 않고 빈 목록.
-    // 한국어 조사 떼기("자전거가" -> "자전거") 같은 처리는 하지 않는다(알려진 한계: "자전거가"로 물으면 "자전거 팝니다"를 못 찾는다).
-    @Transactional(readOnly = true)
-    public List<ChatMarketItem> searchMarketItems(String question) {
-        List<String> keywords = keywordsOf(question);
-        if (keywords.isEmpty()) {
-            return List.of();
-        }
-        Sort newestFirst = Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"));
-        List<MarketItem> found = marketItemRepository.findBy(MarketItemChatSearch.openItemsMatchingAny(keywords),
-                q -> q.sortBy(newestFirst).limit(MAX_ITEMS).project("school").all());
-        return found.stream().map(ChatSearchService::toChatItem).toList();
-    }
-
-    // S17-e3: AI가 양식에 채운 조건으로 찾는다(아직 ChatService는 안 부른다. e4에서 연결).
+    // AI가 양식에 채운 조건으로 찾는다(S17-e3). 비상구(양식을 못 읽음·키워드 없음)에서는 질문 전체를 keyword로 넘겨 질문 단어로 찾는다(S17-e4).
+    // 한국어 조사 떼기("자전거가" -> "자전거") 같은 처리는 하지 않는다(알려진 한계).
     // keyword가 null이거나 쓸 단어가 없으면 DB를 부르지 않고 빈 목록. maxPrice가 null이면 가격 조건 없음(있으면 그 이하, 나눔 0원 포함).
-    // freeOnly=true면 나눔 글만, false면 판매·나눔 둘 다. 정렬은 맞은 단어 수 -> 최신순 -> id 순이고 조건(Specification) 안에서 정해진다.
+    // 판매·나눔 둘 다 찾는다(나눔만 거는 조건은 없다). 정렬은 맞은 단어 수 -> 최신순 -> id 순이고 조건(Specification) 안에서 정해진다.
     // 그래서 여기서 sortBy를 부르지 않는다(부르면 그 정렬이 덮어쓴다).
     @Transactional(readOnly = true)
-    public List<ChatMarketItem> searchByCondition(String keyword, Integer maxPrice, boolean freeOnly) {
+    public List<ChatMarketItem> searchByCondition(String keyword, Integer maxPrice) {
         if (keyword == null) {
             return List.of();
         }
@@ -56,15 +42,16 @@ public class ChatSearchService {
         if (keywords.isEmpty()) {
             return List.of();
         }
-        List<MarketItem> found = marketItemRepository.findBy(MarketItemChatSearch.openItemsByCondition(keywords, maxPrice, freeOnly),
+        List<MarketItem> found = marketItemRepository.findBy(MarketItemChatSearch.openItemsByCondition(keywords, maxPrice),
                 q -> q.limit(MAX_ITEMS).project("school").all());
         return found.stream().map(ChatSearchService::toChatItem).toList();
     }
 
     // 공백(전각 포함)으로 쪼개 2글자 이상 단어만, 대소문자 무시로 중복을 빼고, 앞에서 10개까지
-    static List<String> keywordsOf(String question) {
+    // text는 질문 전체일 수도(비상구), AI가 준 keyword일 수도 있다.
+    static List<String> keywordsOf(String text) {
         Map<String, String> unique = new LinkedHashMap<>();
-        for (String word : question.strip().split("[\\p{javaWhitespace}]+")) {
+        for (String word : text.strip().split("[\\p{javaWhitespace}]+")) {
             if (word.codePointCount(0, word.length()) >= MIN_KEYWORD_LENGTH) {
                 unique.putIfAbsent(word.toLowerCase(Locale.ROOT), word);
             }
