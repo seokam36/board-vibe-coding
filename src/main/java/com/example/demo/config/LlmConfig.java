@@ -15,7 +15,8 @@ import com.example.demo.llm.service.OllamaLlmClient;
 // 이 클래스의 생성자가 시작 때 모드를 검사한다. 이상한 값이면 허용 값을 알려 주며 시작이 실패한다(값 자체는 출력 안 함).
 // Ollama 서버가 꺼져 있어도 시작은 성공한다(연결은 질문할 때 처음 한다).
 @Configuration
-@EnableConfigurationProperties(LlmProperties.class)
+// ChatProperties도 여기서 등록한다(ChatConfig와 겹쳐 등록해도 같은 빈으로 합쳐진다)
+@EnableConfigurationProperties({ LlmProperties.class, ChatProperties.class })
 public class LlmConfig {
 
     private static final Logger log = LoggerFactory.getLogger(LlmConfig.class);
@@ -52,8 +53,10 @@ public class LlmConfig {
 
     @Bean
     @ConditionalOnProperty(name = "app.llm.mode", havingValue = "ollama")
-    LlmClient ollamaLlmClient(LlmProperties props) {
+    LlmClient ollamaLlmClient(LlmProperties props, ChatProperties chat) {
         LlmProperties.Ollama o = props.ollama();
-        return new OllamaLlmClient(o.baseUrl(), o.model(), o.timeout());
+        // 호출 스레드 상한 = 동시 질문 상한 + 2. 여유 2는 시간 초과로 취소된 호출 스레드가 아직 정리 중일 때를 위한 것.
+        // llm 패키지가 chat 설정을 직접 알지 않도록 여기서 계산해 넘긴다.
+        return new OllamaLlmClient(o.baseUrl(), o.model(), o.timeout(), chat.maxConcurrent() + 2);
     }
 }

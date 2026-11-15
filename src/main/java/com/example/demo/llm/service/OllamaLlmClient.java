@@ -8,11 +8,15 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -30,6 +34,8 @@ import org.springframework.web.client.RestClientException;
 // Spring AI 클래스는 이 파일 안에만 있다(서비스 코드는 LlmClient만 안다).
 public class OllamaLlmClient implements LlmClient {
 
+    private static final Logger log = LoggerFactory.getLogger(OllamaLlmClient.class);
+
     // 연결 제한은 호출 제한(보통 60초)과 따로 짧게 둔다: 서버가 꺼져 있을 때 1분을 기다리지 않게 하고,
     // "서버 없음(503)"과 "응답이 느림(504)" 구분이 흔들리지 않게 하려는 것이다.
     private static final Duration MAX_CONNECT_TIMEOUT = Duration.ofSeconds(5);
@@ -41,14 +47,31 @@ public class OllamaLlmClient implements LlmClient {
     private final OllamaChatModel chatModel;
     private final String model;
     private final Duration timeout;
+    // 상한을 따로 안 정했을 때(주로 테스트) 쓰는 풀 크기. 실제 앱은 LlmConfig가 (동시 질문 상한 + 2)를 넘겨 준다.
+    static final int DEFAULT_MAX_CALL_THREADS = 4;
+
     // 호출을 따로 돌릴 스레드 풀. 데몬 스레드라 앱 종료를 막지 않는다.
-    private final ExecutorService executor = Executors.newCachedThreadPool(r -> {
-        Thread t = new Thread(r, "ollama-call");
-        t.setDaemon(true);
-        return t;
-    });
+    // 상한이 있다: 스레드가 무한히 늘어 서버가 버티지 못하는 일을 막는 안전망이다(진짜 문지기는 ChatSlots).
+    // SynchronousQueue = 줄 세우는 칸이 없다 → 모든 스레드가 일하는 중이면 기다리지 않고 바로 거절(RejectedExecutionException)한다.
+    private final ThreadPoolExecutor executor;
+    private final int maxCallThreads;
 
     public OllamaLlmClient(String baseUrl, String model, Duration timeout) {
+        this(baseUrl, model, timeout, DEFAULT_MAX_CALL_THREADS);
+    }
+
+    // maxCallThreads: 동시에 Ollama를 부를 수 있는 스레드 수의 상한(1 이상)
+    public OllamaLlmClient(String baseUrl, String model, Duration timeout, int maxCallThreads) {
+        if (maxCallThreads < 1) {
+            throw new IllegalArgumentException("maxCallThreads는 1 이상이어야 합니다.");
+        }
+        this.maxCallThreads = maxCallThreads;
+        // 코어 0개 + 최대 maxCallThreads개: 필요할 때 만들고 60초 놀면 사라진다(예전 cached 풀과 같은 방식에 상한만 추가)
+        this.executor = new ThreadPoolExecutor(0, maxCallThreads, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(), r -> {
+            Thread t = new Thread(r, "ollama-call");
+            t.setDaemon(true);
+            return t;
+        });
         // 제한 시간은 Ollama용 RestClient에만 건다. 스프링 전역 http 설정(spring.http.clients.*)을 쓰면 다른 HTTP 클라이언트까지 영향을 받는다.
         // Spring의 읽기 제한(JdkClientHttpRequest)은 요청을 보낸 때부터 본문 스트림을 닫을 때까지 재고, 넘기면 스트림을 닫아 버린다
         // (헤더까지만 재는 게 아니다). 그래서 호출 전체의 제한은 call()에서 Future로 재고, 이 값은 그보다 조금 길게 둔다.
@@ -68,6 +91,11 @@ public class OllamaLlmClient implements LlmClient {
                 // Spring AI 기본은 최대 10회 재시도(재시도 사이 대기가 최대 3분씩이라 10번이면 합쳐서 수십 분). 재시도 0회 = 한 번만 시도하고 바로 실패를 올린다
                 .retryTemplate(new RetryTemplate(RetryPolicy.withMaxRetries(0)))
                 .build();
+    }
+
+    // 호출 스레드 상한(테스트·확인용)
+    public int maxCallThreads() {
+        return maxCallThreads;
     }
 
     // 켜진 구현: Ollama로 실제 호출한다.
@@ -127,7 +155,15 @@ public class OllamaLlmClient implements LlmClient {
         Duration limit = callTimeout.compareTo(timeout) > 0 ? timeout : callTimeout;
         long startNanos = System.nanoTime();
         // 호출을 별도 스레드에서 돌리고 전체 제한 시간만 기다린다. 넘기면 cancel(true)로 스레드를 깨워 요청도 끊는다.
-        Future<ChatResponse> future = executor.submit(() -> chatModel.call(prompt));
+        Future<ChatResponse> future;
+        try {
+            future = executor.submit(() -> chatModel.call(prompt));
+        } catch (RejectedExecutionException e) {
+            // 호출 스레드가 상한까지 다 차 있다: 기다리지 않고 "AI 사용 불가"로 바로 알린다(ChatService가 503으로 바꾼다)
+            // 운영에서 원인을 알 수 있게 숫자만 로그로 남긴다(질문·주소 같은 값은 넣지 않는다)
+            log.warn("ollama-call 풀 가득 참(상한 {}) -> 사용 불가", maxCallThreads);
+            throw new LlmUnavailableException("Ollama 호출 자리가 가득 찼습니다.", e);
+        }
         try {
             ChatResponse response = future.get(limit.toMillis(), TimeUnit.MILLISECONDS);
             String text = response == null || response.getResult() == null ? null : response.getResult().getOutput().getText();
