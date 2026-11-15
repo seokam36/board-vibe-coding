@@ -159,11 +159,37 @@ S13(중고거래·사진)과 S14(쪽지)를 한 번에 배포한 뒤에 봅니�
 - 되돌리는 것은 compose 설정뿐입니다. 이미지는 `latest` 태그라 push할 때 Docker Hub의 옛 이미지가 덮어써지므로, 되돌려도 새 이미지가 그대로 쓰입니다.
   이미지까지 되돌리고 싶다면 아래 "Flyway(표 변경) 문제와 되돌리기"의 (a) "이전 이미지로 되돌리기"를 따릅니다(CI가 커밋마다 40자리 SHA 태그를 남겨 두므로 미리 태그를 붙여 둘 필요가 없습니다).
 
+### S17 배포 후 확인
+S17(AI 챗봇: 백엔드 `POST /chat` + Flutter `/chat` 화면, 횟수 제한 Redis, 동시 상한)을 처음 배포한 뒤에 봅니다. 앞에서부터 순서대로 합니다.
+
+메모:
+- **운영 AI는 항상 off입니다.** `docker-compose.yml`이 app에 `LLM_MODE`를 넘기지 않아 `application.properties`의 `${LLM_MODE:off}` 기본값이 쓰입니다. 그래서 `/chat`은 항상 503이고(횟수도 세지 않아 Redis 키가 안 생김), 화면은 상단바에 "챗봇"이 보이지만 질문하면 안내 문구가 나옵니다. 서버 `.env`·compose는 바꾸지 않으므로 scp가 필요 없습니다.
+- **V 파일 변경 없음**(flyway 최신 version은 13 그대로). 새 의존성은 S17-b에서 들어간 `spring-ai-ollama`뿐입니다. 그래서 문제가 생겨 옛 이미지로 돌아가도 DB 때문에 깨질 일이 없어 안전합니다.
+- nginx(`web` 이미지)는 `/api/chat`만 대기 75초가 추가돼 새 web 이미지가 나갑니다.
+- Deploy 버튼을 누르기 전에 **그 커밋의 CI 세 작업(backend, flutter, images)이 모두 초록**인지 Actions 탭에서 봅니다.
+
+1. **[브라우저]** GitHub Actions의 Deploy 실행이 초록(성공)인지 봅니다. DB 백업과 헬스체크 단계도 모두 초록이어야 합니다.
+2. **[브라우저]** `http://<퍼블릭IP>/actuator/health`가 UP인지 봅니다(`<퍼블릭IP>`는 그때그때 EC2 콘솔에서 확인한 값으로 바꿉니다).
+3. **[서버]** AI가 꺼진 채로 떴는지: `cd ~/board && docker compose --profile prod logs app | grep -c 'AI 꺼짐(LLM_MODE=off)'` 가 `1` 이상인지 봅니다(시작 로그 `AI 꺼짐(LLM_MODE=off): /chat은 항상 503을 돌려줍니다.`). 0이면 새 이미지가 안 뜬 것입니다.
+4. **[서버]** 표 변경이 없었는지: `docker exec board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT version, success FROM flyway_schema_history ORDER BY installed_rank;"'` 에서 가장 마지막 줄이 `13 | t`인지 봅니다(14 이상이 보이면 안 됩니다).
+5. **[브라우저]** 운영 테스트 계정으로 로그인 -> 상단바 "챗봇" -> 아무 질문 -> "지금은 AI 챗봇을 쓸 수 없어요. 잠시 뒤 다시 시도해 주세요"가 나오는지 봅니다. **네트워크 오류 문구가 나오면 실패**입니다(nginx나 app 연결 문제).
+6. **[브라우저]** 기존 기능 3가지: 글 목록이 보이는지, 중고 글 상세가 열리는지, 새로고침해도 로그인이 유지되는지 봅니다.
+7. **[서버]** 메모리와 재시작: `docker stats --no-stream board-app` 의 메모리 사용량이 `512MiB` 미만인지, `docker ps` 에서 `board-app`의 STATUS가 `Restarting`이 아니고 `Up` 시간이 계속 늘어나는지 봅니다(1분쯤 뒤 한 번 더).
+
+**S17 되돌리기** (문제가 있을 때만). 위 "(a) 이전 이미지로 되돌리기"와 같은 방식이고, app과 web 두 줄을 직전 운영 배포(Deploy #18) 커밋의 이미지로 바꿉니다. V 파일이 없어서 DB는 그대로 둡니다.
+- 되돌릴 이미지: `seokam36/demo:dbef29bbea7145af21b0adf7aa027633f4adc375`, `seokam36/demo-web:dbef29bbea7145af21b0adf7aa027633f4adc375`
+1. **[서버]** `cd ~/board && cp docker-compose.yml docker-compose.yml.bak-latest` — 지금 설정을 복사해 둡니다(이미 있으면 덮어쓰지 말고 다른 이름으로).
+2. **[서버]** `sed -i 's#image: seokam36/demo:latest#image: seokam36/demo:dbef29bbea7145af21b0adf7aa027633f4adc375#; s#image: seokam36/demo-web:latest#image: seokam36/demo-web:dbef29bbea7145af21b0adf7aa027633f4adc375#' docker-compose.yml`
+3. **[서버]** `grep 'image: seokam36' docker-compose.yml` — 두 줄 모두 `dbef29b...` 태그인지 확인합니다.
+4. **[서버]** `docker compose --profile prod pull app web && docker compose --profile prod up -d app web`
+5. **[브라우저]** `/actuator/health`가 UP이고 글 목록이 뜨는지 봅니다.
+- **주의**: (a)의 주의 박스와 같습니다. 고쳐서 새 `latest`가 올라온 뒤(Actions 초록) `cp docker-compose.yml.bak-latest docker-compose.yml`로 원복하고 `grep`으로 두 줄이 `:latest`인지 확인한 다음 Deploy를 누릅니다. 안 하면 Deploy가 계속 옛 이미지를 받습니다.
+
 ## 웹 화면: Flutter로 교체 (S16-n2)
 운영 `web` 이미지가 React에서 **Flutter 웹**(`flutter_app/`)으로 바뀌었습니다. `/v2` 같은 별도 주소 없이 통째로 교체합니다.
 - 이미지 이름은 그대로 `seokam36/demo-web`(`:latest`, `:<커밋 SHA>`)이라 **EC2의 `docker-compose.yml`을 바꿀 필요가 없습니다**(포트 80, 볼륨 없음, healthcheck 없음 - Flutter 이미지와 그대로 맞음. Deploy 워크플로의 헬스체크는 `/actuator/health`를 nginx 경유로 부르는데 Flutter nginx.conf에도 같은 블록이 있습니다).
 - 만드는 방법: CI의 `flutter` 작업이 `flutter build web --web-content-hash`로 `build/web`을 만들고 e2e까지 통과시킨 뒤, 그 결과를 `images` 작업이 받아 `flutter_app/Dockerfile`(빌드 없이 COPY만)로 이미지에 담습니다. 그래서 Flutter 검사가 실패하면 이미지도 올라가지 않습니다.
-- nginx 설정(`flutter_app/nginx.conf`)은 React 때와 같은 `/api` 전달(사진 올리기 `client_max_body_size 11m`·`proxy_read_timeout 150s` 포함)과 `/actuator/health` 열기, `/api/actuator` 404를 갖습니다. 달라진 점: 해시 붙은 파일(`main.dart.<해시>.js`)만 1년 immutable 캐시, `index.html` 등 나머지는 `no-cache`, 없는 `/assets/...`·`/canvaskit/...`은 404, 그 밖의 주소는 `index.html`(딥링크), JSON도 gzip 압축.
+- nginx 설정(`flutter_app/nginx.conf`)은 React 때와 같은 `/api` 전달(사진 올리기 `client_max_body_size 11m`·`proxy_read_timeout 150s` 포함, `/api/chat`만 75초(S17-h))과 `/actuator/health` 열기, `/api/actuator` 404를 갖습니다. 달라진 점: 해시 붙은 파일(`main.dart.<해시>.js`)만 1년 immutable 캐시, `index.html` 등 나머지는 `no-cache`, 없는 `/assets/...`·`/canvaskit/...`은 404, 그 밖의 주소는 `index.html`(딥링크), JSON도 gzip 압축.
 - 배포 절차는 위 "자동 배포"와 똑같습니다(Deploy 버튼). 바뀌는 건 화면 파일뿐이고 DB·백엔드는 영향이 없습니다.
 
 **첫 배포 뒤 확인할 것** (브라우저 `http://<퍼블릭IP>/`)
@@ -245,7 +271,8 @@ Gmail 무료 계정은 하루 약 500통까지만 보낼 수 있습니다. 회�
 주의: 메일 주소 자체는 로그·문서·이슈에 남기지 않습니다(해시만 다룹니다). 위 PowerShell 줄은 주소가 터미널 기록에 남을 수 있으니 계산 후 창을 닫거나 기록을 지웁니다.
 
 **챗봇이 막혔다는 문의가 오면** (운영자 메모)
-챗봇은 회원 한 명당 1분에 5번, 서울 하루에 30번까지만 물을 수 있고 넘으면 429(화면 문구는 S17-f4에서 붙음)입니다. 카운터는 Redis에 있고 시간이 지나면 저절로 사라지므로 급하지 않으면 기다려도 풀립니다(분 키는 약 2분, 하루 키는 최대 25시간).
+챗봇은 회원 한 명당 1분에 5번, 서울 하루에 30번까지만 물을 수 있고 넘으면 429이고, 화면에는 "질문 횟수를 넘었어요 (1분에 5번, 하루 30번까지). 1분 뒤에도 안 되면 내일 다시 시도해 주세요"가 나옵니다(S17-f4). 카운터는 Redis에 있고 시간이 지나면 저절로 사라지므로 급하지 않으면 기다려도 풀립니다(분 키는 약 2분, 하루 키는 최대 25시간).
+**운영이 off인 동안은 횟수를 세지 않아(Redis 키가 안 생김) 이 절은 해당 없습니다.** 이때 "챗봇이 안 돼요" 문의는 429가 아니라 503("지금은 AI 챗봇을 쓸 수 없어요")이고, 정상(의도된 동작)입니다. 아래 내용은 나중에 운영 AI를 켠 뒤에 씁니다.
 - 분 카운터: `chat-rate-min:{회원id}:{분 번호}` (분 번호 = 1970년부터 센 분)
 - 하루 카운터: `chat-rate-day:{회원id}:{서울 날짜, 예 2026-11-15}`
 
@@ -287,7 +314,7 @@ SQL
   - `PHOTO_STORAGE`: compose에서 기본 `s3`(빈 값이어도 `s3`로 채워짐). `local`이면 컨테이너 안 폴더에 저장하는데, 운영에는 사진 볼륨이 없어서 재배포하면 사라집니다. 보통 적지 않습니다.
   - `PHOTO_S3_BUCKET`: 버킷 이름 (**필수**, 비어 있으면 앱이 시작 때 실패).
   - `PHOTO_S3_REGION`: 기본 `ap-northeast-2`(서울). 서울이면 적지 않아도 됩니다.
-- nginx(`web`) 설정: **사진 올리기 주소**(`POST /api/market-items/{id}/photos`)에만 업로드 한도 `client_max_body_size 11m`(스프링 `max-request-size`와 같음)과 응답 대기 `proxy_read_timeout 150s`를 줍니다. 한도가 없으면 nginx 기본 1MB 때문에 3MB 사진도 413입니다. 대기 150초는 S3가 느릴 때(처리 자리 대기 최대 5초 + 이미지 처리 + put 2번 각 최대 60초) nginx가 먼저 504를 내서 "서버는 저장했는데 화면은 실패"가 되는 어긋남을 막습니다. 나머지 API는 nginx 기본값(본문 1MB, 대기 60초) 그대로입니다. 이 설정은 web 이미지 안에 있으므로 Deploy 버튼이 새 이미지를 받아 반영합니다. (S16-n2부터 이 설정은 `flutter_app/nginx.conf`에 있고 내용은 같습니다.)
+- nginx(`web`) 설정: **사진 올리기 주소**(`POST /api/market-items/{id}/photos`)에만 업로드 한도 `client_max_body_size 11m`(스프링 `max-request-size`와 같음)과 응답 대기 `proxy_read_timeout 150s`를 줍니다. 한도가 없으면 nginx 기본 1MB 때문에 3MB 사진도 413입니다. 대기 150초는 S3가 느릴 때(처리 자리 대기 최대 5초 + 이미지 처리 + put 2번 각 최대 60초) nginx가 먼저 504를 내서 "서버는 저장했는데 화면은 실패"가 되는 어긋남을 막습니다. 나머지 API는 nginx 기본값(본문 1MB, 대기 60초) 그대로입니다. 단 `/api/chat`만 대기 75초입니다(S17-h, 서버 질문 예산 60초 < nginx 75초 < 화면 90초). 이 설정은 web 이미지 안에 있으므로 Deploy 버튼이 새 이미지를 받아 반영합니다. (S16-n2부터 이 설정은 `flutter_app/nginx.conf`에 있고 내용은 같습니다.)
 
 **운영에 적용하기**
 1. **[콘솔]** (처음 한 번) EC2 -> 인스턴스 -> 해당 인스턴스 선택 -> 작업 -> 인스턴스 설정 -> 인스턴스 메타데이터 옵션 수정에서 "메타데이터 응답 홉 제한"이 **2 이상**인지 확인합니다. **1이면 2로 바꾸고 저장합니다.** 1이면 컨테이너 안의 앱이 역할 자격 증명을 받지 못해서 시작할 때 HeadBucket(버킷 확인) 단계에서 실패합니다. 같은 인스턴스에 역할 `board-ec2-role`이 연결돼 있는지도 봅니다(작업 -> 보안 -> IAM 역할 수정).
