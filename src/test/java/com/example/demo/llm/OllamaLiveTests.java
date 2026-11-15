@@ -20,4 +20,18 @@ class OllamaLiveTests {
         System.out.println("LIVE 답: " + answer);
         assertThat(answer).isNotBlank();
     }
+
+    // 구조화 호출: format(JSON Schema)을 줬을 때 실제 모델이 양식대로 JSON을 채우는지
+    @Test
+    void 구조화_호출은_JSON을_돌려주고_keyword에_자전거가_들어_있다() throws Exception {
+        OllamaLlmClient client = new OllamaLlmClient("http://localhost:11434", "qwen3:8b", Duration.ofSeconds(60));
+        String schema = "{\"type\":\"object\",\"properties\":{\"needSearch\":{\"type\":\"boolean\"},"
+                + "\"keyword\":{\"type\":\"string\"},\"maxPrice\":{\"type\":\"integer\"}},"
+                + "\"required\":[\"needSearch\",\"keyword\"]}";
+        String json = client.chatJson("사용자의 말에서 중고 물품 검색 조건을 JSON 양식에 채워라. 가격은 원 단위 정수.",
+                "3만 원 이하 자전거 있어?", schema, Duration.ofSeconds(60));
+        System.out.println("LIVE JSON: " + json);
+        var node = new tools.jackson.databind.ObjectMapper().readTree(json);
+        assertThat(node.path("keyword").asText()).contains("자전거");
+    }
 }

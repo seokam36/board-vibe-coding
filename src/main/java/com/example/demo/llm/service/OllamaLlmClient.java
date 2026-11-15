@@ -35,6 +35,7 @@ public class OllamaLlmClient implements LlmClient {
     private static final Duration MAX_CONNECT_TIMEOUT = Duration.ofSeconds(5);
 
     private final OllamaChatModel chatModel;
+    private final String model;
     private final Duration timeout;
     // 호출을 따로 돌릴 스레드 풀. 데몬 스레드라 앱 종료를 막지 않는다.
     private final ExecutorService executor = Executors.newCachedThreadPool(r -> {
@@ -46,6 +47,7 @@ public class OllamaLlmClient implements LlmClient {
     public OllamaLlmClient(String baseUrl, String model, Duration timeout) {
         // 제한 시간은 Ollama용 RestClient에만 건다. 스프링 전역 http 설정(spring.http.clients.*)을 쓰면 다른 HTTP 클라이언트까지 영향을 받는다.
         // 읽기 제한은 "응답 헤더가 오기까지"만 잰다. 본문이 천천히 흘러오는 경우는 chat()에서 호출 전체에 상한을 따로 건다.
+        this.model = model;
         this.timeout = timeout;
         Duration connectTimeout = timeout.compareTo(MAX_CONNECT_TIMEOUT) < 0 ? timeout : MAX_CONNECT_TIMEOUT;
         HttpClient httpClient = HttpClient.newBuilder().connectTimeout(connectTimeout).build();
@@ -65,15 +67,57 @@ public class OllamaLlmClient implements LlmClient {
 
     @Override
     public String chat(String systemPrompt, String userMessage) {
-        // 빈 인자는 호출 쪽 버그다. "AI 사용 불가"로 숨기지 않고 바로 IllegalArgumentException으로 알린다.
+        return chat(systemPrompt, userMessage, timeout);
+    }
+
+    @Override
+    public String chat(String systemPrompt, String userMessage, Duration callTimeout) {
+        checkTexts(systemPrompt, userMessage);
+        // 옵션을 따로 넘기지 않는다 = 생성자에서 정한 기본 옵션(model, think 끔)만 쓴다. format은 실리지 않는다.
+        return call(new Prompt(List.of(new SystemMessage(systemPrompt), new UserMessage(userMessage))), callTimeout);
+    }
+
+    @Override
+    public String chatJson(String systemPrompt, String userMessage, String jsonSchema, Duration callTimeout) {
+        checkTexts(systemPrompt, userMessage);
+        if (jsonSchema == null || jsonSchema.isBlank()) {
+            throw new IllegalArgumentException("jsonSchema는 비어 있을 수 없습니다.");
+        }
+        // outputSchema = Ollama 요청의 format 칸에 JSON Schema를 넣는다(모델이 그 모양으로만 답하게 강제).
+        // 호출 옵션은 기본 옵션과 합쳐진다고 믿지 않고 model·think 끔을 다시 적는다.
+        // Spring AI는 outputSchema()에서 스키마 글자를 바로 JSON으로 파싱한다. JSON이 아니면 여기서 예외가 나므로
+        // 호출 쪽 잘못(잘못된 인자)으로 통일해 알린다. 메시지에 스키마 원문은 넣지 않는다.
+        OllamaChatOptions options;
+        try {
+            options = OllamaChatOptions.builder()
+                    .model(model)
+                    .disableThinking()
+                    .outputSchema(jsonSchema)
+                    .build();
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("jsonSchema가 올바른 JSON이 아닙니다.");
+        }
+        Prompt prompt = new Prompt(List.of(new SystemMessage(systemPrompt), new UserMessage(userMessage)), options);
+        return call(prompt, callTimeout);
+    }
+
+    // 빈 인자는 호출 쪽 버그다. "AI 사용 불가"로 숨기지 않고 바로 IllegalArgumentException으로 알린다.
+    private static void checkTexts(String systemPrompt, String userMessage) {
         if (systemPrompt == null || systemPrompt.isBlank() || userMessage == null || userMessage.isBlank()) {
             throw new IllegalArgumentException("systemPrompt와 userMessage는 비어 있을 수 없습니다.");
         }
-        Prompt prompt = new Prompt(List.of(new SystemMessage(systemPrompt), new UserMessage(userMessage)));
+    }
+
+    private String call(Prompt prompt, Duration callTimeout) {
+        if (callTimeout == null || callTimeout.isZero() || callTimeout.isNegative()) {
+            throw new IllegalArgumentException("timeout은 0보다 커야 합니다.");
+        }
+        // 읽기 제한이 생성자 값이라 그보다 길게는 기다릴 수 없다: 생성자 값을 상한으로 쓴다.
+        Duration limit = callTimeout.compareTo(timeout) > 0 ? timeout : callTimeout;
         // 호출을 별도 스레드에서 돌리고 전체 제한 시간만 기다린다. 넘기면 cancel(true)로 스레드를 깨워 요청도 끊는다.
         Future<ChatResponse> future = executor.submit(() -> chatModel.call(prompt));
         try {
-            ChatResponse response = future.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            ChatResponse response = future.get(limit.toMillis(), TimeUnit.MILLISECONDS);
             String text = response == null || response.getResult() == null ? null : response.getResult().getOutput().getText();
             if (text == null || text.isBlank()) {
                 throw new LlmUnavailableException("Ollama가 빈 답을 돌려줬습니다.");

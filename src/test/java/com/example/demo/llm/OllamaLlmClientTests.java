@@ -22,6 +22,8 @@ import com.sun.net.httpserver.HttpServer;
 class OllamaLlmClientTests {
 
     private HttpServer server;
+    // 가짜 서버가 마지막으로 받은 요청 본문
+    private volatile String lastBody = "";
 
     @AfterEach
     void stop() {
@@ -35,7 +37,7 @@ class OllamaLlmClientTests {
         server.createContext("/api/chat", ex -> {
             hits.incrementAndGet();
             try {
-                ex.getRequestBody().readAllBytes();
+                lastBody = new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                 Thread.sleep(delayMillis);
                 byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
                 ex.getResponseHeaders().add("Content-Type", "application/json");
@@ -153,5 +155,124 @@ class OllamaLlmClientTests {
         startServer(404, "{\"error\":\"model not found\"}", 0);
         OllamaLlmClient client = new OllamaLlmClient(url(), "m", Duration.ofSeconds(5));
         assertThatThrownBy(() -> client.chat("지시", "질문")).isInstanceOf(LlmUnavailableException.class);
+    }
+
+    // ---- S17-e2: 구조화 호출(chatJson)과 제한 시간을 받는 chat ----
+
+    private static final String SCHEMA = "{\"type\":\"object\",\"properties\":{\"needSearch\":{\"type\":\"boolean\"}},\"required\":[\"needSearch\"]}";
+
+    private static String okBody(String content) {
+        return "{\"model\":\"m\",\"created_at\":\"2026-01-01T00:00:00Z\","
+                + "\"message\":{\"role\":\"assistant\",\"content\":" + new tools.jackson.databind.ObjectMapper().writeValueAsString(content) + "},\"done\":true}";
+    }
+
+    @Test
+    void 구조화_호출은_format_모델_think끔을_싣고_JSON_글자를_그대로_돌려준다() throws IOException {
+        startServer(200, okBody("{\"needSearch\":true}"), 0);
+        String answer = new OllamaLlmClient(url(), "qwen-x", Duration.ofSeconds(5))
+                .chatJson("지시", "질문", SCHEMA, Duration.ofSeconds(5));
+        assertThat(answer).isEqualTo("{\"needSearch\":true}");
+        // 요청 본문을 JSON으로 읽어 구조를 확인한다(글자 포함 여부보다 정확)
+        var body = new tools.jackson.databind.ObjectMapper().readTree(lastBody);
+        assertThat(body.path("format").path("type").asText()).isEqualTo("object");
+        assertThat(body.path("format").path("properties").has("needSearch")).isTrue();
+        assertThat(body.path("model").asText()).isEqualTo("qwen-x");
+        assertThat(body.path("think").asBoolean(true)).isFalse();
+        // 서버가 옵션(temperature 등)을 따로 지정하지 않는다
+        assertThat(body.path("options").has("temperature")).isFalse();
+    }
+
+    @Test
+    void 기존_2인자_chat_요청에는_format이_없다() throws IOException {
+        startServer(200, okBody("안녕"), 0);
+        new OllamaLlmClient(url(), "m", Duration.ofSeconds(5)).chat("지시", "질문");
+        assertThat(lastBody).doesNotContain("\"format\"");
+        assertThat(lastBody).contains("\"think\":false");
+    }
+
+    @Test
+    void 구조화_호출_빈_content_4xx_5xx_서버없음은_사용_불가_예외() throws IOException {
+        startServer(200, okBody(""), 0);
+        OllamaLlmClient client = new OllamaLlmClient(url(), "m", Duration.ofSeconds(5));
+        assertThatThrownBy(() -> client.chatJson("지시", "질문", SCHEMA, Duration.ofSeconds(5)))
+                .isInstanceOf(LlmUnavailableException.class);
+        server.stop(0);
+        startServer(404, "{\"error\":\"x\"}", 0);
+        OllamaLlmClient c404 = new OllamaLlmClient(url(), "m", Duration.ofSeconds(5));
+        assertThatThrownBy(() -> c404.chatJson("지시", "질문", SCHEMA, Duration.ofSeconds(5)))
+                .isInstanceOf(LlmUnavailableException.class);
+        server.stop(0);
+        startServer(500, "{\"error\":\"x\"}", 0);
+        OllamaLlmClient c500 = new OllamaLlmClient(url(), "m", Duration.ofSeconds(5));
+        assertThatThrownBy(() -> c500.chatJson("지시", "질문", SCHEMA, Duration.ofSeconds(5)))
+                .isInstanceOf(LlmUnavailableException.class);
+        OllamaLlmClient none = new OllamaLlmClient("http://127.0.0.1:1", "m", Duration.ofSeconds(5));
+        assertThatThrownBy(() -> none.chatJson("지시", "질문", SCHEMA, Duration.ofSeconds(5)))
+                .isInstanceOf(LlmUnavailableException.class);
+    }
+
+    @Test
+    void 구조화_호출은_넘긴_제한_시간_근처에서_시간_초과_예외_재시도_없음() throws IOException {
+        AtomicInteger hits = startServer(200, "{}", 3000);
+        OllamaLlmClient client = new OllamaLlmClient(url(), "m", Duration.ofSeconds(10));
+        long start = System.nanoTime();
+        assertThatThrownBy(() -> client.chatJson("지시", "질문", SCHEMA, Duration.ofSeconds(1)))
+                .isInstanceOf(LlmTimeoutException.class);
+        assertThat((System.nanoTime() - start) / 1_000_000).isLessThan(2500);
+        assertThat(hits.get()).isEqualTo(1);
+    }
+
+    @Test
+    void chat_겹치기도_넘긴_제한_시간에서_끊긴다() throws IOException {
+        AtomicInteger hits = startServer(200, "{}", 3000);
+        OllamaLlmClient client = new OllamaLlmClient(url(), "m", Duration.ofSeconds(10));
+        long start = System.nanoTime();
+        assertThatThrownBy(() -> client.chat("지시", "질문", Duration.ofSeconds(1)))
+                .isInstanceOf(LlmTimeoutException.class);
+        assertThat((System.nanoTime() - start) / 1_000_000).isLessThan(2500);
+        assertThat(hits.get()).isEqualTo(1);
+    }
+
+    // 헤더는 바로 오고 본문만 느린 서버를 쓴다. 헤더가 늦으면 생성자 읽기 제한(1초)이 먼저 터져서 min 로직을 지워도 통과해 버린다.
+    // 본문 3.5초 + 넘긴 값 30초 + 생성자 1초 -> min(30, 1)=1초에서 끊겨야 한다(min이 없으면 3.5초 뒤 정상 응답이라 실패).
+    @Test
+    void 넘긴_제한_시간이_생성자_제한보다_길면_생성자_제한에서_끊긴다() throws IOException {
+        startSlowBodyServer(okBody("안녕"), 3500);
+        OllamaLlmClient client = new OllamaLlmClient(url(), "m", Duration.ofSeconds(1));
+        long start = System.nanoTime();
+        assertThatThrownBy(() -> client.chatJson("지시", "질문", SCHEMA, Duration.ofSeconds(30)))
+                .isInstanceOf(LlmTimeoutException.class);
+        assertThat((System.nanoTime() - start) / 1_000_000).isLessThan(2500);
+    }
+
+    // Spring AI가 스키마를 바로 JSON으로 파싱하므로, JSON이 아닌 스키마는 IllegalArgumentException으로 통일한다(원문은 메시지에 없음)
+    @Test
+    void JSON이_아닌_스키마는_IllegalArgumentException() {
+        OllamaLlmClient client = new OllamaLlmClient("http://127.0.0.1:1", "m", Duration.ofSeconds(5));
+        assertThatThrownBy(() -> client.chatJson("지시", "질문", "{", Duration.ofSeconds(1)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("jsonSchema가 올바른 JSON이 아닙니다.");
+    }
+
+    @Test
+    void 잘못된_인자는_IllegalArgumentException() {
+        OllamaLlmClient client = new OllamaLlmClient("http://127.0.0.1:1", "m", Duration.ofSeconds(5));
+        Duration ok = Duration.ofSeconds(1);
+        assertThatThrownBy(() -> client.chatJson("지시", "질문", SCHEMA, null)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> client.chatJson("지시", "질문", SCHEMA, Duration.ZERO)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> client.chatJson("지시", "질문", SCHEMA, Duration.ofSeconds(-1))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> client.chatJson("지시", "질문", null, ok)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> client.chatJson("지시", "질문", " ", ok)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> client.chatJson("", "질문", SCHEMA, ok)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> client.chatJson("지시", null, SCHEMA, ok)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> client.chat("지시", "질문", null)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> client.chat("지시", "질문", Duration.ZERO)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void off_구현의_새_메서드는_인자와_무관하게_사용_불가_예외() {
+        OffLlmClient off = new OffLlmClient();
+        assertThatThrownBy(() -> off.chatJson(null, null, null, null)).isInstanceOf(LlmUnavailableException.class);
+        assertThatThrownBy(() -> off.chat("지시", "질문", Duration.ofSeconds(1))).isInstanceOf(LlmUnavailableException.class);
     }
 }
