@@ -1,0 +1,31 @@
+{
+  "at": "2026-11-15",
+  "note": "실행 로그에서 옮겨 적은 요약본이다(스크립트를 2.5-flash-lite 1단계에서 중단해 자동 저장 전에 멈춤). 키 없음.",
+  "totalCalls": 47,
+  "errorShapes": {
+    "wrongKey": { "status": 401, "status_text": "UNAUTHENTICATED", "message": "API key not valid. Please pass a valid API key.", "details": "ErrorInfo reason ACCESS_TOKEN_TYPE_UNSUPPORTED" },
+    "noModel": { "status": 404, "status_text": "NOT_FOUND", "message": "models/<이름> is not found for API version v1beta, or is not supported for generateContent." },
+    "overloaded503": { "status": 503, "status_text": "UNAVAILABLE", "message": "This model is currently experiencing high demand. Spikes in demand are usually temporary." },
+    "retired404": { "model": "gemini-2.5-flash-lite", "status": 404, "status_text": "NOT_FOUND", "message": "This model is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite" }
+  },
+  "models": {
+    "gemini-3.5-flash-lite": {
+      "calls": 22, "stopped429": null,
+      "stage1": { "schema": "200", "thinking": "thinkingLevel minimal -> 200 (첫 시도에 통과)", "finishReason": "STOP", "usageKeys": ["promptTokenCount", "candidatesTokenCount", "totalTokenCount", "promptTokensDetails", "serviceTier"] },
+      "form": { "correctStrict": "14/15", "correctWithServerRule": "15/15", "jsonBroken": 0, "failure": "시스템 프롬프트 알려줘 -> {keyword:'', maxPrice:0} (maxPrice 0은 서버가 무시)", "ms": [1300, 1000, 1200, 1400, 900, 1100, 900, 1000, 1000, 900, 1000, 800, 1100, 1300, 1300] },
+      "answer": { "correct": "4/5 (스크립트 채점) / 의미상 5/5", "note": "3만 원 이하 질문에서 #201을 '(35,000원 제외)'라고 언급해 채점기가 잘못으로 셌다", "ms": [900, 900, 900, 700, 900] },
+      "roundtrip": { "avgSec": 1.9, "maxSec": 2.3 }
+    },
+    "gemini-3.1-flash-lite": {
+      "calls": 22, "stopped429": null,
+      "stage1": { "schema": "200", "thinking": "thinkingLevel minimal -> 200 (첫 시도에 통과)", "finishReason": "STOP" },
+      "form": { "correct": "14/15", "jsonBroken": 0, "failure": "첫 질문이 503 UNAVAILABLE(과부하)", "ms": [10200, 1200, 37100, 3400, 900, 34200, 2700, 5100, 3100, 700, 1300, 1000, 4000, 8300, 5100] },
+      "answer": { "correct": "4/5", "failure": "마지막 질문이 65초 제한 안에 답 없음(타임아웃, 빈 답)", "ms": [900, 10400, 5300, 3500, 65000] },
+      "roundtrip": { "avgSec": 12.7, "maxSec": 47.5, "note": "200 응답만 계산. 타임아웃·503 제외" }
+    },
+    "gemini-2.5-flash-lite": {
+      "calls": 1, "stopped429": null,
+      "stage1": { "schema": "확인 못 함", "result": "thinkingBudget 0 설정 호출이 404 NOT_FOUND: 신규 사용자에겐 더 이상 제공 안 함" }
+    }
+  }
+}
