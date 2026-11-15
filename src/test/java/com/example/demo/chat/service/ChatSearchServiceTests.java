@@ -27,6 +27,19 @@ class ChatSearchServiceTests {
 		assertThat(ChatSearchService.keywordsOf("a b c")).isEmpty();
 	}
 
+	// S17-e5: 최소 글자 수를 1로 주면(AI keyword용) 한 글자 단어도 쓰고, 중복·최대 10개 규칙은 같다. 빈 문자열은 단어가 아니다.
+	// 한 글자는 "한글 등 ASCII가 아닌 글자"만 쓴다. 영문·숫자·기호 한 글자는 2글자 규칙처럼 버린다(두 글자 이상은 그대로 쓴다).
+	@Test
+	void 최소_글자_수를_1로_주면_ASCII_아닌_한_글자_단어만_뽑는다() {
+		assertThat(ChatSearchService.keywordsOf("책 옷 책 A a", 1)).containsExactly("책", "옷");
+		assertThat(ChatSearchService.keywordsOf("차 a 1 ? ~ 자전거 ?", 1)).containsExactly("차", "자전거");
+		assertThat(ChatSearchService.keywordsOf("a 1 ? ~", 1)).isEmpty();
+		assertThat(ChatSearchService.keywordsOf("ab 12 ?!", 1)).containsExactly("ab", "12", "?!"); // 두 글자 이상은 종류 상관없이 쓴다
+		assertThat(ChatSearchService.keywordsOf("", 1)).isEmpty();
+		assertThat(ChatSearchService.keywordsOf("   ", 1)).isEmpty();
+		assertThat(ChatSearchService.keywordsOf("가 나 다 라 마 바 사 아 자 차 카 타", 1)).hasSize(10);
+	}
+
 	@Test
 	void 단어는_최대_10개까지만_쓴다() {
 		assertThat(ChatSearchService.keywordsOf("aa bb cc dd ee ff gg hh ii jj kk ll")).hasSize(10);

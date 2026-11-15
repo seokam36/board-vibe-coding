@@ -56,7 +56,7 @@ class ChatRealServerTests {
 	void 준비() {
 		정리();
 		llm.reset();
-		llm.jsonReturns("{\"needSearch\":true,\"keyword\":\"자전거\"}"); // 1번째 호출(양식): keyword 자전거
+		llm.jsonReturns("{\"keyword\":\"자전거\"}"); // 1번째 호출(양식): keyword 자전거
 		판매자 = TestLogin.인증된_사용자(userRepository, jdbc, "realseller", "연세대학교");
 		User 질문자 = TestLogin.사용자(userRepository, "realasker");
 		로그인쿠키 = "access_token=" + TestLogin.쿠키(tokenService, 질문자).getValue();

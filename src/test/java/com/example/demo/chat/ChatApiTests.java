@@ -41,7 +41,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 // S17-c 완료 조건 검사(S17-e4에서 2단계 흐름으로 고침): POST /chat. LlmClient는 대본 읽는 가짜(ScriptedLlmClient)로 바꿔 끼워서
-// 진짜 AI 없이 서버 쪽 동작만 본다. 1번째 호출(chatJson)은 기본으로 {needSearch:true, keyword:"자전거"}를 준다.
+// 진짜 AI 없이 서버 쪽 동작만 본다. 1번째 호출(chatJson)은 기본으로 {keyword:"자전거"}를 준다.
 @SpringBootTest
 @Import({ TestcontainersConfiguration.class, ScriptedLlmClient.Config.class })
 @AutoConfigureMockMvc
@@ -108,7 +108,7 @@ class ChatApiTests {
 
 	// 1번째 호출(양식)의 대본: AI가 keyword만 채운 양식을 준다
 	private void 양식(String keyword) {
-		llm.jsonReturns("{\"needSearch\":true,\"keyword\":\"" + keyword + "\"}");
+		llm.jsonReturns("{\"keyword\":\"" + keyword + "\"}");
 	}
 
 	// 가짜 AI의 2번째 호출(chat)이 받은 사용자 메시지(질문 + 글 목록)를 꺼낸다. 2번째 호출은 정확히 1번이어야 한다.
@@ -431,7 +431,7 @@ class ChatApiTests {
 		AtomicReference<Boolean> 양식호출_트랜잭션중 = new AtomicReference<>();
 		llm.jsonDoes(() -> {
 			양식호출_트랜잭션중.set(TransactionSynchronizationManager.isActualTransactionActive());
-			return "{\"needSearch\":true,\"keyword\":\"자전거\"}";
+			return "{\"keyword\":\"자전거\"}";
 		});
 		llm.chatDoes(() -> {
 			트랜잭션중.set(TransactionSynchronizationManager.isActualTransactionActive());

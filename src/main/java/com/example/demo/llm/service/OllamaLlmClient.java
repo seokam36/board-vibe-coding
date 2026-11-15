@@ -117,7 +117,7 @@ public class OllamaLlmClient implements LlmClient {
         if (callTimeout == null || callTimeout.isZero() || callTimeout.isNegative()) {
             throw new IllegalArgumentException("timeout은 0보다 커야 합니다.");
         }
-        // 정책: 생성자에서 정한 제한 시간(LLM_TIMEOUT)을 호출 하나가 기다릴 수 있는 최대로 쓴다. 넘긴 값이 더 길면 생성자 값으로 줄인다.
+        // 정책: 생성자에서 정한 제한 시간(OLLAMA_TIMEOUT)을 호출 하나가 기다릴 수 있는 최대로 쓴다. 넘긴 값이 더 길면 생성자 값으로 줄인다.
         Duration limit = callTimeout.compareTo(timeout) > 0 ? timeout : callTimeout;
         long startNanos = System.nanoTime();
         // 호출을 별도 스레드에서 돌리고 전체 제한 시간만 기다린다. 넘기면 cancel(true)로 스레드를 깨워 요청도 끊는다.

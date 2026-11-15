@@ -7,7 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.boot.convert.DurationUnit;
 
-// application.properties의 app.llm.* 설정. mode: off(AI 끔) 또는 ollama(내 PC의 Ollama) / ollama: 주소·모델·호출 한 번의 제한 시간
+// application.properties의 app.llm.* 설정. mode: off(AI 끔) 또는 ollama(내 PC의 Ollama) / ollama: 주소·모델·질문 하나 전체 예산 겸 호출 하나의 상한
 @ConfigurationProperties("app.llm")
 public record LlmProperties(@DefaultValue("off") String mode, @DefaultValue Ollama ollama) {
 

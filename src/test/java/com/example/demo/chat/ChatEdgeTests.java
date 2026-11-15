@@ -82,7 +82,7 @@ class ChatEdgeTests {
 
 	// 1번째 호출(양식)의 대본
 	private void 양식(String keyword) {
-		llm.jsonReturns(om.writeValueAsString(Map.of("needSearch", true, "keyword", keyword)));
+		llm.jsonReturns(om.writeValueAsString(Map.of("keyword", keyword)));
 	}
 
 	// AI가 keyword를 이렇게 채웠을 때의 검색 결과(질문 글자는 검색에 안 쓰인다: 단어가 정상이면 정문으로 간다)
@@ -123,9 +123,14 @@ class ChatEdgeTests {
 	}
 
 	@Test
-	void 검색_한_글자_키워드와_한_글자_질문_단어뿐이면_0건이고_답_호출은_안_한다() throws Exception {
+	void 검색_AI_한_글자_키워드는_쓰고_비상구_질문_단어는_2글자_이상만_써서_한_글자_질문은_0건이다() throws Exception {
 		올리기(판매자쿠키, "책 팝니다", "책 많음");
-		양식("책"); // 한 글자 키워드는 못 쓰니 비상구로 질문 단어를 찾는데, "책 줘"도 쓸 단어(2글자 이상)가 없다
+		// S17-e5: AI 키워드 "책"은 한 글자여도 검색한다
+		양식("책");
+		assertThat(출처수(질문("책 줘"))).isEqualTo(1);
+		// 비상구(JSON 깨짐)에서는 질문 단어가 2글자 이상이어야 쓰인다. "책 줘"는 쓸 단어가 없어 0건
+		llm.chatCalls.clear(); // 위 첫 질문의 답 호출 기록은 비운다
+		llm.jsonReturns("죄송해요");
 		MockHttpServletResponse r = 질문("책 줘");
 		assertThat(r.getStatus()).isEqualTo(200);
 		assertThat(om.readTree(r.getContentAsString()).get("answer").asString()).isEqualTo(NO_RESULT);
