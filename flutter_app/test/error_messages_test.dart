@@ -92,8 +92,8 @@ void main() {
     expect(reloginMessage, '다시 로그인해 주세요');
   });
 
-  // 문구 사전 37개: 실제 값과 기대 글자를 짝지어 한 글자씩 비교한다
-  test('ErrorMessages 문구 37개 글자가 바뀌지 않는다', () {
+  // 문구 사전 42개: 실제 값과 기대 글자를 짝지어 한 글자씩 비교한다
+  test('ErrorMessages 문구 42개 글자가 바뀌지 않는다', () {
     final pairs = <String, (String, String)>{
       'postNotFound': (ErrorMessages.postNotFound, '글을 찾을 수 없습니다'),
       'postLoadFailed': (ErrorMessages.postLoadFailed, '글을 불러오지 못했습니다'),
@@ -146,10 +146,14 @@ void main() {
       'chatQuestionInvalid': (ErrorMessages.chatQuestionInvalid, '질문을 입력해 주세요 (최대 500자)'),
       'chatUnavailable': (ErrorMessages.chatUnavailable, '지금은 AI 챗봇을 쓸 수 없어요. 잠시 뒤 다시 시도해 주세요'),
       'chatTimeout': (ErrorMessages.chatTimeout, 'AI가 시간 안에 답하지 못했어요. 잠시 뒤 다시 시도해 주세요'),
+      'chatRateLimited': (
+        ErrorMessages.chatRateLimited,
+        '질문 횟수를 넘었어요 (1분에 5번, 하루 30번까지). 1분 뒤에도 안 되면 내일 다시 시도해 주세요',
+      ),
       'chatFailed': (ErrorMessages.chatFailed, '답을 받지 못했습니다'),
       'adminOnly': (ErrorMessages.adminOnly, '관리자만 볼 수 있습니다'),
     };
-    expect(pairs, hasLength(41));
+    expect(pairs, hasLength(42));
     expect({for (final e in pairs.entries) e.key: e.value.$1}, {for (final e in pairs.entries) e.key: e.value.$2});
 
     expect(ErrorMessages.alreadyDeleted('글'), '이미 삭제된 글입니다');

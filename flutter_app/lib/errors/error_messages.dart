@@ -118,6 +118,10 @@ abstract final class ErrorMessages {
   static const chatUnavailable = '지금은 AI 챗봇을 쓸 수 없어요. 잠시 뒤 다시 시도해 주세요';
   // 504(서버 시간 초과)와 화면 쪽 시간 초과(90초)에 같이 쓴다
   static const chatTimeout = 'AI가 시간 안에 답하지 못했어요. 잠시 뒤 다시 시도해 주세요';
+  // 429: 회원별 질문 횟수 제한(분당 5번·하루 30번)을 넘음.
+  // 서버가 분/하루 한도를 구분해 주지 않아, 어느 쪽이든 맞는 문구로 쓴다(1분 뒤 → 분 한도, 내일 → 하루 한도).
+  // 숫자를 바꾸려면 백엔드 app.chat.rate-limit.* 설정과 같이 바꿔야 한다(안 그러면 안내와 실제 제한이 달라진다)
+  static const chatRateLimited = '질문 횟수를 넘었어요 (1분에 5번, 하루 30번까지). 1분 뒤에도 안 되면 내일 다시 시도해 주세요';
   // 500 등 그 밖의 실패 기본 문구
   static const chatFailed = '답을 받지 못했습니다';
 

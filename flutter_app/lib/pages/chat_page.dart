@@ -28,6 +28,7 @@ const _chatTimeout = Duration(seconds: 90);
 const _chatErrors = <int, String>{
   400: ErrorMessages.chatQuestionInvalid,
   403: csrfMessage, // 보안 토큰(CSRF) 문제
+  429: ErrorMessages.chatRateLimited, // 질문 횟수 제한 초과
   503: ErrorMessages.chatUnavailable,
   504: ErrorMessages.chatTimeout,
 };

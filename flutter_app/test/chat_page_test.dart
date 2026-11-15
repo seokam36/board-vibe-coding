@@ -1,4 +1,4 @@
-// S17-d 중고 글 챗봇 화면 테스트: 보내기·잠금(버튼/Enter 연타)·답은 글자 그대로(링크 0개)·출처 줄·실패 문구 7가지·401 재발급·90초 제한.
+// S17-d·f4 중고 글 챗봇 화면 테스트: 보내기·잠금(버튼/Enter 연타)·답은 글자 그대로(링크 0개)·출처 줄·실패 문구 8가지(f4: 429 추가)·401 재발급·90초 제한.
 import 'dart:async';
 
 import 'package:board_web/errors/error_messages.dart';
@@ -287,6 +287,8 @@ void main() {
     final cases = <(String, FakeReply Function(), String)>[
       ('400', () => FakeReply(400, {'message': 'x'}), ErrorMessages.chatQuestionInvalid),
       ('403', () => FakeReply(403, {'message': 'x'}), csrfMessage),
+      // 429는 본문 문구가 없어도(빈 본문) 화면의 새 문구가 보여야 한다. 기본 문구("답을 받지 못했습니다")는 안 보임
+      ('429', () => FakeReply(429), ErrorMessages.chatRateLimited),
       ('503', () => FakeReply(503, {'message': 'x'}), ErrorMessages.chatUnavailable),
       ('504', () => FakeReply(504, {'message': 'x'}), ErrorMessages.chatTimeout),
       ('500', () => FakeReply(500, {'message': 'x'}), ErrorMessages.chatFailed),
@@ -300,12 +302,45 @@ void main() {
         await _type(tester, '내 질문');
         await _tapSend(tester);
         expect(_notice(message), findsOneWidget);
+        // 기본 문구로 떨어지지 않았는지(500 케이스만 기본 문구가 기대값)
+        if (message != ErrorMessages.chatFailed) expect(find.text(ErrorMessages.chatFailed), findsNothing);
         expect(_text(tester), '내 질문');
         expect(_enabled(tester), isTrue);
         expect(find.text('답을 만드는 중...'), findsNothing);
         expect(find.text('참고한 글'), findsNothing);
       });
     }
+
+    // 429 문구는 스크린리더에 alert 역할(다른 에러와 같은 Notice)로 알려야 한다
+    _test('429: 문구가 alert 역할 영역에 들어 있다', (tester) async {
+      final semantics = tester.ensureSemantics();
+      final adapter = FakeAdapter()..on('POST', '/chat', FakeReply(429));
+      await _open(tester, adapter);
+      await _type(tester, '내 질문');
+      await _tapSend(tester);
+      SemanticsNode? node = tester.getSemantics(find.text(ErrorMessages.chatRateLimited));
+      var found = false;
+      while (node != null) {
+        if (node.getSemanticsData().role == SemanticsRole.alert) found = true;
+        node = node.parent;
+      }
+      expect(found, isTrue);
+      semantics.dispose();
+    });
+
+    // 휴대폰 폭(320px)에서 긴 429 문구가 넘치지 않고 여러 줄로 보인다
+    testWidgets('429: 320px 좁은 화면에서도 넘치지 않는다', (tester) async {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = const Size(320, 1800);
+      addTearDown(tester.view.reset);
+      final adapter = FakeAdapter()..on('POST', '/chat', FakeReply(429));
+      await _open(tester, adapter);
+      await _type(tester, '내 질문');
+      await _tapSend(tester);
+      expect(tester.takeException(), isNull); // 오버플로는 예외로 잡힌다
+      expect(_notice(ErrorMessages.chatRateLimited), findsOneWidget);
+      expect(tester.getSize(find.text(ErrorMessages.chatRateLimited)).width, lessThanOrEqualTo(320));
+    });
   });
 
   group('401', () {
