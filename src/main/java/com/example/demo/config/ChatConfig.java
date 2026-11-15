@@ -16,6 +16,10 @@ public class ChatConfig {
         if (chat.maxConcurrent() < 1) {
             throw new IllegalStateException("app.chat.max-concurrent는 1 이상이어야 합니다.");
         }
+        // 서버 전체 상한(S18-d): 0은 "끔", 음수는 설정 실수라 시작을 막는다. 메시지에는 설정 이름만 쓴다.
+        if (chat.globalLimit().perMinute() < 0 || chat.globalLimit().perDay() < 0) {
+            throw new IllegalStateException("app.chat.global-limit.per-minute·per-day는 0 이상이어야 합니다(0이면 검사 안 함).");
+        }
         Duration slotWait = chat.slotWait();
         if (slotWait == null || slotWait.isNegative()) {
             throw new IllegalStateException("app.chat.slot-wait는 0 이상이어야 합니다 (예: 5s).");

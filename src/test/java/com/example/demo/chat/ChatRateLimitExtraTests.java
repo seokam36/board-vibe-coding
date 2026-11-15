@@ -50,6 +50,17 @@ class ChatRateLimitExtraTests extends ChatTestBase {
 		assertThat(redis.keys("chat-rate-*")).isEmpty();
 	}
 
+	// S18-d: 서버 전체 상한이 0(기본, 이 컨텍스트의 설정)이면 검사하지 않고 Redis 키도 만들지 않는다
+	@Test
+	void 서버_전체_상한이_0이면_질문이_통과하고_전체_카운터_키가_안_생긴다() throws Exception {
+		llm.jsonReturns("{\"keyword\":\"\"}"); // 인사 -> AI 답 없이 고정 문구 200
+		for (int i = 0; i < 3; i++) {
+			assertThat(질문("안녕").getStatus()).isEqualTo(200);
+		}
+
+		assertThat(redis.keys("chat-global-*")).isEmpty();
+	}
+
 	@Test
 	void 같은_회원이_동시에_10개를_보내도_정확히_5개만_통과한다() throws Exception {
 		ExecutorService pool = Executors.newFixedThreadPool(10);

@@ -18,7 +18,7 @@ class ChatSlotsTests {
 	@Test
 	void 먼저_기다린_질문이_먼저_자리를_받는다() throws Exception {
 		// 자리 1개, 기다리는 시간은 넉넉히 10초(테스트가 끝나기 전에 시간 초과로 503이 되지 않게)
-		ChatSlots slots = new ChatSlots(new ChatProperties(new ChatProperties.RateLimit(5, 30), 1, Duration.ofSeconds(10)));
+		ChatSlots slots = new ChatSlots(new ChatProperties(new ChatProperties.RateLimit(5, 30), new ChatProperties.GlobalLimit(0, 0), 1, Duration.ofSeconds(10)));
 		List<String> 받은_순서 = new CopyOnWriteArrayList<>();
 		CountDownLatch 첫째_받음 = new CountDownLatch(1);
 		CountDownLatch 첫째_놓아도_됨 = new CountDownLatch(1);

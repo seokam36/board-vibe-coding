@@ -71,6 +71,11 @@ abstract class ChatTestBase {
 		if (keys != null && !keys.isEmpty()) {
 			redis.delete(keys);
 		}
+		// S18-d: 서버 전체 상한 카운터(chat-global-*)도 같이 지운다
+		Set<String> globalKeys = redis.keys("chat-global-*");
+		if (globalKeys != null && !globalKeys.isEmpty()) {
+			redis.delete(globalKeys);
+		}
 	}
 
 	long 올리기(String title, String tradeType, Integer price) throws Exception {

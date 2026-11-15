@@ -22,6 +22,38 @@ class ChatConfigTests {
 		});
 	}
 
+	// S18-d: 서버 전체 상한은 기본 0(검사 안 함), 0 이상이면 시작하고 음수면 설정 이름을 알려 주며 실패한다
+	@Test
+	void 서버_전체_상한_기본값은_0이다() {
+		runner.run(ctx -> {
+			ChatProperties p = ctx.getBean(ChatProperties.class);
+			assertThat(p.globalLimit().perMinute()).isZero();
+			assertThat(p.globalLimit().perDay()).isZero();
+		});
+	}
+
+	@Test
+	void 서버_전체_상한이_운영_값_7_200이면_시작한다() {
+		runner.withPropertyValues("app.chat.global-limit.per-minute=7", "app.chat.global-limit.per-day=200")
+				.run(ctx -> assertThat(ctx).hasNotFailed());
+	}
+
+	@Test
+	void 서버_전체_분_상한이_음수이면_설정_이름을_알려_주며_시작이_실패한다() {
+		runner.withPropertyValues("app.chat.global-limit.per-minute=-1").run(ctx -> {
+			assertThat(ctx).hasFailed();
+			assertThat(rootMessage(ctx.getStartupFailure())).contains("app.chat.global-limit");
+		});
+	}
+
+	@Test
+	void 서버_전체_하루_상한이_음수이면_설정_이름을_알려_주며_시작이_실패한다() {
+		runner.withPropertyValues("app.chat.global-limit.per-day=-5").run(ctx -> {
+			assertThat(ctx).hasFailed();
+			assertThat(rootMessage(ctx.getStartupFailure())).contains("app.chat.global-limit");
+		});
+	}
+
 	@Test
 	void 동시_질문_수가_0이면_설정_이름을_알려_주며_시작이_실패한다() {
 		runner.withPropertyValues("app.chat.max-concurrent=0").run(ctx -> {

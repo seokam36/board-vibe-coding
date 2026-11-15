@@ -81,6 +81,7 @@ public class ChatService {
 
     private final ChatSearchService chatSearchService;
     private final ChatRateLimiter chatRateLimiter; // 회원별 횟수 제한(Redis)
+    private final ChatGlobalLimiter chatGlobalLimiter; // 서버 전체 질문 상한(S18-d, Redis)
     private final ChatSlots chatSlots; // 동시 질문 자리(S17-f2)
     private final LlmClient llmClient;
     private final ObjectMapper objectMapper; // 📦 Jackson: JSON 글자 <-> 자바 객체
@@ -95,7 +96,7 @@ public class ChatService {
     private final Clock clock;
 
     // question은 컨트롤러의 @Valid 검사를 통과한 값이다(비지 않음, 500자 이하). userId = 로그인한 회원(횟수 제한용).
-    // 순서(S17-f1·f2): AI가 꺼져 있으면 횟수를 세지 않고 바로 503 -> 횟수 검사(넘으면 429) -> 동시 질문 자리(없으면 5초 뒤 503) -> AI 호출.
+    // 순서(S17-f1·f2, S18-d): AI가 꺼져 있으면 횟수를 세지 않고 바로 503 -> 횟수 검사(넘으면 429) -> 서버 전체 상한(넘으면 503) -> 동시 질문 자리(없으면 5초 뒤 503) -> AI 호출.
     // 횟수는 AI 호출 전에 딱 1번 센다. 고정 문구로 끝난 200, AI 503·504도 1회로 친다(되돌리지 않음).
     public ChatResponse ask(Long userId, String question) {
         if (!llmClient.isEnabled()) {
@@ -103,6 +104,7 @@ public class ChatService {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, UNAVAILABLE_MESSAGE);
         }
         chatRateLimiter.countOrReject(userId); // 넘으면 429(아래 try 밖이라 AI 예외 처리와 섞이지 않는다)
+        chatGlobalLimiter.countOrReject(); // 서버 전체 상한(S18-d): 넘으면 503. 자리 잡기·AI 호출 전에 막는다(회원 카운터는 이미 1 늘었다 = "503도 센다")
         String stripped = question.strip();
         // 시작 시각은 자리 대기 "전"에 잡는다: 자리를 기다린 시간(최대 slot-wait)도 질문 전체 예산(gemini 30초·ollama 60초)에서 빠진다.
         Instant start = clock.instant();

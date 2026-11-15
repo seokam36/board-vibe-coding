@@ -42,7 +42,8 @@ public class ChatRateLimiter {
     // 분 한도를 먼저, 그다음 하루 한도를 본다. 하나라도 가득 차 있으면 아무 카운터도 늘리지 않고 1(분) 또는 2(하루)를 돌려준다.
     // 둘 다 한도 안이면 둘 다 +1(첫 증가 때 TTL을 건다) 하고 0.
     // KEYS: [1]=분 카운터, [2]=하루 카운터 / ARGV: [1]=분 상한, [2]=하루 상한, [3]=분 TTL(초), [4]=하루 TTL(초)
-    private static final DefaultRedisScript<Long> COUNT_SCRIPT = new DefaultRedisScript<>(
+    // (서버 전체 상한 ChatGlobalLimiter도 같은 스크립트를 재사용한다 -> 같은 패키지에서 보이게 둠)
+    static final DefaultRedisScript<Long> COUNT_SCRIPT = new DefaultRedisScript<>(
             "local m = tonumber(redis.call('GET', KEYS[1]) or '0') "
                     + "if m >= tonumber(ARGV[1]) then return 1 end "
                     + "local d = tonumber(redis.call('GET', KEYS[2]) or '0') "
