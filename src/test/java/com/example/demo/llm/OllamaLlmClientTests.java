@@ -2,6 +2,7 @@ package com.example.demo.llm;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -81,6 +82,15 @@ class OllamaLlmClientTests {
         return hits;
     }
 
+    // 실패 메시지용: 예외와 원인 사슬의 클래스 이름을 "A <- B <- C"로 보여 준다(불안정하게 실패할 때 원인을 바로 알 수 있게)
+    private static String chain(Throwable t) {
+        StringBuilder sb = new StringBuilder();
+        for (; t != null; t = t.getCause()) {
+            sb.append(sb.length() == 0 ? "" : " <- ").append(t.getClass().getName());
+        }
+        return sb.length() == 0 ? "예외가 없었다" : sb.toString();
+    }
+
     private String url() {
         return "http://127.0.0.1:" + server.getAddress().getPort();
     }
@@ -121,7 +131,8 @@ class OllamaLlmClientTests {
                 + "\"message\":{\"role\":\"assistant\",\"content\":\"안녕\"},\"done\":true}", 3000);
         OllamaLlmClient client = new OllamaLlmClient(url(), "m", Duration.ofSeconds(1));
         long start = System.nanoTime();
-        assertThatThrownBy(() -> client.chat("지시", "질문")).isInstanceOf(LlmTimeoutException.class);
+        Throwable thrown = catchThrowable(() -> client.chat("지시", "질문"));
+        assertThat(thrown).withFailMessage("시간 초과 예외여야 하는데 %s", chain(thrown)).isInstanceOf(LlmTimeoutException.class);
         long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
         assertThat(elapsedMillis).isLessThan(2500);
         assertThat(hits.get()).isEqualTo(1);
@@ -233,15 +244,15 @@ class OllamaLlmClientTests {
         assertThat(hits.get()).isEqualTo(1);
     }
 
-    // 헤더는 바로 오고 본문만 느린 서버를 쓴다. 헤더가 늦으면 생성자 읽기 제한(1초)이 먼저 터져서 min 로직을 지워도 통과해 버린다.
+    // 헤더는 바로 오고 본문만 느린 서버를 쓴다. 헤더가 늦은 서버는 넘긴 값(30초)이 아니라 응답 지연 때문에 판별이 흐려질 수 있어, 본문만 느린 서버로 min 줄만 시험한다.
     // 본문 3.5초 + 넘긴 값 30초 + 생성자 1초 -> min(30, 1)=1초에서 끊겨야 한다(min이 없으면 3.5초 뒤 정상 응답이라 실패).
     @Test
     void 넘긴_제한_시간이_생성자_제한보다_길면_생성자_제한에서_끊긴다() throws IOException {
         startSlowBodyServer(okBody("안녕"), 3500);
         OllamaLlmClient client = new OllamaLlmClient(url(), "m", Duration.ofSeconds(1));
         long start = System.nanoTime();
-        assertThatThrownBy(() -> client.chatJson("지시", "질문", SCHEMA, Duration.ofSeconds(30)))
-                .isInstanceOf(LlmTimeoutException.class);
+        Throwable thrown = catchThrowable(() -> client.chatJson("지시", "질문", SCHEMA, Duration.ofSeconds(30)));
+        assertThat(thrown).withFailMessage("시간 초과 예외여야 하는데 %s", chain(thrown)).isInstanceOf(LlmTimeoutException.class);
         assertThat((System.nanoTime() - start) / 1_000_000).isLessThan(2500);
     }
 

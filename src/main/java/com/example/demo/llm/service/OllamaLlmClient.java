@@ -33,6 +33,10 @@ public class OllamaLlmClient implements LlmClient {
     // 연결 제한은 호출 제한(보통 60초)과 따로 짧게 둔다: 서버가 꺼져 있을 때 1분을 기다리지 않게 하고,
     // "서버 없음(503)"과 "응답이 느림(504)" 구분이 흔들리지 않게 하려는 것이다.
     private static final Duration MAX_CONNECT_TIMEOUT = Duration.ofSeconds(5);
+    // 읽기 제한은 call()의 전체 상한보다 일부러 이만큼 길게 둔다. 두 시계가 같은 값이면 CPU가 바쁠 때 읽기 제한이 먼저 터져
+    // (본문 읽는 중이면 Spring이 스트림을 닫아 "시간 초과" 표시가 없는 IOException이 됨) 시간 초과가 "사용 불가"로 잘못 분류됐다.
+    // 여유를 두면 "시간 초과" 판정은 call()의 future.get 한 곳만 한다. 읽기 제한은 정말 멈춘 연결을 정리하는 안전망이다.
+    private static final Duration READ_TIMEOUT_MARGIN = Duration.ofSeconds(5);
 
     private final OllamaChatModel chatModel;
     private final String model;
@@ -46,13 +50,14 @@ public class OllamaLlmClient implements LlmClient {
 
     public OllamaLlmClient(String baseUrl, String model, Duration timeout) {
         // 제한 시간은 Ollama용 RestClient에만 건다. 스프링 전역 http 설정(spring.http.clients.*)을 쓰면 다른 HTTP 클라이언트까지 영향을 받는다.
-        // 읽기 제한은 "응답 헤더가 오기까지"만 잰다. 본문이 천천히 흘러오는 경우는 chat()에서 호출 전체에 상한을 따로 건다.
+        // Spring의 읽기 제한(JdkClientHttpRequest)은 요청을 보낸 때부터 본문 스트림을 닫을 때까지 재고, 넘기면 스트림을 닫아 버린다
+        // (헤더까지만 재는 게 아니다). 그래서 호출 전체의 제한은 call()에서 Future로 재고, 이 값은 그보다 조금 길게 둔다.
         this.model = model;
         this.timeout = timeout;
         Duration connectTimeout = timeout.compareTo(MAX_CONNECT_TIMEOUT) < 0 ? timeout : MAX_CONNECT_TIMEOUT;
         HttpClient httpClient = HttpClient.newBuilder().connectTimeout(connectTimeout).build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
-        requestFactory.setReadTimeout(timeout);
+        requestFactory.setReadTimeout(timeout.plus(READ_TIMEOUT_MARGIN));
         RestClient.Builder restClientBuilder = RestClient.builder().requestFactory(requestFactory);
 
         OllamaApi api = OllamaApi.builder().baseUrl(baseUrl).restClientBuilder(restClientBuilder).build();
@@ -112,8 +117,9 @@ public class OllamaLlmClient implements LlmClient {
         if (callTimeout == null || callTimeout.isZero() || callTimeout.isNegative()) {
             throw new IllegalArgumentException("timeout은 0보다 커야 합니다.");
         }
-        // 읽기 제한이 생성자 값이라 그보다 길게는 기다릴 수 없다: 생성자 값을 상한으로 쓴다.
+        // 정책: 생성자에서 정한 제한 시간(LLM_TIMEOUT)을 호출 하나가 기다릴 수 있는 최대로 쓴다. 넘긴 값이 더 길면 생성자 값으로 줄인다.
         Duration limit = callTimeout.compareTo(timeout) > 0 ? timeout : callTimeout;
+        long startNanos = System.nanoTime();
         // 호출을 별도 스레드에서 돌리고 전체 제한 시간만 기다린다. 넘기면 cancel(true)로 스레드를 깨워 요청도 끊는다.
         Future<ChatResponse> future = executor.submit(() -> chatModel.call(prompt));
         try {
@@ -127,7 +133,11 @@ public class OllamaLlmClient implements LlmClient {
             future.cancel(true);
             throw new LlmTimeoutException("Ollama 응답이 제한 시간을 넘겼습니다.", e);
         } catch (ExecutionException e) {
-            // Spring AI·RestClient 예외를 우리 예외 2개로 바꿔서 위로 올린다
+            // 이미 제한 시간만큼 기다린 뒤의 실패면 시간 초과로 본다. Spring 내부 예외가 어떤 모양으로 오든(연결을 닫아 생긴 IOException 등) 흔들리지 않게.
+            if (System.nanoTime() - startNanos >= limit.toNanos()) {
+                throw new LlmTimeoutException("Ollama 응답이 제한 시간을 넘겼습니다.", e);
+            }
+            // 그 전의 실패는 Spring AI·RestClient 예외를 우리 예외 2개로 바꿔서 위로 올린다
             Throwable cause = e.getCause();
             throw translate(cause instanceof RuntimeException re ? re : new RuntimeException(cause));
         } catch (InterruptedException e) {
