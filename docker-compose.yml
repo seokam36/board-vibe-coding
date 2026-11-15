@@ -98,6 +98,21 @@ services:
       PHOTO_S3_BUCKET: ${PHOTO_S3_BUCKET:-}
       # 리전은 비밀이 아님 (서울). 자격 증명은 키 없이 EC2에 붙은 IAM 역할(board-ec2-role)을 쓴다
       PHOTO_S3_REGION: ${PHOTO_S3_REGION:-ap-northeast-2}
+      # AI 챗봇 연결(S17·S18). 서버 .env에 LLM_MODE를 안 적으면 off(챗봇 503)라서 예전과 똑같이 동작한다.
+      # 켜려면 서버 .env에 LLM_MODE=gemini와 GEMINI_API_KEY를 넣는다. gemini인데 키가 비면 앱이 시작 때 실패한다.
+      # 모두 :-(콜론)를 써서 "줄은 있는데 값이 빈" 경우도 기본값으로 채운다
+      # (빈 문자열이 그대로 넘어가면 LLM_MODE는 시작 실패, GEMINI_TIMEOUT·상한 숫자는 읽기 실패가 되기 때문)
+      LLM_MODE: ${LLM_MODE:-off}
+      # 비밀 값: 파일에 쓰지 않고 서버 .env에서만 읽는다. 키 없이 off로 쓸 때를 위해 :? 대신 기본 빈 값
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # 3.x 계열 모델만 쓴다(코드의 thinkingLevel 설정이 3.x 전용). base-url은 일부러 넘기지 않는다(https 고정 기본값 사용)
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      # 질문 하나 전체 시간 예산. 서버 30초 < nginx /api/chat 75초 < 화면 90초 순서를 지킨다(올리면 둘도 같이 올림)
+      GEMINI_TIMEOUT: ${GEMINI_TIMEOUT:-30s}
+      # 서버 전체 질문 상한(모든 회원 합계). 앱 기본은 0(검사 안 함)이라, 빠뜨려도 무료 한도(분 15·하루 500호출)를 지키도록
+      # compose 기본값을 운영 값으로 둔다. 질문 1개 = 호출 최대 2번이라 분 7·하루 200
+      CHAT_GLOBAL_PER_MINUTE: ${CHAT_GLOBAL_PER_MINUTE:-7}
+      CHAT_GLOBAL_PER_DAY: ${CHAT_GLOBAL_PER_DAY:-200}
     depends_on:
       postgres:
         # DB가 healthy가 된 뒤에 앱 시작

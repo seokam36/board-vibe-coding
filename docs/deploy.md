@@ -163,7 +163,7 @@ S13(중고거래·사진)과 S14(쪽지)를 한 번에 배포한 뒤에 봅니�
 S17(AI 챗봇: 백엔드 `POST /chat` + Flutter `/chat` 화면, 횟수 제한 Redis, 동시 상한)을 처음 배포한 뒤에 봅니다. 앞에서부터 순서대로 합니다.
 
 메모:
-- **운영 AI는 항상 off입니다.** `docker-compose.yml`이 app에 `LLM_MODE`를 넘기지 않아 `application.properties`의 `${LLM_MODE:off}` 기본값이 쓰입니다. 그래서 `/chat`은 항상 503이고(횟수도 세지 않아 Redis 키가 안 생김), 화면은 상단바에 "챗봇"이 보이지만 질문하면 안내 문구가 나옵니다. 서버 `.env`·compose는 바꾸지 않으므로 scp가 필요 없습니다.
+- **S17 배포(Deploy #19) 때 운영 AI는 off였습니다.** 그때 compose가 app에 `LLM_MODE`를 넘기지 않아 `application.properties`의 `${LLM_MODE:off}` 기본값이 쓰였고, `/chat`은 항상 503이었습니다(횟수도 세지 않아 Redis 키가 안 생김). **S18-e부터는 compose가 `LLM_MODE`를 넘기고(서버 `.env`에 안 적으면 여전히 `off`), 서버 `.env`에 `LLM_MODE=gemini`를 적으면 켜집니다.** 켜는 절차는 아래 "S18 배포 후 확인"을 봅니다.
 - **V 파일 변경 없음**(flyway 최신 version은 13 그대로). 새 의존성은 S17-b에서 들어간 `spring-ai-ollama`뿐입니다. 그래서 문제가 생겨 옛 이미지로 돌아가도 DB 때문에 깨질 일이 없어 안전합니다.
 - nginx(`web` 이미지)는 `/api/chat`만 대기 75초가 추가돼 새 web 이미지가 나갑니다.
 - Deploy 버튼을 누르기 전에 **그 커밋의 CI 세 작업(backend, flutter, images)이 모두 초록**인지 Actions 탭에서 봅니다.
@@ -181,6 +181,90 @@ S17(AI 챗봇: 백엔드 `POST /chat` + Flutter `/chat` 화면, 횟수 제한 Re
 1. **[서버]** `cd ~/board && cp docker-compose.yml docker-compose.yml.bak-latest` — 지금 설정을 복사해 둡니다(이미 있으면 덮어쓰지 말고 다른 이름으로).
 2. **[서버]** `sed -i 's#image: seokam36/demo:latest#image: seokam36/demo:dbef29bbea7145af21b0adf7aa027633f4adc375#; s#image: seokam36/demo-web:latest#image: seokam36/demo-web:dbef29bbea7145af21b0adf7aa027633f4adc375#' docker-compose.yml`
 3. **[서버]** `grep 'image: seokam36' docker-compose.yml` — 두 줄 모두 `dbef29b...` 태그인지 확인합니다.
+4. **[서버]** `docker compose --profile prod pull app web && docker compose --profile prod up -d app web`
+5. **[브라우저]** `/actuator/health`가 UP이고 글 목록이 뜨는지 봅니다.
+- **주의**: (a)의 주의 박스와 같습니다. 고쳐서 새 `latest`가 올라온 뒤(Actions 초록) `cp docker-compose.yml.bak-latest docker-compose.yml`로 원복하고 `grep`으로 두 줄이 `:latest`인지 확인한 다음 Deploy를 누릅니다. 안 하면 Deploy가 계속 옛 이미지를 받습니다.
+
+### S18 배포 후 확인 (운영 챗봇을 제미나이로 켜기)
+S18(제미나이 연결 `LLM_MODE=gemini`, 서버 전체 질문 상한, 챗봇 안내문)을 배포하면서 운영 챗봇을 처음 켭니다. 앞에서부터 순서대로 합니다. **순서가 중요합니다: CI 초록 확인 -> compose 백업·복사 -> `.env` 수정 -> Deploy 버튼.**
+
+메모:
+- compose가 app에 넘기는 값이 늘었습니다: `LLM_MODE`(기본 `off`), `GEMINI_API_KEY`, `GEMINI_MODEL`(기본 `gemini-3.5-flash-lite`), `GEMINI_TIMEOUT`(기본 `30s`), `CHAT_GLOBAL_PER_MINUTE`(기본 `7`), `CHAT_GLOBAL_PER_DAY`(기본 `200`). 서버 `.env`에는 **`LLM_MODE`와 `GEMINI_API_KEY` 두 줄만** 넣으면 됩니다. 나머지는 기본값이 운영 값이라 안 적어도 됩니다(적은 줄이 비어 있어도 기본값이 채워집니다).
+- **compose가 바뀌었으니 EC2로 scp가 꼭 필요합니다.** 자동 배포(Deploy 버튼)는 서버의 compose를 바꾸지 않습니다. 빼먹으면 `.env`에 적어도 app에 전달되지 않아 챗봇은 계속 503입니다.
+- 키는 AI Studio의 SpringStudy 프로젝트 무료 키입니다(분당 15호출·하루 500호출). 질문 하나가 호출을 최대 2번 쓰므로 서버 전체 상한을 분 7질문·하루 200질문으로 둡니다. 무료 등급이라 보낸 질문이 구글 제품 개선에 쓰일 수 있습니다.
+- **V 파일 변경 없음**(flyway 최신 13 그대로). 새 이미지가 문제여도 DB 때문에 깨질 일은 없습니다.
+- 시간 예산: 서버 `GEMINI_TIMEOUT` 30초 < nginx `/api/chat` 75초 < 화면 90초(그대로).
+- 키가 비었거나 이상한데 `LLM_MODE=gemini`이면 앱이 **시작할 때 실패**합니다(Deploy 헬스체크도 빨간불). 로그의 오류 메시지에는 변수 이름만 나오고 키 값은 나오지 않습니다.
+- gemini 모드는 시작 로그를 따로 남기지 않습니다(off일 때만 "AI 꺼짐" 로그). 그래서 켜졌는지는 아래 3번 `printenv`와 4번 챗봇 질문으로 확인합니다.
+
+준비 (Deploy 버튼 누르기 전)
+- 아래 명령의 `<퍼블릭IP>`는 **꺾쇠(`<` `>`)까지 지우고 숫자만** 넣습니다(예: `ec2-user@1.2.3.4`).
+- PowerShell이면 `ssh`·`scp` 대신 `& "C:\Windows\System32\OpenSSH\ssh.exe"`·`& "C:\Windows\System32\OpenSSH\scp.exe"`를 쓰고, `~/.ssh/board-ec2` 자리에 `"$HOME\.ssh\board-ec2"`를 씁니다(위 비상용 3번 안내와 같음. 예: `& "C:\Windows\System32\OpenSSH\scp.exe" -i "$HOME\.ssh\board-ec2" docker-compose.yml ec2-user@1.2.3.4:~/board/docker-compose.yml`). Git Bash는 그대로 씁니다.
+1. **[PC]** 이번 커밋의 CI 세 작업(backend, flutter, images)이 모두 초록인지 GitHub Actions 탭에서 봅니다(images가 초록이어야 새 이미지가 올라가 있습니다).
+2. **[PC]** (EC2를 켠 뒤) 서버의 현재 compose를 백업합니다: `ssh -i ~/.ssh/board-ec2 ec2-user@<퍼블릭IP> 'cp ~/board/docker-compose.yml ~/board/docker-compose.yml.bak-s18'`
+3. **[PC, 저장소 루트에서]** 새 compose를 서버로 복사합니다: `scp -i ~/.ssh/board-ec2 docker-compose.yml ec2-user@<퍼블릭IP>:~/board/docker-compose.yml`
+4. **[서버]** `.env`에 두 줄을 넣습니다. **키가 화면·터미널 기록에 남지 않게 `cat .env`나 `echo 키 >> .env`는 쓰지 않고 편집기로 직접 고칩니다.**
+   - `ssh -i ~/.ssh/board-ec2 ec2-user@<퍼블릭IP>` 로 접속한 뒤 `nano ~/board/.env` 를 엽니다. **nano 화면이 뜬 것을 확인한 뒤에** 붙여 넣습니다. 셸 프롬프트에 붙여 넣었다면 키가 화면과 `~/.bash_history`에 남으니 그 키는 교체합니다.
+   - 맨 아래에 아래 두 줄을 적습니다(이미 같은 이름의 줄이 있으면 새로 만들지 말고 그 줄을 고칩니다).
+     ```
+     LLM_MODE=gemini
+     GEMINI_API_KEY=여기에키를붙여넣기
+     ```
+   - **`여기에키를붙여넣기` 글자를 전부 지우고 그 자리에 내 진짜 키를 붙여 넣습니다.** `=` 앞뒤에 띄어쓰기·따옴표·`<` `>` 를 넣지 않고, 줄바꿈이 끼어도 안 됩니다.
+   - 저장하고 닫습니다(nano는 `Ctrl+O` 엔터 -> `Ctrl+X`). nano가 비정상으로 끝났다면 `ls -la ~/board`에 `.env.save` 같은 파일이 남았는지 봅니다(키가 들어 있을 수 있으니 열어 보지 말고 `rm`으로 지웁니다).
+   - 키를 화면에 띄우지 않고 확인합니다: `grep -c '^LLM_MODE=gemini$' ~/board/.env` 가 `1`, `grep -c '^GEMINI_API_KEY=여기에' ~/board/.env` 가 `0`(자리 글자가 남지 않음), `grep -c '^GEMINI_API_KEY=' ~/board/.env` 가 `1`.
+   - 파일 권한을 나만 읽게 합니다: `chmod 600 ~/board/.env` 그리고 `ls -l ~/board/.env` 가 `-rw-------` 로 시작하는지 봅니다.
+5. **[브라우저]** Actions 탭 -> Deploy -> Run workflow (위 "자동 배포"와 같음). 초록(DB 백업·헬스체크 포함)인지 봅니다.
+
+확인 (배포 뒤)
+1. **[브라우저]** `http://<퍼블릭IP>/actuator/health`가 UP인지 봅니다.
+2. **[서버]** 앱이 안 죽고 떴는지: `cd ~/board && docker compose --profile prod logs --tail 100 app` 에 시작 실패(`APPLICATION FAILED`, `Application run failed`, `IllegalStateException`) 메시지가 없는지 봅니다.
+3. **[서버]** 챗봇이 켜졌는지: `docker exec board-app printenv LLM_MODE` 가 `gemini`인지 봅니다. **키는 `printenv GEMINI_API_KEY`로 확인하지 않습니다**(화면에 키가 나옵니다). 키가 들어갔는지는 4번 질문이 답을 주면 알 수 있습니다.
+4. **[브라우저]** 운영 테스트 계정으로 로그인 -> 상단바 "챗봇" -> 질문칸 위에 안내 한 줄이 보이는지 -> **"3만 원 이하 자전거 있어?"** 를 보냅니다. 답이 오고 아래에 참고한 글이 붙으면 성공입니다. 운영에 자전거 글이 없으면 "관련 글을 찾지 못했어요" 같은 문구도 **정상**입니다. "지금은 AI 챗봇을 쓸 수 없어요"(503)나 네트워크 오류 문구가 나오면 실패입니다(아래 문제 해결).
+5. **[브라우저]** 같은 챗봇에 **"안녕"** 을 보냅니다. "저는 중고·나눔 글만 찾아 드려요. 찾는 물건 이름을 넣어 다시 물어봐 주세요" 범위 안내가 나오는지 봅니다.
+6. **[서버]** 챗봇 질문까지 한 뒤의 메모리와 재시작: `docker stats --no-stream board-app` 의 메모리가 `512MiB` 미만인지(S17 배포 때는 약 368MiB/512MiB였습니다. 이보다 크게 늘면 지켜봅니다), `docker ps` 에서 `board-app`의 STATUS가 `Restarting`이 아니고 `Up` 시간이 계속 늘어나는지 봅니다(1분쯤 뒤 한 번 더).
+7. **[서버]** 로그에 키가 새지 않았는지: `docker compose --profile prod logs app | grep -c 'x-goog-api-key\|AIza\|AQ\.'` 가 `0`인지 봅니다(구글 키 모양의 앞글자로 찾는 것이라 명령에 내 키를 쓸 필요가 없습니다). 0이 아니면 `grep -c 'x-goog-api-key'` 로 한 번 더 좁혀 봅니다(`AQ.`는 우연히 맞을 수 있습니다). 진짜 키가 샌 것 같으면 로그를 화면에 펴 보지 말고 바로 아래 "제미나이 키 교체"를 합니다. 참고: 컨테이너를 새로 만들면 옛 로그는 없어지므로 이 검사는 새로 뜬 뒤 로그만 봅니다.
+8. **[서버]** 표 변경이 없었는지: `docker exec board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT version, success FROM flyway_schema_history ORDER BY installed_rank;"'` 에서 가장 마지막 줄이 `13 | t`인지 봅니다.
+9. **[브라우저]** 기존 기능 3가지(글 목록, 중고 글 상세, 새로고침해도 로그인 유지)를 봅니다.
+
+문제 해결
+- 앱이 시작 때 실패: 로그의 `IllegalStateException` 메시지에 나온 **변수 이름**을 봅니다. `GEMINI_API_KEY가 비어 있습니다` -> `.env`에 줄이 없거나 값이 비었습니다. `공백이나 줄바꿈` -> 키 앞뒤에 공백·줄바꿈이 붙었습니다. 고친 뒤 `docker compose --profile prod up -d app`.
+- 로그에 `LLM_MODE는 off 또는 ollama여야 합니다`가 보임: 새 이미지가 아니라 옛 이미지가 뜬 것입니다. Actions에서 CI images가 초록인지 확인하고 Deploy를 다시 누릅니다. 급하면 `.env`의 `LLM_MODE`를 `off`로 바꾸고 `docker compose --profile prod up -d app`으로 먼저 살립니다.
+- 챗봇이 503: `printenv LLM_MODE`가 `off`이면 compose를 scp하지 않았거나 `.env`에 `LLM_MODE=gemini`가 없는 것입니다(위 준비 3·4번). `gemini`인데 503이면 서버 전체 상한이나 구글 쪽 문제입니다(아래 "전체 상한과 503 구분"). 구글 쪽인지 보려면 `docker compose --profile prod logs app | grep 'gemini 호출 실패'` (로그에는 상태 숫자만 남고 키는 없습니다): 400·401·403이면 키 오류라 `.env`를 다시 확인, 429면 구글 한도, 404면 모델 이름(`GEMINI_MODEL`)을 봅니다.
+- 챗봇이 네트워크 오류: nginx나 app 연결 문제입니다. `docker compose --profile prod ps`로 app이 떠 있는지 봅니다.
+
+**전체 상한과 503 구분** (**[서버]**)
+- 상한 때문이면: `docker compose --profile prod logs app | grep -c '전체 상한'` 이 1 이상(로그 "챗봇 서버 전체 상한(분|하루) 넘음 -> 503")입니다. 정상 동작이고 분 상한은 1분, 하루 상한은 태평양 자정(한국 오후 4~5시) 뒤 풀립니다. 푸는 법은 위 "챗봇이 '서버 전체 상한' 때문에 막혔다면" 절을 봅니다.
+- 0이면 상한이 아니라 구글 쪽(키 오류·구글 한도 소진·구글 장애) 문제입니다.
+- **Redis를 재시작하면 카운터가 모두 0으로 돌아갑니다**(디스크에 저장하지 않는 설정). 그 순간 상한이 초기화되니 구글 무료 한도에 가깝게 쓰는 날에는 Redis를 재시작하지 않습니다.
+
+**운영 챗봇 끄기** (문제가 생기거나 한도를 아끼고 싶을 때. 이미지를 되돌릴 필요가 없습니다)
+1. **[서버]** `nano ~/board/.env` 에서 `LLM_MODE=gemini` 줄을 `LLM_MODE=off` 로 바꿉니다(줄을 지워도 같습니다. **빈 값으로 두지는 않습니다**: 빈 값이어도 compose 기본값이 `off`로 채우지만, 헷갈리지 않게 `off`라고 씁니다). `GEMINI_API_KEY` 줄은 그대로 둬도 됩니다.
+2. **[서버]** `cd ~/board && docker compose --profile prod up -d app` — 환경변수가 바뀌었으므로 app 컨테이너가 새로 만들어집니다(단순 `restart`는 `.env`를 다시 읽지 않습니다).
+3. 확인: `docker exec board-app printenv LLM_MODE` 가 `off`, 브라우저 챗봇이 "지금은 AI 챗봇을 쓸 수 없어요"(503)를 줍니다.
+
+**제미나이 키 교체** (유출 의심, 정기 교체)
+1. AI Studio에서 새 키를 만들고 옛 키는 삭제(또는 제한)합니다.
+2. **[서버]** `nano ~/board/.env` 에서 `GEMINI_API_KEY=` 줄의 값만 새 키로 고칩니다(`cat .env`로 화면에 띄우지 않습니다. 앞뒤 공백·줄바꿈 금지).
+3. **[서버]** `cd ~/board && docker compose --profile prod up -d app` — app이 새로 만들어집니다.
+4. 위 "확인" 3·4번으로 켜졌는지, 7번으로 로그에 키가 없는지 봅니다.
+
+**키가 보이는 명령 주의** (아래는 키가 화면·로그·기록에 그대로 나옵니다. 치지 않습니다)
+- `docker inspect board-app` (환경변수 목록에 키가 나옵니다)
+- `docker compose config` / `docker compose --profile prod config` (`.env` 값을 채워 보여 줍니다. 필요하면 위 메일 절처럼 `| grep -c '이름'` 으로 개수만 봅니다)
+- `docker exec board-app printenv GEMINI_API_KEY` / `printenv`(이름 없이) / `env`
+- `cat ~/board/.env`
+- 앱 실행 옵션 `-Djdk.httpclient.HttpClient.log=headers` (HTTP 요청 헤더를 로그에 찍어 `x-goog-api-key` 헤더에 담긴 키가 남습니다)
+- `GEMINI_TIMEOUT`·`CHAT_GLOBAL_PER_MINUTE`·`CHAT_GLOBAL_PER_DAY` 같은 칸에 값을 잘못 넣으면(예: 숫자·시간이 아닌 글자) 스프링이 "읽을 수 없는 값"이라며 **그 값을 오류 로그에 그대로 찍습니다.** 키를 엉뚱한 칸에 붙여 넣지 않습니다(키는 `GEMINI_API_KEY=` 줄에만). 실수로 그랬다면 로그에 키가 남은 것이니 키를 교체합니다.
+- 키를 **nano 화면이 아닌 셸 프롬프트에 붙여 넣는 것**(nano가 뜬 걸 확인한 뒤에 붙여 넣습니다). 셸에 붙여 넣었다면 키가 화면과 `~/.bash_history`에 남으니 키를 교체합니다.
+- Actions 로그·화면 공유·메신저에 `.env` 내용을 붙여 넣지 않습니다.
+
+**S18 되돌리기** (문제가 있을 때만). 챗봇만 끄면 되는 문제는 위 "운영 챗봇 끄기"로 충분합니다. 새 이미지 자체를 되돌려야 하면 위 "(a) 이전 이미지로 되돌리기"와 같은 방식으로 app과 web 두 줄을 직전 운영 배포(Deploy #19, 커밋 8d8c14d)의 이미지로 바꿉니다. V 파일이 없어서 DB는 그대로 둡니다.
+- 되돌릴 이미지: `seokam36/demo:8d8c14ddc220ce92d8c13647c28d3421f371e12e`, `seokam36/demo-web:8d8c14ddc220ce92d8c13647c28d3421f371e12e` (S18 배포 사이에 다른 main 배포가 있었다면 그 직전 운영 배포 커밋의 SHA로 바꿉니다)
+0. **[서버] 먼저 `~/board/.env`의 `LLM_MODE`를 `off`로 바꿉니다**(위 "운영 챗봇 끄기" 1번 참고). 옛 이미지(S17)의 시작 검사는 `off`와 `ollama`만 받아서, `.env`에 `LLM_MODE=gemini`가 남아 있으면 **시작에 실패합니다.** 이때 로그에 `LLM_MODE는 off 또는 ollama여야 합니다 (현재 값은 출력하지 않음).`가 뜹니다. 옛 이미지는 `GEMINI_*`·`CHAT_GLOBAL_*` 환경변수를 그냥 무시하므로 `.env`의 키 줄과 S18 compose는 그대로 둬도 됩니다.
+1. **[서버]** `cd ~/board && cp docker-compose.yml docker-compose.yml.bak-latest` — 지금 설정을 복사해 둡니다(이미 있으면 덮어쓰지 말고 다른 이름으로).
+2. **[서버]** `sed -i 's#image: seokam36/demo:latest#image: seokam36/demo:8d8c14ddc220ce92d8c13647c28d3421f371e12e#; s#image: seokam36/demo-web:latest#image: seokam36/demo-web:8d8c14ddc220ce92d8c13647c28d3421f371e12e#' docker-compose.yml`
+3. **[서버]** `grep 'image: seokam36' docker-compose.yml` — 두 줄 모두 `8d8c14d...` 태그인지 확인합니다.
 4. **[서버]** `docker compose --profile prod pull app web && docker compose --profile prod up -d app web`
 5. **[브라우저]** `/actuator/health`가 UP이고 글 목록이 뜨는지 봅니다.
 - **주의**: (a)의 주의 박스와 같습니다. 고쳐서 새 `latest`가 올라온 뒤(Actions 초록) `cp docker-compose.yml.bak-latest docker-compose.yml`로 원복하고 `grep`으로 두 줄이 `:latest`인지 확인한 다음 Deploy를 누릅니다. 안 하면 Deploy가 계속 옛 이미지를 받습니다.
@@ -272,7 +356,7 @@ Gmail 무료 계정은 하루 약 500통까지만 보낼 수 있습니다. 회�
 
 **챗봇이 막혔다는 문의가 오면** (운영자 메모)
 챗봇은 회원 한 명당 1분에 5번, 서울 하루에 30번까지만 물을 수 있고 넘으면 429이고, 화면에는 "질문 횟수를 넘었어요 (1분에 5번, 하루 30번까지). 1분 뒤에도 안 되면 내일 다시 시도해 주세요"가 나옵니다(S17-f4). 카운터는 Redis에 있고 시간이 지나면 저절로 사라지므로 급하지 않으면 기다려도 풀립니다(분 키는 약 2분, 하루 키는 최대 25시간).
-**운영이 off인 동안은 횟수를 세지 않아(Redis 키가 안 생김) 이 절은 해당 없습니다.** 이때 "챗봇이 안 돼요" 문의는 429가 아니라 503("지금은 AI 챗봇을 쓸 수 없어요")이고, 정상(의도된 동작)입니다. 아래 내용은 나중에 운영 AI를 켠 뒤에 씁니다.
+**운영이 off일 때는 횟수를 세지 않아(Redis 키가 안 생김) 이 절은 해당 없습니다.** 이때 "챗봇이 안 돼요" 문의는 429가 아니라 503("지금은 AI 챗봇을 쓸 수 없어요")이고, 정상(의도된 동작)입니다. 아래 내용은 운영 AI를 켠 뒤(`LLM_MODE=gemini`, S18 배포 후)에 씁니다.
 - 분 카운터: `chat-rate-min:{회원id}:{분 번호}` (분 번호 = 1970년부터 센 분)
 - 하루 카운터: `chat-rate-day:{회원id}:{서울 날짜, 예 2026-11-15}`
 
