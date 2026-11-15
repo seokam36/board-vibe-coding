@@ -57,6 +57,37 @@ class ChatConfigTests {
 				.run(ctx -> assertThat(ctx).hasNotFailed());
 	}
 
+	// S18-c: gemini 모드의 예산은 GEMINI_TIMEOUT이다(OLLAMA_TIMEOUT이 아니다). 문구도 그 변수 이름이다.
+	@Test
+	void gemini_모드에서_자리_대기가_질문_전체_시간_이상이면_GEMINI_TIMEOUT을_알려_주며_시작이_실패한다() {
+		runner.withPropertyValues("app.llm.mode=gemini", "app.llm.gemini.timeout=10s", "app.llm.ollama.timeout=100s", "app.chat.slot-wait=10s")
+				.run(ctx -> {
+					assertThat(ctx).hasFailed();
+					String msg = rootMessage(ctx.getStartupFailure());
+					assertThat(msg).contains("app.chat.slot-wait").contains("GEMINI_TIMEOUT").doesNotContain("OLLAMA_TIMEOUT");
+				});
+	}
+
+	// ollama 예산(100초)이 아니라 gemini 예산(10초)과 비교하므로, 9초 대기는 통과하고 기본 5초 대기도 통과한다.
+	@Test
+	void gemini_모드에서_자리_대기가_질문_전체_시간보다_짧으면_시작한다() {
+		runner.withPropertyValues("app.llm.mode=gemini", "app.llm.gemini.timeout=10s", "app.chat.slot-wait=9s")
+				.run(ctx -> assertThat(ctx).hasNotFailed());
+	}
+
+	@Test
+	void gemini_모드_기본값_30초_예산에서도_기본_자리_대기_5초는_시작한다() {
+		runner.withPropertyValues("app.llm.mode=gemini").run(ctx -> assertThat(ctx).hasNotFailed());
+	}
+
+	@Test
+	void ollama_모드의_실패_문구에는_GEMINI_TIMEOUT이_없다() {
+		runner.withPropertyValues("app.llm.mode=ollama", "app.llm.ollama.timeout=10s", "app.chat.slot-wait=10s").run(ctx -> {
+			assertThat(ctx).hasFailed();
+			assertThat(rootMessage(ctx.getStartupFailure())).contains("OLLAMA_TIMEOUT").doesNotContain("GEMINI_TIMEOUT");
+		});
+	}
+
 	// off 모드는 질문이 AI 없이 바로 503으로 끝나 예산을 쓰지 않으므로 예산 비교를 건너뛴다.
 	@Test
 	void off_모드에서는_자리_대기가_예산_이상이어도_시작한다() {

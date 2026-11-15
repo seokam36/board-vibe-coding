@@ -27,7 +27,7 @@ import org.springframework.web.client.RestClientResponseException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-// 구글 제미나이(generateContent)로 질문하는 구현. 아직 어디에도 연결하지 않았다(연결은 S18-c).
+// 구글 제미나이(generateContent)로 질문하는 구현. LlmConfig가 LLM_MODE=gemini일 때 등록한다.
 // 만든 방식은 OllamaLlmClient와 같다: 호출을 별도 스레드에서 돌리고 전체 제한 시간을 Future 하나로 잰다.
 // 보안 원칙: API 키·오류 본문·주소 쿼리가 예외 메시지·원인(cause)·로그에 절대 들어가지 않게 한다.
 // 그래서 외부 라이브러리 예외는 cause로 달지 않고 버린다(그 메시지에 오류 본문이나 주소가 들어 있을 수 있다).
