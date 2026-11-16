@@ -232,6 +232,66 @@ public class AdminPermitService {
         return Boolean.TRUE.equals(expired);
     }
 
+    // 자동 승인의 결과: 승인됨 / 같은 번호가 이미 승인돼 있음 / 승인하지 않음(신청이 사라졌거나 이미 처리됨, 이미 인증된 회원)
+    enum AutoApprovalOutcome {
+        APPROVED, NUMBER_DUPLICATE, NOT_APPLIED
+    }
+
+    // request는 APPROVED일 때만 채워진다(응답에 쓸 승인된 신청)
+    record AutoApproval(AutoApprovalOutcome outcome, PermitRequest request) {
+    }
+
+    // 기계 자동 승인 한 건 (S20-d2, PermitAutoReview가 부른다). 관리자 권한·본인 심사 검사는 없다(시스템 작업).
+    // 관리자 승인과 같은 잠금 순서(회원 -> 신청 -> PENDING 재확인)와 같은 사진 삭제 방식(트랜잭션 안에서 대기 표에 적고 커밋 뒤 삭제)을 쓴다.
+    // 승인 조건이 하나라도 안 맞으면 아무것도 바꾸지 않고 돌려준다: 그 사이 철회·탈퇴·처리됐거나(NOT_APPLIED),
+    // 이미 인증된 회원이거나(NOT_APPLIED), 같은 번호가 이미 승인됐으면(NUMBER_DUPLICATE). 예상 못 한 예외는 그대로 던지고, 부른 쪽(PermitVerificationService)이 삼켜 신청은 PENDING으로 남는다.
+    AutoApproval autoApprove(Long id, Long userId, PermitJudgement judgement) {
+        Long schoolId = judgement.detectedSchoolId();
+        if (schoolId == null || judgement.normalizedNumber() == null) {
+            return new AutoApproval(AutoApprovalOutcome.NOT_APPLIED, null); // 방어: 통과했다면 둘 다 있어야 한다
+        }
+        String hash = permitNumberHash.of(judgement.normalizedNumber());
+        List<String> photoKeys = new ArrayList<>();
+        AutoApproval result;
+        try {
+            result = new TransactionTemplate(txManager).execute(status -> {
+                LockedRequest locked;
+                try {
+                    locked = lockPending(id, userId);
+                } catch (ResponseStatusException e) {
+                    return new AutoApproval(AutoApprovalOutcome.NOT_APPLIED, null); // 판독하는 사이 철회·탈퇴하거나 이미 처리됨
+                }
+                PermitRequest request = locked.request();
+                Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+                // 같은 번호가 이미 승인돼 있으면 DB 오류를 일으키기 전에 미리 알아본다(동시 경쟁의 최종 보장은 아래 catch의 부분 UNIQUE 위반)
+                if (permitRequestRepository.existsByPermitNumberHashAndStatus(hash, PermitStatus.APPROVED)) {
+                    return new AutoApproval(AutoApprovalOutcome.NUMBER_DUPLICATE, null);
+                }
+                // 회원 칸을 먼저 채운다. 판독하는 사이 이미 인증됐으면 0행이라 아무것도 바꾸지 않고 끝낸다
+                if (userRepository.markVerifiedByPermit(userId, schoolId, now) == 0) {
+                    return new AutoApproval(AutoApprovalOutcome.NOT_APPLIED, null);
+                }
+                collectAndEnqueuePhoto(request, photoKeys);
+                request.autoApprove(schoolId, hash, now);
+                // flush: 같은 번호가 동시에 승인되면 부분 UNIQUE 위반이 여기서 바로 드러난다(아래 catch). 롤백되면 회원 칸 채우기도 같이 취소된다
+                permitRequestRepository.saveAndFlush(request);
+                return new AutoApproval(AutoApprovalOutcome.APPROVED, request);
+            });
+        } catch (DataIntegrityViolationException e) {
+            photoKeys.clear(); // 롤백됐으니 파일은 지우지 않는다
+            if (UNIQUE_PERMIT_HASH.equals(ConstraintViolations.violatedConstraint(e).orElse(""))) {
+                return new AutoApproval(AutoApprovalOutcome.NUMBER_DUPLICATE, null); // 동시 승인 경쟁에서 짐
+            }
+            throw e;
+        } catch (RuntimeException | Error e) {
+            photoKeys.clear();
+            throw e;
+        }
+        // 커밋 뒤: 파일을 지우고 지운 키를 표에서 뺀다(실패해도 예외 없이 표에 남아 청소부가 처리)
+        photoDeleteQueue.deleteFilesAndDequeue(photoKeys);
+        return result;
+    }
+
     // 잠금 순서를 지키는 곳: 회원 행 FOR UPDATE -> 신청 행 FOR UPDATE -> 신청 행을 다시 읽어 PENDING 확인.
     // 반드시 바깥 트랜잭션 안에서 부른다(잠금 쿼리가 MANDATORY).
     private LockedRequest lockPending(Long id, Long userId) {

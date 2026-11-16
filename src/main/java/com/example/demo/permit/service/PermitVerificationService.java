@@ -35,7 +35,7 @@ import com.example.demo.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-// 표준입학허가서 인증 "신청" (S20-a): 신청하기·내 상태 보기·철회하기. 승인·거절은 S20-b(관리자)·S20-d(기계)가 맡는다.
+// 표준입학허가서 인증 "신청" (S20-a): 신청하기·내 상태 보기·철회하기. 승인·거절은 S20-b(관리자)가, 신청 직후 자동 심사(S20-d2)는 PermitAutoReview가 맡는다.
 // 사진은 결과가 나올 때까지만 보관한다(대기 중에만). 허가서 사진은 개인정보라 로그에 파일 이름·사진 key·내용을 남기지 않고 회원 id와 결과 종류만 남긴다.
 //
 // 신청 흐름(트랜잭션은 맨 마지막 짧은 구간에만 건다. 이미지 처리와 창고 저장은 오래 걸려서 DB 연결을 쥐고 하지 않는다):
@@ -43,6 +43,7 @@ import lombok.extern.slf4j.Slf4j;
 //   2) 이미지 처리(JPEG/PNG 판별·축소·EXIF 제거): 동시에 1장까지만, 5초 안에 자리가 안 나면 503
 //   3) 창고에 저장 (key는 허가서 전용 접두사 permits/)
 //   4) 짧은 트랜잭션: 회원 행 FOR KEY SHARE 잠금(탈퇴와 줄 세우기) -> 이미 승인 다시 확인 -> 신청 행 INSERT
+//   5) (4가 커밋된 뒤, 트랜잭션 밖) 자동 심사: 판독기로 글자 읽기 -> 판정 -> 모두 통과면 자동 승인, 아니면 PENDING 유지(PermitAutoReview)
 //   3)~4)가 실패하면 저장한 사진을 지우고, 지우기도 실패하면 그 키만 "지울 파일 대기 표"에 적는다.
 // 중고 사진과 같은 안전장치: 저장 전에 key를 지울 파일 대기 표에 먼저 적고, 4)의 트랜잭션에서 INSERT와 함께 뗀다
 // (청소부는 10분 안 된 줄을 건드리지 않고, 뗄 때 이미 집었으면 롤백 503). 그래서 저장 직후 서버가 죽어도 고아 파일이 청소된다.
@@ -64,6 +65,7 @@ public class PermitVerificationService {
     private final PhotoDeleteQueue photoDeleteQueue;
     private final PermitRateLimiter rateLimiter;
     private final PlatformTransactionManager txManager;
+    private final PermitAutoReview autoReview;
 
     // 이미지 처리 동시 1장 제한: 중고 사진(동시 2장)과 별개로 이 기능만의 자리. 허가서는 드문 요청이고 메모리를 아끼려고 1장으로 둔다.
     // 5초 기다려도 자리가 안 나면 503. (테스트가 필드 이름으로 접근해 permit을 쥐고 대기 시간을 줄여 본다)
@@ -98,8 +100,9 @@ public class PermitVerificationService {
         // 하루 3회: 싼 확인을 통과한 시도부터 센다(이미 신청 중·승인으로 거절된 요청은 세지 않는다).
         // 사진이 깨져 400이 난 시도는 센다(남용 방지). 서버 탓 실패(503·500·동시 신청에서 진 409 등)는 아래에서 카운트를 되돌린다.
         rateLimiter.countOrReject(userId);
+        StoredRequest stored;
         try {
-            return processAndStore(userId, file);
+            stored = processAndStore(userId, file);
         } catch (RuntimeException | Error e) {
             boolean badPhoto = e instanceof ResponseStatusException r && r.getStatusCode() == HttpStatus.BAD_REQUEST;
             if (!badPhoto) {
@@ -107,10 +110,30 @@ public class PermitVerificationService {
             }
             throw e;
         }
+        // 5) 자동 심사(S20-d2): 신청 행은 이미 커밋됐고 이미지 처리 자리(processPermits)도 돌려준 뒤다. 위 try/catch "밖"에 둔 이유:
+        // 여기서 나는 문제가 위 catch로 가면 이미 커밋된 신청의 사진을 지우고 하루 횟수를 되돌려 버린다. 어떤 문제가 나도 신청은 PENDING으로 남고 201이다.
+        return runAutoReview(userId, stored);
+    }
+
+    // 5) 글자 읽기 -> 판정 -> (모두 통과면) 자동 승인. 자동 승인되면 APPROVED 응답, 아니면 INSERT 때의 PENDING 응답을 그대로 돌려준다.
+    // 판독기·판정·승인 어디서 예외가 나도 삼킨다(5xx로 바꾸지 않는다). 로그에는 예외 클래스 이름만(메시지에 읽은 글자가 섞일 수 있다).
+    private PermitStatusResponse runAutoReview(Long userId, StoredRequest stored) {
+        try {
+            return autoReview.review(userId, stored.requestId(), stored.imageBytes(), stored.contentType())
+                    .orElse(stored.response());
+        } catch (RuntimeException e) {
+            log.warn("허가서 자동 심사 실패, 대기 유지: userId={}, requestId={}, error={}", userId, stored.requestId(),
+                    e.getClass().getSimpleName());
+            return stored.response();
+        }
+    }
+
+    // 신청 행을 넣고 난 결과: INSERT 시점의 응답(PENDING), 신청 id, 자동 심사에 넘길 처리된 사진 바이트(창고에서 다시 읽지 않으려고 들고 간다)
+    private record StoredRequest(PermitStatusResponse response, Long requestId, byte[] imageBytes, String contentType) {
     }
 
     // 2)~4) 이미지 처리 -> 창고 저장 -> DB 기록
-    private PermitStatusResponse processAndStore(Long userId, MultipartFile file) {
+    private StoredRequest processAndStore(Long userId, MultipartFile file) {
         // 2) 이미지 처리 (트랜잭션 밖, 동시 1장)
         ProcessedImage image = processLimited(file);
 
@@ -129,7 +152,8 @@ public class PermitVerificationService {
             PermitRequest saved = new TransactionTemplate(txManager)
                     .execute(status -> insertLocked(userId, key, image.main().contentType()));
             log.info("허가서 신청 접수: userId={}", userId); // 파일 이름·key는 남기지 않는다
-            return PermitStatusResponse.from(saved);
+            return new StoredRequest(PermitStatusResponse.from(saved), saved.getId(), image.main().data(),
+                    image.main().contentType());
         } catch (RuntimeException | Error e) {
             // 파일을 지우고 지운 키는 표에서 뺀다. 못 지우면 표에 남아 청소부가 처리한다(예외는 던지지 않고 원래 예외 e가 우선)
             photoDeleteQueue.deleteFilesAndDequeue(keys);

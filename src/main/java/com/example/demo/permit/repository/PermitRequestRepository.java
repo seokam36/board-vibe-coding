@@ -57,6 +57,15 @@ public interface PermitRequestRepository extends JpaRepository<PermitRequest, Lo
     @Transactional(propagation = Propagation.MANDATORY)
     Optional<Long> lockById(@Param("id") Long id);
 
+    // 기계 판정 결과만 적는다(S20-d2). PENDING인 행만 바꾸고 반환값은 바꾼 행 수(철회·처리로 사라졌거나 PENDING이 아니면 0이라 무시).
+    // 신청 행 하나만 건드리고 회원 행은 잠그지 않아서 철회·탈퇴와 서로 기다리는 고리가 생기지 않는다. 번호 해시는 PENDING 행에 적지 않는다.
+    @Modifying
+    @Transactional
+    @Query("update PermitRequest p set p.machineResult = :result, p.detectedSchoolId = :detectedSchoolId "
+            + "where p.id = :id and p.status = :pending")
+    int recordMachineResult(@Param("id") Long id, @Param("result") String result,
+            @Param("detectedSchoolId") Long detectedSchoolId, @Param("pending") PermitStatus pending);
+
     // 이 회원의 신청 행을 전부 지운다. 반환값 = 지운 행 수.
     // MANDATORY: 사진 이름 모으기·대기 표 적기와 반드시 한 트랜잭션이어야 하므로 바깥 트랜잭션 없이 부르면 예외
     @Modifying
