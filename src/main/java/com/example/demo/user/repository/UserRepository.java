@@ -54,6 +54,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
     int markVerified(@Param("id") Long id, @Param("schoolId") Long schoolId,
             @Param("emailHash") String emailHash, @Param("now") Instant now);
 
+    // 허가서 승인(S20-b)용: 학교·시각 2칸만 채운다. school_email_hash는 "학교 메일 한 개로 계정 하나" 확인용 칸이라
+    // 메일 없이 인증하는 허가서 승인은 건드리지 않는다(NULL 그대로). 이미 인증된 회원이면 0행.
+    @Modifying
+    @Transactional
+    @Query("update User u set u.verifiedSchool.id = :schoolId, u.verifiedAt = :now "
+            + "where u.id = :id and u.verifiedSchool is null")
+    int markVerifiedByPermit(@Param("id") Long id, @Param("schoolId") Long schoolId, @Param("now") Instant now);
+
     // 인증 정보 3칸(학교·시각·메일 해시)을 모두 비운다 (허가서 인증 철회, S20-a). 인증된 상태가 아니어도 안전(그냥 null로 둔다).
     // 반환값 = 바뀐 행 수(0이면 그 사이 회원이 삭제됨)
     @Modifying

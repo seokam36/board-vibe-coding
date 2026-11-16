@@ -18,7 +18,7 @@ import lombok.NoArgsConstructor;
 
 // 표준입학허가서 인증 신청 한 건 (permit_requests 표). 사진 파일은 창고(PhotoStorage)에 있고 여기엔 창고 이름(key)만 둔다.
 // 다른 표(회원·학교)는 객체가 아니라 id만 들고 있다: 신청을 읽을 때마다 같이 읽어 올 필요가 없어서.
-// 이번 단계(S20-a)는 "신청"만 만들어서 항상 PENDING이다. 승인·거절·기계 판독 칸은 S20-b·S20-d가 채운다.
+// 신청(S20-a)은 항상 PENDING으로 만들어진다. 승인·반려는 관리자(S20-b, approve·reject)가 채우고, 기계 판독 칸은 S20-d가 채운다.
 @Entity
 @Table(name = "permit_requests")
 @Getter
@@ -77,6 +77,28 @@ public class PermitRequest {
         this.status = PermitStatus.PENDING;
         this.photoKey = photoKey;
         this.contentType = contentType;
+    }
+
+    // 관리자 승인 (S20-b): 상태·학교·번호 해시·결정 정보를 채우고 사진 칸을 비운다(파일 삭제는 서비스가 따로 한다).
+    // 호출 전에 서비스가 신청 행을 FOR UPDATE로 잠그고 PENDING인지 확인한다.
+    public void approve(Long schoolId, String permitNumberHash, Long adminId, Instant now) {
+        this.status = PermitStatus.APPROVED;
+        this.schoolId = schoolId;
+        this.permitNumberHash = permitNumberHash;
+        this.decidedAt = now;
+        this.decidedBy = adminId;
+        this.photoKey = null;
+        this.contentType = null;
+    }
+
+    // 관리자 반려 (S20-b): 상태·이유·결정 정보를 채우고 사진 칸을 비운다
+    public void reject(PermitRejectReason reason, Long adminId, Instant now) {
+        this.status = PermitStatus.REJECTED;
+        this.rejectReason = reason;
+        this.decidedAt = now;
+        this.decidedBy = adminId;
+        this.photoKey = null;
+        this.contentType = null;
     }
 
     // 저장 직전에 신청 시각 기록 (DB 정밀도인 마이크로초로 맞춘다)

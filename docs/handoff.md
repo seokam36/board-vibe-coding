@@ -66,7 +66,7 @@
 - **사용자에게 서버 명령을 줄 때 `<서버IP>` 같은 자리표시를 쓰지 말 것.** EC2를 켤 때마다 IP가 바뀌니 사용자에게 IP를 받아 완성 명령을 준다. 사용자 터미널은 PowerShell, 키 경로 `"$HOME\.ssh\board-ec2"`, ssh·scp는 사용자가 직접(키 암호). 서버/내 PC 어디서 칠지 매번 표시.
 - **표(테이블)를 바꾸는 기능은 새 V 파일**(다음은 `V14__add_...sql`, UNIQUE는 `uk_` 관례). 커밋된 V 파일은 고치지 않는다. ddl-auto는 validate. 테스트·더미 데이터는 V 파일에 넣지 않는다(`docs/sql/`처럼 손으로 실행하는 파일).
 - **FK·UNIQUE·CHECK 제약에는 반드시 이름**(서비스가 제약 이름으로 404/401/409 구분). V1의 `posts.author_id` FK만 해시 이름.
-- **잠금 순서(S14)**: 탈퇴는 회원 행 FOR UPDATE 먼저. 쪽지 쓰기·답장·읽음·대화 신고는 회원 행 FOR KEY SHARE 먼저, 그다음 방·쪽지. 어기면 40P01 교착 → 500.
+- **잠금 순서(S14)**: 탈퇴는 회원 행 FOR UPDATE 먼저. 쪽지 쓰기·답장·읽음·대화 신고는 회원 행 FOR KEY SHARE 먼저, 그다음 방·쪽지. 어기면 40P01 교착 → 500. **허가서(S20)**: 승인·반려·철회·탈퇴 모두 신청자 회원 행 FOR UPDATE 먼저 → 그다음 신청 행(FOR UPDATE 또는 삭제) → 상태 재확인(`AdminPermitService`).
 - **DB 오류 메시지 언어는 영어(기본값) 유지.**
 - 경쟁 조건 테스트는 `LockRaceSupport`, 유령 토큰은 `TestLogin.행없는_회원_토큰(jwtEncoder)`, 인증 회원은 `TestLogin.인증된_사용자(...)`·`학교_인증_처리(jdbc, username, 학교명)`.
 - 테스트 메일은 `@Primary` 가짜 `VerificationMailSender`. 인증 Redis 키 `email-verify*`, 푸는 법은 deploy.md.
