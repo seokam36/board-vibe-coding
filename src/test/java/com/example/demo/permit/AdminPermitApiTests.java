@@ -247,7 +247,7 @@ class AdminPermitApiTests extends AdminPermitTestBase {
 	void 신청자가_이미_인증된_회원이면_승인은_409이고_반려는_200이다() throws Exception {
 		User u = 회원("pa");
 		long id = 신청(u);
-		TestLogin.학교_인증_처리(jdbc, "pa", "고려대학교"); // 대기 중에 학교 메일로 인증된 상황
+		TestLogin.학교_인증_처리(jdbc, "pa", "고려대학교"); // 대기 중에 다른 경로(운영자 SQL 등)로 인증된 상황
 		assertThat(승인(id, 연세id, "A1").getStatus()).isEqualTo(409);
 		assertThat(신청행(id).get("status")).isEqualTo("PENDING");
 		assertThat(반려(id, "DUPLICATE").getStatus()).isEqualTo(200);

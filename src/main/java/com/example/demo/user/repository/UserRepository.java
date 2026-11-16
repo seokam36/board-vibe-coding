@@ -29,9 +29,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // 가입 전에 닉네임 중복을 확인한다 (대소문자 구분: DB unique와 같은 기준)
     boolean existsByNickname(String nickname);
 
-    // 이 메일 해시로 이미 인증한 회원이 있는지 (학교 메일 한 개로 계정 하나만 인증하게 하는 사전 검사. 최종 보장은 DB UNIQUE)
-    boolean existsBySchoolEmailHash(String schoolEmailHash);
-
     // 로그인 때 아이디로 사용자를 찾는다 (인증 학교도 함께: 로그인 응답에 담기 때문)
     @EntityGraph(attributePaths = "verifiedSchool")
     Optional<User> findByUsername(String username);
@@ -45,17 +42,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("update User u set u.nickname = :nickname where u.id = :id")
     int updateNickname(@Param("id") Long id, @Param("nickname") String nickname);
 
-    // 학교 인증 칸 3개만 채운다. 아직 인증 안 한 회원(verified_school_id IS NULL)일 때만 바뀌므로 동시에 두 번 확인해도 한 번만 기록된다.
-    // 반환값 = 바뀐 행 수(0이면 그 사이 인증됐거나 회원이 삭제됨)
-    @Modifying
-    @Transactional
-    @Query("update User u set u.verifiedSchool.id = :schoolId, u.verifiedAt = :now, u.schoolEmailHash = :emailHash "
-            + "where u.id = :id and u.verifiedSchool is null")
-    int markVerified(@Param("id") Long id, @Param("schoolId") Long schoolId,
-            @Param("emailHash") String emailHash, @Param("now") Instant now);
-
-    // 허가서 승인(S20-b)용: 학교·시각 2칸만 채운다. school_email_hash는 "학교 메일 한 개로 계정 하나" 확인용 칸이라
-    // 메일 없이 인증하는 허가서 승인은 건드리지 않는다(NULL 그대로). 이미 인증된 회원이면 0행.
+    // 허가서 승인(S20-b)용: 학교·시각 2칸만 채운다. school_email_hash는 예전 메일 인증(S10, S20-f에서 걷어냄) 회원의 칸이라
+    // 허가서 승인은 건드리지 않는다(NULL 그대로). 이미 인증된 회원이면 0행.
     @Modifying
     @Transactional
     @Query("update User u set u.verifiedSchool.id = :schoolId, u.verifiedAt = :now "

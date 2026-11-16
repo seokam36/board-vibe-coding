@@ -18,7 +18,6 @@ import com.example.demo.config.PermitProperties;
 // 허가서 번호의 정규화와 HMAC-SHA256 해시(hex). DB에는 번호 원문 대신 이 해시만 저장한다.
 // 그냥 SHA-256이 아니라 비밀 값(PERMIT_HASH_SECRET)을 섞는 HMAC을 쓰는 이유: 허가서 번호는 가짓수가 적어서,
 // DB만 새어도 번호를 하나씩 넣어 보며 해시를 맞춰 볼 수 있기 때문이다. 비밀 값이 서버에만 있으면 DB만으로는 못 되돌린다.
-// (학교 메일 해시 SchoolEmailHash는 따로 두고 건드리지 않는다.)
 // 비밀 값을 바꾸면 이미 저장된 해시와 안 맞게 되므로(같은 번호 중복 승인 확인이 무력화) 운영에서는 바꾸지 않는다.
 @Component
 @EnableConfigurationProperties(PermitProperties.class)

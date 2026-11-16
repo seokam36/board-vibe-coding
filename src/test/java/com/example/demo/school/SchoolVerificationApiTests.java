@@ -37,7 +37,7 @@ import jakarta.servlet.http.Cookie;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-// S10-a 완료 조건 3~6: 응답의 verifiedSchool, GET /schools의 emailDomains, 글 응답 school 모양, 쿼리 수를 API로 확인한다.
+// S10-a 완료 조건 3~6(S20-f에서 emailDomains는 없어짐): 응답의 verifiedSchool, GET /schools의 {id, name}, 글 응답 school 모양, 쿼리 수를 API로 확인한다.
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 @AutoConfigureMockMvc
@@ -167,24 +167,18 @@ class SchoolVerificationApiTests {
 	// ---------- 완료 조건 4 ----------
 
 	@Test
-	void 학교_목록_각_항목에_emailDomains가_있고_성균관대는_정렬된_2개다() throws Exception {
-		JsonNode arr = 본문(mockMvc.perform(get("/schools")).andReturn().getResponse());
+	void 학교_목록_각_항목은_id와_name만_갖고_emailDomains가_없다() throws Exception {
+		// S20-f: 메일 인증을 걷어내서 GET /schools는 {id, name}만 돌려준다
+		MockHttpServletResponse res = mockMvc.perform(get("/schools")).andReturn().getResponse();
+		assertThat(res.getStatus()).isEqualTo(200);
+		JsonNode arr = 본문(res);
 		List<String> names = new ArrayList<>();
 		for (JsonNode s : arr) {
 			String name = s.get("name").asString();
 			names.add(name);
-			assertThat(s.has("emailDomains")).as(name + " emailDomains").isTrue();
-			assertThat(s.get("emailDomains").isArray()).isTrue();
-			assertThat(s.get("emailDomains").size()).isGreaterThanOrEqualTo(1);
-			if (name.equals("성균관대학교")) {
-				// 정렬: g.skku.edu 가 skku.edu 보다 앞
-				assertThat(s.get("emailDomains").size()).isEqualTo(2);
-				assertThat(s.get("emailDomains").get(0).asString()).isEqualTo("g.skku.edu");
-				assertThat(s.get("emailDomains").get(1).asString()).isEqualTo("skku.edu");
-			}
-			if (name.equals("연세대학교")) {
-				assertThat(s.get("emailDomains").get(0).asString()).isEqualTo("yonsei.ac.kr");
-			}
+			assertThat(s.has("emailDomains")).as(name + " emailDomains 금지").isFalse();
+			assertThat(s.has("id")).isTrue();
+			assertThat(s.size()).as(name + " 필드 수(id, name)").isEqualTo(2);
 		}
 		assertThat(names).containsExactly("경희대학교", "고려대학교", "성균관대학교", "연세대학교", "한양대학교");
 	}
@@ -216,7 +210,7 @@ class SchoolVerificationApiTests {
 
 	// ---------- 완료 조건 6 ----------
 
-	// 학교 수가 달라도 /schools 쿼리 수가 같아야 한다(학교마다 도메인을 따로 조회하는 N+1 방지)
+	// 학교 수가 달라도 /schools 쿼리 수가 같아야 한다(학교마다 따로 조회하는 N+1 방지). 도메인 조회를 없애서 지금은 둘 다 1번.
 	@Test
 	void 학교_목록_조회의_쿼리_수는_학교_수에_비례하지_않는다() throws Exception {
 		Statistics stats = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
@@ -228,13 +222,12 @@ class SchoolVerificationApiTests {
 			long five = stats.getPrepareStatementCount();
 			jdbc.update("insert into schools (name) values ('테스트대학교A'), ('테스트대학교B'), ('테스트대학교C')");
 			try {
-				jdbc.update("insert into school_email_domains (school_id, domain) select id, 'a.test.kr' from schools where name = '테스트대학교A'");
 				stats.clear();
 				mockMvc.perform(get("/schools")).andReturn();
 				long eight = stats.getPrepareStatementCount();
+				assertThat(five).as("학교 목록 쿼리 수").isEqualTo(1);
 				assertThat(eight).as("학교 8개 쿼리 수(%s) == 학교 5개 쿼리 수(%s)", eight, five).isEqualTo(five);
 			} finally {
-				jdbc.update("delete from school_email_domains where domain = 'a.test.kr'");
 				jdbc.update("delete from schools where name like '테스트대학교_'");
 			}
 		} finally {

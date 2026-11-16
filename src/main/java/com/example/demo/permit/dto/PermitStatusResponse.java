@@ -16,7 +16,7 @@ public record PermitStatusResponse(PermitViewStatus status, PermitRejectReason r
         return new PermitStatusResponse(PermitViewStatus.NONE, null, null, null);
     }
 
-    // 승인된 회원인데 신청 행이 없는 경우(기존 학교 메일 인증 회원)
+    // 승인된 회원인데 신청 행이 없는 경우(예전 메일 인증 회원·운영자 SQL 등)
     public static PermitStatusResponse approvedWithoutRequest() {
         return new PermitStatusResponse(PermitViewStatus.APPROVED, null, null, null);
     }

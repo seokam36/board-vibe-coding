@@ -164,7 +164,7 @@ public class PermitVerificationService {
         }
     }
 
-    // 내 허가서 인증 상태. verified_school_id가 있으면 신청 행이 없어도(기존 학교 메일 인증 회원) APPROVED.
+    // 내 허가서 인증 상태. verified_school_id가 있으면 신청 행이 없어도(예전 메일 인증 회원·운영자 SQL 등) APPROVED.
     // 없으면 가장 최근 신청 행의 상태, 신청이 없으면 NONE.
     @Transactional(readOnly = true)
     public PermitStatusResponse getStatus(LoginUser loginUser) {
@@ -181,7 +181,7 @@ public class PermitVerificationService {
 
     // 신청 철회 / 인증 해제. 한 트랜잭션에서: 회원 행 FOR UPDATE(탈퇴와 같은 잠금 순서) -> 이 회원의 신청 행 전부 삭제
     // -> 학교 인증(verified_school_id·verified_at·school_email_hash)이 있으면 NULL로 비움(이후 글쓰기는 403).
-    // 신청도 학교 인증도 없으면 404. 기존 학교 메일 인증 회원(행 없이 학교만 있음)도 같은 처리다.
+    // 신청도 학교 인증도 없으면 404. 예전 메일 인증 회원(행 없이 학교만 있음)도 같은 처리다.
     // 사진 파일은 커밋 뒤에 지운다. 지울 키는 같은 트랜잭션에서 대기 표에 적어 두는데, 이 키의 행이 같은 트랜잭션에서 지워지므로
     // (롤백되면 표 적기도 같이 롤백) "쓰는 중인 사진이 지워지는" 일이 없고, 커밋 뒤 삭제가 실패하거나 서버가 죽어도 청소부가 지운다.
     public void cancel(LoginUser loginUser) {
@@ -218,7 +218,7 @@ public class PermitVerificationService {
         }
         User user = userRepository.findById(userId).orElseThrow(ApiErrors::loginRequired);
         if (user.getVerifiedSchool() != null) {
-            throw alreadyApproved(); // 처리하는 사이에 학교 메일 인증 등으로 승인됨
+            throw alreadyApproved(); // 처리하는 사이에 운영자 SQL 등 다른 경로로 승인됨
         }
         // 쪽지 떼기와 INSERT는 같은 트랜잭션: 올리는 사이 청소부가 쪽지를 집었거나 지웠다면 파일이 곧 사라지니 503으로 롤백한다
         if (!photoDeleteQueue.dequeueIfUntouched(List.of(key))) {

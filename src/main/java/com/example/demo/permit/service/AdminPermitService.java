@@ -137,7 +137,7 @@ public class AdminPermitService {
                 PermitRequest request = locked.request();
                 User user = locked.user();
                 if (user.getVerifiedSchool() != null) {
-                    // 대기 중에 학교 메일 등 다른 방법으로 인증됨. 관리자는 반려로 정리할 수 있다.
+                    // 대기 중에 운영자 SQL이나 동시 요청(다른 요청의 자동 승인) 등 다른 경로로 인증됨. 관리자는 반려로 정리할 수 있다.
                     throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 인증된 회원입니다. 반려로 정리해 주세요.");
                 }
                 // 같은 번호가 이미 승인돼 있으면 DB 오류를 일으키기 전에 미리 409(DB 오류 원문이 로그에 남지 않게).

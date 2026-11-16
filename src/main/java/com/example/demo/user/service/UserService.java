@@ -56,7 +56,7 @@ public class UserService {
             // 확인과 저장 사이에 같은 아이디·닉네임이 먼저 들어오면 DB unique 제약이 막아 준다
             return UserResponse.from(userRepository.saveAndFlush(user));
         } catch (DataIntegrityViolationException e) {
-            // users에서 위반될 수 있는 UNIQUE는 username·nickname 말고 school_email_hash(uk_users_school_email_hash)도 있지만,
+            // users에서 위반될 수 있는 UNIQUE는 username·nickname 말고 school_email_hash(uk_users_school_email_hash, 예전 메일 인증 S10의 칸)도 있지만,
             // 가입 때 해시는 항상 null이라(UNIQUE는 NULL끼리 충돌하지 않음) 실제로는 걸리지 않는다.
             // 그래서 여기서 걸리는 것은 username·nickname unique뿐이고, 응답에서 둘을 구분하지 않으므로 409로 변환한다.
             // (ck_users_role은 생성자가 항상 USER를 넣어 걸리지 않는다.)
