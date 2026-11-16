@@ -111,7 +111,7 @@ public class PermitVerificationService {
             throw e;
         }
         // 5) 자동 심사(S20-d2): 신청 행은 이미 커밋됐고 이미지 처리 자리(processPermits)도 돌려준 뒤다. 위 try/catch "밖"에 둔 이유:
-        // 여기서 나는 문제가 위 catch로 가면 이미 커밋된 신청의 사진을 지우고 하루 횟수를 되돌려 버린다. 어떤 문제가 나도 신청은 PENDING으로 남고 201이다.
+        // 여기서 나는 문제가 위 catch로 가면 이미 커밋된 신청의 사진을 지우고 하루 횟수를 되돌려 버린다. 예외(RuntimeException)가 나도 신청은 PENDING으로 남고 201이다(메모리 부족 같은 Error는 500이지만 신청은 PENDING으로 남는다).
         return runAutoReview(userId, stored);
     }
 

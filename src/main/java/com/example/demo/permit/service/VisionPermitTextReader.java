@@ -31,7 +31,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 // 구글 Cloud Vision(images:annotate)으로 허가서 사진의 글자를 읽는 판독기 (S20-e1).
-// 아직 스프링 빈이 아니다: 설정 클래스(S20-e2)가 이 생성자를 불러 등록한다.
+// 스프링 빈 등록은 PermitOcrConfig(S20-e2)가 한다(PERMIT_OCR_MODE=vision일 때만).
 // 만든 방식은 GeminiLlmClient와 같다: 호출을 별도 스레드에서 돌리고 "시간 초과" 판정은 Future.get 한 곳에서만 한다.
 // 보안·개인정보 원칙: API 키, 사진 바이트, base64, 응답 본문, 읽은 글자, 오류 message는 로그·예외에 절대 넣지 않는다.
 // 로그에는 실패 종류, HTTP 상태 숫자, 예외 클래스 이름, error.code 숫자만 남긴다.
