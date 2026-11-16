@@ -86,7 +86,9 @@ public class PhotoCleanupJob {
             if (queue.tryDeleteFile(c.key())) {
                 done.add(c.id());
             } else if (c.attempts() >= WARN_ATTEMPTS) {
-                log.warn("사진 파일 삭제가 {}번째 실패했습니다. 확인이 필요합니다: {}", c.attempts(), c.key());
+                // 허가서 사진 key는 개인정보라 로그에 남기지 않는다(S20-a)
+                log.warn("사진 파일 삭제가 {}번째 실패했습니다. 확인이 필요합니다: {}", c.attempts(),
+                        PhotoDeleteQueue.isPermitKey(c.key()) ? "허가서 사진 1건" : c.key());
             }
         }
 

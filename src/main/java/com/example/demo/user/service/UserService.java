@@ -15,6 +15,7 @@ import com.example.demo.auth.service.AccessGuard;
 import com.example.demo.auth.service.RefreshTokenService;
 import com.example.demo.comment.repository.CommentRepository;
 import com.example.demo.common.ApiErrors;
+import com.example.demo.permit.repository.PermitRequestRepository;
 import com.example.demo.photo.service.PhotoDeleteQueue;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.school.dto.SchoolResponse;
@@ -41,6 +42,7 @@ public class UserService {
     private final TransactionTemplate transactionTemplate;
     private final AccessGuard accessGuard;
     private final PhotoDeleteQueue photoDeleteQueue; // 지울 사진 파일 대기 표 (S13-g4)
+    private final PermitRequestRepository permitRequestRepository; // 허가서 신청 (탈퇴 때 사진 정리, S20-a)
 
     // 회원가입. 아이디 또는 닉네임이 이미 있으면 409.
     // 메서드 전체에 @Transactional을 걸지 않는다: saveAndFlush()가 자기 트랜잭션에서 끝나야
@@ -148,6 +150,12 @@ public class UserService {
             // 2-3) 이 회원이 올린 중고 글들의 사진 파일 이름을 지울 파일 대기 표에 적는다 (S13-g4).
             //      글·사진 행은 아래 회원 삭제 때 DB가 CASCADE로 지운다. 같은 트랜잭션이라 탈퇴가 롤백되면 이름 기록도 사라진다.
             photoKeys.addAll(photoDeleteQueue.enqueueSellerPhotos(id));
+            // 2-4) 대기 중인 허가서 사진도 같이 지운다 (S20-a). 신청 행은 회원 삭제 때 CASCADE로 같은 트랜잭션에서 사라지므로,
+            //      키를 미리 대기 표에 적어도 "쓰는 중인 사진이 청소부에게 지워지는" 일이 없다(롤백되면 적기도 롤백).
+            //      회원 행을 먼저 잠갔으니 신청 INSERT(회원 행 FOR KEY SHARE 먼저)는 이 앞뒤로 줄이 선다.
+            List<String> permitKeys = permitRequestRepository.findPhotoKeysByUserId(id);
+            photoDeleteQueue.enqueue(permitKeys);
+            photoKeys.addAll(permitKeys);
             return userRepository.deleteUserById(id); // 3) 회원 삭제
         });
         if (deleted == null || deleted == 0) {

@@ -54,6 +54,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
     int markVerified(@Param("id") Long id, @Param("schoolId") Long schoolId,
             @Param("emailHash") String emailHash, @Param("now") Instant now);
 
+    // 인증 정보 3칸(학교·시각·메일 해시)을 모두 비운다 (허가서 인증 철회, S20-a). 인증된 상태가 아니어도 안전(그냥 null로 둔다).
+    // 반환값 = 바뀐 행 수(0이면 그 사이 회원이 삭제됨)
+    @Modifying
+    @Transactional
+    @Query("update User u set u.verifiedSchool = null, u.verifiedAt = null, u.schoolEmailHash = null where u.id = :id")
+    int clearVerification(@Param("id") Long id);
+
     // 비밀번호(해시) 컬럼만 바꾼다. 이유는 updateNickname과 같다.
     @Modifying
     @Transactional

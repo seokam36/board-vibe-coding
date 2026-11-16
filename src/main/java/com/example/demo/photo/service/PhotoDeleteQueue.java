@@ -25,6 +25,8 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class PhotoDeleteQueue {
 
+    static final String PERMIT_KEY_PREFIX = "permits/"; // 허가서 사진 key 접두사(PermitVerificationService가 만든다)
+
     private final NamedParameterJdbcTemplate jdbc;
     private final PhotoStorage photoStorage;
     private final TransactionTemplate tx;
@@ -109,7 +111,7 @@ public class PhotoDeleteQueue {
             dequeue(deleted);
         } catch (RuntimeException e) {
             // 표 줄을 못 그어도 파일은 이미 지워졌다. 줄은 남지만 청소부가 "이미 없는 파일 지우기"로 곧 정리한다.
-            log.warn("사진 삭제 대기 표 정리에 실패했습니다(청소부가 다시 처리합니다): {}", deleted, e);
+            warnSafely("사진 삭제 대기 표 정리에 실패했습니다(청소부가 다시 처리합니다)", deleted, e);
         }
     }
 
@@ -119,8 +121,25 @@ public class PhotoDeleteQueue {
             photoStorage.delete(key);
             return true;
         } catch (RuntimeException e) {
-            log.warn("사진 파일 삭제에 실패했습니다(대기 표에 남겨 둡니다): {}", key, e);
+            warnSafely("사진 파일 삭제에 실패했습니다(대기 표에 남겨 둡니다)", List.of(key), e);
             return false;
         }
+    }
+
+    // 허가서 사진(permits/ 접두사) key인가. 허가서 사진은 개인정보라 key를 로그에 남기지 않는다(S20-a).
+    static boolean isPermitKey(String key) {
+        return key != null && key.startsWith(PERMIT_KEY_PREFIX);
+    }
+
+    // 로그용 경고. 허가서 key가 하나라도 섞여 있으면 key는 건수로만 적고, 예외도 메시지·스택(로컬 창고는 전체 경로가 들어간다) 없이 종류 이름만 적는다.
+    // 중고 사진 key만 있으면 기존처럼 key와 예외 전체를 남긴다.
+    static void warnSafely(String message, Collection<String> keys, Throwable cause) {
+        long permitCount = keys.stream().filter(PhotoDeleteQueue::isPermitKey).count();
+        if (permitCount == 0) {
+            log.warn("{}: {}", message, keys, cause);
+            return;
+        }
+        List<String> others = keys.stream().filter(k -> !isPermitKey(k)).toList();
+        log.warn("{}: {} + 허가서 사진 {}건 (원인: {})", message, others, permitCount, cause.getClass().getSimpleName());
     }
 }
