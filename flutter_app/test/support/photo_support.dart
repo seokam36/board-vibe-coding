@@ -12,10 +12,12 @@ import 'fake_adapter.dart';
 class FakePhotoPicker implements PhotoPicker {
   void Function(List<PickedPhoto> files)? _callback;
   int opened = 0; // 파일 창이 열린 횟수
+  bool? lastMultiple; // 마지막으로 연 창이 여러 장 허용이었는지 (한 장 전용 화면 확인용)
 
   @override
-  void pick(void Function(List<PickedPhoto> files) onPicked) {
+  void pick(void Function(List<PickedPhoto> files) onPicked, {bool multiple = true}) {
     opened++;
+    lastMultiple = multiple;
     _callback = onPicked;
   }
 

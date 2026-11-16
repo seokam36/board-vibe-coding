@@ -55,6 +55,17 @@ Future<TestApp> pumpApp(
   Map<String, dynamic>? user,
   FakeAdapter? adapter,
 }) async {
+  // 미인증 회원이 내 정보(/me)를 열면 "유학생 인증" 칸이 상태 GET을 1번 보낸다 (S20-g1).
+  // (시작 주소가 /me일 때만. /messages 같은 다른 주소는 해당 없음)
+  // 그 응답을 테스트가 따로 준비하지 않았으면 "신청한 적 없음(NONE)"을 기본으로 깔아 준다
+  adapter ??= FakeAdapter();
+  const permitPath = '/users/me/permit-verification';
+  if (user != null &&
+      user['verifiedSchool'] == null &&
+      _isMePath(location) &&
+      !adapter.hasReply('GET', permitPath)) {
+    adapter.on('GET', permitPath, FakeReply(200, {'status': 'NONE'}));
+  }
   final auth = LoadedAuthState(
     adapter: adapter,
     user: user,
@@ -65,6 +76,12 @@ Future<TestApp> pumpApp(
   await tester.pumpWidget(BoardApp(authState: auth, initialLocation: location));
   await tester.pumpAndSettle();
   return TestApp(auth, routerOf(tester));
+}
+
+// 시작 주소가 내 정보(/me)인지 (대소문자 무시, 뒤에 ?나 /가 붙는 것까지). /messages는 아니다
+bool _isMePath(String location) {
+  final l = location.toLowerCase();
+  return l == '/me' || l.startsWith('/me?') || l.startsWith('/me/');
 }
 
 String _currentPath(WidgetTester tester) =>

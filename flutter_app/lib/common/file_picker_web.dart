@@ -15,7 +15,6 @@ class _WebPicker implements PhotoPicker {
     final input = web.HTMLInputElement()
       ..type = 'file'
       ..accept = 'image/jpeg,image/png'
-      ..multiple = true
       ..tabIndex = -1;
     // display:none은 쓰지 않는다 (일부 브라우저에서 click()이 안 먹는다). 크기 1px·투명으로 "눈에만" 안 보이게 한다
     input.style.cssText =
@@ -26,8 +25,10 @@ class _WebPicker implements PhotoPicker {
   }
 
   @override
-  void pick(void Function(List<PickedPhoto> files) onPicked) {
+  void pick(void Function(List<PickedPhoto> files) onPicked, {bool multiple = true}) {
     final input = _ensureInput();
+    // 같은 입력칸을 계속 쓰므로, 열 때마다 "여러 장 허용"을 이번 요청에 맞춰 다시 정한다
+    input.multiple = multiple;
     // 파일을 고르면(change) 겉 정보를 만들어 넘기고, 입력값을 비워 같은 파일을 다시 골라도 change가 일어나게 한다.
     // 마지막으로 연 창의 처리 함수만 남도록 매번 새로 단다 (취소한 창의 옛 처리 함수가 남지 않게)
     input.onchange = ((web.Event _) {

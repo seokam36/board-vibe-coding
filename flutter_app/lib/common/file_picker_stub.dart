@@ -4,7 +4,7 @@ import 'file_picker.dart';
 
 class _NoopPicker implements PhotoPicker {
   @override
-  void pick(void Function(List<PickedPhoto> files) onPicked) {}
+  void pick(void Function(List<PickedPhoto> files) onPicked, {bool multiple = true}) {}
 }
 
 PhotoPicker createPlatformPhotoPicker() => _NoopPicker();

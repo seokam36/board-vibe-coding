@@ -73,7 +73,7 @@ class AuthState extends ChangeNotifier {
   }
 
   // /auth/me 를 다시 받아 회원 정보를 맞춘다(예: 허가서가 자동 승인된 뒤 인증 학교 반영).
-  // 지금은 부르는 화면이 없다(메일 인증 화면은 S20-f2에서 지움). S20-g 허가서 화면에서 쓸 예정.
+  // 내 정보의 "유학생 인증" 섹션(SchoolVerificationSection)이 승인 직후에 부른다.
   // 실패해도 조용히 넘어간다
   Future<void> refreshUser() async {
     try {

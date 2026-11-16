@@ -9,8 +9,6 @@ import 'models.dart';
 
 const maxPhotos = 10;
 const maxPhotoBytes = 10 * 1024 * 1024; // 정확히 10MB까지는 통과
-// 브라우저가 JPEG를 image/jpg·image/pjpeg로 알려 주는 경우도 있어 함께 받는다
-const _allowedTypes = ['image/jpeg', 'image/jpg', 'image/pjpeg', 'image/png'];
 // 사진 한 장 올리기 제한 시간 (5분). 느린 회선에서 8~10MB가 정상 업로드되는 중에 끊지 않도록 넉넉히 둔다
 const _uploadTimeout = Duration(minutes: 5);
 // 시간 초과 전용 문구. 서버가 저장을 끝냈을 수도 있어 확인을 안내한다
@@ -45,7 +43,7 @@ class PhotoCheck {
 // 종류가 빈 글자면(브라우저가 모르는 확장자) 통과시킨다. 진짜 판단은 서버가 파일 내용(매직 바이트)으로 한다
 PhotoCheck checkPhotoFiles(List<PickedPhoto> files, int existing) {
   final notes = <String>[];
-  final typeOk = files.where((f) => f.type.isEmpty || _allowedTypes.contains(f.type)).toList();
+  final typeOk = files.where((f) => f.type.isEmpty || allowedPhotoTypes.contains(f.type)).toList();
   if (typeOk.length < files.length) {
     notes.add(ErrorMessages.photoSkipped(ErrorMessages.marketPhotoTypeOnly, files.length - typeOk.length));
   }

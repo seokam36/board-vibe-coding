@@ -54,6 +54,9 @@ class FakeAdapter implements HttpClientAdapter {
     _queues.putIfAbsent('$method /api$path', () => []).add(reply);
   }
 
+  // 그 요청에 줄 응답이 하나라도 준비돼 있는지 (기본 응답을 깔아도 되는지 판단할 때 쓴다)
+  bool hasReply(String method, String path) => (_queues['$method /api$path'] ?? const []).isNotEmpty;
+
   int count(String method, String path) =>
       calls.where((c) => c.method == method && c.path == '/api$path').length;
 

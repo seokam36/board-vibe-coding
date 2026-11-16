@@ -7,6 +7,10 @@ import 'file_picker_stub.dart'
     if (dart.library.js_interop) 'file_picker_web.dart'
     as platform;
 
+// 올릴 수 있는 사진 종류 (중고 사진·허가서가 같이 쓴다).
+// 브라우저가 JPEG를 image/jpg·image/pjpeg로 알려 주는 경우도 있어 함께 받는다
+const allowedPhotoTypes = ['image/jpeg', 'image/jpg', 'image/pjpeg', 'image/png'];
+
 // 사용자가 고른 사진 한 장의 "겉 정보" (이름·종류·크기). 내용(바이트)은 올릴 때만 읽는다.
 // 파일 안 열어도 되는 사전 검사(종류·크기)를 하려고 겉 정보와 내용을 나눠 둔다.
 class PickedPhoto {
@@ -38,7 +42,8 @@ class PickedPhoto {
 abstract interface class PhotoPicker {
   // 파일 선택 창을 연다. 사용자가 고르면 onPicked로 사진 목록을 넘긴다 (취소하면 아무 일도 없다).
   // 브라우저는 "사용자가 누른 순간"에만 창을 열어 주므로, 버튼 눌림 처리 안에서 바로 불러야 한다
-  void pick(void Function(List<PickedPhoto> files) onPicked);
+  // multiple: false면 한 장만 고르는 창으로 연다 (허가서 신청처럼 사진이 딱 한 장일 때). 기본은 여러 장
+  void pick(void Function(List<PickedPhoto> files) onPicked, {bool multiple = true});
 }
 
 // 화면이 쓰는 파일 선택 도구. 테스트는 이 값을 가짜로 바꿔 끼운다

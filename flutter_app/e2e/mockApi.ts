@@ -162,6 +162,8 @@ function defaultHandlers(state: { user: FakeUser | null }): MockHandlers {
     // 로그인한 화면 상단바: 안 읽은 쪽지 수, 비자 일정 띠 (일정 없음)
     'GET /conversations/unread-count': { status: 200, body: { count: 0 } },
     'GET /users/me/visa-plan': { status: 200, body: { expiryDate: null, daysLeft: null, stage: null, todos: [] } },
+    // 내 정보(/me)의 "유학생 인증" 칸: 미인증 회원이 열면 인증 상태를 1번 묻는다 (기본은 신청한 적 없음)
+    'GET /users/me/permit-verification': { status: 200, body: { status: 'NONE' } },
     // 중고
     'GET /market-items': { status: 200, body: [] },
     'GET /market-items/1': { status: 200, body: fakeMarketItem },

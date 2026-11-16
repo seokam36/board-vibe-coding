@@ -35,6 +35,7 @@ npx playwright test                    # 3) serve.mjs가 build/web을 포트 517
 | `write-and-guard.spec.ts` | 글쓰기 → 상세, 보호 주소 문지기 (2개) |
 | `error-messages.spec.ts` | 404·네트워크 끊김·로그인 401 문구 (3개) |
 | `market-photo-upload.spec.ts` | 중고 글쓰기 + 사진 2장 올리기 (1개) |
+| `permit-verification.spec.ts` | 유학생 인증(S20-g1): /me에서 동의 체크 → 진짜 파일 창(한 장 전용)으로 PNG 한 장 → [인증 신청] → multipart(file·consent) 확인 → 승인 응답 뒤 인증 뱃지 (1개) |
 | `messages.spec.ts` | 판매자에게 첫 쪽지 → 대화 이동 (1개) |
 | `chat.spec.ts` | 중고 글 챗봇: 상단바 챗봇 → 질문 + Enter → 답(status)·참고한 글 → 출처로 글 상세 이동 (1개) |
 
@@ -47,7 +48,7 @@ npx playwright test                    # 3) serve.mjs가 build/web을 포트 517
 
 ## 옮김 / 안 옮김 표 (옛 React `frontend/e2e` 스펙 16개 전부, S16-p에서 삭제됨)
 
-테스트 수는 React 스펙의 `test(` 개수다(합 324개). Flutter 쪽 e2e는 11개(S17-d 챗봇 1개 추가).
+테스트 수는 React 스펙의 `test(` 개수다(합 324개). Flutter 쪽 e2e는 12개(S17-d 챗봇 1개, S20-g1 유학생 인증 신청 1개 추가).
 "옮김"은 그 스펙 중 핵심 흐름·대표 실패만 골라 옮겼다는 뜻이다.
 
 | React 스펙 (테스트 수) | 결과 | Flutter에서는 |

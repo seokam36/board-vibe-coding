@@ -90,11 +90,11 @@ void main() {
     );
     await tester.pump();
     expect(find.text('불러오는 중...'), findsOneWidget);
-    expect(find.text('학교 인증'), findsNothing); // S16-g1: 내 정보 화면은 "학교 인증" 제목으로 확인
+    expect(find.text('유학생 인증'), findsNothing); // 내 정보 화면은 "유학생 인증" 제목으로 확인 (S20-g1에서 "학교 인증"에서 바뀜)
     gate.complete();
     await tester.pumpAndSettle();
     expect(find.text('불러오는 중...'), findsNothing);
-    expect(find.text('학교 인증'), findsNothing);
+    expect(find.text('유학생 인증'), findsNothing);
     expect(find.widgetWithText(TextField, '아이디'), findsOneWidget); // 로그인 화면
   });
 
@@ -102,7 +102,8 @@ void main() {
     final gate = Completer<void>();
     final adapter = FakeAdapter()
       ..on('GET', '/csrf', FakeReply(200, {'headerName': 'X-XSRF-TOKEN'}))
-      ..on('GET', '/auth/me', FakeReply(200, userJson(), gate));
+      ..on('GET', '/auth/me', FakeReply(200, userJson(), gate))
+      ..on('GET', '/users/me/permit-verification', FakeReply(200, {'status': 'NONE'})); // 미인증 회원의 /me는 인증 상태를 1번 묻는다
 
     await tester.pumpWidget(
       BoardApp(
@@ -114,7 +115,7 @@ void main() {
     expect(find.text('불러오는 중...'), findsOneWidget);
     gate.complete();
     await tester.pumpAndSettle();
-    expect(find.text('학교 인증'), findsOneWidget); // S16-g1: 진짜 내 정보 화면
+    expect(find.text('유학생 인증'), findsOneWidget); // 진짜 내 정보 화면
     expect(find.text('아이디'), findsNothing); // 로그인 화면이 아니다
   });
 }
