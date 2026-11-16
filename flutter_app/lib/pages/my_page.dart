@@ -45,7 +45,7 @@ class MyPage extends StatelessWidget {
                 ],
               ),
             ),
-          // 학교 인증: 인증했으면 뱃지, 아직이면 메일 인증 폼
+          // 학교 인증: 인증했으면 뱃지, 아직이면 "준비 중" 안내 한 줄 (메일 폼은 S20-f2에서 걷어냄)
           const SchoolVerificationSection(),
           const _NicknameForm(),
           const _PasswordForm(),

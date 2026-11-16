@@ -23,7 +23,7 @@ export const fakeUser: FakeUser = { id: 1, username: 'tester01', nickname: '테�
 export const verifiedUser: FakeUser = { ...fakeUser, verifiedSchool: { id: 1, name: '가짜대학교' } }
 
 const postSchool: School = { id: 1, name: '가짜대학교' }
-const fakeSchools = [{ id: 1, name: '가짜대학교', emailDomains: ['fake.ac.kr'] }]
+const fakeSchools = [{ id: 1, name: '가짜대학교' }]
 // 말머리 코드는 실제와 같게 CHAT·QUESTION·CAMPUS_LIFE
 const fakeCategories = [
   { code: 'CHAT', name: '잡담' },

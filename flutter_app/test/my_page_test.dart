@@ -2,6 +2,7 @@
 // (골격·순서, 학교 인증 자리, 닉네임 변경, 비밀번호 변경, 회원 탈퇴, 요청 중 잠금, 로그인 풀림)을 본다.
 import 'dart:async';
 
+import 'package:board_web/auth/auth_user.dart';
 import 'package:board_web/theme/app_colors.dart';
 import 'package:board_web/widgets/app_badge.dart';
 import 'package:board_web/widgets/notice.dart';
@@ -116,15 +117,40 @@ void main() {
       expect(find.text('학교 인증 완료 · 서울대'), findsOneWidget);
       expect(find.ancestor(of: find.text('학교 인증 완료 · 서울대'), matching: find.byType(AppBadge)), findsOneWidget);
       expect(find.text('졸업 후에도 유지돼요'), findsOneWidget);
-      expect(find.text('학교 메일로 인증하면 글쓰기·댓글·공감·신고를 할 수 있어요'), findsNothing);
+      expect(find.text('유학생 인증(표준입학허가서) 화면을 준비 중이에요'), findsNothing);
     });
 
     _test('미인증 회원: 안내 한 줄만, 뱃지는 없다', (tester) async {
       await pumpApp(tester, location: '/me', user: userJson());
       expect(find.text('학교 인증'), findsOneWidget);
-      expect(find.text('학교 메일로 인증하면 글쓰기·댓글·공감·신고를 할 수 있어요'), findsOneWidget);
+      expect(find.text('유학생 인증(표준입학허가서) 화면을 준비 중이에요'), findsOneWidget);
       expect(find.textContaining('학교 인증 완료'), findsNothing);
       expect(find.text('졸업 후에도 유지돼요'), findsNothing);
+    });
+  });
+
+  group('학교 인증 걷어내기(S20-f2) 추가 확인', () {
+    // /me를 열어도 학교 인증·학교 목록 요청이 나가지 않는다 (미인증·인증 둘 다)
+    _test('/me를 열어도 school-verification·/schools 요청이 나가지 않는다', (tester) async {
+      for (final u in [userJson(), userJson(school: _school)]) {
+        final app = await pumpApp(tester, location: '/me', user: u);
+        final bad = app.adapter.calls.where((c) => c.path.contains('school-verification') || c.path.endsWith('/schools'));
+        expect(bad, isEmpty);
+      }
+    });
+
+    // 회원 정보가 바뀌면(updateUser) 섹션이 바로 바뀐다
+    _test('미인증에서 인증 회원으로 바뀌면 안내가 뱃지로 바로 바뀐다', (tester) async {
+      final app = await pumpApp(tester, location: '/me', user: userJson());
+      expect(find.text('유학생 인증(표준입학허가서) 화면을 준비 중이에요'), findsOneWidget);
+      app.auth.updateUser(AuthUser.fromJson(userJson(school: _school)));
+      await tester.pumpAndSettle();
+      expect(find.text('학교 인증 완료 · 서울대'), findsOneWidget);
+      expect(find.text('유학생 인증(표준입학허가서) 화면을 준비 중이에요'), findsNothing);
+      app.auth.updateUser(AuthUser.fromJson(userJson()));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('학교 인증 완료'), findsNothing);
+      expect(find.text('유학생 인증(표준입학허가서) 화면을 준비 중이에요'), findsOneWidget);
     });
   });
 

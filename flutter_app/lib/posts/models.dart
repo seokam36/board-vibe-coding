@@ -2,17 +2,15 @@
 
 // 학교 한 곳 (GET /schools, 글 응답 안의 school)
 class School {
-  const School({required this.id, required this.name, this.emailDomains = const []});
+  const School({required this.id, required this.name});
 
   final int id;
   final String name;
-  // 인증용 메일 도메인 (GET /schools 에만 있다. 글 응답의 school에는 없어 빈 목록)
-  final List<String> emailDomains;
 
+  // 메일 인증이 없어져 서버가 id·name만 준다 (S20-f)
   factory School.fromJson(Map<String, dynamic> json) => School(
         id: json['id'] as int,
         name: json['name'] as String,
-        emailDomains: ((json['emailDomains'] as List<dynamic>?) ?? const []).cast<String>(),
       );
 }
 

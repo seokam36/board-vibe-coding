@@ -72,8 +72,9 @@ class AuthState extends ChangeNotifier {
     _notify();
   }
 
-  // /auth/me 를 다시 받아 회원 정보를 맞춘다. 다른 기기에서 이미 학교 인증을 했을 때 등.
-  // 실패해도 조용히 넘어간다(화면엔 이미 안내 문구가 있다)
+  // /auth/me 를 다시 받아 회원 정보를 맞춘다(예: 허가서가 자동 승인된 뒤 인증 학교 반영).
+  // 지금은 부르는 화면이 없다(메일 인증 화면은 S20-f2에서 지움). S20-g 허가서 화면에서 쓸 예정.
+  // 실패해도 조용히 넘어간다
   Future<void> refreshUser() async {
     try {
       final res = await _api.dio.get<Map<String, dynamic>>('/auth/me');
