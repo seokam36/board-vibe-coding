@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -194,6 +195,41 @@ public class AdminPermitService {
         photoDeleteQueue.deleteFilesAndDequeue(photoKeys);
         log.info("허가서 반려: adminId={}, requestId={}", loginUser.id(), id);
         return result;
+    }
+
+    // 기한 만료 반려 한 건 (S20-c, PermitExpiryJob이 부른다). 관리자 권한·본인 심사 검사는 없다(시스템 작업).
+    // 반려와 같은 잠금 순서(회원 -> 신청 -> 재읽기)로 잡고, 여전히 PENDING이고 여전히 cutoff보다 오래됐을 때만 EXPIRED로 반려한다.
+    // 그 사이 관리자가 처리했거나 회원이 철회·탈퇴했으면 건너뛰고 false. decided_by는 NULL(시스템 결정)이다.
+    boolean expireIfStale(Long id, Instant cutoff, Instant now) {
+        List<String> photoKeys = new ArrayList<>();
+        Boolean expired;
+        try {
+            expired = new TransactionTemplate(txManager).execute(status -> {
+                Optional<Long> userId = permitRequestRepository.findUserIdById(id);
+                if (userId.isEmpty()) {
+                    return false; // 이미 철회·탈퇴로 사라짐
+                }
+                LockedRequest locked;
+                try {
+                    locked = lockPending(id, userId.get());
+                } catch (ResponseStatusException e) {
+                    return false; // 잠그는 사이 탈퇴(404)하거나 다른 곳에서 처리됨(409)
+                }
+                PermitRequest request = locked.request();
+                if (!request.getCreatedAt().isBefore(cutoff)) {
+                    return false; // 기한이 안 지남(방어)
+                }
+                collectAndEnqueuePhoto(request, photoKeys);
+                request.reject(PermitRejectReason.EXPIRED, null, now);
+                permitRequestRepository.saveAndFlush(request);
+                return true;
+            });
+        } catch (RuntimeException | Error e) {
+            photoKeys.clear(); // 롤백됐으니 파일은 지우지 않는다
+            throw e;
+        }
+        photoDeleteQueue.deleteFilesAndDequeue(photoKeys); // 커밋 뒤 파일 삭제(실패해도 표에 남아 청소부가 처리)
+        return Boolean.TRUE.equals(expired);
     }
 
     // 잠금 순서를 지키는 곳: 회원 행 FOR UPDATE -> 신청 행 FOR UPDATE -> 신청 행을 다시 읽어 PENDING 확인.

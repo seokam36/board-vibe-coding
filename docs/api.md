@@ -1056,9 +1056,9 @@ CSRF 헤더 필요. `refresh_token` 쿠키가 있으면 서버(Redis)의 리프�
 
 ## 허가서 인증 신청 (Permit verification)
 
-표준입학허가서(외국인 유학생 입학 허가서) 인증 "신청" API (S20-a). 세 API 모두 로그인이 필요하고 POST·DELETE는 CSRF 헤더(`X-XSRF-TOKEN`)도 필요하다. **이번 단계에서는 신청이 항상 대기(`PENDING`)로만 만들어진다.** 승인·거절은 관리자 심사 API(47~50번, S20-b)가 하고, 기계 판독(S20-d)·사진 자동 삭제(14일 청소)는 아직 없다.
+표준입학허가서(외국인 유학생 입학 허가서) 인증 "신청" API (S20-a). 세 API 모두 로그인이 필요하고 POST·DELETE는 CSRF 헤더(`X-XSRF-TOKEN`)도 필요하다. **이번 단계에서는 신청이 항상 대기(`PENDING`)로만 만들어진다.** 승인·거절은 관리자 심사 API(47~50번, S20-b)가 하고, 기계 판독(S20-d)은 아직 없다. 대기가 14일을 넘기면 서버가 자동으로 반려(`EXPIRED`)하고 사진을 지운다(S20-c, 서버가 켜져 있으면 1시간 안에, 꺼져 있던 동안 밀린 것은 켜진 뒤 몇 분 안에).
 승인되면 `users.verified_school_id`(학교 인증 칸)에 학교가 들어가고, 글쓰기 등 "학교 인증 규칙"의 검사는 그 칸을 그대로 쓴다. 기존 학교 메일 인증 회원(`verifiedSchool`이 있는 회원)은 신청 없이도 `APPROVED`로 본다.
-사진 보관: 허가서 사진은 **심사 결과가 나올 때까지만** 서버 비공개 저장소(운영 S3 비공개 버킷, 로컬은 폴더)에 보관한다. 허가서 전용 접두사(`permits/`)에 JPEG/PNG로 다시 저장하고(긴 변 2048px로 줄이고 EXIF·GPS 메타데이터 제거), 사진을 돌려주는 API는 관리자 전용 48번뿐이다(회원 본인용은 없다). 철회·회원 탈퇴 때 사진도 지운다. 서버 로그에는 파일 이름·사진 key·내용을 남기지 않고 회원 id와 결과 종류만 남긴다.
+사진 보관: 허가서 사진은 **심사 결과가 나올 때까지만** 서버 비공개 저장소(운영 S3 비공개 버킷, 로컬은 폴더)에 보관한다. 허가서 전용 접두사(`permits/`)에 JPEG/PNG로 다시 저장하고(긴 변 2048px로 줄이고 EXIF·GPS 메타데이터 제거), 사진을 돌려주는 API는 관리자 전용 48번뿐이다(회원 본인용은 없다). 철회·회원 탈퇴 때 사진도 지우고, 대기 상태로 14일이 넘은 신청은 서버가 켜져 있으면 1시간 안에, 서버가 꺼져 있던 동안 밀린 것은 켜진 뒤 몇 분 안에 자동 반려와 함께 사진이 지워진다. 운영 S3에는 `permits/` 14일 자동 삭제(수명 주기) 규칙이 안전망으로 걸린다. 서버 로그에는 파일 이름·사진 key·내용을 남기지 않고 회원 id와 결과 종류만 남긴다.
 
 ### 44. 허가서 인증 신청 `POST /users/me/permit-verification`
 
@@ -1114,7 +1114,7 @@ Content-Type: multipart/form-data; boundary=...
 | 필드 | 설명 |
 |------|------|
 | status | `NONE`(신청한 적 없음) / `PENDING`(대기) / `REJECTED`(거절) / `APPROVED`(승인) |
-| rejectReason | `REJECTED`일 때만. 거절 이유 코드: `BLURRY`, `NOT_PERMIT`, `NOT_MASKED`, `UNSUPPORTED_SCHOOL`, `DUPLICATE`, `EXPIRED`, `OTHER` |
+| rejectReason | `REJECTED`일 때만. 거절 이유 코드: `BLURRY`, `NOT_PERMIT`, `NOT_MASKED`, `UNSUPPORTED_SCHOOL`, `DUPLICATE`, `EXPIRED`(14일 넘게 대기해 서버가 자동 반려함. 다시 신청할 수 있다), `OTHER` |
 | requestedAt | 신청 시각(UTC). 신청이 없으면 없음 |
 | decidedAt | 결정 시각(UTC). 결정 전이거나 신청이 없으면 없음 |
 
@@ -1141,7 +1141,8 @@ Content-Type: multipart/form-data; boundary=...
 
 ## 관리자 허가서 심사 (Admin permit review)
 
-관리자가 허가서 인증 신청(44번)을 보고 승인·반려하는 API 4개 (S20-b). 접근 규칙(401·403·DB 재확인)은 관리자 절의 "접근 규칙 (`/admin/**` 공통)"과 같고, PUT은 `X-XSRF-TOKEN` 헤더가 필요하다. 기계 판독(S20-d·e)·14일 자동 삭제(S20-c)는 아직 없다.
+관리자가 허가서 인증 신청(44번)을 보고 승인·반려하는 API 4개 (S20-b). 접근 규칙(401·403·DB 재확인)은 관리자 절의 "접근 규칙 (`/admin/**` 공통)"과 같고, PUT은 `X-XSRF-TOKEN` 헤더가 필요하다. 기계 판독(S20-d·e)은 아직 없다.
+자동 만료(S20-c): 대기(`PENDING`)가 14일(`app.permit.pending-ttl`)을 넘긴 신청은 서버가 자동으로(서버가 켜져 있으면 1시간 주기, 꺼져 있던 동안 밀린 것은 켜진 뒤 3분쯤 지나 첫 실행 때. `app.permit.expiry-interval`·`app.permit.expiry-initial-delay`) `REJECTED`(`rejectReason` `EXPIRED`, `decidedAt` 채움)로 바꾸고 사진을 지운다. 사람이 아닌 시스템 결정이라 결정한 관리자 정보는 없다. 이 반려 건도 아래 47번 목록의 `REJECTED`에 나온다.
 서버 로그에는 "허가서 승인/반려: adminId, requestId"만 남기고 허가서 번호·해시·사진 key·사진 내용은 남기지 않는다.
 
 ### 47. 허가서 신청 목록 `GET /admin/permit-requests?status=PENDING`

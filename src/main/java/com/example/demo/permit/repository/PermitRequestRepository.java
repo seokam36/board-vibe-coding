@@ -1,5 +1,6 @@
 package com.example.demo.permit.repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,6 +40,12 @@ public interface PermitRequestRepository extends JpaRepository<PermitRequest, Lo
     // 같은 번호 해시로 이 상태의 신청이 이미 있는가 (승인 전에 미리 확인해 일반 경로에서는 DB 오류가 안 나게 한다.
     // 동시 승인 경쟁의 최종 보장은 부분 UNIQUE uk_permit_requests_permit_hash)
     boolean existsByPermitNumberHashAndStatus(String permitNumberHash, PermitStatus status);
+
+    // 기한 만료 후보(S20-c): 이 상태이고 cutoff보다 먼저 만들어진 신청의 id, id가 lastId보다 큰 것만, 오래된 순, 최대 limit개.
+    // lastId로 앞 묶음 다음부터 이어 읽는다(실패한 건이 다시 뽑혀 줄 앞을 막지 않게). 잠금 없음(처리 때 다시 확인한다)
+    @Query("select p.id from PermitRequest p where p.status = :status and p.createdAt < :cutoff and p.id > :lastId order by p.id asc")
+    List<Long> findIdsByStatusAndCreatedAtBefore(@Param("status") PermitStatus status, @Param("cutoff") Instant cutoff,
+            @Param("lastId") long lastId, Limit limit);
 
     // 신청자 id만 잠금 없이 읽는다 (승인·반려가 "회원 행 먼저 잠그기" 위해 잠금 전에 알아내는 용도)
     @Query("select p.userId from PermitRequest p where p.id = :id")
