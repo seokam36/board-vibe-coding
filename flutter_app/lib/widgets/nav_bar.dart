@@ -61,6 +61,7 @@ class _NavBarState extends State<NavBar> {
         AppLink(label: '내 정보', onTap: () => context.go('/me')),
         // 관리자에게만 보이는 메뉴
         if (user.isAdmin) AppLink(label: '신고 관리', onTap: () => context.go('/admin/reports')),
+        if (user.isAdmin) AppLink(label: '인증 심사', onTap: () => context.go('/admin/permits')),
         OutlinedButton(
           onPressed: _logout,
           style: OutlinedButton.styleFrom(

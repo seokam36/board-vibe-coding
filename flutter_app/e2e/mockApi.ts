@@ -228,6 +228,11 @@ export async function mockApi(page: Page, options: { user?: FakeUser | null } = 
         await route.fulfill({ status: 200, contentType: 'image/png', body: TINY_PNG })
         return
       }
+      // 관리자 허가서 사진(48번)도 기본으로 작은 PNG를 돌려준다 (JSON이 아닌 이미지 바이트라 핸들러 대신 여기서 처리)
+      if (!handler && req.method() === 'GET' && /^\/admin\/permit-requests\/[^/]+\/photo$/.test(path)) {
+        await route.fulfill({ status: 200, contentType: 'image/png', body: TINY_PNG })
+        return
+      }
       if (!handler) {
         unhandled.push(key)
         await route.fulfill({ status: 404, json: { message: `mock 없음: ${key}` } })

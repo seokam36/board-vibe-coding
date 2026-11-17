@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart' show ValueKey, Widget;
 
 import 'auth/auth_state.dart';
 import 'pages/admin_conversation_page.dart';
+import 'pages/admin_permits_page.dart';
 import 'pages/admin_reports_page.dart';
 import 'pages/chat_page.dart';
 import 'pages/conversation_page.dart';
@@ -148,6 +149,12 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
             caseSensitive: false,
             pageBuilder: (context, state) =>
                 _page(state, AdminReportsPage(status: state.uri.queryParameters['status'] ?? '')),
+          ),
+          // S20-g3: 관리자 인증 심사 (화면 안에서 관리자 여부를 확인한다)
+          GoRoute(
+            path: '/admin/permits',
+            caseSensitive: false,
+            pageBuilder: (context, state) => _page(state, const AdminPermitsPage()),
           ),
           GoRoute(
             path: '/admin/reports/:id/conversation',
