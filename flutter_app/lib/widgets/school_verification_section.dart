@@ -10,6 +10,7 @@ import '../errors/error_messages.dart';
 import '../market/photo_upload.dart' show maxPhotoBytes;
 import '../theme/app_colors.dart';
 import 'app_badge.dart';
+import 'confirm_dialog.dart';
 import 'loading.dart';
 import 'notice.dart';
 import 'panel.dart';
@@ -67,6 +68,21 @@ const permitRecheckFailed = '접수됐는지 확인하지 못했어요. 새로�
 // 서버가 사진 글자를 읽는 데 최대 약 10초 걸리니 넉넉히 둔다
 const permitSubmitTimeout = Duration(minutes: 2);
 
+// ---- 철회·해제 (DELETE) 문구 ----
+const permitWithdrawConfirm = '신청을 철회할까요?';
+const permitUnlinkConfirm =
+    '인증을 해제하면 글쓰기·댓글·공감·중고·쪽지를 쓸 수 없어요. 다시 쓰려면 허가서를 다시 올려 심사를 받아야 해요. 해제할까요?';
+// 철회·해제 실패 상태코드별 문구 (401은 표에 두지 않는다 → describeError가 로그인 안내로 바꾼다)
+const permitRemoveErrors = <int, String>{
+  403: '요청이 거절됐어요. 새로고침 후 다시 시도해 주세요',
+  404: '이미 철회되었거나 인증이 없어요',
+};
+// 해제는 됐는데 회원 정보를 못 받아 뱃지가 남았을 때
+const permitUnlinkReload = '해제됐어요. 새로고침해 주세요.';
+const permitRemoveFailed = '처리하지 못했어요. 잠시 뒤 다시 시도해 주세요';
+// 철회·해제 요청의 제한 시간 (공용 dio에는 시간 제한이 없어서 요청마다 건다)
+const permitRemoveTimeout = Duration(seconds: 30);
+
 // 서버가 알려 주는 "내 인증 상태" (GET·POST 응답 공통). status: NONE / PENDING / REJECTED / APPROVED
 class PermitStatus {
   const PermitStatus({
@@ -111,6 +127,8 @@ class _SchoolVerificationSectionState extends State<SchoolVerificationSection> {
   String? _checkMessage; // 사전 검사에서 거른 이유
   bool _submitting = false; // 신청 요청 중 (이 동안 컨트롤을 잠그고 연타를 막는다)
   ErrorInfo? _submitError; // 신청이 실패한 이유 (NeedLogin이면 로그인 안내)
+  bool _removing = false; // 철회·해제 요청 중 (이 동안 버튼을 잠근다)
+  ErrorInfo? _removeError; // 철회·해제가 실패한 이유 (NeedLogin이면 로그인 안내)
 
   @override
   void initState() {
@@ -225,6 +243,7 @@ class _SchoolVerificationSectionState extends State<SchoolVerificationSection> {
     setState(() {
       _submitting = true;
       _submitError = null;
+      _removeError = null; // 철회·해제 때의 옛 안내(404 등)가 다음 화면에 남지 않게 비운다
     });
     final api = context.read<ApiClient>();
     var recheck = false; // 실패 뒤 서버 상태를 다시 확인할지
@@ -286,12 +305,88 @@ class _SchoolVerificationSectionState extends State<SchoolVerificationSection> {
     setState(() => _submitting = false);
   }
 
+  // [신청 철회] / [인증 해제]: 확인 창 → DELETE → 204면 상태를 처음부터 다시 불러온다
+  Future<void> _remove({
+    required String message,
+    required String confirmLabel,
+  }) async {
+    if (_removing) return; // 연타 방지
+    final ok = await showConfirm(
+      context,
+      message: message,
+      confirmLabel: confirmLabel,
+      danger: true,
+    );
+    if (!ok || !mounted) return; // 취소하면 요청을 보내지 않는다
+    final hadSchool = context.read<AuthState>().user?.verifiedSchool != null;
+    setState(() {
+      _removing = true;
+      _removeError = null;
+    });
+    final api = context.read<ApiClient>();
+    var reload = false; // 성공·이미 처리된 상태(404)·시간 초과면 상태를 다시 불러온다
+    var succeeded = false; // 204로 성공했는지
+    try {
+      await api.dio.delete<void>(
+        '/users/me/permit-verification',
+        options: Options(receiveTimeout: permitRemoveTimeout),
+      );
+      reload = true;
+      succeeded = true;
+    } catch (e) {
+      if (!mounted) return;
+      final info = describeError(e, permitRemoveErrors, permitRemoveFailed);
+      // 시간 초과는 서버가 이미 지웠을 수도 있어서 상태를 다시 확인한다 (신청 POST와 같은 방식)
+      reload = getStatus(e) == 404 || isTimeoutError(e);
+      setState(() => _removeError = info);
+    }
+    if (!mounted) return;
+    if (reload) {
+      // 낡은 상태(대기·승인)를 지우고 "불러오는 중"으로 돌려 둔다. 그래야 인증이 풀린 뒤
+      // build가 중복으로 묻지 않고, 다시 받은 상태(NONE)로 신청 폼이 바로 나온다
+      setState(() {
+        _status = null;
+        _loadState = _LoadState.loading;
+      });
+      // 인증 회원이었다면 회원 정보를 갱신해 뱃지를 지운다 (대기 중 철회에는 뱃지가 없어 생략)
+      if (hadSchool) {
+        await context.read<AuthState>().refreshUser();
+        if (!mounted) return;
+      }
+      await _fetch();
+      if (!mounted) return;
+      // 해제는 성공했는데 회원 정보 갱신이 조용히 실패해 뱃지가 남았으면 새로고침을 안내한다
+      if (succeeded &&
+          hadSchool &&
+          context.read<AuthState>().user?.verifiedSchool != null) {
+        setState(
+          () => _removeError = const ErrorMessage(permitUnlinkReload, null),
+        );
+      }
+    }
+    setState(() => _removing = false);
+  }
+
+  // 철회·해제 실패 안내 (로그인 만료면 로그인 링크)
+  List<Widget> _removeNotice() {
+    final error = _removeError;
+    return [
+      if (error is NeedLogin) const ReloginNotice(),
+      if (error is ErrorMessage)
+        Notice(kind: NoticeKind.error, message: error.message),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final school = context.watch<AuthState>().user?.verifiedSchool;
     // 인증 회원으로 시작했다가 인증이 풀려(학교가 사라져) 아직 상태를 모르면, 그때 한 번 묻는다.
     // 빌드 중에는 setState를 못 하니 값만 바꾸고 묻기는 그리기가 끝난 뒤로 미룬다
-    if (school == null && _status == null && _loadState == _LoadState.ready) {
+    // 단, 철회·해제 중 로그인이 풀린 경우(NeedLogin)는 묻지 않는다: 물어 봐야 실패해서 로그인 안내만 가려진다
+    if (school == null &&
+        _status == null &&
+        _loadState == _LoadState.ready &&
+        _removeError is! NeedLogin) {
       _loadState = _LoadState.loading;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _fetch();
@@ -310,6 +405,17 @@ class _SchoolVerificationSectionState extends State<SchoolVerificationSection> {
               bg: AppColors.celadonSoft,
             ),
             const FieldHint('졸업 후에도 유지돼요'),
+            ..._removeNotice(),
+            OutlinedButton(
+              key: const ValueKey('permit-unlink-button'),
+              onPressed: _removing
+                  ? null
+                  : () => _remove(
+                      message: permitUnlinkConfirm,
+                      confirmLabel: '해제',
+                    ),
+              child: const Text('인증 해제'),
+            ),
           ] else
             ..._unverified(),
         ],
@@ -319,6 +425,8 @@ class _SchoolVerificationSectionState extends State<SchoolVerificationSection> {
 
   // 미인증 회원이 보는 내용
   List<Widget> _unverified() {
+    // 해제 중 세션이 만료되면 학교 정보가 비어 이 화면으로 넘어온다. 로그인 안내를 그대로 보여 준다
+    if (_removeError is NeedLogin) return const [ReloginNotice()];
     switch (_loadState) {
       case _LoadState.loading:
         return const [Loading()];
@@ -347,6 +455,17 @@ class _SchoolVerificationSectionState extends State<SchoolVerificationSection> {
               FieldHint('신청한 때: $date')
             else
               const SizedBox(height: AppSizes.space3),
+            ..._removeNotice(),
+            OutlinedButton(
+              key: const ValueKey('permit-withdraw-button'),
+              onPressed: _removing
+                  ? null
+                  : () => _remove(
+                      message: permitWithdrawConfirm,
+                      confirmLabel: '철회',
+                    ),
+              child: const Text('신청 철회'),
+            ),
           ];
         }
         if (status.status == 'APPROVED') {
@@ -356,6 +475,7 @@ class _SchoolVerificationSectionState extends State<SchoolVerificationSection> {
           ];
         }
         return [
+          ..._removeNotice(), // 404(이미 처리됨) 안내가 신청 폼 위에 남도록
           if (status.status == 'REJECTED')
             Notice(
               kind: NoticeKind.error,
