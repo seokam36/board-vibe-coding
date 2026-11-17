@@ -104,6 +104,16 @@ services:
       # compose 기본값을 운영 값으로 둔다. 질문 1개 = 호출 최대 2번이라 분 7·하루 200
       CHAT_GLOBAL_PER_MINUTE: ${CHAT_GLOBAL_PER_MINUTE:-7}
       CHAT_GLOBAL_PER_DAY: ${CHAT_GLOBAL_PER_DAY:-200}
+      # 유학생 인증(S20). 허가서 번호 해시(HMAC)에 섞는 비밀 값. 서버 .env에서만 읽고 32바이트 이상. 한 번 정하면 바꾸지 않는다.
+      # :? 는 prod 아닌 로컬 `docker compose up`의 변수 해석까지 깨뜨릴 수 있어 쓰지 않는다(PHOTO_S3_BUCKET과 같은 이유).
+      # 비어 있거나 짧으면 앱이 시작할 때 변수 이름을 알려 주며 실패한다(그래서 빠뜨려도 조용히 넘어가지 않는다)
+      PERMIT_HASH_SECRET: ${PERMIT_HASH_SECRET:-}
+      # 허가서 글자 판독기: off(기본, 모든 신청이 관리자 대기) | vision(구글 Cloud Vision). 빈 값이면 앱이 시작 실패하므로 :-로 off를 채운다
+      PERMIT_OCR_MODE: ${PERMIT_OCR_MODE:-off}
+      # vision일 때만 필요한 비밀 값(off면 앱이 읽지 않는다). 파일에 쓰지 않고 서버 .env에서만 읽는다
+      VISION_API_KEY: ${VISION_API_KEY:-}
+      # 사진 한 장 판독의 전체 시간 상한. 빈 값이면 읽기 실패라 :-로 채운다
+      VISION_TIMEOUT: ${VISION_TIMEOUT:-10s}
     depends_on:
       postgres:
         # DB가 healthy가 된 뒤에 앱 시작

@@ -100,6 +100,7 @@ EC2는 이미지를 받아 실행만 합니다. 저장소를 clone할 필요 없
   - `REDIS_PASSWORD` (필수): 리프레시 토큰 저장소(Redis) 비밀번호. 서버에서 직접 만듭니다: `openssl rand -hex 24`. 없으면 `docker compose`가 바로 실패합니다.
   - `COOKIE_SECURE` (선택): 로그인 쿠키의 Secure 속성. 기본 `false`이고, HTTPS를 도입하면 `true`로 바꿉니다.
   - `PHOTO_S3_BUCKET` (S13부터 필수): 사진을 저장하는 S3 버킷 이름. 없으면 app이 시작되지 않습니다. 자세한 내용은 아래 "사진 저장 (S13-g6)"을 봅니다.
+  - `PERMIT_HASH_SECRET` (S20부터 필수): 허가서 번호 해시용 비밀 값(32바이트 이상, 한 번 정하면 바꾸지 않음). 없거나 짧으면 app이 시작되지 않습니다. `PERMIT_OCR_MODE`(선택, 기본 `off`)와 함께 위 "S20 배포"를 봅니다.
 - DB 비밀번호를 바꿀 때: `.env`의 `POSTGRES_PASSWORD`만 바꾸면 이미 만들어진 DB에는 적용되지 않습니다(처음 만들 때만 읽음).
   EC2 `~/board`에서 DB 안의 비밀번호와 `.env`를 같은 값으로 함께 바꿉니다. 값은 서버에서 만들고 화면에 출력하지 않습니다.
   - `set -a && . ./.env && set +a && NEWPW=$(openssl rand -hex 24)`
@@ -269,17 +270,151 @@ S18(제미나이 연결 `LLM_MODE=gemini`, 서버 전체 질문 상한, 챗봇 �
 5. **[브라우저]** `/actuator/health`가 UP이고 글 목록이 뜨는지 봅니다.
 - **주의**: (a)의 주의 박스와 같습니다. 고쳐서 새 `latest`가 올라온 뒤(Actions 초록) `cp docker-compose.yml.bak-latest docker-compose.yml`로 원복하고 `grep`으로 두 줄이 `:latest`인지 확인한 다음 Deploy를 누릅니다. 안 하면 Deploy가 계속 옛 이미지를 받습니다.
 
+### S20 배포 (유학생 인증: 표준입학허가서 신청·심사·판독)
+S18 다음 첫 운영 배포입니다. S18 배포 뒤 쌓인 S20 전체(허가서 신청·관리자 심사·자동 판정·14일 만료, 메일 인증 제거)가 한 번에 나갑니다. **순서가 중요합니다: CI 초록 -> 서버 백업 -> `.env`에 새 비밀 값 -> 새 compose scp -> Deploy 버튼.** 순서를 어기면(특히 `.env`·compose 없이 Deploy) 앱이 시작하지 못하고 사이트가 내려갑니다.
+
+메모:
+- **`<퍼블릭IP>` 칸**: 배포를 실제로 진행할 때 메인 대화(Claude)가 사용자에게 IP를 받아 완성된 명령으로 바꿔 줍니다. 직접 채울 때는 꺾쇠(`<` `>`)까지 지우고 숫자만 넣습니다(예: `ec2-user@1.2.3.4`). PowerShell이면 `ssh`·`scp` 대신 `& "C:\Windows\System32\OpenSSH\ssh.exe"`·`& "C:\Windows\System32\OpenSSH\scp.exe"`를 쓰고 키 경로는 `"$HOME\.ssh\board-ec2"`입니다(아래 명령은 Git Bash 모양, 위 S18 "준비" 설명과 같음).
+- **새 환경변수 4개**(compose가 `.env`에서 읽어 app에 넘김): `PERMIT_HASH_SECRET`(**필수**, 허가서 번호 해시용 비밀 값, 32바이트 이상), `PERMIT_OCR_MODE`(기본 `off`, 값은 `off` 또는 `vision`), `VISION_API_KEY`(`vision`일 때만 필요, 처음엔 적지 않음), `VISION_TIMEOUT`(기본 `10s`, 적지 않음). 서버 `.env`에는 **처음엔 `PERMIT_HASH_SECRET`과 `PERMIT_OCR_MODE=off` 두 줄만** 넣습니다.
+- **`PERMIT_HASH_SECRET`은 한 번 정하면 바꾸지 않습니다.** 바꾸면 이미 저장된 허가서 번호 해시와 달라져 "같은 허가서를 다른 계정에서 또 쓰는 것"을 못 막게 됩니다. 서버가 망가져도 되살릴 수 있게 **서버 밖 안전한 곳(비밀번호 관리자 등)에도 따로 보관**합니다. 저장소·메신저·Notion에는 적지 않습니다.
+- 처음엔 **`PERMIT_OCR_MODE=off`**: 글자 판독기가 항상 "못 읽음"이라 모든 신청이 관리자 대기로 남습니다(자동 승인 없음). 화면이 잘 도는 걸 확인한 뒤 아래 "vision 전환"을 따로 합니다.
+- **V14 새 표 2개**(`permit_requests`, `school_name_aliases`)가 앱이 켜질 때 Flyway로 적용됩니다. 기존 표·칸은 바뀌지 않습니다. Deploy가 직전에 DB를 자동 백업합니다.
+- 메일 인증(S10)이 없어졌습니다. 새 compose에는 `MAIL_*` 줄이 없습니다. 서버 `.env`의 `MAIL_*` 줄과 Gmail 앱 비밀번호는 **배포 확인이 끝날 때까지 그대로 둡니다**(S18로 되돌릴 때 필요, 아래 "S20 되돌리기"와 "확인 끝난 뒤 정리").
+- nginx(`web` 이미지)에 허가서 신청 주소(`/api/users/me/permit-verification`)의 11MB·150초 예외가 들어 있습니다. 새 web 이미지와 함께 Deploy가 반영합니다.
+
+**1) 배포 전 (내 PC·GitHub)**
+1. **[PC]** 배포할 커밋을 push한 뒤(push는 직접) GitHub Actions 탭에서 그 커밋의 CI 세 작업(backend, flutter, images)이 모두 초록인지 봅니다. images가 초록이어야 새 이미지가 올라가 있습니다. Deploy는 항상 마지막 `latest`를 받으므로, 배포할 커밋이 main의 마지막 커밋인지도 확인합니다.
+2. **[PC]** 배포할 커밋 SHA를 적어 둡니다(되돌리기·기록용): `git rev-parse HEAD`
+
+**2) 서버 준비 (EC2를 켠 뒤 Deploy 버튼 전)**
+1. **[콘솔]** EC2 인스턴스를 켜고(시작) 퍼블릭 IP를 확인합니다.
+2. **[PC]** 현재 compose를 백업합니다. 이 파일이 S18 되돌리기의 열쇠입니다(MAIL_* 줄이 들어 있음). 같은 이름이 이미 있으면 덮어쓰지 않고 멈춥니다:
+   - `ssh -i ~/.ssh/board-ec2 ec2-user@<퍼블릭IP> 'test ! -e ~/board/docker-compose.yml.bak-s20 && cp ~/board/docker-compose.yml ~/board/docker-compose.yml.bak-s20 && ls -l ~/board/docker-compose.yml.bak-s20'`
+   - 확인: `ssh -i ~/.ssh/board-ec2 ec2-user@<퍼블릭IP> "grep -c '^ *MAIL_' ~/board/docker-compose.yml.bak-s20"` 가 `6`인지 봅니다.
+3. **[PC]** 현재 `.env`도 백업합니다(권한 600으로 만들어짐. 안에 비밀이 있으니 열어 보지 않고, 배포 확인이 끝나면 지웁니다):
+   - `ssh -i ~/.ssh/board-ec2 ec2-user@<퍼블릭IP> 'umask 077 && cp ~/board/.env ~/board/.env.bak-s20 && ls -l ~/board/.env.bak-s20'` (`-rw-------`인지 봅니다)
+4. **[PC, PowerShell]** `PERMIT_HASH_SECRET` 값을 만듭니다(48바이트 무작위 -> 64글자). 화면에 나온 값을 **바로 비밀번호 관리자에 저장**하고, 복사해 둡니다(클립보드):
+   - `$b = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Convert]::ToBase64String($b)`
+   - (서버에서 `openssl rand -base64 48`로 만들 수도 있지만, 서버 밖에도 보관해야 하므로 PC에서 만드는 쪽을 권합니다. 값이 터미널 기록에 남으니 만든 뒤 창을 닫습니다.)
+5. **[서버]** `.env`에 두 줄을 넣습니다. **키가 화면·터미널 기록에 남지 않게 `cat .env`나 `echo 값 >> .env`는 쓰지 않고 편집기로 직접 고칩니다.**
+   - `ssh -i ~/.ssh/board-ec2 ec2-user@<퍼블릭IP>` 로 접속한 뒤 `nano ~/board/.env` 를 엽니다. **nano 화면이 뜬 것을 확인한 뒤에** 붙여 넣습니다(셸 프롬프트에 붙여 넣었다면 값이 `~/.bash_history`에 남으니 그 값은 버리고 새로 만듭니다. 아직 한 번도 쓰지 않았을 때만 가능).
+   - 맨 아래에 아래 두 줄을 적습니다(같은 이름의 줄이 이미 있으면 새로 만들지 말고 그 줄을 고칩니다).
+     ```
+     PERMIT_HASH_SECRET=여기에값을붙여넣기
+     PERMIT_OCR_MODE=off
+     ```
+   - **`여기에값을붙여넣기` 글자를 전부 지우고 4번에서 만든 값을 붙여 넣습니다.** `=` 앞뒤에 띄어쓰기·따옴표·`<` `>` 를 넣지 않고 줄바꿈이 끼면 안 됩니다. `PERMIT_OCR_MODE`는 빈 값으로 두면 앱이 시작하지 못하니 `off`라고 씁니다.
+   - 저장하고 닫습니다(nano는 `Ctrl+O` 엔터 -> `Ctrl+X`). nano가 비정상으로 끝나 `.env.save`가 `~/board`에 남았다면 열어 보지 말고 `rm`으로 지웁니다.
+   - 값을 화면에 띄우지 않고 확인합니다(**[서버]**): `grep -c '^PERMIT_HASH_SECRET=여기에' ~/board/.env` 가 `0`, `grep -c '^PERMIT_HASH_SECRET=' ~/board/.env` 가 `1`, `grep -c '^PERMIT_OCR_MODE=off$' ~/board/.env` 가 `1`.
+   - 길이만 봅니다(값은 안 나옴): `grep '^PERMIT_HASH_SECRET=' ~/board/.env | awk '{print length($0)-19}'` 가 `64`(32 이상이면 됩니다).
+   - 권한: `chmod 600 ~/board/.env` 그리고 `ls -l ~/board/.env` 가 `-rw-------` 로 시작하는지 봅니다. 다 끝나면 `exit`로 나옵니다.
+6. **[PC, 저장소 루트에서]** 새 compose를 서버로 복사합니다: `scp -i ~/.ssh/board-ec2 docker-compose.yml ec2-user@<퍼블릭IP>:~/board/docker-compose.yml`
+7. **[서버]** 새 compose가 `.env` 값을 제대로 읽는지 봅니다. **`docker compose config`를 그대로 출력하지 않습니다**(비밀 값이 화면에 나옴). 아래처럼 개수만 봅니다:
+   - `cd ~/board && docker compose --profile prod config -q && echo 문법OK` — 오류 없이 `문법OK`가 나와야 합니다.
+   - `docker compose --profile prod config | grep -c '^ *PERMIT_HASH_SECRET: ""'` 가 `0`(값이 채워짐)
+   - `docker compose --profile prod config | grep -E '^ *(PERMIT_OCR_MODE|VISION_TIMEOUT):'` — 비밀이 아니라서 그대로 나옵니다. `off`와 `10s`인지 봅니다.
+   - `docker compose --profile prod config | grep -c '^ *MAIL_'` 가 `0`(새 compose에는 메일 줄이 없음)
+8. **[브라우저]** Actions 탭 -> Deploy -> Run workflow (위 "자동 배포"와 같음). DB 백업·헬스체크가 모두 초록인지 봅니다. 이 워크플로가 하는 일은 위 "자동 배포"와 같습니다: EC2 IP 조회 -> SSH 문 잠깐 열기 -> **DB 자동 백업**(실패하면 여기서 중단) -> `docker compose pull`/`up -d` -> `/actuator/health` UP 확인(최대 약 3~4분) -> SSH 문 닫기.
+
+**3) AWS 콘솔 작업** (Deploy 전후 어느 쪽이든 되지만, **S3 권한은 첫 신청 시험 전에** 끝냅니다)
+1. **IAM 역할 `board-ec2-role`의 S3 정책 확인**: 콘솔 -> IAM -> 역할 -> `board-ec2-role` -> 연결된 정책을 열어 JSON을 봅니다. 사진 객체(`Resource`가 `.../*` 끝)에 `s3:PutObject`·`s3:GetObject`·`s3:DeleteObject` 세 가지가 **`permits/` 아래까지** 허용돼야 합니다.
+   - `arn:aws:s3:::<버킷 이름>/*` 처럼 버킷 전체면 이미 됩니다(고칠 것 없음).
+   - `arn:aws:s3:::<버킷 이름>/market/*` 처럼 좁혀져 있으면 **`arn:aws:s3:::<버킷 이름>/permits/*` 한 줄을 Resource에 추가**하고 저장합니다. 안 하면 허가서 신청이 500이 됩니다.
+   - 버킷 자체에 대한 `s3:ListBucket`(앱이 시작할 때 버킷을 확인함)은 그대로 둡니다.
+2. **S3 수명 주기 규칙 `permits/` 접두사 14일**(안전망): 서버를 14일 넘게 꺼 두면 앱의 14일 만료 작업이 못 돌기 때문에, S3가 직접 지웁니다. 콘솔 -> S3 -> 사진 버킷 -> "관리" 탭 -> "수명 주기 규칙 생성".
+   - 규칙 이름: `permits-expire-14d`
+   - **규칙 범위: "하나 이상의 필터를 사용하여 이 규칙의 범위 제한"을 고르고, 접두사에 `permits/` 를 적습니다.**
+   - **경고: "버킷의 모든 객체에 적용"을 고르면 중고 사진(`market/`)까지 14일 뒤에 전부 지워집니다.** 고르면 안 됩니다.
+   - 규칙 작업: "현재 버전의 객체 만료"를 체크하고 객체 생성 후 일수 `14`. (버전 관리가 켜져 있다면 "이전 버전의 객체 영구 삭제"도 체크하고 `1`일로 둡니다.)
+   - 저장한 뒤 규칙 목록에서 상태가 "사용", 범위가 `permits/` 접두사인지 다시 확인합니다.
+3. **기본 암호화 확인**: S3 -> 사진 버킷 -> "속성" 탭 -> "기본 암호화"가 켜져 있는지(SSE-S3면 충분) 봅니다. 새 버킷은 기본으로 켜져 있습니다.
+
+**4) 배포 뒤 확인** (앞에서부터 순서대로)
+1. **[브라우저]** Deploy 실행이 초록(DB 백업·헬스체크 포함)인지, `http://<퍼블릭IP>/actuator/health`가 UP인지 봅니다.
+2. **[서버]** 앱이 안 죽고 떴는지: `cd ~/board && docker compose --profile prod logs --tail 100 app` 에 시작 실패(`APPLICATION FAILED`, `Application run failed`, `IllegalStateException`)가 없는지 봅니다. app이 계속 재시작하면 `--tail 100`에는 마지막만 보이니 `docker compose --profile prod logs app | grep -E 'IllegalStateException|APPLICATION FAILED'` 로 찾습니다. 실패 글자와 뜻은 아래 표.
+3. **[서버]** 판독기가 꺼진 채로 떴는지: `docker compose --profile prod logs app | grep -c '허가서 글자 판독 꺼짐'` 가 `1`(시작 로그 `허가서 글자 판독 꺼짐(PERMIT_OCR_MODE=off): 모든 신청은 관리자 대기로 남습니다.`). 0이면 새 이미지가 안 뜬 것이거나 `PERMIT_OCR_MODE`가 `off`가 아닙니다.
+4. **[서버]** 표 변경 확인: `docker exec board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT version, success FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 3;"'` 에서 가장 위가 `14 | t`인지 봅니다.
+5. **[서버]** 학교 별칭 24건: `docker exec board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT count(*) FROM school_name_aliases;"'` 가 `24`인지 봅니다.
+6. **[브라우저]** 화면 확인(계정이 둘 필요합니다: 인증 안 된 새 테스트 계정 A·B, 관리자 계정. 운영 테스트 계정 `wntjrdka`는 이미 연세대 인증이라 신청에는 쓰지 않습니다). 사진은 **지어낸 값만 보이게 가린 견본**이나 아무 2~5MB 사진을 씁니다(실제 허가서를 쓰지 않습니다. `off` 모드라 판독은 안 합니다):
+   1. 계정 A로 가입 -> 내 정보에서 "유학생 인증" 신청 -> **2~5MB 사진**으로 신청 -> **201(접수됨)** 이 되는지(1MB 넘는 사진이라 nginx 11MB 예외까지 같이 확인됨. 413이면 새 web 이미지가 안 뜬 것입니다).
+   2. 관리자 계정으로 로그인 -> "인증 심사" -> 계정 A의 줄에서 **사진 보기**가 되는지 -> 학교와 허가서 번호(지어낸 값, 영문·숫자 부분만)로 **승인**.
+   3. 계정 A 다시 로그인(또는 새로고침) -> 인증 완료 표시, **글쓰기가 되는지**.
+   4. 계정 B로 신청 -> 관리자가 **반려**(사유 하나) -> 계정 B 화면에 반려 사유 문구가 보이고 다시 신청할 수 있는지.
+   5. 계정 B로 다시 신청한 뒤 **대기 중에 철회**합니다. 이 직전에 **[콘솔]** S3 -> 사진 버킷 -> `permits/` 폴더에 B의 파일이 1개 보이고, 철회 뒤 새로고침하면 **없어지는지**(대기 중 철회 = 사진 즉시 삭제). 승인한 A의 파일도 `permits/`에 남지 않아야 합니다.
+   6. 화면에 학교 메일 입력칸이 더 이상 보이지 않는지, 글 목록·중고 글 상세·새로고침해도 로그인 유지(기존 기능 3가지)도 봅니다. `wntjrdka`로 로그인해 글쓰기가 그대로 되는지도 봅니다.
+   - 시험이 끝나면 테스트 계정 A·B는 탈퇴로 정리합니다(탈퇴하면 신청·사진도 같이 지워집니다).
+7. **[서버]** 로그 확인(0이어야 정상): `docker compose --profile prod logs app | grep -c '사진 파일 삭제에 실패'` 가 `0`, `docker compose --profile prod logs app | grep -c 'permits/'` 가 `0`(허가서 사진 이름은 로그에 남지 않게 만들었습니다. 0이 아니면 개인정보가 샌 것이니 로그를 펴 보지 말고 알려 주세요).
+8. **[서버]** 메모리와 재시작: `docker stats --no-stream board-app` 의 메모리가 `512MiB` 미만인지(S18 때 약 375MiB), `docker ps` 에서 `board-app`이 `Restarting`이 아니고 `Up` 시간이 늘어나는지 봅니다(1분쯤 뒤 한 번 더).
+9. **[서버]** (관리자 본인 학교) 관리자는 **자기 신청을 심사할 수 없습니다**(403). 관리자 계정을 인증 상태로 만들려면 SQL로 합니다(이미 인증된 `wntjrdka`는 할 필요 없음). `<아이디>`는 그 회원의 로그인 아이디:
+```sh
+docker exec -i board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1' <<'SQL'
+UPDATE users SET verified_school_id = (SELECT id FROM schools WHERE name = '연세대학교'), verified_at = now() WHERE username = '<아이디>';
+SQL
+```
+   `UPDATE 1`이 나오면 성공입니다.
+
+**시작 실패 메시지 표** (**[서버]** `docker compose --profile prod logs app | grep -E 'PERMIT_|VISION_'` 로 찾습니다. 메시지에는 변수 이름만 나오고 값은 나오지 않습니다)
+
+| 로그에 보이는 글자 | 뜻 | 할 일 |
+|---|---|---|
+| `PERMIT_HASH_SECRET이 비어 있습니다` | `.env`에 줄이 없거나 값이 빔. **compose를 scp하지 않았을 때도** 같은 메시지(새 줄이 app에 안 넘어감) | `.env` 확인(위 2-5), compose scp 확인(위 2-6, 서버 compose에 `PERMIT_HASH_SECRET`이 있는지 `grep -c PERMIT_HASH_SECRET ~/board/docker-compose.yml` 가 1 이상) |
+| `PERMIT_HASH_SECRET은 32바이트 이상이어야 합니다` | 값이 짧음(잘렸거나 일부만 붙여 넣음) | 64글자 값을 다시 넣음(위 2-5의 길이 확인) |
+| `PERMIT_OCR_MODE는 off, vision 중 하나여야 합니다` | 값이 `off`/`vision`이 아님(`OFF`·`Vision`·앞뒤 공백도 실패) | `.env`의 `PERMIT_OCR_MODE=off` 로 고침 |
+| `PERMIT_OCR_MODE=vision인데 VISION_API_KEY가 비어 있습니다` | vision인데 키가 없음 | 키를 넣거나 `off`로 되돌림 |
+| `VISION_API_KEY에 공백이나 줄바꿈 같은 글자가 들어 있습니다` | 키 앞뒤에 공백·줄바꿈이 붙음 | `.env`의 그 줄을 다시 고침 |
+| `VISION_TIMEOUT은 0보다 커야 합니다` | 시간 값이 0 이하 | 줄을 지우거나 `10s` |
+
+고친 뒤에는 `cd ~/board && docker compose --profile prod up -d app` (단순 `restart`는 `.env`를 다시 읽지 않습니다). 앱이 시작 못 하는 동안 사이트는 502입니다. 빨리 고칠 수 없으면 아래 "S20 되돌리기"로 먼저 살립니다.
+
+**S20 되돌리기** (문제가 있을 때만. 위 "Flyway 문제와 되돌리기"의 "S18 이미지로 돌아갈 때 (V14 적용 후)"에 안전한 이유가 있습니다)
+- 핵심: **V14 표 2개가 DB에 남아 있어도 S18 이미지는 뜹니다**(ddl-auto `validate`는 엔티티에 있는 표·칸만 검사). DB를 되돌릴 필요가 없고 **기록장·V14 표를 손으로 지우지 않습니다**.
+- 되돌릴 이미지: `seokam36/demo:2f4e560fa6057c2ec01bd290a29013f7cdb92c31`, `seokam36/demo-web:2f4e560fa6057c2ec01bd290a29013f7cdb92c31` (S18 배포 때의 이미지. 그 커밋 CI의 images가 초록이었어야 태그가 있습니다. 모르겠으면 GitHub Packages가 아니라 Docker Hub의 태그 목록을 봅니다.)
+- **compose는 S20 것이 아니라 2-2에서 만든 백업(`docker-compose.yml.bak-s20`)을 바탕으로 합니다.** 이유: S18 앱은 메일 설정(`MAIL_*`)을 compose로 받는데, S20 compose에는 그 줄이 없어서 그대로 되돌리면 메일이 조용히 `log` 모드(코드를 로그에만 찍음)로 바뀌어 인증 메일이 안 갑니다. 백업에는 `MAIL_*` 줄과 S18의 나머지 줄이 그대로 있습니다. **그래서 배포 확인이 끝나기 전에는 서버 `.env`의 `MAIL_*`와 `.bak-s20` 파일을 지우지 않습니다.**
+1. **[서버]** `cd ~/board && grep -c '^MAIL_' .env` 가 `6`인지 봅니다(값은 안 나옴). 6이 아니면 메일 설정이 사라진 것이라 되돌려도 메일이 안 갑니다(알려 주세요).
+2. **[서버]** `cp docker-compose.yml docker-compose.yml.bak-s20-new` — 지금(S20) compose를 보관합니다(이미 있으면 덮어쓰지 말고 다른 이름으로).
+3. **[서버]** `cp docker-compose.yml.bak-s20 docker-compose.yml` — S18 compose로 되돌립니다.
+4. **[서버]** `sed -i 's#image: seokam36/demo:latest#image: seokam36/demo:2f4e560fa6057c2ec01bd290a29013f7cdb92c31#; s#image: seokam36/demo-web:latest#image: seokam36/demo-web:2f4e560fa6057c2ec01bd290a29013f7cdb92c31#' docker-compose.yml`
+5. **[서버]** `grep 'image: seokam36' docker-compose.yml` — 두 줄 모두 `2f4e560...` 태그인지 확인합니다.
+6. **[서버]** `docker compose --profile prod pull app web && docker compose --profile prod up -d app web`
+7. **[서버]** `docker compose --profile prod logs --tail 100 app` 에 시작 실패가 없고(`newer than the latest available migration (14) ... (13)` 경고는 정상), **[브라우저]** `/actuator/health`가 UP이고 글 목록이 뜨는지 봅니다. 이어서 `docker exec board-app printenv LLM_MODE` 가 `gemini`(S18 때와 같음)인지도 봅니다.
+- 되돌려 있는 동안 달라지는 것(코드·SQL을 읽고 판단한 것이고 실제로 돌려 보지는 않았습니다):
+  - 허가서 신청·심사 화면과 API가 사라지고, 학교 메일 인증 화면이 돌아옵니다. 허가서로 승인된 회원은 `verified_school_id`가 채워져 있어 S18 코드에서도 인증된 회원으로 보여 글쓰기가 됩니다.
+  - 이미 접수된 대기 신청(`PENDING`)과 S3의 `permits/` 사진은 그대로 남습니다. S18 코드는 14일 만료 작업이 없으니 **S3 수명 규칙(3-2)이 안전망**입니다. 이 규칙은 되돌려도 지우지 않습니다.
+  - 대기 신청이 있는 회원이 S18 코드에서 탈퇴하면 DB가 신청 행을 같이 지워 오류는 나지 않지만(`ON DELETE CASCADE`) 사진 파일 이름을 아무도 모르게 되어 S3에 남습니다(수명 규칙이 14일 안에 지움).
+  - `.env`의 `PERMIT_*`·`VISION_*` 줄은 S18 코드가 무시하니 그대로 둬도 됩니다.
+- **주의**: 위 "(a) 이전 이미지로 되돌리기"의 주의 박스와 같습니다. image 줄을 SHA로 고정해 두면 **다음 Deploy도 S18 이미지를 받습니다.** 원인을 고친 새 `latest`가 올라온 뒤(Actions 초록) **[서버]** `cp docker-compose.yml.bak-s20-new docker-compose.yml`(S20 compose 복원)로 원복하고 `grep 'image: seokam36' docker-compose.yml` 로 두 줄이 `:latest`인지 확인한 다음 Deploy를 누릅니다.
+- **하지 말 것**: V14를 손으로 되돌리거나(표 삭제) `flyway_schema_history` 행을 지우지 마세요(새 코드로 돌아올 때 "이미 있음" 오류가 납니다).
+
+**vision 전환** (나중에, 위 4번 화면 확인이 모두 끝난 뒤 따로 합니다. 이때부터 허가서 사진이 구글 Cloud Vision으로 전송되고 자동 승인이 시작됩니다. 화면의 동의·가림 안내 문구는 S20-g1에 이미 들어 있습니다)
+1. **[Google Cloud]** 프로젝트 `board-vision`(Gemini 키가 있는 SpringStudy 프로젝트가 아님)에서 **서버용 새 키**를 만듭니다. "API 제한"은 **Cloud Vision API만**. 시험 키 `vision-local-test`는 **삭제**하고, 내 PC 로컬 `.env`의 `VISION_API_KEY`도 지웁니다(서버용과 같은 키를 쓰지 않음). 예산 알림(₩5,000)과 "Requests per minute" 5 설정이 남아 있는지도 봅니다.
+2. **[서버]** `nano ~/board/.env` 에서 `PERMIT_OCR_MODE=off` 줄을 `PERMIT_OCR_MODE=vision` 으로 **고치고**(새 줄을 만들지 않음), `VISION_API_KEY=여기에키를붙여넣기` 줄을 추가해 진짜 키로 바꿉니다. 키는 nano 화면이 뜬 뒤에 붙여 넣습니다(위 2-5와 같은 규칙). 확인(**[서버]**): `grep -c '^PERMIT_OCR_MODE=vision$' ~/board/.env` 가 `1`, `grep -c '^VISION_API_KEY=여기에' ~/board/.env` 가 `0`, `grep -c '^VISION_API_KEY=' ~/board/.env` 가 `1`.
+3. **[서버]** `cd ~/board && docker compose --profile prod up -d app` — app이 새 환경변수로 다시 만들어집니다.
+4. **[서버]** 켜졌는지: `docker exec board-app printenv PERMIT_OCR_MODE` 가 `vision`인지 봅니다. **키는 `printenv VISION_API_KEY`로 확인하지 않습니다**(화면에 나옴). 시작 로그: `docker compose --profile prod logs app | grep -c '허가서 판독기: vision'` 이 `1`.
+5. **[서버]** 국적 목록 경고가 없는지: `docker compose --profile prod logs app | grep -c '허가서 국적 목록에 한국어 나라 이름이 없음'` 이 `0`이어야 합니다. 1 이상이면 이미지(jre-alpine)에 한국어 나라 이름 데이터가 없는 것이라 **국적 판정이 항상 불통과 -> 자동 승인이 한 건도 안 됩니다**(전부 관리자 대기로 안전하게 남음). 이때는 vision을 `off`로 되돌리고 알려 주세요(이미지 쪽 수정이 필요).
+6. **[브라우저]** 사용자 본인의 허가서(개인정보를 가린 사진)로 신청해 보고, 응답이 몇 초 안에 오는지(최대 약 10초), 결과가 자동 승인 또는 관리자 대기로 나오는지 봅니다. 판독 결과·허가서 번호는 이 파일·채팅·Notion에 적지 않습니다.
+7. **[서버]** 메모리: `docker stats --no-stream board-app` 을 **신청 직후와 1분 뒤** 두 번 봅니다(512MiB 미만, 사진 한 장 판독 때 순간적으로 30~45MB 늘어남. 400MiB 근처까지 오르면 알려 주세요: 동시 판독 수를 1로 줄이는 설정이 필요한데, 지금 compose에는 그 환경변수가 없어 새 단계로 만들어야 합니다).
+8. **[서버]** 로그에 키가 새지 않았는지: `docker compose --profile prod logs app | grep -c 'x-goog-api-key\|AIza\|AQ\.'` 가 `0`.
+9. **끄기**: `.env`의 `PERMIT_OCR_MODE`를 `off`로 고치고 `docker compose --profile prod up -d app`. 키가 의심스러우면 Google Cloud에서 그 키를 삭제하고 새로 만들어 2번부터 다시 합니다.
+- **키가 보이는 명령 주의**: `docker inspect board-app`, `docker compose config`(그대로 출력), `printenv VISION_API_KEY`·`printenv`·`env`, `cat ~/board/.env`, 앱 실행 옵션 **`-Djdk.httpclient.HttpClient.log=headers`**(HTTP 요청 헤더를 로그에 찍어 `x-goog-api-key`에 담긴 키가 남습니다. **절대 켜지 않습니다**). `VISION_TIMEOUT`처럼 시간·숫자 칸에 키를 잘못 붙여 넣으면 스프링이 그 값을 오류 로그에 그대로 찍습니다. 키는 `VISION_API_KEY=` 줄에만 적습니다.
+
+**확인 끝난 뒤 정리** (위 4번이 모두 통과하고, 며칠 써 보고 S18로 되돌릴 일이 없다고 판단한 뒤에 합니다. **이 정리 뒤에는 S18로 되돌려도 메일 인증 메일이 가지 않습니다**)
+1. **[서버]** 백업한 `.env`를 지웁니다(옛 비밀이 들어 있음): `rm ~/board/.env.bak-s20 && ls -l ~/board`
+2. **[서버]** `nano ~/board/.env` 에서 `MAIL_*` 줄(`MAIL_MODE`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` 여섯 줄)을 지웁니다. 확인: `grep -c '^MAIL_' ~/board/.env` 가 `0`. 저장 뒤 앱을 다시 띄울 필요는 없지만, 다음 Deploy 때 자연히 반영됩니다(새 compose는 이미 `MAIL_*`를 안 읽습니다).
+3. **[브라우저]** **Gmail 앱 비밀번호 폐기**: 발송 전용 Gmail 계정 -> Google 계정 -> 보안 -> "앱 비밀번호"에서 `board`(만든 이름)를 삭제합니다. 그 Gmail 계정을 더 쓰지 않으면 계정도 정리합니다.
+4. **[서버]** (선택) 이제 필요 없는 `~/board/docker-compose.yml.bak-s20`(S18 compose, 비밀 값 없음)을 지우거나 보관합니다. 옛 compose 백업(`.bak-s18` 등)이 쌓였다면 같이 정리합니다.
+5. 문서 정리(저장소): 위 "메일 발송 (S10)" 절 중 메일 설정·"학교 인증 코드가 막혔다는 문의"·"학교 메일 없이 운영에서 인증 테스트하기"와 "S10 이미지로 돌아갈 때" 메모의 메일 관련 내용을 지웁니다(S18 되돌리기가 필요 없어진 뒤).
+
 ## 웹 화면: Flutter로 교체 (S16-n2)
 운영 `web` 이미지가 React에서 **Flutter 웹**(`flutter_app/`)으로 바뀌었습니다. `/v2` 같은 별도 주소 없이 통째로 교체합니다.
 - 이미지 이름은 그대로 `seokam36/demo-web`(`:latest`, `:<커밋 SHA>`)이라 **EC2의 `docker-compose.yml`을 바꿀 필요가 없습니다**(포트 80, 볼륨 없음, healthcheck 없음 - Flutter 이미지와 그대로 맞음. Deploy 워크플로의 헬스체크는 `/actuator/health`를 nginx 경유로 부르는데 Flutter nginx.conf에도 같은 블록이 있습니다).
 - 만드는 방법: CI의 `flutter` 작업이 `flutter build web --web-content-hash`로 `build/web`을 만들고 e2e까지 통과시킨 뒤, 그 결과를 `images` 작업이 받아 `flutter_app/Dockerfile`(빌드 없이 COPY만)로 이미지에 담습니다. 그래서 Flutter 검사가 실패하면 이미지도 올라가지 않습니다.
-- nginx 설정(`flutter_app/nginx.conf`)은 React 때와 같은 `/api` 전달(사진 올리기 `client_max_body_size 11m`·`proxy_read_timeout 150s` 포함, `/api/chat`만 75초(S17-h))과 `/actuator/health` 열기, `/api/actuator` 404를 갖습니다. 달라진 점: 해시 붙은 파일(`main.dart.<해시>.js`)만 1년 immutable 캐시, `index.html` 등 나머지는 `no-cache`, 없는 `/assets/...`·`/canvaskit/...`은 404, 그 밖의 주소는 `index.html`(딥링크), JSON도 gzip 압축.
+- nginx 설정(`flutter_app/nginx.conf`)은 React 때와 같은 `/api` 전달(사진 올리기 `client_max_body_size 11m`·`proxy_read_timeout 150s` 포함, `/api/chat`만 75초(S17-h), **허가서 신청 주소 `/api/users/me/permit-verification`도 같은 11m·150s**(S20, 없으면 1MB 넘는 허가서 사진이 413))과 `/actuator/health` 열기, `/api/actuator` 404를 갖습니다. 달라진 점: 해시 붙은 파일(`main.dart.<해시>.js`)만 1년 immutable 캐시, `index.html` 등 나머지는 `no-cache`, 없는 `/assets/...`·`/canvaskit/...`은 404, 그 밖의 주소는 `index.html`(딥링크), JSON도 gzip 압축.
 - 배포 절차는 위 "자동 배포"와 똑같습니다(Deploy 버튼). 바뀌는 건 화면 파일뿐이고 DB·백엔드는 영향이 없습니다.
 
 **첫 배포 뒤 확인할 것** (브라우저 `http://<퍼블릭IP>/`)
 1. **새로고침 딥링크**: `/posts/1`, `/market/1`을 주소창에서 직접 열거나 새로고침해도 화면이 뜨는지(JSON·404가 아니라). 첫 로딩은 React보다 느릴 수 있습니다(Flutter 엔진을 받음).
 2. **/api 전달**: 목록에 글이 보이고 로그인이 되는지. 또는 `http://<퍼블릭IP>/api/posts`가 JSON 배열을 주는지. `/actuator/health`가 UP인지.
-3. **사진 올리기**: 중고 글쓰기에서 3MB 안팎 사진을 올려 413·504 없이 되는지(nginx 한도 11m, 대기 150초가 Flutter 이미지에도 들어 있는지 보는 확인).
+3. **사진 올리기**: 중고 글쓰기에서 3MB 안팎 사진을 올려 413·504 없이 되는지(nginx 한도 11m, 대기 150초가 Flutter 이미지에도 들어 있는지 보는 확인). S20 배포 뒤에는 **1MB 넘는 허가서 사진 신청이 201**인지도 봅니다(위 "S20 배포"의 4번 화면 확인, 허가서 주소 11MB·150초 예외).
 4. **캐시 헤더** (**[PC]** Git Bash): `curl -sI http://<퍼블릭IP>/ | grep -i cache-control` 이 `no-cache`인지, 그리고 `curl -s http://<퍼블릭IP>/flutter_bootstrap.js | grep -o 'main\.dart\.[0-9a-f]\{8\}\.js'` 로 나온 파일 이름을 `curl -sI http://<퍼블릭IP>/<그 이름> | grep -i cache-control` 에 넣어 `public, max-age=31536000, immutable`인지 봅니다. 없는 파일(`/assets/x.png`)은 404여야 합니다.
 5. **옛 화면이 남지 않는지**: 이미 React 화면을 열어 본 브라우저는 강력 새로고침(Ctrl+Shift+R) 한 번 하고 확인합니다(React 파일은 해시 이름이라 새 화면과 섞이지는 않습니다).
 6. 손 확인표(`flutter_app/e2e/README.md`의 "손 확인표": 한글 입력, iPhone 사진 선택 등)도 이때 훑어봅니다.
@@ -298,7 +433,9 @@ S18(제미나이 연결 `LLM_MODE=gemini`, 서버 전체 질문 상한, 챗봇 �
 - React 앱 코드는 S16-p에서 저장소에서 지웠습니다. 그래도 이미 올라간 SHA 태그 이미지는 Docker Hub에 남아 있어 되돌릴 수 있습니다(코드는 없어졌지만 이미지는 그대로). 코드가 필요하면 S16-p 이전 커밋(`git show 80431c3:frontend/...`)에서 볼 수 있습니다.
 
 ## 메일 발송 (S10)
-학교 메일 인증 코드를 실제로 보내는 설정입니다. 값은 모두 EC2 `~/board/.env`에만 두고 이 파일·저장소에는 적지 않습니다.
+> **S20 배포 확인 뒤 지움.** S20-f1에서 학교 메일 인증(S10) 백엔드를 걷어내서, S20 이미지는 메일을 보내지 않고 `MAIL_*`도 읽지 않습니다(새 compose에도 `MAIL_*` 줄이 없음). 이 절의 메일 설정·"학교 인증 코드가 막혔다는 문의"·"학교 메일 없이 운영에서 인증 테스트하기"는 **S20 배포 문제로 S18 이미지로 되돌렸을 때만** 필요해서 남겨 둡니다. 되돌릴 일이 없다고 확인한 뒤 위 "S20 배포"의 "확인 끝난 뒤 정리"(서버 `.env`의 `MAIL_*` 삭제, Gmail 앱 비밀번호 폐기)를 하고, 그때 이 세 부분을 지웁니다. 아래 "챗봇이 막혔다는 문의" 이하는 계속 쓰는 내용입니다.
+
+학교 메일 인증 코드를 실제로 보내는 설정입니다(S18 이미지 기준). 값은 모두 EC2 `~/board/.env`에만 두고 이 파일·저장소에는 적지 않습니다.
 
 환경변수 6개 (`docker-compose.yml`이 `.env`에서 읽어 app에 넘김):
 - `MAIL_MODE`: `log`(기본) 또는 `smtp`. `smtp`일 때만 실제로 보냅니다.
@@ -333,7 +470,7 @@ Gmail 무료 계정은 하루 약 500통까지만 보낼 수 있습니다. 회�
 
 **나중에 AWS SES로 바꿀 때**: 코드는 그대로이고 `.env`의 `MAIL_HOST`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` 값만 SES SMTP 정보로 바꾸면 됩니다(`MAIL_MODE=smtp`, 포트 587 유지). 위 "앱 비밀번호 교체"와 같은 순서로 app을 다시 띄웁니다.
 
-**학교 인증 코드가 막혔다는 문의가 오면** (운영자 메모)
+**학교 인증 코드가 막혔다는 문의가 오면** (운영자 메모, **S20 배포 확인 뒤 지움** - S20에서는 메일 인증이 없어 Redis `email-verify-*` 키도 새로 생기지 않습니다. S18로 되돌렸을 때만 해당)
 인증 코드 발송에는 Redis 제한이 있습니다. 모든 키는 만들어진 지 24시간 뒤 저절로 사라지므로, 급하지 않으면 기다려도 풀립니다.
 - 회원 60초 쿨다운: `email-verify-cooldown:{회원id}`
 - 회원 하루 10회: `email-verify-daily:{회원id}`
@@ -377,7 +514,7 @@ Gmail 무료 계정은 하루 약 500통까지만 보낼 수 있습니다. 회�
 3. 로그에 "전체 상한(하루)"가 자주 보이면 일부 회원이 하루 한도를 다 쓰고 있다는 뜻이니, 회원 하루 한도(`app.chat.rate-limit.per-day`)를 낮추거나 구글 유료 전환을 검토합니다.
 4. 숫자를 바꾸려면 서버 환경변수 `CHAT_GLOBAL_PER_MINUTE`·`CHAT_GLOBAL_PER_DAY`를 고쳐 앱을 다시 띄웁니다. Redis를 재시작하면 카운터가 초기화됩니다.
 
-**학교 메일 없이 운영에서 인증 테스트하기** (S10-h 배포 때 실제로 한 방법)
+**학교 메일 없이 운영에서 인증 테스트하기** (S10-h 배포 때 실제로 한 방법. **S20 배포 확인 뒤 지움** - S20에서는 위 "S20 배포"의 4번처럼 허가서 신청으로 테스트합니다)
 학교 메일 도메인만 허용되므로, 잠깐 `gmail.com`을 연세대 도메인으로 등록해서 테스트합니다. SQL 실행 방식은 아래 "관리자 지정·해제"와 같습니다([서버]에서 실행, PowerShell 아님).
 
 1. **[PC]** EC2에 접속합니다: `ssh -i ~/.ssh/board-ec2 ec2-user@<퍼블릭IP>`
@@ -584,6 +721,13 @@ S13·S14를 한 번에 배포하면 V9~V13이 한꺼번에 적용됩니다. 아�
 **하지 말 것**: V9~V13을 손으로 되돌리거나(표·칸·제약 삭제, 특히 `ck_reports_target`을 옛 정의로 되돌리는 것) 기록장(`flyway_schema_history`) 행을 지우지 마세요. 새 코드로 돌아올 때 V 파일이 다시 실행되어 "이미 있음" 오류가 나거나, 이미 들어간 중고·대화 신고 행이 옛 제약에 걸려 마이그레이션이 실패할 수 있습니다. 특별한 절차 없이 (a)대로 이미지만 바꾸면 됩니다.
 
 아직 확인하지 못한 것: 실제로 S12 이미지로 돌아가 시험하지는 않았습니다. 위 내용은 V9~V13 SQL과 `9c8b600`의 옛 코드를 읽고 판단한 것입니다(신고 목록 500은 코드상 확실하지만 실행으로 보지는 않았습니다).
+
+**S18 이미지(V13까지 아는 코드)로 돌아갈 때 (V14 적용 후)**
+S20을 배포하면 V14가 적용됩니다. 아래는 V14 SQL(`src/main/resources/db/migration/V14__*.sql`)과 S20 코드를 읽고 판단한 것이고, 실제로 S18 이미지로 돌아가 시험하지는 않았습니다. 순서(compose 백업 사용)는 위 "S20 되돌리기"에 있습니다.
+- 앱은 뜹니다. V14는 `permit_requests`·`school_name_aliases` 표를 **새로 만들기만** 하고 기존 표·칸은 건드리지 않습니다(S20-f1도 DB 표·칸은 그대로 둠: `school_email_domains`, `users.school_email_hash`는 남아 있음). `ddl-auto=validate`는 엔티티에 있는 표·칸만 보므로 S18 코드가 새 표를 모른 채로 뜹니다(V3·V5·V7·V8과 같은 이유). 로그의 `newer than the latest available migration (14) ... (13)` 경고는 정상입니다.
+- 새 표의 외래키는 모두 삭제 동작이 있거나 "신청이 회원·학교를 가리키는" 방향입니다: `permit_requests.user_id`는 `ON DELETE CASCADE`, `decided_by`는 `ON DELETE SET NULL`, 학교 행은 지우지 않습니다. S18 코드가 회원을 탈퇴시켜도 FK 오류가 나지 않습니다(V7 후기 때의 함정 없음). 다만 신청 행이 사라질 때 S3 사진 이름을 아무도 모르게 되므로 사진은 S3 수명 규칙(14일)이 지웁니다.
+- 허가서로 승인된 회원은 `users.verified_school_id`가 채워져 있어 S18 코드에서도 인증 회원으로 보입니다. 학교 메일 인증 화면·메일 발송은 S18 코드로 돌아오며, 메일을 실제로 보내려면 `MAIL_*` 환경변수(옛 compose 백업 + 서버 `.env`)가 필요합니다.
+- 특별한 절차 없이 (a)대로 이미지만 바꾸면 됩니다(단, compose는 위 "S20 되돌리기"처럼 백업을 바탕으로). 기록장 행과 V14 표는 지우지 마세요(V2와 같은 이유).
 
 ### (c) V2 이상이 적용 중 실패했을 때
 PostgreSQL은 표 변경(DDL)도 트랜잭션이라, V 파일 하나가 중간에 실패하면 그 파일의 표 변경은 통째로 원상복구됩니다(반쯤 바뀐 채로 남지 않음). 먼저 기록장 상태를 확인합니다.
