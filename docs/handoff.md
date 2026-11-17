@@ -3,32 +3,32 @@
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 자세한 결정·기록은 docs/backlog.md(각 S번호 항목 + "끝난 일" 표), 배포는 docs/deploy.md, API는 docs/api.md.
 
-마지막 갱신: 2026-11-17, 집 PC(사용자 폴더 영문 seoka) (**S20 유학생 인증 진행 중: 화면 g1~g5 전부 끝, 다음은 사용자 카드 등록 → S20-h 실물 시험**)
+마지막 갱신: 2026-11-17 밤, 집 PC(사용자 폴더 영문 seoka) (**S20 유학생 인증 운영 배포 완료(PERMIT_OCR_MODE=off). 다음은 vision 전환**)
 
 ## 지금 어디까지
-- **S0~S14 + UI1~UI3 + S16 + S17 + S18 완료·배포됨.** 운영은 2026-11-15 S18 배포(커밋 2f4e560 이미지), 운영 챗봇 gemini(무료 등급) 켜짐. 그 뒤 커밋(S18-g 정리, S20-a~g5)은 **아직 운영에 안 올라감** → S20 배포(S20-i) 때 같이.
+- **S0~S14 + UI1~UI3 + S16 + S17 + S18 + S20 완료·배포됨.** 운영은 2026-11-17 S20 배포(이미지 커밋 2375394, 배포 파일 커밋 fa36925), `PERMIT_OCR_MODE=off`(모든 허가서 신청이 관리자 대기). 운영 챗봇 gemini(무료 등급) 켜짐. 배포 뒤 확인 통과: health UP, 판독 꺼짐 로그 1, 시작 실패 0, flyway 14, 별칭 24, 메모리 350MiB, 화면 신청·승인(글쓰기)·반려·철회, S3 permits/ 비어 있음.
 - **방향(2026-11-16 사용자)**: "외국인 유학생 통합 에타". **유학생만 글을 쓴다** — 표준입학허가서 인증이 입장권. S19(챗봇 일반 답변)·S15 번역·비자 후기 검색·욕설 검사는 기능을 다 만든 뒤로.
 - **S20(유학생 인증)** — 결정 전부 backlog S20 항목(각 "S20-? 결정" 줄 + "나중(…리뷰)" 줄 + "알려진 한계"):
   - 서류는 **표준입학허가서**, 확인은 **반자동**(Cloud Vision이 읽고 판정 규칙이 판단, 4관문 다 통과면 자동 승인, 그 밖은 관리자 대기, **자동 반려 없음**). 승인 = `users.verified_school_id` 채우기.
   - 사진은 대기 중에만 보관(S3 `permits/`), 결과 나오면 즉시 삭제, 14일 넘으면 자동 만료. 번호는 HMAC 해시만.
-  - 끝난 단계: S20-0 조사 · a 신청 API·V14 · b 관리자 심사 API · c 14일 만료 · **d1 판정 규칙**(e260569, 국적은 "외국 나라 이름 허용 목록(Java Locale)에 있어야 통과") · **d2 신청에 판정 연결 + 자동 승인**(676464b) · **f1 메일 인증 백엔드 제거**(e21e872, API 15·16번 404, spring-boot-starter-mail·MAIL_* 제거, DB 표·칸은 둠) · **f2 /me 메일 폼 제거**(a045777) · **e1 Vision 판독기 클래스**(9583e62) · **e2 모드 스위치 `PERMIT_OCR_MODE=off|vision`**(8f3e524) · **g1 회원 신청 화면**(34c7637, 동의·가림 안내·반려 사유 문구는 backlog "S20-g 결정" 줄이 정본) · **g2 철회·인증 해제 화면**(1da014a) · **g3 관리자 "인증 심사" 목록·사진 보기**(27ecc44, `/admin/permits`, 사진은 MemoryImage로 접기·이탈 때 evict + 요청 취소) · **g4a 반려 버튼 + 본인 신청 안내**(fe3d835, 공통 처리 `_decide`) · **g4b 승인 버튼**(7fd3f26, 학교 드롭다운 + 허가서 번호, 409는 재조회 뒤 줄이 남았는지로 이유 구분, 실패 안내는 열린 양식 안, 재조회 실패해도 목록 유지) · **g5 문구 "학교 인증" → "유학생 인증"**(74b6a92, 반려 사유는 공용 `lib/permit/permit_reject_reasons.dart`, 관리자 코드 6개 직접 나열, 옛 문구 재발 검사 테스트).
-  - 백엔드 테스트 약 1839개, Flutter 테스트 1479개, e2e 15개 통과.
-- DB는 **V14까지**(새 V 파일 없음. `machine_result` CHECK V15는 S20-h 끝에).
+  - 끝난 단계: S20-0 조사 · a 신청 API·V14 · b 관리자 심사 API · c 14일 만료 · **d1 판정 규칙**(e260569, 국적은 "외국 나라 이름 허용 목록(Java Locale)에 있어야 통과") · **d2 신청에 판정 연결 + 자동 승인**(676464b) · **f1 메일 인증 백엔드 제거**(e21e872, API 15·16번 404, spring-boot-starter-mail·MAIL_* 제거, DB 표·칸은 둠) · **f2 /me 메일 폼 제거**(a045777) · **e1 Vision 판독기 클래스**(9583e62) · **e2 모드 스위치 `PERMIT_OCR_MODE=off|vision`**(8f3e524) · **g1 회원 신청 화면**(34c7637, 동의·가림 안내·반려 사유 문구는 backlog "S20-g 결정" 줄이 정본) · **g2 철회·인증 해제 화면**(1da014a) · **g3 관리자 "인증 심사" 목록·사진 보기**(27ecc44, `/admin/permits`, 사진은 MemoryImage로 접기·이탈 때 evict + 요청 취소) · **g4a 반려 버튼 + 본인 신청 안내**(fe3d835, 공통 처리 `_decide`) · **g4b 승인 버튼**(7fd3f26, 학교 드롭다운 + 허가서 번호, 409는 재조회 뒤 줄이 남았는지로 이유 구분, 실패 안내는 열린 양식 안, 재조회 실패해도 목록 유지) · **g5 문구 "학교 인증" → "유학생 인증"**(74b6a92, 반려 사유는 공용 `lib/permit/permit_reject_reasons.dart`, 관리자 코드 6개 직접 나열, 옛 문구 재발 검사 테스트) · **h-a 실물 시험 1차**(dade948, 진짜 Vision 연결·FieldMask 확인, 학교 라벨 깨지면 다음 줄 후보, 시험 도구 `PermitSampleLiveTests`) · **h-b**(e8b163d, 지어낸 값 견본 ALL_PASSED, 신청 제한 5분) · **h-c 배포 전 정리**(2375394, nginx 허가서 주소 11MB·150초, 청소부 안전망, 관리자 [다시 불러오기], 번호 칸 안내) · **i 운영 배포**(fa36925).
+  - 백엔드 테스트 약 1855개, Flutter 테스트 1486개, e2e 15개 통과.
+  - 알려진 한계(사용자 결정): 캠퍼스 표기 학교명("경희대학교(국제)")은 관리자 대기, 철회 후 같은 허가서 재사용, 위조 못 막음.
+- DB는 **V14까지**(새 V 파일 없음. `machine_result` CHECK V15는 나중).
 
 ## 다음에 할 일
-- **사용자 카드 등록(아래 줄) 대기 → 끝나면 S20-h 실물 시험.** 화면 단계는 끝났다.
-- 그다음: S20-h → S20 파트 리뷰(backlog S20 항목의 "나중(S20-g1·g4·g5 리뷰)" 줄들: [다시 불러오기] 버튼, 번호 칸 안내 글, SchoolVerificationSection 이름·603줄 파일 쪼개기, `_PermitTab`/`_StatusTab` 공용 위젯, 스크린리더 버튼 이름, 200건 상한 안내 등) → S20-i 배포.
-- **사용자 할 일(카드 등록, S20-h 전)**: Google Cloud에 **새 프로젝트**(예: board-vision) → 그 프로젝트에만 결제 계정 연결 → Cloud Vision API 사용 설정 → API 키 만들고 "API 제한"을 **Cloud Vision API만** → 결제 "예산 및 알림"에서 예산 + Vision 하루 요청 할당량(예: 30). 가격 숫자는 공식 가격 페이지에서 직접 확인. **Gemini 키가 있는 SpringStudy 프로젝트에는 결제를 붙이지 말 것.**
-- **S20-h에서 할 것**: `VISION_LIVE_TEST=true` + `VISION_API_KEY`로 `VisionLiveTests` 실행(X-Goog-FieldMask가 먹는지), 견본 3장을 진짜 Vision으로 읽어 줄 순서 확인 → 판정 규칙 보정, 언어 힌트 ko·en vs 없음 비교, 신청 2분 제한(웹은 업로드 포함)을 5분으로 늘릴지, 사진 한 건 순간 메모리. 실물 사진은 저장소에 넣지 않는다.
-- **S20-i 배포 때 할 것**: 서버 `.env`에 `PERMIT_HASH_SECRET`(32바이트 이상, 한 번 정하면 안 바꿈) + `VISION_API_KEY` + `PERMIT_OCR_MODE`(처음엔 off, g 화면 확인 뒤 vision), compose app에 `PERMIT_HASH_SECRET`·`PERMIT_OCR_MODE: ${PERMIT_OCR_MODE:-off}`·`VISION_API_KEY`·`VISION_TIMEOUT: ${VISION_TIMEOUT:-10s}` 줄(deploy 담당, `:-`로 빈 값 방지)과 MAIL_* 줄 삭제, **S3 버킷 `permits/` 접두사에 14일 수명 주기 규칙**("모든 객체" 고르면 중고 사진까지 지워짐 주의), S3 기본 암호화 확인, deploy.md 메일 절 삭제·S20 되돌리기 절(V14 생김), 배포 확인 뒤 서버 `.env`의 MAIL_* 삭제 + **Gmail 앱 비밀번호 폐기**. JVM 옵션 `-Djdk.httpclient.HttpClient.log=headers`는 키를 찍으니 켜지 말 것.
-- Notion: S20 카드에 d1·d2·f1·e1·e2 단계 페이지와 "흐름 설명: 허가서 사진 삭제" 페이지, 단계 표 g5까지. 화면 단계(f2·g*)는 표 한 줄만. S20 끝나면 🧭 파트 전체 정리.
+- **먼저 확인 못 한 것 하나**: 운영 로그 숫자 — 서버에서 `cd ~/board && docker compose --profile prod logs app | grep -c '사진 파일 삭제에 실패'` 와 `... | grep -c 'permits/'` 둘 다 0인지(사용자에게 아직 못 받음. 0이 아니면 로그를 펴 보지 말고 숫자만).
+- **다음: vision 전환** — deploy.md "S20 배포" 절의 "vision 전환" 순서대로. Google Cloud `board-vision` 프로젝트에서 **서버용 새 키**(API 제한 Cloud Vision만), **시험 키 `vision-local-test` 삭제 + 내 PC 로컬 `.env`의 `VISION_API_KEY` 줄 삭제**, 서버 `.env`에 `PERMIT_OCR_MODE=vision`·`VISION_API_KEY`, `up -d app`, 로그 "허가서 판독기: vision" 1·"한국어 나라 이름 없음" 경고 0(jre-alpine), `docker stats` 메모리, 견본 `C:\Users\seoka\permit-samples\표준1-test.jpg`(지어낸 학교·번호)로 자동 승인 확인.
+- **며칠 써 보고 S18로 되돌릴 일 없으면 정리**(deploy.md "확인 끝난 뒤 정리"): 서버 `~/board/.env.bak-s20` 삭제, `.env`의 MAIL_* 6줄 삭제, **Gmail 앱 비밀번호 폐기**, deploy.md 메일 절 삭제. (그 전엔 지우지 말 것 — S18 되돌리기에 필요.)
+- 그다음: S20 파트 정리(배포 뒤로 미룬 것, backlog "S20 파트 리뷰" 줄의 "나중" + "나중(S20-g1·g4·g5 리뷰)": SchoolVerificationSection 이름·603줄 파일 쪼개기, 탭 위젯 합치기, 스크린리더 버튼 이름, 사진 저장 실패 스택 로그, 테스트 빈 곳 등). 확인 필요: 실물 허가서 번호에 영문 접두어가 띄어쓰기로 있으면 기계·관리자 해시가 달라짐.
+- Google Cloud 현재 설정(2026-11-17): 프로젝트 `board-vision` + 새 결제 계정 `board-vision-billing`(유료 계정, 연결 프로젝트 board-vision 하나뿐, SpringStudy 무관), 예산 알림 `vision-budget` ₩5,000(Vision은 지출 한도 미지원이라 알림만), Vision "Requests per minute" 5(하루 상한 항목 없음). AWS: IAM 정책은 버킷 전체(`/*`) 허용이라 변경 없음, S3 `permits-expire-14d`(접두사 permits/ 14일), 버전 관리 꺼짐, SSE-S3.
+- Notion: S20 카드 단계 표 S20-i까지, S20 끝나면 🧭 파트 전체 정리(백엔드 흐름: 판정 규칙·자동 승인·사진 삭제·해시 비밀 값 이유).
 - (선택, 예전부터) 구글 503 빈도 세기, 상단바 닉네임 위치, 운영 테스트 중고 글 15개는 실제 회원 받기 전에 지우기, EC2는 꺼 두기.
 
 ## 진행 중인 단계
-- **S20 진행 중**: g5까지 build·tester·review·커밋 끝. 진행 중인 에이전트 없음.
+- **S20 배포 끝**(off). 진행 중인 에이전트 없음. EC2는 켜져 있을 수 있음(사용자가 끌 것).
 - 커밋 안 된 변경: `.claude/launch.json`(일부러 커밋 안 함), `frontend/`(예전 React 찌꺼기, 커밋하지 말 것).
-- 미룬 것: backlog S20 항목의 "나중(S20-? 리뷰)" 줄들 — S20 파트 리뷰·S20-h·S20-i에서 챙길 것.
-- 운영 서버 메모: EC2 `~/board/.env`에 `PHOTO_S3_BUCKET`·`LLM_MODE=gemini`·`GEMINI_API_KEY`·MAIL_*(값은 저장소에 안 씀, 권한 600), compose는 S18-e 버전. IMDS 홉 제한 2·IMDSv2 필수·역할 `board-ec2-role`. 직전 배포로 되돌리기 = Deploy #19 `8d8c14d` 이미지, **되돌리기 전에 `.env`의 `LLM_MODE`를 off로 먼저**(deploy.md "S18 되돌리기" 0번). S20 배포 뒤 되돌리기는 V14가 생기므로 deploy.md에 새로 적어야 함.
+- 운영 서버 메모: EC2 `~/board/.env`에 `PHOTO_S3_BUCKET`·`LLM_MODE=gemini`·`GEMINI_API_KEY`·MAIL_*(되돌리기용으로 아직 둠)·**`PERMIT_HASH_SECRET`(64자, 절대 바꾸지 않음, 사용자가 서버 밖에도 보관)**·`PERMIT_OCR_MODE=off`(권한 600). compose는 S20 버전(MAIL 줄 없음). 백업: `~/board/docker-compose.yml.bak-s20`(S18 compose, MAIL 6줄), `~/board/.env.bak-s20`(600). IMDS 홉 제한 2·IMDSv2 필수·역할 `board-ec2-role`. **S20 되돌리기 = deploy.md "S20 되돌리기"**(S18 이미지 `2f4e560fa6057c2ec01bd290a29013f7cdb92c31` — Docker Hub에 demo·demo-web 태그 있음 확인, compose는 .bak-s20 기반, V14 표는 지우지 않음).
 - 선택 정리: EC2 콘솔 옛 `demo-key` 삭제, IAM 옛 키 태그 삭제, 노트북 `~/.ssh/deploy-actions` 개인키 삭제.
 
 ## 주의할 점
@@ -40,6 +40,9 @@
 - **판정 규칙 함정(S20-d1)**: 국적을 "한국 말이 없으면 통과"(블랙리스트)로 하면 값을 엉뚱하게 집을 때 통과한다 → 허용 목록 방식 유지. 견본 라벨: `국적(Country of citizenship)`(옆 칸 `출생국가`와 구분), `학교명(School name)`, `표준입학허가서 번호(Certificate of Admission No.)`(`입학허가번호`는 다른 칸). 위조는 못 막음(알려진 한계).
 - **자동 승인(S20-d2)**: 판독·판정은 PENDING 커밋 뒤 트랜잭션 밖, `processAndStore`의 try/catch 밖(안이면 커밋된 사진을 지움). 승인은 `AdminPermitService.lockPending` 재사용.
 - **주기 작업은 cron 대신 fixedDelay + initialDelay**(EC2를 평소 꺼 두므로). 사진 청소부(10분)·허가서 만료(기동 3분 뒤 + 1시간). 테스트는 `app.scheduling.enabled=false`라 `runOnce`를 직접 부른다.
+- **실물 시험 도구 `PermitSampleLiveTests`**: `VISION_LIVE_TEST=true` + `VISION_API_KEY` + `PERMIT_SAMPLE_DIR`(저장소 밖 폴더, 안이면 실패)일 때만. 화면엔 판정 숫자만, 읽은 글자는 그 폴더 `out/`에. 실행 뒤 `build/test-results`·`build/reports`에 남은 것 지우기. Vision 분당 5회라 사진 5장 넘으면 1분 쉬기.
+- **deploy 에이전트는 훅(`scripts/allow-only.sh`)으로 Dockerfile·compose·workflows·application-prod.yml·deploy.md만 고칠 수 있다.** `flutter_app/nginx.conf`·api.md는 막힘 → 사용자 승인 받고 메인 대화가 고침(2026-11-17 S20-h-c). nginx 고치면 `docker run --rm -v "<conf>:/etc/nginx/conf.d/default.conf:ro" --add-host app:127.0.0.1 nginx:1.30-alpine nginx -t`로 확인.
+- **테스트가 nginx를 안 거친다**(MockMvc·e2e 백엔드 없음): 업로드 한도·시간 제한은 배포 뒤 실제로 1MB 넘는 사진으로 확인해야 함.
 - **영문 사용자 폴더 PC(C:\Users\seoka)에서는 `flutter test`·e2e가 subst 없이 그냥 돈다**(Git Bash `export PATH="/c/Users/seoka/flutter/bin:$PATH"`).
 - **서브에이전트가 `python -` 같은 입력 대기 명령을 뒤에 남긴 적 있음**(2026-11-17) → 보고에 남은 작업 ID가 있으면 TaskStop. 프롬프트에 "python 등 대화형 명령 금지, 파일 수정은 Edit 도구로"를 넣어 둠.
 - **서브에이전트가 끝난 뒤에도 같은 보고를 반복하며 뒤에서 gradle을 돌리면** 다음 tester의 gradle과 겹칠 수 있다 → TaskStop으로 멈춘다(파일 결과는 남음). 프롬프트에 "뒤에서 도는 작업 남기지 말 것"을 넣어 둠.
