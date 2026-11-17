@@ -182,7 +182,7 @@ void main() {
       expect(tester.widget<FilledButton>(_submitButton).onPressed, isNull);
     });
 
-    testWidgets('누르면 POST 1번(multipart: file 파트 + consent=true, 제한 시간 2분), 응답 전엔 컨트롤 잠금·진행 문구, 연타해도 1번', (tester) async {
+    testWidgets('누르면 POST 1번(multipart: file 파트 + consent=true, 제한 시간 5분), 응답 전엔 컨트롤 잠금·진행 문구, 연타해도 1번', (tester) async {
       final picker = installFakePicker();
       final gate = Completer<void>();
       final fake = _noneAdapter()..on('POST', _path, FakeReply(201, _pending(), gate));
@@ -208,7 +208,7 @@ void main() {
       expect(forms.first.body, contains('filename="permit.png"'));
       expect(forms.first.body, contains('name="consent"'));
       expect(forms.first.body, contains('true'));
-      expect(fake.callsTo('POST', _path).single.receiveTimeout, const Duration(minutes: 2));
+      expect(fake.callsTo('POST', _path).single.receiveTimeout, const Duration(minutes: 5));
     });
 
     testWidgets('201 PENDING: 폼이 사라지고 "심사 대기 중" + 날짜 (GET을 또 부르지 않는다)', (tester) async {

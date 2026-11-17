@@ -55,10 +55,11 @@ const permitApprovedReload = '인증이 승인됐어요. 새로고침하면 인�
 const permitNotReceived = '접수되지 않았어요. 다시 신청해 주세요';
 const permitRecheckFailed = '접수됐는지 확인하지 못했어요. 새로고침해서 확인해 주세요';
 
-// 신청 요청의 제한 시간 (2분). 웹에서는 업로드를 포함한 요청 전체의 제한 시간으로 쓰인다
+// 신청 요청의 제한 시간 (5분). 웹에서는 업로드를 포함한 요청 전체의 제한 시간으로 쓰인다
 // (dio 웹 어댑터가 xhr.timeout = connectTimeout + receiveTimeout 으로 건다).
-// 서버가 사진 글자를 읽는 데 최대 약 10초 걸리니 넉넉히 둔다
-const permitSubmitTimeout = Duration(minutes: 2);
+// 서버 처리(사진 저장 + 글자 읽기 최대 약 10초)는 짧고 대부분이 업로드 시간이다.
+// 2분이면 느린 회선(약 0.5Mbps)에서 10MB 사진이 매번 시간 초과라 중고 사진 올리기(photo_upload.dart)와 같은 5분으로 둔다 (S20-h 결정)
+const permitSubmitTimeout = Duration(minutes: 5);
 
 // ---- 철회·해제 (DELETE) 문구 ----
 const permitWithdrawConfirm = '신청을 철회할까요?';
