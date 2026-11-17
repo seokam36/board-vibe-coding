@@ -164,7 +164,7 @@ void main() {
         ..on('GET', _list, FakeReply(200, [_req(id: 2, status: 'APPROVED', schoolName: '가나대')]))
         ..on('GET', _list, FakeReply(200, [_req(id: 3, status: 'REJECTED', rejectReason: 'BLURRY')]));
       await _open(tester, a);
-      await tester.tap(find.text('승인'));
+      await tester.tap(find.text('승인').first);
       await tester.pumpAndSettle();
       expect(_lastStatus(a), 'APPROVED');
       expect(_row(2), findsOneWidget);
@@ -192,7 +192,7 @@ void main() {
         ..on('GET', _list, FakeReply(200, [_req(id: 2, nickname: '새승인', status: 'APPROVED')]));
       await _open(tester, a);
       await tester.pump(); // 첫 요청이 붙잡힌 상태
-      await tester.tap(find.text('승인'));
+      await tester.tap(find.text('승인').first);
       await tester.pumpAndSettle();
       expect(find.text('새승인'), findsOneWidget);
       gate.complete(); // 이제 옛 응답이 도착
@@ -266,7 +266,7 @@ void main() {
         ..on('GET', _list, FakeReply(200, [])) // 대기 탭
         ..on('GET', _list, FakeReply(200, [_req(id: 5, status: 'APPROVED', schoolName: '가나대', hasPhoto: false)]));
       await _open(tester, a);
-      await tester.tap(find.text('승인'));
+      await tester.tap(find.text('승인').first);
       await tester.pumpAndSettle();
       expect(_textIn(5, '승인 학교'), findsOneWidget);
       expect(_textIn(5, '가나대'), findsOneWidget);
@@ -288,7 +288,7 @@ void main() {
           _req(id: 9, status: 'REJECTED', rejectReason: null),
         ]));
       await _open(tester, a);
-      await tester.tap(find.text('승인'));
+      await tester.tap(find.text('승인').first);
       await tester.pumpAndSettle();
       await tester.tap(find.text('반려'));
       await tester.pumpAndSettle();
@@ -469,7 +469,7 @@ void main() {
       await tester.pump();
       await _settleImage(tester);
       expect(imageCache.currentSize + imageCache.liveImageCount, greaterThan(0));
-      await tester.tap(find.text('승인')); // 줄이 사라진다
+      await tester.tap(find.text('승인').first); // 줄이 사라진다
       await _settleImage(tester);
       expect(imageCache.currentSize, 0);
       expect(imageCache.liveImageCount, 0);
@@ -524,7 +524,7 @@ void main() {
       for (var i = 0; i < 5; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
-      await tester.tap(find.text('승인'));
+      await tester.tap(find.text('승인').first);
       await tester.pumpAndSettle();
       expect(a.cancelSignals, 1);
       gate.complete();
@@ -614,7 +614,7 @@ void main() {
         ..on('GET', _list, FakeReply(200, [], gate));
       await _open(tester, a);
       expect(find.text('다시 로그인해 주세요'), findsOneWidget);
-      await tester.tap(find.text('승인'));
+      await tester.tap(find.text('승인').first);
       await tester.pump();
       expect(find.text('다시 로그인해 주세요'), findsNothing);
       expect(find.byType(Loading), findsOneWidget);

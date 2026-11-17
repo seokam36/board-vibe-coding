@@ -1,4 +1,4 @@
-import { expect, FIRST_LOAD, fakeUser, test } from './mockApi'
+import { expect, FIRST_LOAD, fakeUser, test, typeInto } from './mockApi'
 import type { FakeUser } from './mockApi'
 
 // 관리자 인증 심사 화면 (S20-g3): 대기 목록이 보이고, [사진 보기]로 진짜 브라우저가 사진(PNG 바이트)을 그리는지 확인한다.
@@ -79,4 +79,47 @@ test('관리자가 대기 신청을 반려하면 PUT이 1건 나가고 목록에
   expect(puts).toHaveLength(1)
   expect(JSON.parse(puts[0].body!)).toEqual({ reason: 'BLURRY' })
   expect(api.sent('GET', '/admin/permit-requests')).toHaveLength(2) // 처음 + 처리 뒤 다시 읽기
+})
+
+// S20-g4b 승인 흐름: [승인] → 학교 고르기 → 번호 입력 → [승인하기] → 확인 창 [승인] → PUT 1건(본문 확인) → 줄이 사라진다.
+// 드롭다운·입력칸·확인 창이 진짜 브라우저에서 눌리는지는 위젯 테스트로 알 수 없어서 e2e로 본다.
+test('관리자가 대기 신청을 승인하면 PUT이 1건 나가고 목록에서 줄이 사라진다', async ({ page, api }) => {
+  api.setUser(admin)
+  const pending = {
+    id: 5, userId: 7, nickname: '민수', status: 'PENDING', createdAt: '2026-11-16T05:12:34Z', schoolName: null, rejectReason: null,
+    detectedSchoolId: null, detectedSchoolName: null, machineResult: 'UNREADABLE', autoDecided: false, hasPhoto: false,
+  }
+  let approved = false // PUT이 나간 뒤에는 목록이 비어 돌아온다
+  api.override({
+    'GET /admin/permit-requests': () => ({ status: 200, body: approved ? [] : [pending] }),
+    'PUT /admin/permit-requests/5/approve': () => {
+      approved = true
+      return { status: 200, body: {} }
+    },
+  })
+
+  await page.goto('/admin/permits')
+  await expect(page.getByText('민수', { exact: true })).toBeVisible({ timeout: FIRST_LOAD })
+
+  // 탭 "승인"과 줄의 [승인]이 같은 글자라 줄 쪽(화면 뒤쪽)을 고른다
+  await page.getByRole('button', { name: '승인', exact: true }).last().click()
+  await page.getByRole('button', { name: /학교/ }).first().click()
+  await page.getByRole('menuitem', { name: '가짜대학교' }).click()
+  await typeInto(page, /허가서 번호/, 'AB-123')
+  await page.getByRole('button', { name: '승인하기', exact: true }).click()
+
+  // 확인 창 (문구는 위젯 테스트가 본다). 확인 전에는 PUT이 안 나간다
+  await expect(page.getByRole('dialog').getByRole('button', { name: '취소' })).toBeVisible()
+  expect(api.sent('PUT', '/admin/permit-requests/5/approve')).toHaveLength(0)
+  await page.getByRole('dialog').getByRole('button', { name: '승인', exact: true }).click()
+
+  await expect(page.getByRole('status')).toHaveAccessibleName('승인했어요')
+  await expect(page.getByText('민수', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('대기 중인 신청이 없어요')).toBeVisible()
+  await api.waitIdle()
+  const puts = api.sent('PUT', '/admin/permit-requests/5/approve')
+  expect(puts).toHaveLength(1)
+  expect(JSON.parse(puts[0].body!)).toEqual({ schoolId: 1, permitNumber: 'AB-123' })
+  expect(api.sent('GET', '/admin/permit-requests')).toHaveLength(2) // 처음 + 처리 뒤 다시 읽기
+  expect(api.sent('GET', '/schools')).toHaveLength(1) // 학교 목록은 한 번만
 })

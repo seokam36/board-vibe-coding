@@ -19,9 +19,16 @@ final _adminReasons = <(String, String)>[
 // onSubmit은 사유 코드를 받아 처리(확인 창·요청)한다. 양식을 닫을지는 부모(줄)가 정한다
 // (실패하면 양식을 그대로 남겨 다시 시도할 수 있게 한다)
 class PermitRejectForm extends StatefulWidget {
-  const PermitRejectForm({super.key, required this.enabled, required this.onSubmit, required this.onCancel});
+  const PermitRejectForm({
+    super.key,
+    required this.enabled,
+    required this.error,
+    required this.onSubmit,
+    required this.onCancel,
+  });
 
   final bool enabled; // false면(처리 중) 버튼을 막는다
+  final String? error; // 처리 실패 안내 (양식 안에 보여 준다)
   final Future<void> Function(String reason) onSubmit;
   final VoidCallback onCancel;
 
@@ -70,6 +77,7 @@ class _PermitRejectFormState extends State<PermitRejectForm> {
             ),
           ),
           if (_message != null) Notice(kind: NoticeKind.error, message: _message),
+          if (widget.error != null) Notice(kind: NoticeKind.error, message: widget.error),
           Wrap(
             spacing: AppSizes.space2,
             runSpacing: AppSizes.space2,

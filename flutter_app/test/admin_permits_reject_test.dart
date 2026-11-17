@@ -109,7 +109,7 @@ void main() {
         ..on('GET', _list, FakeReply(200, [_req(id: 3, userId: 100, status: 'REJECTED', rejectReason: 'BLURRY')]));
       await _open(tester, a);
       expect(_btnIn(1, '반려'), findsOneWidget);
-      await tester.tap(find.text('승인'));
+      await tester.tap(find.text('승인').first);
       await tester.pumpAndSettle();
       expect(_row(2), findsOneWidget);
       expect(_btnIn(2, '반려'), findsNothing);
@@ -242,7 +242,7 @@ void main() {
       await _openForm(tester, code: 'BLURRY');
       await _submitAndConfirm(tester);
       expect(find.text('반려했어요'), findsOneWidget);
-      await tester.tap(find.text('승인'));
+      await tester.tap(find.text('승인').first);
       await tester.pumpAndSettle();
       expect(find.text('반려했어요'), findsNothing);
     });
@@ -270,7 +270,7 @@ void main() {
       // 연타·탭 누르기: 아무 일도 없다
       await tester.tap(_formBtn('반려하기'), warnIfMissed: false);
       await tester.tap(_formBtn('반려하기'), warnIfMissed: false);
-      await tester.tap(find.text('승인'), warnIfMissed: false);
+      await tester.tap(find.text('승인').first, warnIfMissed: false);
       await tester.pump();
       expect(find.byType(Dialog), findsNothing);
       expect(a.count('PUT', _rejectPath(1)), 1);
@@ -375,7 +375,7 @@ void main() {
 
     _test('PUT 시간 초과 뒤 재조회까지 실패하면 시간 초과 문구와 목록 실패 안내가 같이 보이고 앱은 죽지 않는다', (tester) async {
       const timeoutMsg = '처리됐는지 확인하지 못했어요. 목록에서 확인해 주세요';
-      const listFail = '인증 신청 목록을 불러오지 못했습니다';
+      const listFail = '목록을 다시 불러오지 못했어요'; // 처리 뒤 재조회 실패: 목록은 지우지 않고 안내만
       final a = FakeAdapter()
         ..on('GET', _list, FakeReply(200, [_req(id: 1)]))
         ..on('PUT', _rejectPath(1), FakeReply.timeout())
@@ -392,15 +392,9 @@ void main() {
       expect(find.text(listFail), findsOneWidget);
       // 성공으로 오해할 문구는 없다
       expect(find.text('반려했어요'), findsNothing);
-      // 목록을 못 읽었으니 줄은 없고, [다시 시도]가 있다
-      expect(_row(1), findsNothing);
-      expect(find.widgetWithText(OutlinedButton, '다시 시도'), findsOneWidget);
-      // 버튼은 다시 눌린다(_busy가 풀렸다): 다시 시도하면 목록이 돌아오고 시간 초과 안내는 남는다
-      a.on('GET', _list, FakeReply(200, [_req(id: 1)]));
-      await tester.tap(find.widgetWithText(OutlinedButton, '다시 시도'));
-      await tester.pumpAndSettle();
-      expect(find.text(listFail), findsNothing);
+      // 목록을 못 읽어도 기존 줄은 그대로고(입력도 유지), 오류 화면·[다시 시도]로 바뀌지 않는다
       expect(_row(1), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, '다시 시도'), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
