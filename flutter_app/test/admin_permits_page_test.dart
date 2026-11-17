@@ -65,6 +65,7 @@ class _PhotoReply {
 
 Map<String, dynamic> _req({
   int id = 1,
+  int userId = 100,
   String nickname = '민수',
   String status = 'PENDING',
   String createdAt = '2026-11-01T03:04:05Z',
@@ -76,6 +77,7 @@ Map<String, dynamic> _req({
   bool hasPhoto = true,
 }) => {
   'id': id,
+  'userId': userId,
   'nickname': nickname,
   'status': status,
   'createdAt': createdAt,
@@ -104,7 +106,7 @@ Finder _textIn(int id, String text) => find.descendant(of: _row(id), matching: f
 Finder _retry() => find.widgetWithText(OutlinedButton, '다시 시도');
 Finder _noticeOf(String m) => find.ancestor(of: find.text(m), matching: find.byType(Notice));
 String? _lastStatus(FakeAdapter a) => a.callsTo('GET', _list).last.query['status'];
-Color? _tabColor(WidgetTester t, String label) => t.widget<Text>(find.text(label)).style?.color;
+Color? _tabColor(WidgetTester t, String label) => t.widget<Text>(find.text(label).first).style?.color;
 
 // 사진 디코딩은 실제 비동기라서 runAsync로 기다린 뒤 화면을 갱신한다
 Future<void> _settleImage(WidgetTester tester) async {
@@ -352,6 +354,7 @@ void main() {
       _test('사진 요청이 $name이면 "$message"(error)가 보이고 이미지는 없다', (tester) async {
         final a = _PhotoAdapter()
           ..on('GET', _list, FakeReply(200, [_req(id: 3)]))
+          ..on('GET', _list, FakeReply(200, [_req(id: 3)])) // 사진이 404면 목록을 다시 읽는다
           ..photo(3, reply);
         await _open(tester, a);
         await tester.tap(_btnIn(3, '사진 보기'));
@@ -412,6 +415,7 @@ void main() {
       final gate2 = Completer<void>();
       final a = _PhotoAdapter()
         ..on('GET', _list, FakeReply(200, [_req(id: 4)]))
+        ..on('GET', _list, FakeReply(200, [_req(id: 4)])) // 사진이 404면 목록을 다시 읽는다
         ..photo(4, _PhotoReply(200, bytes: _png, gate: gate1))
         ..photo(4, _PhotoReply(404, gate: gate2));
       await _open(tester, a);
