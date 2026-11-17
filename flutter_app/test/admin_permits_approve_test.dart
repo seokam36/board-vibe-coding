@@ -767,4 +767,115 @@ void main() {
       expect(_selected(tester), ''); // 되돌린 선택이 유지된다
     });
   });
+
+  group('S20 정리: [다시 불러오기]', () {
+    final reloadBtn = find.widgetWithText(OutlinedButton, '다시 불러오기');
+
+    // 사진 404 → 재조회 500: "목록을 다시 불러오지 못했어요"가 뜬 상태까지 만든다 (줄 1·2 유지)
+    FakeAdapter failedRefresh() => FakeAdapter()
+      ..on('GET', _list, FakeReply(200, [_req(id: 1, hasPhoto: true), _req(id: 2, nickname: '영희')]))
+      ..on('GET', _photoPath(1), FakeReply(404, {}))
+      ..on('GET', _list, FakeReply(500, {}));
+
+    Future<void> showRefreshFail(WidgetTester tester) async {
+      await tester.tap(_btnIn(1, '사진 보기'));
+      await tester.pumpAndSettle();
+    }
+
+    _test('재조회가 실패해 안내가 뜨면 [다시 불러오기]가 보이고, 안내가 없으면 버튼도 없다', (tester) async {
+      final a = failedRefresh();
+      await _open(tester, a);
+      expect(reloadBtn, findsNothing); // 평소엔 없다
+      await showRefreshFail(tester);
+      expect(find.text(_msgRefreshFail), findsOneWidget);
+      expect(reloadBtn, findsOneWidget);
+      expect(tester.widget<OutlinedButton>(reloadBtn).onPressed, isNotNull);
+    });
+
+    _test('처리 성공 뒤 재조회가 실패해도 [다시 불러오기]가 보인다', (tester) async {
+      final a = _base();
+      a.on('PUT', _approvePath(1), FakeReply(200, {}));
+      a.on('GET', _list, FakeReply(500, {}));
+      await _open(tester, a);
+      await _openApprove(tester);
+      await _fill(tester);
+      await _submitAndConfirm(tester);
+      expect(find.text(_msgRefreshFail), findsOneWidget);
+      expect(reloadBtn, findsOneWidget);
+    });
+
+    _test('누르면 GET이 1건 더 나가고, 성공하면 안내·버튼이 사라지고 새 목록이 반영된다', (tester) async {
+      final a = failedRefresh();
+      a.on('GET', _list, FakeReply(200, [_req(id: 2, nickname: '영희'), _req(id: 3, nickname: '철수')]));
+      await _open(tester, a);
+      await showRefreshFail(tester);
+      expect(a.count('GET', _list), 2);
+      await tester.tap(reloadBtn);
+      await tester.pumpAndSettle();
+      expect(a.count('GET', _list), 3); // 정확히 1건 추가
+      expect(a.callsTo('GET', _list).last.query['status'], 'PENDING');
+      expect(find.text(_msgRefreshFail), findsNothing);
+      expect(reloadBtn, findsNothing);
+      expect(_row(1), findsNothing);
+      expect(_row(2), findsOneWidget);
+      expect(_row(3), findsOneWidget);
+    });
+
+    _test('또 실패하면 안내와 버튼이 남고 기존 목록도 그대로이며 오류 화면으로 바뀌지 않는다', (tester) async {
+      final a = failedRefresh();
+      a.on('GET', _list, FakeReply(500, {}));
+      await _open(tester, a);
+      await showRefreshFail(tester);
+      await tester.tap(reloadBtn);
+      await tester.pumpAndSettle();
+      expect(a.count('GET', _list), 3);
+      expect(find.text(_msgRefreshFail), findsOneWidget);
+      expect(reloadBtn, findsOneWidget);
+      expect(tester.widget<OutlinedButton>(reloadBtn).onPressed, isNotNull); // 끝나면 다시 누를 수 있다
+      expect(_row(1), findsOneWidget);
+      expect(_row(2), findsOneWidget);
+      expect(find.text('인증 신청 목록을 불러오지 못했습니다'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    _test('요청 중에는 버튼이 비활성이고 연타해도 GET은 1건만 더 나간다', (tester) async {
+      final gate = Completer<void>();
+      final a = failedRefresh();
+      a.on('GET', _list, FakeReply(200, [_req(id: 2, nickname: '영희')], gate));
+      await _open(tester, a);
+      await showRefreshFail(tester);
+      await tester.tap(reloadBtn);
+      await tester.pump();
+      expect(tester.widget<OutlinedButton>(reloadBtn).onPressed, isNull); // 붙잡힌 동안 비활성
+      await tester.tap(reloadBtn, warnIfMissed: false);
+      await tester.tap(reloadBtn, warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(a.count('GET', _list), 3); // 처음 2건 + 재조회 1건
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(a.count('GET', _list), 3);
+      expect(reloadBtn, findsNothing);
+      expect(_row(1), findsNothing);
+    });
+  });
+
+  group('S20 정리: 허가서 번호 칸 안내', () {
+    _test('번호 칸 placeholder와 입력 방법 안내 문구가 보인다', (tester) async {
+      final a = _base();
+      await _open(tester, a);
+      await _openApprove(tester);
+      expect(find.text('예: 2026-0001'), findsOneWidget); // 비어 있을 때 placeholder
+      expect(_inForm("허가서의 '표준입학허가서 번호' 중 영문·숫자 부분만 입력해 주세요 ('제', '호'는 빼고)"), findsOneWidget);
+    });
+
+    _test('번호 칸의 hintText 설정이 맞고, 번호를 입력해도 안내 문구는 남는다', (tester) async {
+      final a = _base();
+      await _open(tester, a);
+      await _openApprove(tester);
+      expect(tester.widget<TextField>(_numberField()).decoration!.hintText, '예: 2026-0001');
+      await tester.enterText(_numberField(), 'AB-123');
+      await tester.pump();
+      expect(find.textContaining('영문·숫자 부분만 입력해 주세요'), findsOneWidget);
+    });
+  });
 }

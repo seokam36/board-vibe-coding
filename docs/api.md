@@ -1022,7 +1022,7 @@ Content-Type: multipart/form-data; boundary=...
 (파트 consent: true)
 ```
 
-- 파일 하나 최대 10MB(요청 전체 11MB). 넘으면 413. 사진 올리기(33번)와 같은 전역 멀티파트 설정(`spring.servlet.multipart.max-file-size`·`max-request-size`, nginx 11MB)이라 이 API만 따로 걸지 않았다.
+- 파일 하나 최대 10MB(요청 전체 11MB). 넘으면 413. 사진 올리기(33번)와 같은 전역 멀티파트 설정(`spring.servlet.multipart.max-file-size`·`max-request-size`)이라 서버 쪽은 이 API만 따로 걸지 않았다. nginx는 이 주소(`/api/users/me/permit-verification`)에만 `client_max_body_size 11m`·`proxy_read_timeout 150s` 예외 블록이 있다(없으면 1MB 넘는 사진이 413).
 - 서버가 사진을 다시 만들어 저장한다(33번과 같은 처리기 사용). 허가서는 본 사진 한 장만 보관하고 썸네일은 만들지 않는다. 픽셀 상한(긴 변 10,000px 초과 또는 총 4천만 픽셀 초과)은 400.
 - 회원당 대기(`PENDING`) 신청은 동시에 1건만 가능하다(DB 부분 UNIQUE `uk_permit_requests_user_pending`로 보장: 같은 회원이 동시에 두 번 보내도 하나만 성공하고 나머지는 409).
 - 하루 3회까지: Redis 카운터로 서울 날짜(`Asia/Seoul`) 기준 하루에 센다(자정에 0으로 돌아감). 철회하고 다시 내도 횟수는 줄지 않는다. 이미 승인됐거나 이미 대기 중이라 409로 거절된 요청은 세지 않고, 사진이 깨져 400이 난 시도는 센다(남용 방지). 서버 탓 실패(처리 자리 없음 503, 정리 작업과 겹친 503, 창고 저장 실패 500, 동시 신청에서 져서 난 409 등)는 센 횟수를 되돌려 세지 않는다.

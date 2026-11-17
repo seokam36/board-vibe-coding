@@ -167,6 +167,7 @@ class MarketItemPhotoCleanupTests {
 		}
 		jdbc.update("delete from market_items"); // 사진 행은 CASCADE로 같이 지워진다
 		jdbc.update("delete from photo_delete_queue");
+		jdbc.update("delete from permit_requests");
 		postRepository.deleteAll();
 		userRepository.deleteAll();
 		FileSystemUtils.deleteRecursively(Path.of(uploadDir));
@@ -671,6 +672,78 @@ class MarketItemPhotoCleanupTests {
 		파일_있음(keys);
 		assertThat(큐_줄수()).isZero();
 		assertThat(글의_키들(id)).isEqualTo(keys);
+	}
+
+	// ---- S20 정리: 허가서 신청 행이 아직 가리키는 사진 ----
+
+	@Test
+	void 대기_표_키를_허가서_신청_행이_아직_가리키면_파일은_안_지우고_표_줄만_지운다() throws Exception {
+		String key = "permits/test-keep.jpg"; // 지어낸 키
+		파일_직접_넣기(key);
+		jdbc.update("insert into permit_requests (user_id, status, photo_key, created_at) values (?, 'PENDING', ?, now())",
+				회원.getId(), key);
+		jdbc.update("insert into photo_delete_queue (storage_key) values (?)", key);
+		나이_먹이기();
+
+		cleanupJob.runOnce();
+
+		파일_있음(List.of(key)); // 신청이 쓰는 사진이라 그대로
+		assertThat(큐_줄수()).isZero(); // 잘못 적힌 쪽지만 버린다
+		assertThat(창고.지우기시도).doesNotContain(key); // 지우기를 시도조차 안 함
+		assertThat(jdbc.queryForObject("select photo_key from permit_requests where user_id = ?", String.class, 회원.getId()))
+				.isEqualTo(key);
+	}
+
+	@Test
+	void 대기_표_키를_가리키는_허가서_신청_행이_없으면_파일을_지우고_표_줄도_뺀다() throws Exception {
+		String key = "permits/test-orphan.jpg"; // 지어낸 키
+		파일_직접_넣기(key);
+		// 신청 행은 있지만 다른 사진을 가리킴
+		jdbc.update("insert into permit_requests (user_id, status, photo_key, created_at) values (?, 'PENDING', ?, now())",
+				회원.getId(), "permits/other.jpg");
+		jdbc.update("insert into photo_delete_queue (storage_key) values (?)", key);
+		나이_먹이기();
+
+		assertThat(cleanupJob.runOnce()).isEqualTo(1);
+
+		파일_없음(List.of(key));
+		assertThat(큐_줄수()).isZero();
+		assertThat(창고.지우기시도).containsExactly(key);
+	}
+
+	@Test
+	void 처리가_끝나_사진_칸이_비워진_허가서_신청_행만_있으면_대기_표의_사진을_지운다() throws Exception {
+		// 실제 운영 경로: 반려(승인도 같음)는 photo_key를 NULL로 비우고 그 키를 대기 표에 적는다.
+		// 커밋 뒤 바로 지우기가 실패해 남은 줄은 청소부가 지워야 한다(NULL은 in (:keys)에 안 걸린다)
+		String key = "permits/test-decided.jpg"; // 지어낸 키
+		파일_직접_넣기(key);
+		jdbc.update("insert into permit_requests (user_id, status, reject_reason, photo_key, created_at, decided_at)"
+				+ " values (?, 'REJECTED', 'BLURRY', null, now(), now())", 회원.getId());
+		jdbc.update("insert into photo_delete_queue (storage_key) values (?)", key);
+		나이_먹이기();
+
+		assertThat(cleanupJob.runOnce()).isEqualTo(1);
+
+		파일_없음(List.of(key));
+		assertThat(큐_줄수()).isZero();
+	}
+
+	@Test
+	void 대기_표에_허가서_키가_섞여_있어도_쓰는_키만_남기고_나머지는_지운다() throws Exception {
+		String 쓰는키 = "permits/test-used.jpg";
+		String 고아키 = "permits/test-gone.jpg";
+		파일_직접_넣기(쓰는키);
+		파일_직접_넣기(고아키);
+		jdbc.update("insert into permit_requests (user_id, status, photo_key, created_at) values (?, 'PENDING', ?, now())",
+				회원.getId(), 쓰는키);
+		jdbc.update("insert into photo_delete_queue (storage_key) values (?), (?)", 쓰는키, 고아키);
+		나이_먹이기();
+
+		assertThat(cleanupJob.runOnce()).isEqualTo(1); // 파일을 지운 줄은 1개
+
+		파일_있음(List.of(쓰는키));
+		파일_없음(List.of(고아키));
+		assertThat(큐_줄수()).isZero();
 	}
 
 	@Test

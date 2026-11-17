@@ -133,7 +133,16 @@ class _PermitApproveFormState extends State<PermitApproveForm> {
             fieldKey: const ValueKey('permit-approve-number'),
             label: '허가서 번호',
             controller: _number,
+            hint: '예: 2026-0001',
             maxLength: permitNumberMaxLength,
+          ),
+          // 서버가 글자·숫자만 남기고 대문자로 바꾸지만 '제'·'호' 같은 접두·접미어는 지우지 않는다
+          const Padding(
+            padding: EdgeInsets.only(bottom: AppSizes.space3),
+            child: Text(
+              "허가서의 '표준입학허가서 번호' 중 영문·숫자 부분만 입력해 주세요 ('제', '호'는 빼고)",
+              style: TextStyle(color: AppColors.muted, fontSize: 13),
+            ),
           ),
           if (_message != null) Notice(kind: NoticeKind.error, message: _message),
           if (error != null) Notice(kind: NoticeKind.error, message: error),

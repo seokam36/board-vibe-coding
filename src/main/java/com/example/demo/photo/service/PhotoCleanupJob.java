@@ -110,10 +110,11 @@ public class PhotoCleanupJob {
             return List.of();
         }
 
-        // 안전 확인: 장부(사진 행)가 아직 가리키는 키라면 파일을 지우면 안 된다 (잘못 적힌 쪽지 방어)
+        // 안전 확인: 장부(장터 사진 행·허가서 신청 행)가 아직 가리키는 키라면 파일을 지우면 안 된다 (잘못 적힌 쪽지 방어)
         List<String> keys = rows.stream().map(Claimed::key).toList();
         Set<String> inUse = new HashSet<>(jdbc.queryForList("select storage_key from market_item_photos where storage_key in (:keys) "
-                + "union select thumb_key from market_item_photos where thumb_key in (:keys)", Map.of("keys", keys), String.class));
+                + "union select thumb_key from market_item_photos where thumb_key in (:keys) "
+                + "union select photo_key from permit_requests where photo_key in (:keys)", Map.of("keys", keys), String.class));
 
         List<Long> staleIds = new ArrayList<>(); // 쪽지만 버릴 줄
         List<Claimed> targets = new ArrayList<>(); // 파일을 지울 줄

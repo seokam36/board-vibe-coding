@@ -161,6 +161,17 @@ class _AdminPermitsPageState extends State<AdminPermitsPage> {
     }
   }
 
+  // [다시 불러오기]: 기존 목록은 두고 다시 읽는다 (성공하면 안내가 사라지고, 또 실패하면 안내가 남는다)
+  Future<void> _reload() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _fetch(keepOnFail: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   void _changeTab(String next) {
     if (next == _status) return;
     setState(() {
@@ -357,7 +368,23 @@ class _AdminPermitsPageState extends State<AdminPermitsPage> {
           // 그 신청 줄이 아직 목록에 있으면 안내는 줄의 양식 안에 보이므로 여기선 숨긴다 (줄이 사라진 경우만 위에 보여 준다)
           if (_actionError != null && !(items?.any((e) => e.id == _actionErrorFor) ?? false))
             Notice(kind: NoticeKind.error, message: _actionError),
-          if (_refreshError != null) Notice(kind: NoticeKind.error, message: _refreshError),
+          if (_refreshError != null)
+            Notice(
+              kind: NoticeKind.error,
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: AppSizes.space2,
+                children: [
+                  Text(_refreshError!),
+                  // 기존 목록은 그대로 두고 다시 읽기만 시도한다. 처리 중에는 막는다
+                  OutlinedButton(
+                    style: smallButtonStyle,
+                    onPressed: _busy ? null : _reload,
+                    child: const Text('다시 불러오기'),
+                  ),
+                ],
+              ),
+            ),
           if (loadError != null)
             Notice(
               kind: NoticeKind.error,
