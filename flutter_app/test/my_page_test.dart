@@ -64,7 +64,7 @@ FakeAdapter _listAdapter() => FakeAdapter()
 
 void main() {
   group('골격', () {
-    _test('제목 → 아이디·닉네임 판 → 학교 인증 → 닉네임 → 비밀번호 → 탈퇴 → 목록으로 순서', (tester) async {
+    _test('제목 → 아이디·닉네임 판 → 유학생 인증 → 닉네임 → 비밀번호 → 탈퇴 → 목록으로 순서', (tester) async {
       await pumpApp(tester, location: '/me', user: userJson(username: 'user01', nickname: '홍길동'));
       expect(find.text('내 정보'), findsWidgets); // 화면 제목 (상단바 링크에도 같은 글자)
       expect(find.text('아이디: user01'), findsOneWidget);

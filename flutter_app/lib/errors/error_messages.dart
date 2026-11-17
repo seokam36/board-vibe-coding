@@ -32,7 +32,7 @@ abstract final class ErrorMessages {
   static const schoolNotFound = '존재하지 않는 학교입니다';
   // 댓글·공감·글 신고 403: 학교 인증을 안 했거나 다른 학교의 글일 때
   static const schoolGatePostAction =
-      '학교 인증이 필요하거나 인증한 학교의 글이 아니에요. 계속 안 되면 새로고침 후 다시 시도해 주세요';
+      '유학생 인증이 필요하거나 인증한 학교의 글이 아니에요. 계속 안 되면 새로고침 후 다시 시도해 주세요';
 
   // --- 삭제 ---
   // 삭제 403인데 내 것(권한이 있어야 하는데 거부됨)일 때: 새로고침 안내
@@ -66,7 +66,7 @@ abstract final class ErrorMessages {
   static const reviewOptionsLoadFailed = '선택지 목록을 불러오지 못했습니다';
   // 후기 작성·비자 일정 저장·대화 신고에서 학교 인증이 없거나 CSRF가 어긋났을 때(403)
   static const visaSchoolRequiredRetry =
-      '학교 인증이 필요해요. 계속 안 되면 새로고침 후 다시 시도해 주세요';
+      '유학생 인증이 필요해요. 계속 안 되면 새로고침 후 다시 시도해 주세요';
 
   // --- 중고거래·나눔 ---
   // 글 올리기·수정에서 제목/본문/판매·나눔/가격이 잘못됐을 때(400)

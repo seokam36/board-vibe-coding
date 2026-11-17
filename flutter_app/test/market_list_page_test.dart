@@ -551,7 +551,7 @@ void main() {
       );
       expect(find.text('글쓰기'), findsOneWidget);
       expect(find.textContaining('로그인이 필요해요'), findsNothing);
-      expect(find.textContaining('학교 인증 후에'), findsNothing);
+      expect(find.textContaining('유학생 인증 후에'), findsNothing);
       await tester.tap(find.text('글쓰기'));
       await tester.pump(); // 글쓰기 화면은 아직 자리표시라 요청이 없다
       await tester.pumpAndSettle();
@@ -567,12 +567,12 @@ void main() {
       expect(_uri(app), '/login');
     });
 
-    testWidgets('로그인했지만 학교 미인증이면 인증 안내와 "내 정보에서 학교 인증하기" 링크 → /me', (tester) async {
+    testWidgets('로그인했지만 학교 미인증이면 인증 안내와 "내 정보에서 유학생 인증하기" 링크 → /me', (tester) async {
       final adapter = marketAdapter([FakeReply(200, [])]);
       final app = await pumpApp(tester, location: '/market', user: userJson(), adapter: adapter);
       expect(find.text('글쓰기'), findsNothing);
-      expect(find.text('중고·나눔 글은 학교 인증 후에 올릴 수 있어요'), findsOneWidget);
-      await tester.tap(find.text('내 정보에서 학교 인증하기'));
+      expect(find.text('중고·나눔 글은 유학생 인증 후에 올릴 수 있어요'), findsOneWidget);
+      await tester.tap(find.text('내 정보에서 유학생 인증하기'));
       await tester.pumpAndSettle();
       expect(_uri(app), '/me');
     });

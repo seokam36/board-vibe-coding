@@ -24,7 +24,7 @@ const _expiredNotice = '등록한 체류 만료일이 지났습니다 — 날짜
 const _guideText = '일반 안내이며 개인 상황은 ';
 const _relogin = '다시 로그인해 주세요';
 const _invalid400 = '만료일을 확인해 주세요 (오늘부터 5년 이내의 날짜만 등록할 수 있어요)';
-const _school403 = '학교 인증이 필요해요. 계속 안 되면 새로고침 후 다시 시도해 주세요';
+const _school403 = '유학생 인증이 필요해요. 계속 안 되면 새로고침 후 다시 시도해 주세요';
 
 // 시계 (서울 2026-11-10 낮). 자정 넘김 테스트는 이 값을 바꾼다
 DateTime _clock = DateTime.utc(2026, 11, 10, 3);
@@ -137,18 +137,18 @@ void main() {
   const todoDdays = ['만료 120일 전부터', '만료 30일 전부터', '만료 7일 전부터'];
 
   group('학교 미인증', () {
-    test('학교 인증 안내만 보이고 일정을 부르지 않는다', (tester) async {
+    test('유학생 인증 안내만 보이고 일정을 부르지 않는다', (tester) async {
       final app = await pump(tester, user: userJson());
       expect(find.text('비자 일정'), findsWidgets); // 제목 (상단바 링크는 인증 회원에게만)
-      expect(find.text('비자 일정은 학교 인증 후에 등록할 수 있어요'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, '내 정보에서 학교 인증하기'), findsOneWidget);
+      expect(find.text('비자 일정은 유학생 인증 후에 등록할 수 있어요'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '내 정보에서 유학생 인증하기'), findsOneWidget);
       expect(_field, findsNothing);
       expect(app.adapter.count('GET', _path), 0);
     });
 
-    test('[내 정보에서 학교 인증하기]를 누르면 /me', (tester) async {
+    test('[내 정보에서 유학생 인증하기]를 누르면 /me', (tester) async {
       final app = await pump(tester, user: userJson());
-      await tester.tap(find.widgetWithText(FilledButton, '내 정보에서 학교 인증하기'));
+      await tester.tap(find.widgetWithText(FilledButton, '내 정보에서 유학생 인증하기'));
       await tester.pumpAndSettle();
       expect(app.router.routerDelegate.currentConfiguration.uri.path, '/me');
     });
@@ -275,7 +275,7 @@ void main() {
       expect(fieldText(tester), '2027-03-01');
     });
 
-    test('403이면 학교 인증 안내 문구가 보이고 입력값은 그대로다', (tester) async {
+    test('403이면 유학생 인증 안내 문구가 보이고 입력값은 그대로다', (tester) async {
       final adapter = FakeAdapter()..on('PUT', _path, FakeReply(403));
       await pumpWithPlan(tester, emptyPlanJson, adapter: adapter);
       await pickMarch1(tester);

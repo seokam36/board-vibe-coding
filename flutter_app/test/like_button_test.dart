@@ -201,11 +201,11 @@ void main() {
     final cases = <(String, bool, int, String, bool)>[
       ('POST 409 → 상태를 "공감함"으로 맞추고 이미 공감 안내', false, 409, ErrorMessages.postAlreadyLiked, true),
       ('POST 404 → 글 없음 문구', false, 404, ErrorMessages.postNotFound, false),
-      ('POST 403 → 학교 인증 문구', false, 403, ErrorMessages.schoolGatePostAction, false),
+      ('POST 403 → 유학생 인증 문구', false, 403, ErrorMessages.schoolGatePostAction, false),
       ('POST 500 → 처리하지 못했습니다', false, 500, ErrorMessages.actionFailed, false),
       ('POST 400 → 처리하지 못했습니다', false, 400, ErrorMessages.actionFailed, false),
       ('DELETE 404 → "공감하지 않은 글입니다" + 상태를 🤍로 맞춤', true, 404, '공감하지 않은 글입니다', false),
-      ('DELETE 403 → 취소 실패(새로고침 안내), 학교 인증 문구가 아님', true, 403, '취소하지 못했습니다. 새로고침 후 다시 시도해 주세요', true),
+      ('DELETE 403 → 취소 실패(새로고침 안내), 유학생 인증 문구가 아님', true, 403, '취소하지 못했습니다. 새로고침 후 다시 시도해 주세요', true),
       ('DELETE 500 → 처리하지 못했습니다', true, 500, ErrorMessages.actionFailed, true),
     ];
     for (final (name, wasLiked, status, message, after) in cases) {

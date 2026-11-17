@@ -1,18 +1,17 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../permit/permit_reject_reasons.dart';
 import '../theme/app_colors.dart';
 import '../widgets/notice.dart';
-import '../widgets/school_verification_section.dart' show permitRejectReasons;
 import '../widgets/select_field.dart';
 import '../widgets/small_button_style.dart';
 
 const _chooseReason = '반려 사유를 골라 주세요';
 
-// 관리자가 고를 수 있는 반려 사유: EXPIRED(14일 지나 자동 반려)는 시스템 전용이라 뺀다.
+// 관리자가 고를 수 있는 반려 사유: 코드 목록(EXPIRED 제외)은 공용 파일에서 가져오고,
 // 문구는 회원에게 보이는 것 그대로 쓴다 (permitRejectReasons를 재사용)
 final _adminReasons = <(String, String)>[
-  for (final e in permitRejectReasons.entries)
-    if (e.key != 'EXPIRED') (e.key, e.value),
+  for (final code in adminRejectReasonCodes) (code, permitRejectReasons[code]!),
 ];
 
 // 대기 신청 줄 아래로 펼쳐지는 반려 양식: 사유 드롭다운 + [반려하기] [취소].

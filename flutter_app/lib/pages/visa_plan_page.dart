@@ -81,11 +81,11 @@ class _VisaPlanPageState extends State<VisaPlanPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('비자 일정은 학교 인증 후에 등록할 수 있어요'),
+                  const Text('비자 일정은 유학생 인증 후에 등록할 수 있어요'),
                   const SizedBox(height: AppSizes.space3),
                   FilledButton(
                     onPressed: () => context.go('/me'),
-                    child: const Text('내 정보에서 학교 인증하기'),
+                    child: const Text('내 정보에서 유학생 인증하기'),
                   ),
                 ],
               ),

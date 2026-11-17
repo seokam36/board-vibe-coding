@@ -281,8 +281,8 @@ class _ConversationPageState extends State<ConversationPage> {
           crossAxisAlignment: WrapCrossAlignment.center,
           spacing: AppSizes.space1,
           children: [
-            const Text('학교 인증 후 답장할 수 있어요'),
-            AppLink(label: '학교 인증하기', onTap: () => context.go('/me')),
+            const Text('유학생 인증 후 답장할 수 있어요'),
+            AppLink(label: '유학생 인증하기', onTap: () => context.go('/me')),
           ],
         ),
       );

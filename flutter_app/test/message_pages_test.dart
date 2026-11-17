@@ -213,9 +213,9 @@ void main() {
       expect(_send, findsOneWidget);
     });
 
-    _test('관리자가 미인증이면 일반 회원과 같이 학교 인증 안내가 보인다', (tester) async {
+    _test('관리자가 미인증이면 일반 회원과 같이 유학생 인증 안내가 보인다', (tester) async {
       await _openDetail(tester, _detailAdapter(), user: userJson(role: 'ADMIN'));
-      expect(_inBox('학교 인증 후 같은 학교 글의 판매자에게 쪽지를 보낼 수 있어요'), findsOneWidget);
+      expect(_inBox('유학생 인증 후 같은 학교 글의 판매자에게 쪽지를 보낼 수 있어요'), findsOneWidget);
       expect(_field, findsNothing);
     });
 
@@ -228,12 +228,12 @@ void main() {
       expect(_uri(app), '/login');
     });
 
-    _test('학교 인증 전이면 학교 인증 안내가 보이고 [학교 인증하기]는 /me로 간다', (tester) async {
+    _test('유학생 인증 전이면 인증 안내가 보이고 [유학생 인증하기]는 /me로 간다', (tester) async {
       final adapter = _detailAdapter()..on('GET', '/schools', FakeReply(200, []));
       final app = await _openDetail(tester, adapter, user: userJson());
-      expect(_inBox('학교 인증 후 같은 학교 글의 판매자에게 쪽지를 보낼 수 있어요'), findsOneWidget);
+      expect(_inBox('유학생 인증 후 같은 학교 글의 판매자에게 쪽지를 보낼 수 있어요'), findsOneWidget);
       expect(_field, findsNothing);
-      await tester.tap(_inBox('학교 인증하기'));
+      await tester.tap(_inBox('유학생 인증하기'));
       await tester.pumpAndSettle();
       expect(_uri(app), '/me');
     });
@@ -258,7 +258,7 @@ void main() {
     _test('이유는 비로그인 → 미인증 → 다른 학교 → 거래완료 순으로 하나만 고른다', (tester) async {
       // 미인증이면서 다른 학교·거래완료 글 → 미인증 안내만
       await _openDetail(tester, _detailAdapter(statusCode: 'DONE', statusName: '거래완료', school: marketBusan), user: userJson());
-      expect(_inBox('학교 인증 후 같은 학교 글의 판매자에게 쪽지를 보낼 수 있어요'), findsOneWidget);
+      expect(_inBox('유학생 인증 후 같은 학교 글의 판매자에게 쪽지를 보낼 수 있어요'), findsOneWidget);
       expect(find.textContaining('인증한 학교('), findsNothing);
       expect(find.textContaining('새 대화를 시작할 수 없어요'), findsNothing);
     });
@@ -267,7 +267,7 @@ void main() {
   group('상세: 실패와 401', () {
     final failures = <(int, String)>[
       (400, '쪽지 내용을 입력해 주세요 (최대 1000자)'),
-      (403, '학교 인증이 필요하거나 인증한 학교의 글이 아니에요. 계속 안 되면 새로고침 후 다시 시도해 주세요'),
+      (403, '유학생 인증이 필요하거나 인증한 학교의 글이 아니에요. 계속 안 되면 새로고침 후 다시 시도해 주세요'),
       (404, '이미 삭제된 글입니다'),
       (409, _doneNotice),
       (500, '쪽지를 보내지 못했습니다'),
@@ -615,7 +615,7 @@ void main() {
         // 로그인이 풀려도(user null) 미인증 안내로 바뀌지 않고 칸이 남는다
         expect(_field, findsOneWidget);
         expect(_text(tester), '답장입니다');
-        expect(find.text('학교 인증 후 답장할 수 있어요'), findsNothing);
+        expect(find.text('유학생 인증 후 답장할 수 있어요'), findsNothing);
         expect(find.byKey(const ValueKey('msg-2')), findsOneWidget);
         expect(_uri(app), '/messages/3');
       });
@@ -642,12 +642,12 @@ void main() {
       expect(find.text('지워진 책상'), findsOneWidget);
     });
 
-    _test('학교 미인증 회원은 대화는 읽을 수 있고 답장 칸 대신 안내가 보인다 ([학교 인증하기] → /me)', (tester) async {
+    _test('학교 미인증 회원은 대화는 읽을 수 있고 답장 칸 대신 안내가 보인다 ([유학생 인증하기] → /me)', (tester) async {
       final app = await openConv(tester, convAdapter()..on('GET', '/schools', FakeReply(200, [])), user: userJson());
       expect(find.byKey(const ValueKey('msg-1')), findsOneWidget);
-      expect(find.text('학교 인증 후 답장할 수 있어요'), findsOneWidget);
+      expect(find.text('유학생 인증 후 답장할 수 있어요'), findsOneWidget);
       expect(_field, findsNothing);
-      await tester.tap(find.text('학교 인증하기'));
+      await tester.tap(find.text('유학생 인증하기'));
       await tester.pumpAndSettle();
       expect(_uri(app), '/me');
     });
@@ -655,7 +655,7 @@ void main() {
     _test('탈퇴한 상대 안내가 미인증 안내보다 먼저다', (tester) async {
       await openConv(tester, convAdapter(conv: conversationJson(partner: null)), user: userJson());
       expect(find.text('상대가 탈퇴해 더 이상 쪽지를 보낼 수 없어요'), findsOneWidget);
-      expect(find.text('학교 인증 후 답장할 수 있어요'), findsNothing);
+      expect(find.text('유학생 인증 후 답장할 수 있어요'), findsNothing);
     });
 
     _test('[쪽지함으로]를 누르면 /messages로 간다', (tester) async {

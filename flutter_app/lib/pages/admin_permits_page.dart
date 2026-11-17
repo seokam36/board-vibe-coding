@@ -12,6 +12,7 @@ import '../api/api_client.dart';
 import '../auth/auth_state.dart';
 import '../common/format_date.dart';
 import '../errors/error_messages.dart';
+import '../permit/permit_reject_reasons.dart' show permitRejectReasons;
 import '../posts/models.dart' show School;
 import '../theme/app_colors.dart';
 import '../widgets/app_badge.dart';
@@ -21,7 +22,6 @@ import '../widgets/notice.dart';
 import '../widgets/page_frame.dart';
 import '../widgets/panel.dart';
 import '../widgets/relogin_notice.dart';
-import '../widgets/school_verification_section.dart' show permitRejectReasons;
 import '../widgets/small_button_style.dart';
 
 const _listFailedMessage = '인증 신청 목록을 불러오지 못했습니다';

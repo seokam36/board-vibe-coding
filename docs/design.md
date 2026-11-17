@@ -33,7 +33,7 @@
 날짜만 있는 값(접수일·결과일)은 연도를 붙여 "2026년 9월 1일"로(`formatDay`, 시간대 영향이 없게 문자열을 직접 쪼갠다).
 
 쪽지함 안 읽은 수 배지(`.badge-unread`): 상대 닉네임 옆, 인증 뱃지와 같은 청자 색(`--celadon-ink` / `--celadon-soft`). 100 이상은 "99+"로 줄이고, 화면 읽기 프로그램에는 "안 읽은 쪽지 N개"로 읽힌다(`.sr-only`). 새 색 없음.
-인증 뱃지(`.badge-verified`): 학교 인증을 마친 회원 표시(상단바 "인증", 내 정보 "학교 인증 완료 · 학교명"). 학교생활 뱃지와 같은 청자 색(`--celadon-ink` / `--celadon-soft`).
+인증 뱃지(`.badge-verified`): 학교 인증을 마친 회원 표시(상단바 "인증", 내 정보 "유학생 인증 완료 · 학교명"). 학교생활 뱃지와 같은 청자 색(`--celadon-ink` / `--celadon-soft`).
 
 결과 뱃지(`.badge-result-APPROVED` / `.badge-result-DENIED`): 승인은 인증 뱃지와 같은 청자(`--celadon-ink` / `--celadon-soft`), 불허는 잡담 뱃지와 같은 회색(`--muted` / `--badge-chat-bg`). 빨강은 쓰지 않는다(위험색은 되돌릴 수 없는 동작에만).
 

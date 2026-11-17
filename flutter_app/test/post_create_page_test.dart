@@ -62,20 +62,20 @@ Future<void> _fill(WidgetTester tester) async {
 
 void main() {
   group('학교 미인증', () {
-    _test('폼 대신 안내 문구와 [내 정보에서 학교 인증하기]가 보인다', (tester) async {
+    _test('폼 대신 안내 문구와 [내 정보에서 유학생 인증하기]가 보인다', (tester) async {
       await pumpApp(tester, location: '/posts/new', user: userJson());
       expect(find.text('글쓰기'), findsOneWidget); // 제목
-      expect(find.text('글쓰기는 학교 인증 후에 할 수 있어요'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, '내 정보에서 학교 인증하기'), findsOneWidget);
+      expect(find.text('글쓰기는 유학생 인증 후에 할 수 있어요'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '내 정보에서 유학생 인증하기'), findsOneWidget);
       // 폼은 없다
       expect(_titleField, findsNothing);
       expect(_contentField, findsNothing);
       expect(_saveButton, findsNothing);
     });
 
-    _test('[내 정보에서 학교 인증하기]를 누르면 /me', (tester) async {
+    _test('[내 정보에서 유학생 인증하기]를 누르면 /me', (tester) async {
       final app = await pumpApp(tester, location: '/posts/new', user: userJson());
-      await tester.tap(find.widgetWithText(FilledButton, '내 정보에서 학교 인증하기'));
+      await tester.tap(find.widgetWithText(FilledButton, '내 정보에서 유학생 인증하기'));
       await tester.pumpAndSettle();
       expect(_uri(app), '/me');
     });
@@ -239,7 +239,7 @@ void main() {
       (
         '403',
         FakeReply(403),
-        '학교 인증이 필요하거나 인증한 학교 게시판이 아니에요. 계속 안 되면 새로고침 후 다시 시도해 주세요',
+        '유학생 인증이 필요하거나 인증한 학교 게시판이 아니에요. 계속 안 되면 새로고침 후 다시 시도해 주세요',
       ),
       ('500', FakeReply(500), '저장하지 못했습니다'),
       ('404', FakeReply(404), '저장하지 못했습니다'), // 표에 없는 코드는 기본 문구
@@ -297,7 +297,7 @@ void main() {
       expect(_text(tester, _titleField), '제목입니다');
       expect(_text(tester, _contentField), '내용입니다');
       // 기억해 둔 마지막 인증 학교로 폼이 유지된다 (미인증 안내로 바뀌지 않는다)
-      expect(find.text('글쓰기는 학교 인증 후에 할 수 있어요'), findsNothing);
+      expect(find.text('글쓰기는 유학생 인증 후에 할 수 있어요'), findsNothing);
       expect(find.bySemanticsLabel('학교: 서울대'), findsOneWidget);
       expect(tester.widget<FilledButton>(_saveButton).onPressed, isNotNull);
 

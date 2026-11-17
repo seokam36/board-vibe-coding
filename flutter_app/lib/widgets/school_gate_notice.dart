@@ -25,9 +25,9 @@ class SchoolGateNotice extends StatelessWidget {
           crossAxisAlignment: WrapCrossAlignment.center,
           spacing: AppSizes.space1,
           children: [
-            const Text('학교 인증 후 같은 학교 글에만 댓글·공감·신고할 수 있어요'),
+            const Text('유학생 인증 후 같은 학교 글에만 댓글·공감·신고할 수 있어요'),
             AppLink(
-              label: '학교 인증하기',
+              label: '유학생 인증하기',
               onTap: () => context.go('/me'),
               style: const TextStyle(color: AppColors.celadon),
             ),

@@ -110,13 +110,13 @@ void main() {
       handle.dispose();
     });
 
-    _test('미인증 회원이면 학교 인증 안내와 내 정보 링크만 보이고 폼은 없다', (tester) async {
+    _test('미인증 회원이면 유학생 인증 안내와 내 정보 링크만 보이고 폼은 없다', (tester) async {
       final app = await pumpApp(tester, location: '/market/new', user: userJson(), adapter: FakeAdapter());
       expect(find.text('중고·나눔 글쓰기'), findsOneWidget);
-      expect(find.text('중고·나눔 글은 학교 인증 후에 올릴 수 있어요'), findsOneWidget);
+      expect(find.text('중고·나눔 글은 유학생 인증 후에 올릴 수 있어요'), findsOneWidget);
       expect(_saveButton, findsNothing);
       expect(_titleField, findsNothing);
-      await tester.tap(find.text('내 정보에서 학교 인증하기'));
+      await tester.tap(find.text('내 정보에서 유학생 인증하기'));
       await tester.pumpAndSettle();
       expect(_uri(app), '/me');
     });
@@ -322,7 +322,7 @@ void main() {
     // 응답 → 보이는 문구. 입력은 남고 버튼은 되살아난다
     for (final (name, reply, message) in <(String, FakeReply, String)>[
       ('400', FakeReply(400), _fieldsInvalid),
-      ('403', FakeReply(403), '학교 인증이 필요해요. 계속 안 되면 새로고침 후 다시 시도해 주세요'),
+      ('403', FakeReply(403), '유학생 인증이 필요해요. 계속 안 되면 새로고침 후 다시 시도해 주세요'),
       ('500', FakeReply(500), '저장하지 못했습니다'),
       ('네트워크', FakeReply.networkError(), '서버에 연결할 수 없습니다'),
     ]) {

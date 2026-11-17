@@ -181,7 +181,7 @@ void main() {
         false,
         true,
         false,
-        '학교 인증 후 같은 학교 글에만 댓글·공감·신고할 수 있어요',
+        '유학생 인증 후 같은 학교 글에만 댓글·공감·신고할 수 있어요',
       ),
       (
         '다른 학교 남의 글',
@@ -237,16 +237,16 @@ void main() {
       expect(_uri(app), '/posts/7/edit');
     });
 
-    _test('학교 미인증 안내의 [학교 인증하기]는 /me 로 간다', (tester) async {
+    _test('학교 미인증 안내의 [유학생 인증하기]는 /me 로 간다', (tester) async {
       final app = await _open(tester, _adapter(), user: userJson(id: 5));
-      await tester.tap(find.text('학교 인증하기'));
+      await tester.tap(find.text('유학생 인증하기'));
       await tester.pumpAndSettle();
       expect(_uri(app), '/me');
     });
 
     _test('안내문 링크는 미인증일 때만 있다 (다른 학교·옛 글 안내엔 없음)', (tester) async {
       await _open(tester, _adapter(), user: userJson(id: 5, school: _busan));
-      expect(find.text('학교 인증하기'), findsNothing);
+      expect(find.text('유학생 인증하기'), findsNothing);
     });
   });
 
@@ -432,7 +432,7 @@ void main() {
 
     _test('안내문 고르는 순서: 미인증 + 학교 없는 글이면 "학교 없는 글" 문구가 아니라 미인증 문구', (tester) async {
       await _open(tester, _adapter(post: FakeReply(200, postJson(school: null))), user: userJson(id: 5));
-      expect(find.text('학교 인증 후 같은 학교 글에만 댓글·공감·신고할 수 있어요'), findsOneWidget);
+      expect(find.text('유학생 인증 후 같은 학교 글에만 댓글·공감·신고할 수 있어요'), findsOneWidget);
       expect(find.text('학교가 정해지지 않은 옛 글은 읽기만 할 수 있어요'), findsNothing);
     });
   });

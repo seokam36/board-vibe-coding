@@ -102,7 +102,7 @@ void main() {
       'schoolNotFound': (ErrorMessages.schoolNotFound, '존재하지 않는 학교입니다'),
       'schoolGatePostAction': (
         ErrorMessages.schoolGatePostAction,
-        '학교 인증이 필요하거나 인증한 학교의 글이 아니에요. 계속 안 되면 새로고침 후 다시 시도해 주세요',
+        '유학생 인증이 필요하거나 인증한 학교의 글이 아니에요. 계속 안 되면 새로고침 후 다시 시도해 주세요',
       ),
       'deleteRetryAfterReload': (ErrorMessages.deleteRetryAfterReload, '삭제하지 못했습니다. 새로고침 후 다시 시도해 주세요'),
       'deleteForbidden': (ErrorMessages.deleteForbidden, '삭제할 권한이 없습니다'),
@@ -120,7 +120,7 @@ void main() {
       'reviewOptionsLoadFailed': (ErrorMessages.reviewOptionsLoadFailed, '선택지 목록을 불러오지 못했습니다'),
       'visaSchoolRequiredRetry': (
         ErrorMessages.visaSchoolRequiredRetry,
-        '학교 인증이 필요해요. 계속 안 되면 새로고침 후 다시 시도해 주세요',
+        '유학생 인증이 필요해요. 계속 안 되면 새로고침 후 다시 시도해 주세요',
       ),
       'marketFieldsInvalid': (
         ErrorMessages.marketFieldsInvalid,

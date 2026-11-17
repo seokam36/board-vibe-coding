@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:board_web/api/api_client.dart';
 import 'package:board_web/auth/auth_state.dart';
 import 'package:board_web/common/file_picker.dart';
+import 'package:board_web/permit/permit_reject_reasons.dart';
 import 'package:board_web/theme/app_theme.dart';
 import 'package:board_web/widgets/school_verification_section.dart';
 import 'package:flutter/services.dart';

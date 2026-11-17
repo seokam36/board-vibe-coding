@@ -8,6 +8,7 @@ import '../common/file_picker.dart';
 import '../common/format_date.dart';
 import '../errors/error_messages.dart';
 import '../market/photo_upload.dart' show maxPhotoBytes;
+import '../permit/permit_reject_reasons.dart';
 import '../theme/app_colors.dart';
 import 'app_badge.dart';
 import 'confirm_dialog.dart';
@@ -29,16 +30,7 @@ const permitConsentText =
 const permitMaskHide = '가려 주세요: 여권번호, 생년월일, 이메일, 재정 금액';
 const permitMaskShow = '보이게 두세요: 국적, 학교명, 표준입학허가서 번호';
 
-// 반려 사유 코드 → 안내 문구 (서버 코드 7개. 모르는 코드는 OTHER 문구)
-const permitRejectReasons = <String, String>{
-  'BLURRY': '사진이 흐려서 글자를 읽을 수 없어요',
-  'NOT_PERMIT': '표준입학허가서가 아니에요',
-  'NOT_MASKED': '가려야 할 정보가 보여요. 가리고 다시 올려 주세요',
-  'UNSUPPORTED_SCHOOL': '아직 지원하지 않는 학교예요',
-  'DUPLICATE': '이미 다른 계정에서 인증한 허가서예요',
-  'EXPIRED': '14일 안에 확인하지 못했어요. 다시 신청해 주세요',
-  'OTHER': '확인할 수 없었어요. 다시 신청해 주세요',
-};
+// 반려 사유 문구(permitRejectReasons)는 ../permit/permit_reject_reasons.dart로 옮겼다
 
 // 신청(POST) 실패 상태코드별 문구 (401은 표에 두지 않는다 → describeError가 로그인 안내로 바꾼다)
 const permitSubmitErrors = <int, String>{

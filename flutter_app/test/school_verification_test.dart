@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:board_web/api/api_client.dart';
 import 'package:board_web/auth/auth_state.dart';
 import 'package:board_web/auth/auth_user.dart';
+import 'package:board_web/permit/permit_reject_reasons.dart';
 import 'package:board_web/theme/app_theme.dart';
 import 'package:board_web/widgets/app_badge.dart';
 import 'package:board_web/widgets/relogin_notice.dart';

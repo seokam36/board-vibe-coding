@@ -17,7 +17,7 @@ import '../widgets/relogin_notice.dart';
 import '../widgets/select_field.dart';
 
 // 이 화면만 쓰는 문구는 여기에 둔다 (여러 화면이 겹쳐 쓰는 문구만 error_messages 사전에 있다)
-const _forbiddenMessage = '학교 인증이 필요하거나 인증한 학교 게시판이 아니에요. 계속 안 되면 새로고침 후 다시 시도해 주세요';
+const _forbiddenMessage = '유학생 인증이 필요하거나 인증한 학교 게시판이 아니에요. 계속 안 되면 새로고침 후 다시 시도해 주세요';
 const _pickCategoryMessage = '말머리를 골라 주세요';
 const _optionsFailedSaveMessage = '말머리 목록을 불러오지 못해 저장할 수 없습니다. 새로고침 후 다시 시도해 주세요';
 const _optionsFailedMessage = '말머리 목록을 불러오지 못했습니다';
@@ -132,11 +132,11 @@ class _PostCreatePageState extends State<PostCreatePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('글쓰기는 학교 인증 후에 할 수 있어요'),
+                  const Text('글쓰기는 유학생 인증 후에 할 수 있어요'),
                   const SizedBox(height: AppSizes.space3),
                   FilledButton(
                     onPressed: () => context.go('/me'),
-                    child: const Text('내 정보에서 학교 인증하기'),
+                    child: const Text('내 정보에서 유학생 인증하기'),
                   ),
                 ],
               ),

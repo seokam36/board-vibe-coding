@@ -108,20 +108,20 @@ Future<void> _fill(WidgetTester tester, {String content = '서류는 빨리 냈�
 
 void main() {
   group('학교 미인증', () {
-    _test('폼·면책 문구 대신 안내 문구와 [내 정보에서 학교 인증하기]가 보인다', (tester) async {
+    _test('폼·면책 문구 대신 안내 문구와 [내 정보에서 유학생 인증하기]가 보인다', (tester) async {
       await pumpApp(tester, location: _path, user: userJson());
       expect(find.text('비자 후기 쓰기'), findsOneWidget); // 제목
-      expect(find.text('비자 후기 작성은 학교 인증 후에 할 수 있어요'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, '내 정보에서 학교 인증하기'), findsOneWidget);
+      expect(find.text('비자 후기 작성은 유학생 인증 후에 할 수 있어요'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '내 정보에서 유학생 인증하기'), findsOneWidget);
       expect(find.textContaining('후기는 개인 경험이라'), findsNothing); // 면책 문구는 폼일 때만
       expect(_visaTypeSelect, findsNothing);
       expect(_contentField, findsNothing);
       expect(_saveButton, findsNothing);
     });
 
-    _test('[내 정보에서 학교 인증하기]를 누르면 /me', (tester) async {
+    _test('[내 정보에서 유학생 인증하기]를 누르면 /me', (tester) async {
       final app = await pumpApp(tester, location: _path, user: userJson());
-      await tester.tap(find.widgetWithText(FilledButton, '내 정보에서 학교 인증하기'));
+      await tester.tap(find.widgetWithText(FilledButton, '내 정보에서 유학생 인증하기'));
       await tester.pumpAndSettle();
       expect(_uri(app), '/me');
     });
@@ -460,7 +460,7 @@ void main() {
         FakeReply(400),
         '날짜를 확인해 주세요 (접수일은 결과일과 같거나 앞서야 하고, 둘 다 오늘까지. 본문은 2000자까지)',
       ),
-      ('403', FakeReply(403), '학교 인증이 필요해요. 계속 안 되면 새로고침 후 다시 시도해 주세요'),
+      ('403', FakeReply(403), '유학생 인증이 필요해요. 계속 안 되면 새로고침 후 다시 시도해 주세요'),
       ('500', FakeReply(500), '저장하지 못했습니다'),
       ('404', FakeReply(404), '저장하지 못했습니다'), // 표에 없는 코드는 기본 문구
       ('네트워크', FakeReply.networkError(), '서버에 연결할 수 없습니다'),
@@ -520,7 +520,7 @@ void main() {
       expect(_text(tester, _receivedField), _expectedReceived());
       expect(_dropdownValue(tester, _visaTypeSelect), 'D2');
       // 기억해 둔 마지막 인증 학교로 폼이 유지된다 (미인증 안내로 바뀌지 않는다)
-      expect(find.text('비자 후기 작성은 학교 인증 후에 할 수 있어요'), findsNothing);
+      expect(find.text('비자 후기 작성은 유학생 인증 후에 할 수 있어요'), findsNothing);
       expect(find.bySemanticsLabel('학교: 서울대'), findsOneWidget);
       expect(tester.widget<FilledButton>(_saveButton).onPressed, isNotNull);
 

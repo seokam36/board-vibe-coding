@@ -68,7 +68,7 @@ class _SellerMessageBoxState extends State<SellerMessageBox> {
     if (user == null) {
       hint = _hint('로그인하면 판매자에게 쪽지를 보낼 수 있습니다', linkLabel: '로그인', linkTo: '/login');
     } else if (user.verifiedSchool == null) {
-      hint = _hint('학교 인증 후 같은 학교 글의 판매자에게 쪽지를 보낼 수 있어요', linkLabel: '학교 인증하기', linkTo: '/me');
+      hint = _hint('유학생 인증 후 같은 학교 글의 판매자에게 쪽지를 보낼 수 있어요', linkLabel: '유학생 인증하기', linkTo: '/me');
     } else if (!canActInSchool(user, item.school.id)) {
       hint = _hint('인증한 학교(${user.verifiedSchool!.name}) 글에만 쪽지를 보낼 수 있어요');
     } else if (item.status.code == 'DONE') {
