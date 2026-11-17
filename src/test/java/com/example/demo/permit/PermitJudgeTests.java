@@ -609,4 +609,98 @@ class PermitJudgeTests {
 		PermitJudgement r = judge.judge(글자(제목, 국적, 학교, 번호));
 		assertThat(r.toString()).doesNotContain("0000111122223333").contains("ALL_PASSED");
 	}
+
+	// ===== S20-h: 학교 라벨 같은 줄이 깨졌을 때 바로 다음 줄도 후보로 본다 =====
+	private PermitJudgement 학교줄만_바꿔(String... 줄들) {
+		return judge.judge(제목 + "\n" + 국적 + "\n" + String.join("\n", 줄들) + "\n" + 번호);
+	}
+
+	@Test
+	void 학교_같은_줄이_깨져도_다음_줄이_등록_별칭이면_그_학교로_통과한다() {
+		PermitJudgement r = 학교줄만_바꿔("학교명 Schoolerie", "연세대학교");
+		assertThat(r.result()).isEqualTo(PermitMachineResult.ALL_PASSED);
+		assertThat(r.detectedSchoolId()).isEqualTo(학교id("연세대학교"));
+	}
+
+	@Test
+	void 학교_같은_줄_값이_등록_별칭이면_다음_줄의_다른_별칭보다_먼저_쓴다() {
+		PermitJudgement r = 학교줄만_바꿔("학교명(School name): 연세대학교", "고려대학교");
+		assertThat(r.result()).isEqualTo(PermitMachineResult.ALL_PASSED);
+		assertThat(r.detectedSchoolId()).isEqualTo(학교id("연세대학교"));
+	}
+
+	@Test
+	void 학교_같은_줄이_깨지고_다음_줄이_다른_칸_라벨이면_SCHOOL_NOT_MATCHED() {
+		// 무엇을: 다음 줄이 다른 칸 라벨 모양이면 어떤 경우에도 불통과. 한계: 세 경우 모두 LABEL_WORDS 필터가 없어도 별칭과 정확히 안 맞아 떨어진다.
+		// 별칭 표(V14)에 라벨 말이 든 별칭이 없어서 필터가 결과를 바꾸는 입력은 만들 수 없다. 필터는 앞으로 그런 별칭이 생길 때를 위한 안전장치다.
+		for (String 다음줄 : new String[] { "학교주소(School address)", "학생입국시 통보할 학교 담당자", "성명(Name): 연세대학교" }) {
+			PermitJudgement r = 학교줄만_바꿔("학교명 Schoolerie", 다음줄);
+			assertThat(r.result()).as(다음줄).isEqualTo(PermitMachineResult.SCHOOL_NOT_MATCHED);
+			assertThat(r.detectedSchoolId()).as(다음줄).isNull();
+		}
+	}
+
+	@Test
+	void 학교_같은_줄이_깨지고_다음_줄이_별칭에_없는_글자면_SCHOOL_NOT_MATCHED() {
+		PermitJudgement r = 학교줄만_바꿔("학교명 Schoolerie", "숭실대학교");
+		assertThat(r.result()).isEqualTo(PermitMachineResult.SCHOOL_NOT_MATCHED);
+		assertThat(r.detectedSchoolId()).isNull();
+	}
+
+	@Test
+	void 국적_같은_줄에_값이_있으면_다음_줄을_보지_않는_기존_동작이_그대로다() {
+		// 같은 줄 "베트남" + 다음 줄 지어낸 이름: 다음 줄을 후보로 보면(국적에도 alsoNextLine이 켜지면) 이름이 나라 목록에 없어 불통과가 된다.
+		// 다음 줄을 안 보므로 ALL_PASSED여야 한다 -> 회귀하면 이 테스트가 깨진다.
+		String 국적과이름 = "국적(Country of citizenship): 베트남\n홍길동";
+		PermitJudgement r = judge.judge(글자(제목, 국적과이름, 학교, 번호));
+		assertThat(r.result()).isEqualTo(PermitMachineResult.ALL_PASSED);
+	}
+
+	@Test
+	void 번호_같은_줄에_숫자_없는_값이_있으면_다음_줄_숫자를_보지_않는다() {
+		// 같은 줄 "없음"(값은 있으나 숫자 없음) + 다음 줄 숫자 -> 다음 줄을 안 보므로 NUMBER_NOT_FOUND
+		String 줄 = "표준입학허가서 번호(Certificate of Admission No.): 없음\n9999888877776666";
+		assertThat(judge.judge(글자(제목, 국적, 학교, 줄)).result()).isEqualTo(PermitMachineResult.NUMBER_NOT_FOUND);
+	}
+
+	@Test
+	void 학교_같은_줄이_미등록_학교이고_다음_줄이_다른_등록_별칭이면_그_학교로_통과한다_받아들인_한계() {
+		// 같은 줄에 써도 통과하므로 새 위조 구멍은 아니다. 이 동작을 기록해 두는 테스트.
+		PermitJudgement r = 학교줄만_바꿔("학교명(School name): 숭실대학교", "연세대학교");
+		assertThat(r.result()).isEqualTo(PermitMachineResult.ALL_PASSED);
+		assertThat(r.detectedSchoolId()).isEqualTo(학교id("연세대학교"));
+	}
+
+	@Test
+	void 학교_라벨에_항목_번호가_붙어도_다음_줄_별칭을_후보로_본다() {
+		PermitJudgement r = 학교줄만_바꿔("2. 학교명 Schoolerie", "연세대학교");
+		assertThat(r.result()).isEqualTo(PermitMachineResult.ALL_PASSED);
+		assertThat(r.detectedSchoolId()).isEqualTo(학교id("연세대학교"));
+	}
+
+	@Test
+	void 학교_라벨_줄과_값_줄_사이에_빈_줄이_있어도_다음_줄로_본다() {
+		PermitJudgement r = 학교줄만_바꿔("학교명 Schoolerie", "", "연세대학교");
+		assertThat(r.result()).isEqualTo(PermitMachineResult.ALL_PASSED);
+		assertThat(r.detectedSchoolId()).isEqualTo(학교id("연세대학교"));
+	}
+
+	@Test
+	void 학교_라벨이_두_번_나오면_후보_순서는_1번_같은줄_1번_다음줄_2번_같은줄_2번_다음줄() {
+		// 1번 같은 줄(고려)이 등록이면 1번 다음 줄(연세)보다 먼저
+		assertThat(학교줄만_바꿔("학교명: 고려대학교", "연세대학교", "학교명: 한양대학교").detectedSchoolId()).isEqualTo(학교id("고려대학교"));
+		// 1번 같은 줄이 미등록이면 1번 다음 줄(연세)이 2번 같은 줄(한양)보다 먼저
+		assertThat(학교줄만_바꿔("학교명: 숭실대학교", "연세대학교", "학교명: 한양대학교").detectedSchoolId()).isEqualTo(학교id("연세대학교"));
+		// 1번이 둘 다 미등록이면 2번 같은 줄(한양)이 2번 다음 줄(고려)보다 먼저
+		assertThat(학교줄만_바꿔("학교명: 숭실대학교", "서울 어딘가", "학교명: 한양대학교", "고려대학교").detectedSchoolId()).isEqualTo(학교id("한양대학교"));
+		// 1번·2번 같은 줄이 모두 미등록이면 2번 다음 줄(고려)
+		assertThat(학교줄만_바꿔("학교명: 숭실대학교", "서울 어딘가", "학교명: 중앙대학교", "고려대학교").detectedSchoolId()).isEqualTo(학교id("고려대학교"));
+	}
+
+	@Test
+	void 학교_다음_줄_값_뒤에_날짜가_붙으면_날짜를_자르고_통과한다() {
+		PermitJudgement r = 학교줄만_바꿔("학교명 Schoolerie", "연세대학교 2026-03-02");
+		assertThat(r.result()).isEqualTo(PermitMachineResult.ALL_PASSED);
+		assertThat(r.detectedSchoolId()).isEqualTo(학교id("연세대학교"));
+	}
 }

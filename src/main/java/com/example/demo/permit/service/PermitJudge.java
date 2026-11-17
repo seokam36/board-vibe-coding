@@ -22,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 // 판독기가 읽어 온 허가서 글자(String)를 4가지 규칙으로 판정한다 (S20-d1). 순서: 제목 -> 국적 -> 학교 -> 번호.
 // 처음 걸린 규칙의 결과 코드 하나만 돌려주고, 모두 통과하면 ALL_PASSED.
 // 제목만 글자 전체에서 찾고, 국적·학교·번호는 "라벨(항목 이름)이 있는 줄"의 값만 본다. 주소 속 "Korea"나 "khu" 같은 말에 속지 않으려는 것이다.
+// 학교만 예외로, 같은 줄 값으로 별칭을 못 찾으면 라벨 바로 다음 줄도 한 번 더 후보로 본다(라벨의 영어 설명이 깨져 읽힌 경우, S20-h).
 //
 // 국적 규칙은 "허용 목록" 방식이다: 값이 외국 나라 이름 목록에 있어야 통과한다.
 // 처음엔 "한국 말이 안 보이면 통과"(블랙리스트)로 만들었는데, 판독기가 값을 엉뚱한 줄·칸으로 읽으면(이름·날짜·안내문 등)
@@ -127,18 +128,18 @@ public class PermitJudge {
         List<String> lines = text.lines().toList();
 
         // 학교는 다른 항목이 떨어져도 관리자 참고용으로 알아 둔다
-        Long schoolId = findSchoolId(findValues(lines, SCHOOL_LABEL, SCHOOL_CUTS));
+        Long schoolId = findSchoolId(findValues(lines, SCHOOL_LABEL, SCHOOL_CUTS, true));
 
         if (!hasTitle(text)) {
             return new PermitJudgement(PermitMachineResult.NO_TITLE, schoolId, null);
         }
-        if (!isForeignNationality(findValues(lines, NATIONALITY_LABEL, NATIONALITY_CUTS))) {
+        if (!isForeignNationality(findValues(lines, NATIONALITY_LABEL, NATIONALITY_CUTS, false))) {
             return new PermitJudgement(PermitMachineResult.NATIONALITY_UNCLEAR, schoolId, null);
         }
         if (schoolId == null) {
             return new PermitJudgement(PermitMachineResult.SCHOOL_NOT_MATCHED, null, null);
         }
-        String number = findNumber(findValues(lines, NUMBER_LABEL, NO_CUTS));
+        String number = findNumber(findValues(lines, NUMBER_LABEL, NO_CUTS, false));
         if (number == null) {
             return new PermitJudgement(PermitMachineResult.NUMBER_NOT_FOUND, schoolId, null);
         }
@@ -287,12 +288,17 @@ public class PermitJudge {
         return count >= 2;
     }
 
-    // 라벨이 나오는 "모든" 줄에서 값을 읽는다(줄마다 값 하나, 비어 있으면 ""). 같은 줄 라벨 뒤에 값이 없으면 "바로 다음(비어 있지 않은) 줄"을 값으로 쓴다.
+    // 라벨이 나오는 "모든" 줄에서 값을 읽는다(줄마다 값 하나, 비어 있으면 "". 학교는 최대 둘: 같은 줄·다음 줄). 같은 줄 라벨 뒤에 값이 없으면 "바로 다음(비어 있지 않은) 줄"을 값으로 쓴다.
     // 다음 줄이 다른 칸의 라벨이면 값으로 안 쓴다(값은 빈 채로 둔다). 다음 줄의 날짜 뒤는 잘려 나가므로 날짜뿐인 줄도 빈 값이 된다.
     // 단, 같은 줄에 실제 값이 적혀 있었는데 날짜 때문에 잘려서 비었으면 다음 줄을 읽지 않는다
     // (번호 칸에 날짜만 적혀 있을 때 다음 줄의 엉뚱한 숫자를 번호로 집지 않으려고).
     // 옆 칸 라벨·체크박스·항목 번호("c.")뿐이라 비었을 때는 값이 원래 없던 것이므로 다음 줄을 읽는다.
-    private List<String> findValues(List<String> lines, Pattern label, List<String> cutWords) {
+    // alsoNextLine(학교 규칙 전용, S20-h): 같은 줄에 값이 있어도 다음 줄 값을 후보로 하나 더 붙인다.
+    // 라벨의 영어 설명 "(School name)"이 깨진 글자로 읽혀 같은 줄에 가짜 값이 남고, 진짜 값은 다음 줄에 있는 경우를 위해서다.
+    // 후보를 늘려도 별칭 표와 "정확히 일치"해야만 통과한다. 다만 같은 줄 값이 미등록 학교이고 다음 줄 전체가 다른 등록 별칭과 정확히 같으면
+    // 그 학교로 통과할 수 있다 - 실제 양식에선 드물고, 같은 줄에 써도 통과하므로 새 위조 구멍은 아니다(받아들인 한계).
+    // 국적·번호는 false로 둔다(기존 설계 유지).
+    private List<String> findValues(List<String> lines, Pattern label, List<String> cutWords, boolean alsoNextLine) {
         List<String> values = new ArrayList<>();
         for (int i = 0; i < lines.size(); i++) {
             Matcher m = label.matcher(lines.get(i));
@@ -302,18 +308,25 @@ public class PermitJudge {
             String wordsCut = cutAtWords(lines.get(i).substring(m.end()), cutWords); // 날짜는 아직 안 자름
             String value = cleanValue(cutAtDate(wordsCut));
             boolean valueLostToDate = !hasContent(value) && hasContent(cleanValue(wordsCut));
-            if (!hasContent(value) && !valueLostToDate) {
-                String next = nextNonBlankLine(lines, i);
-                if (next != null) {
-                    String nextText = cutAtDate(cutAtWords(next, cutWords));
-                    if (!LABEL_WORDS.matcher(nextText).find()) {
-                        value = cleanValue(nextText);
-                    }
-                }
+            if (hasContent(value) && alsoNextLine) {
+                values.add(value); // 같은 줄 값은 그대로 두고, 다음 줄 값은 아래에서 별도 후보로 추가
+                value = nextLineValue(lines, i, cutWords);
+            } else if (!hasContent(value) && !valueLostToDate) {
+                value = nextLineValue(lines, i, cutWords);
             }
             values.add(hasContent(value) ? value : "");
         }
         return values;
+    }
+
+    // 라벨 줄 바로 다음(비어 있지 않은) 줄의 값. 다음 줄이 다른 칸의 라벨이거나 없으면 ""
+    private String nextLineValue(List<String> lines, int labelIndex, List<String> cutWords) {
+        String next = nextNonBlankLine(lines, labelIndex);
+        if (next == null) {
+            return "";
+        }
+        String nextText = cutAtDate(cutAtWords(next, cutWords));
+        return LABEL_WORDS.matcher(nextText).find() ? "" : cleanValue(nextText);
     }
 
     private String nextNonBlankLine(List<String> lines, int index) {
