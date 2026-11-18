@@ -568,8 +568,9 @@ id 오름차순(오래된 댓글이 먼저). 페이징 없음. 댓글이 없으�
 | 허가서 사진 보기 | GET | `/admin/permit-requests/{id}/photo` | 관리자 | 200 | 401, 403, 404, 500 |
 | 허가서 승인 | PUT | `/admin/permit-requests/{id}/approve` | 관리자 | 200 | 400, 401, 403, 404, 409 |
 | 허가서 반려 | PUT | `/admin/permit-requests/{id}/reject` | 관리자 | 200 | 400, 401, 403, 404, 409 |
+| 허가서 인증 취소 | PUT | `/admin/permit-requests/{id}/revoke` | 관리자 | 200 | 400, 401, 403, 404, 409 |
 
-허가서 심사 API 4개(47~50번)는 아래 "관리자 허가서 심사" 절에 있다.
+허가서 심사 API 5개(47~51번)는 아래 "관리자 허가서 심사" 절에 있다.
 
 ### 5-13. 신고 목록 `GET /admin/reports?status=PENDING`
 
@@ -1074,8 +1075,8 @@ Content-Type: multipart/form-data; boundary=...
 
 | 필드 | 설명 |
 |------|------|
-| status | `NONE`(신청한 적 없음) / `PENDING`(대기) / `REJECTED`(거절) / `APPROVED`(승인) |
-| rejectReason | `REJECTED`일 때만. 거절 이유 코드: `BLURRY`, `NOT_PERMIT`, `NOT_MASKED`, `UNSUPPORTED_SCHOOL`, `DUPLICATE`, `EXPIRED`(14일 넘게 대기해 서버가 자동 반려함. 다시 신청할 수 있다), `OTHER` |
+| status | `NONE`(신청한 적 없음) / `PENDING`(대기) / `REJECTED`(거절) / `APPROVED`(승인) / `REVOKED`(승인됐다가 관리자가 취소함, 51번. 다시 신청할 수 있다) |
+| rejectReason | `REJECTED`·`REVOKED`일 때만(`REVOKED`는 취소 사유, `EXPIRED` 제외). 거절 이유 코드: `BLURRY`, `NOT_PERMIT`, `NOT_MASKED`, `UNSUPPORTED_SCHOOL`, `DUPLICATE`, `EXPIRED`(14일 넘게 대기해 서버가 자동 반려함. 다시 신청할 수 있다), `OTHER` |
 | requestedAt | 신청 시각(UTC). 신청이 없으면 없음 |
 | decidedAt | 결정 시각(UTC). 결정 전이거나 신청이 없으면 없음 |
 
@@ -1105,13 +1106,13 @@ Content-Type: multipart/form-data; boundary=...
 
 ## 관리자 허가서 심사 (Admin permit review)
 
-관리자가 허가서 인증 신청(44번)을 보고 승인·반려하는 API 4개 (S20-b). 접근 규칙(401·403·DB 재확인)은 관리자 절의 "접근 규칙 (`/admin/**` 공통)"과 같고, PUT은 `X-XSRF-TOKEN` 헤더가 필요하다. 신청 직후 기계 판정·자동 승인(S20-d2)은 44번에 있고, 자동 승인·판정 결과는 아래 47번 목록에 나온다. 글자 판독기는 `PERMIT_OCR_MODE`(`off`|`vision`)로 고른다(44번).
+관리자가 허가서 인증 신청(44번)을 보고 승인·반려·인증 취소 API 5개 (S20-b, 인증 취소는 S21-a). 접근 규칙(401·403·DB 재확인)은 관리자 절의 "접근 규칙 (`/admin/**` 공통)"과 같고, PUT은 `X-XSRF-TOKEN` 헤더가 필요하다. 신청 직후 기계 판정·자동 승인(S20-d2)은 44번에 있고, 자동 승인·판정 결과는 아래 47번 목록에 나온다. 글자 판독기는 `PERMIT_OCR_MODE`(`off`|`vision`)로 고른다(44번).
 자동 만료(S20-c): 대기(`PENDING`)가 14일(`app.permit.pending-ttl`)을 넘긴 신청은 서버가 자동으로(서버가 켜져 있으면 1시간 주기, 꺼져 있던 동안 밀린 것은 켜진 뒤 3분쯤 지나 첫 실행 때. `app.permit.expiry-interval`·`app.permit.expiry-initial-delay`) `REJECTED`(`rejectReason` `EXPIRED`, `decidedAt` 채움)로 바꾸고 사진을 지운다. 사람이 아닌 시스템 결정이라 결정한 관리자 정보는 없다. 이 반려 건도 아래 47번 목록의 `REJECTED`에 나온다.
-서버 로그에는 "허가서 승인/반려: adminId, requestId"만 남기고 허가서 번호·해시·사진 key·사진 내용은 남기지 않는다.
+서버 로그에는 "허가서 승인/반려/인증 취소: adminId, requestId"만 남기고 허가서 번호·해시·사진 key·사진 내용은 남기지 않는다.
 
 ### 47. 허가서 신청 목록 `GET /admin/permit-requests?status=PENDING`
 
-`status`는 `PENDING`(기본)·`APPROVED`·`REJECTED`. 모르는 값은 400. 정렬: `PENDING`은 오래된 순(id 오름차순 = 대기 처리 순서), `APPROVED`·`REJECTED`는 최신순(id 내림차순, 방금 처리한 것이 먼저). 페이징 없이 최대 200건만 돌려준다(관리자 신고 목록처럼 상한만 둠). 성공 `200 OK`:
+`status`는 `PENDING`(기본)·`APPROVED`·`REJECTED`·`REVOKED`(S21-a, 취소된 건). 모르는 값은 400. 정렬: `PENDING`은 오래된 순(id 오름차순 = 대기 처리 순서), 나머지는 최신순(id 내림차순, 방금 처리한 것이 먼저). 페이징 없이 최대 200건만 돌려준다(관리자 신고 목록처럼 상한만 둠). 성공 `200 OK`:
 
 ```json
 [
@@ -1125,8 +1126,8 @@ Content-Type: multipart/form-data; boundary=...
 
 | 필드 | 설명 |
 |------|------|
-| schoolId·schoolName | 승인된 학교(승인(`APPROVED`) 때만) |
-| rejectReason | 반려 이유 코드(반려(`REJECTED`) 때만) |
+| schoolId·schoolName | 승인된 학교(승인·취소(`APPROVED`·`REVOKED`) 때만) |
+| rejectReason | 반려 이유 코드(반려·취소(`REJECTED`·`REVOKED`) 때만. 취소는 취소 사유) |
 | detectedSchoolId·detectedSchoolName | 기계가 글자에서 찾은 학교(별칭 표와 일치한 경우. 다른 항목이 떨어져도 채워진다. 못 찾았거나 판정 전이면 `null`) |
 | machineResult | 기계 판정 결과 코드(판정 전 옛 행이거나 자동 심사가 실패한 건이면 `null`): `UNREADABLE`(글자를 못 읽음: 판독기 빈 값·오류), `NO_TITLE`(허가서 제목 없음), `NATIONALITY_UNCLEAR`(국적이 한국 계열이거나 외국 나라 이름 목록에 없음·칸 없음), `SCHOOL_NOT_MATCHED`(학교명이 별칭 표와 일치하지 않음), `NUMBER_NOT_FOUND`(번호 칸 없음·4자 미만), `NUMBER_DUPLICATE`(같은 번호가 이미 승인됨), `ALL_PASSED`(4가지 모두 통과. 보통 자동 승인된 건이고, `status`가 `PENDING`이면 판독 도중 회원이 다른 방법으로 이미 인증돼 자동 승인하지 않은 건 — 반려로 정리) |
 | autoDecided | 서버(기계)가 자동 승인했으면 `true`. 이 건은 결정한 관리자 정보가 없고(사람이 아닌 시스템 결정, 만료 반려와 같다) 사진은 이미 지워져 `hasPhoto`가 `false`다. 위조는 못 막는다(글자 규칙만 보므로 알려진 한계) |
@@ -1181,7 +1182,30 @@ Content-Type: multipart/form-data; boundary=...
 | 404 | 없는 신청, 신청자가 탈퇴함 |
 | 409 | 이미 처리된 신청 |
 
-**잠금 순서**: 승인·반려는 신청자 회원 행(`FOR UPDATE`) → 신청 행(`FOR UPDATE`) → 상태 재확인 순서로 잡는다. 철회(46번)·탈퇴(14번)가 회원 행을 먼저 잠그므로 같은 순서를 지켜 교착(40P01)을 막는다.
+**잠금 순서**: 승인·반려는 신청자 회원 행(`FOR UPDATE`) → 신청 행(`FOR UPDATE`) → 상태 재확인 순서로 잡는다. 철회(46번)·탈퇴(14번)가 회원 행을 먼저 잠그므로 같은 순서를 지켜 교착(40P01)을 막는다. 인증 취소(51번)도 같은 순서다.
+
+### 51. 허가서 인증 취소 `PUT /admin/permit-requests/{id}/revoke`
+
+승인된(`APPROVED`) 신청을 관리자가 되돌린다(S21-a). 자동 승인된 위조 허가서 등을 SQL 없이 정리하는 용도다.
+
+```json
+{ "reason": "NOT_PERMIT" }
+```
+
+`reason`은 필수이고 반려(50번)와 같은 코드 중 `BLURRY`, `NOT_PERMIT`, `NOT_MASKED`, `UNSUPPORTED_SCHOOL`, `DUPLICATE`, `OTHER` 중 하나다. `EXPIRED`(대기 만료 전용)와 목록 밖의 값은 400. 성공 `200 OK` + 처리된 항목(`status` `REVOKED`, `rejectReason` 채워짐, `decidedAt`·결정한 관리자는 취소한 시각·관리자로 덮어씀, `schoolName`은 원래 승인된 학교, `hasPhoto` `false`). 한 트랜잭션에서 신청을 `REVOKED`로 바꾸고 그 회원의 학교 인증(`verified_school_id`·`verified_at`·`school_email_hash`)을 비운다. **이후 글쓰기 등 "학교 인증 규칙"의 만들기 요청은 `403`이다.** 사유는 기존 `reject_reason` 칸에 저장하고 새 칸은 없다.
+신청 줄이 없는 인증 회원(예전 메일 인증·SQL로 인증한 계정)은 이 API로 취소할 수 없다(SQL 또는 본인의 인증 해제 46번).
+취소된 회원은 다시 신청(44번)할 수 있다(대기 신청 1건 제한만 있다). 취소된 줄은 목록 47번에서 `status=REVOKED`로 볼 수 있다. 알려진 한계(S21-b에서 다룸): 같은 번호로 다시 자동 승인되는 것은 아직 막지 않고, 회원 본인 철회(46번)가 취소된 줄도 지운다.
+검사 순서: CSRF 403 → 로그인 401 → 토큰 role 403 → 본문 400 → DB 재확인 401/403 → `EXPIRED` 400 → 없는 신청 404 → 본인 신청 403 → (신청자 회원 행 잠금 → 신청 행 잠금 → 다시 확인) 신청자 탈퇴 404, `APPROVED` 아님 409.
+
+| 상태코드 | 언제 |
+|----------|------|
+| 400 | `reason` 없음·목록 밖 값·`EXPIRED`, 본문 형식 오류 |
+| 401·403 | 관리자 절의 접근 규칙, 또는 `X-XSRF-TOKEN` 없음(403) |
+| 403(본인 신청) | 관리자 본인의 신청 |
+| 404 | 없는 신청, 신청자가 탈퇴함 |
+| 409 | 승인(`APPROVED`) 상태가 아님(대기·반려·이미 취소됨). 메시지: "승인된 신청만 취소할 수 있습니다." |
+
+회원 본인 철회(46번)와 동시에 와도 한쪽이 기다렸다 순서대로 처리되고(철회가 먼저면 신청 행이 지워져 `404`), 교착(500)은 없다. 서버 로그에는 "허가서 인증 취소: adminId, requestId"만 남긴다.
 
 ## 비자 후기 (Visa review)
 

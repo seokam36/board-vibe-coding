@@ -42,13 +42,13 @@ import com.example.demo.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-// 관리자 허가서 심사 (S20-b): 목록·사진 보기·승인·반려. 토큰의 ADMIN은 최대 15분 묵은 정보라 매번 DB로 재확인한다.
+// 관리자 허가서 심사 (S20-b): 목록·사진 보기·승인·반려, 인증 취소(S21-a). 토큰의 ADMIN은 최대 15분 묵은 정보라 매번 DB로 재확인한다.
 // 허가서 사진·번호는 개인정보라 로그에는 "누가 어느 신청을 처리했는지"(adminId, requestId)만 남긴다.
 //
 // 잠금 순서(중요): 신청자 회원 행 FOR UPDATE -> 신청 행 FOR UPDATE -> 상태 재확인.
 //   철회(PermitVerificationService.cancel)·탈퇴가 "회원 행 FOR UPDATE -> 신청 행 삭제" 순서라서,
 //   여기서 반대로(신청 행 먼저) 잡으면 서로 기다리는 교착(40P01 -> 500)이 난다. 같은 순서로 잡으면 줄만 서고 고리가 안 생긴다.
-//   신청자 id는 잠금 전에 가볍게 읽어 알아낸 뒤(잠금 없이), 잠그고 나서 신청 행을 다시 읽어 PENDING인지 확인한다.
+//   신청자 id는 잠금 전에 가볍게 읽어 알아낸 뒤(잠금 없이), 잠그고 나서 신청 행을 다시 읽어 기대한 상태인지 확인한다(승인·반려는 PENDING, 인증 취소는 APPROVED).
 //   회원을 잠그려는데 행이 없으면(탈퇴로 신청도 CASCADE로 지워짐) 404.
 // 사진 삭제는 S20-a의 철회와 같다: 결정 트랜잭션 안에서 신청 행의 photo_key를 NULL로 바꾸며 그 key를 "지울 파일 대기 표"에 적고,
 //   커밋 뒤에 파일을 지운다(실패해도 응답은 그대로, 표에 남아 청소부가 처리).
@@ -77,7 +77,7 @@ public class AdminPermitService {
     @Transactional(readOnly = true)
     public List<AdminPermitRequestResponse> getAll(PermitStatus status, LoginUser loginUser) {
         accessGuard.requireAdmin(loginUser);
-        // 대기는 오래된 순(처리 순서), 처리 끝난 목록(승인·반려)은 최신순
+        // 대기는 오래된 순(처리 순서), 처리 끝난 목록(승인·반려·취소)은 최신순
         List<PermitRequest> requests = status == PermitStatus.PENDING
                 ? permitRequestRepository.findByStatusOrderByIdAsc(status, Limit.of(LIST_LIMIT))
                 : permitRequestRepository.findByStatusOrderByIdDesc(status, Limit.of(LIST_LIMIT));
@@ -211,6 +211,39 @@ public class AdminPermitService {
         return result;
     }
 
+    // 승인된 인증 취소 (S21-a). 검사 순서: 관리자 재확인 401/403 -> EXPIRED 사유 400 -> 없는 신청 404 -> 본인 신청 403
+    // -> (잠금 뒤) 신청자 탈퇴 404 / APPROVED 아님 409.
+    // 승인·반려와 같은 잠금 순서(회원 -> 신청 -> 상태 재확인)라 본인 철회·탈퇴와 겹쳐도 교착이 없다(철회가 먼저면 신청 행이 지워져 404).
+    // 한 트랜잭션에서 신청을 REVOKED로 바꾸고 회원의 인증 칸을 비운다(이후 글쓰기 403). 사진은 승인 때 이미 지워져 있어 파일 작업은 없다.
+    public AdminPermitRequestResponse revoke(Long id, PermitRejectReason reason, LoginUser loginUser) {
+        accessGuard.requireAdmin(loginUser);
+        if (reason == PermitRejectReason.EXPIRED) {
+            // EXPIRED는 "대기 14일 만료" 전용 사유라 취소에는 쓸 수 없다
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "취소 사유로 쓸 수 없는 값입니다.");
+        }
+        AdminPermitRequestResponse result;
+        try {
+            result = new TransactionTemplate(txManager).execute(status -> {
+                Long userId = permitRequestRepository.findUserIdById(id).orElseThrow(AdminPermitService::notFound);
+                rejectSelfReview(userId, loginUser);
+                LockedRequest locked = lockWithStatus(id, userId, PermitStatus.APPROVED);
+                PermitRequest request = locked.request();
+                request.revoke(reason, loginUser.id(), Instant.now().truncatedTo(ChronoUnit.MICROS));
+                permitRequestRepository.saveAndFlush(request);
+                if (userRepository.clearVerification(userId) == 0) {
+                    throw notFound(); // 방어: 잠근 회원 행이 사라짐(롤백)
+                }
+                String schoolName = request.getSchoolId() == null ? null
+                        : schoolRepository.findById(request.getSchoolId()).map(School::getName).orElse(null);
+                return toResponse(request, locked.user(), schoolName);
+            });
+        } catch (DataIntegrityViolationException e) {
+            throw translate(e); // 처리하는 사이 이 관리자 계정이 탈퇴하면 FK 위반 -> 401
+        }
+        log.info("허가서 인증 취소: adminId={}, requestId={}", loginUser.id(), id); // 번호·해시·key는 남기지 않는다
+        return result;
+    }
+
     // 기한 만료 반려 한 건 (S20-c, PermitExpiryJob이 부른다). 관리자 권한·본인 심사 검사는 없다(시스템 작업).
     // 반려와 같은 잠금 순서(회원 -> 신청 -> 재읽기)로 잡고, 여전히 PENDING이고 여전히 cutoff보다 오래됐을 때만 EXPIRED로 반려한다.
     // 그 사이 관리자가 처리했거나 회원이 철회·탈퇴했으면 건너뛰고 false. decided_by는 NULL(시스템 결정)이다.
@@ -309,6 +342,11 @@ public class AdminPermitService {
     // 잠금 순서를 지키는 곳: 회원 행 FOR UPDATE -> 신청 행 FOR UPDATE -> 신청 행을 다시 읽어 PENDING 확인.
     // 반드시 바깥 트랜잭션 안에서 부른다(잠금 쿼리가 MANDATORY).
     private LockedRequest lockPending(Long id, Long userId) {
+        return lockWithStatus(id, userId, PermitStatus.PENDING);
+    }
+
+    // 같은 잠금 순서로 잡고 "기대한 상태"인지 확인한다(승인·반려는 PENDING, 인증 취소는 APPROVED). 아니면 409.
+    private LockedRequest lockWithStatus(Long id, Long userId, PermitStatus expected) {
         if (userRepository.lockById(userId).isEmpty()) {
             throw notFound(); // 읽은 뒤 잠그기 전에 탈퇴함(신청도 CASCADE로 지워짐)
         }
@@ -317,8 +355,10 @@ public class AdminPermitService {
         }
         // 잠근 뒤에 읽어야 다른 관리자가 방금 커밋한 최신 상태를 본다
         PermitRequest request = permitRequestRepository.findById(id).orElseThrow(AdminPermitService::notFound);
-        if (request.getStatus() != PermitStatus.PENDING) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 처리된 신청입니다.");
+        if (request.getStatus() != expected) {
+            // 취소는 승인된 신청만 대상이라 문구를 따로 둔다
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    expected == PermitStatus.APPROVED ? "승인된 신청만 취소할 수 있습니다." : "이미 처리된 신청입니다.");
         }
         User user = userRepository.findById(userId).orElseThrow(AdminPermitService::notFound);
         return new LockedRequest(request, user);

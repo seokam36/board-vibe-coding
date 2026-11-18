@@ -169,14 +169,17 @@ class SchoolEmailRemovedExtraTests extends AdminPermitTestBase {
 		assertThat(mockMvc.perform(get(ME_URL).cookie(쿠키(other))).andReturn().getResponse().getStatus()).isEqualTo(200);
 	}
 
-	// 완료 조건 7: Flyway는 V14까지, 새 V 파일 없음
+	// 완료 조건 7: 메일 인증을 걷어낼 때(S20-f) 새 V 파일을 만들지 않았다.
+	// 원래는 "V14가 마지막"으로 확인했지만 V 파일은 다른 기능(S21-a의 V15 등)으로 계속 늘어난다.
+	// 그래서 의도(메일 제거를 위한 V 파일이 없다)만 남기고, V14 이후 파일 이름에 메일 관련 말이 없는지를 본다.
 	@Test
-	void Flyway_마이그레이션은_V14까지이고_새_V_파일이_없다() throws Exception {
+	void 메일_인증_제거를_위한_새_V_파일이_없다() throws Exception {
 		Integer max = jdbc.queryForObject("select max(version::int) from flyway_schema_history where version is not null",
 				Integer.class);
-		assertThat(max).isEqualTo(14);
+		assertThat(max).isGreaterThanOrEqualTo(14);
 		try (var files = Files.list(Path.of("src/main/resources/db/migration"))) {
-			assertThat(files.map(p -> p.getFileName().toString()).filter(n -> n.matches("V(1[5-9]|[2-9]\\d)__.*"))).isEmpty();
+			assertThat(files.map(p -> p.getFileName().toString().toLowerCase())
+					.filter(n -> n.matches("v(1[4-9]|[2-9]\\d)__.*") && n.contains("mail"))).isEmpty();
 		}
 		// 남기기로 한 표·칸은 그대로
 		assertThat(jdbc.queryForObject("select count(*) from information_schema.tables where table_name = 'school_email_domains'",

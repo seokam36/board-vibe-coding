@@ -22,6 +22,7 @@ import com.example.demo.permit.dto.AdminPermitRequestResponse;
 import com.example.demo.permit.dto.PermitApproveRequest;
 import com.example.demo.permit.dto.PermitPhotoContent;
 import com.example.demo.permit.dto.PermitRejectRequest;
+import com.example.demo.permit.dto.PermitRevokeRequest;
 import com.example.demo.permit.service.AdminPermitService;
 
 import jakarta.validation.Valid;
@@ -77,5 +78,12 @@ public class AdminPermitController {
     public AdminPermitRequestResponse reject(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
             @Valid @RequestBody PermitRejectRequest body) {
         return adminPermitService.reject(id, body.reason(), LoginUser.from(jwt));
+    }
+
+    // 승인된 인증 취소 (S21-a): body {reason}. 200 + 처리된 항목(status REVOKED)
+    @PutMapping("/{id}/revoke")
+    public AdminPermitRequestResponse revoke(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
+            @Valid @RequestBody PermitRevokeRequest body) {
+        return adminPermitService.revoke(id, body.reason(), LoginUser.from(jwt));
     }
 }

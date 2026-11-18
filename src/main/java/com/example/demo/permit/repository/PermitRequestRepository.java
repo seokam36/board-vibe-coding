@@ -47,7 +47,7 @@ public interface PermitRequestRepository extends JpaRepository<PermitRequest, Lo
     List<Long> findIdsByStatusAndCreatedAtBefore(@Param("status") PermitStatus status, @Param("cutoff") Instant cutoff,
             @Param("lastId") long lastId, Limit limit);
 
-    // 신청자 id만 잠금 없이 읽는다 (승인·반려가 "회원 행 먼저 잠그기" 위해 잠금 전에 알아내는 용도)
+    // 신청자 id만 잠금 없이 읽는다 (승인·반려·인증 취소가 "회원 행 먼저 잠그기" 위해 잠금 전에 알아내는 용도)
     @Query("select p.userId from PermitRequest p where p.id = :id")
     Optional<Long> findUserIdById(@Param("id") Long id);
 

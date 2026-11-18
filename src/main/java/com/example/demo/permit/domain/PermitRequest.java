@@ -116,6 +116,16 @@ public class PermitRequest {
         this.contentType = null;
     }
 
+    // 관리자 인증 취소 (S21-a): 승인된 신청을 REVOKED로 바꾼다. 사유는 reject_reason 칸에 저장하고,
+    // decidedAt·decidedBy는 "취소한 시각·관리자"로 덮어쓴다(승인 기록은 새 칸 없이 사라지는 대신 상태로 남는다).
+    // 호출 전에 서비스가 신청 행을 FOR UPDATE로 잠그고 APPROVED인지 확인한다. 사진은 승인 때 이미 비워졌다.
+    public void revoke(PermitRejectReason reason, Long adminId, Instant now) {
+        this.status = PermitStatus.REVOKED;
+        this.rejectReason = reason;
+        this.decidedAt = now;
+        this.decidedBy = adminId;
+    }
+
     // 저장 직전에 신청 시각 기록 (DB 정밀도인 마이크로초로 맞춘다)
     @PrePersist
     void onCreate() {
