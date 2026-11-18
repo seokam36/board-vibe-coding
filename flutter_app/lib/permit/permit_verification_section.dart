@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../api/api_client.dart';
 import '../auth/auth_state.dart';
 import '../common/file_picker.dart';
-import '../common/format_date.dart';
 import '../errors/error_messages.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_badge.dart';
@@ -16,6 +15,7 @@ import '../widgets/panel.dart';
 import '../widgets/relogin_notice.dart';
 import '../widgets/section_parts.dart';
 import 'permit_apply_form.dart';
+import 'permit_pending_view.dart';
 import 'permit_status.dart';
 import 'permit_texts.dart';
 
@@ -23,9 +23,9 @@ import 'permit_texts.dart';
 enum _LoadState { loading, failed, ready }
 
 // 내 정보 화면의 "유학생 인증" 섹션.
-// - 인증 회원: 서버에 묻지 않고 뱃지만 보여 준다
-// - 미인증 회원: 상태를 1번 물어서 NONE/REJECTED면 신청 폼, PENDING이면 "심사 대기 중"을 보여 준다
-// 요청을 보내고 상태가 바뀌므로 StatefulWidget이다 (인증 여부 자체는 AuthState에서 읽는다).
+// - 인증 회원: 뱃지를 보여 주고 회원 정보만 다시 받는다 (그새 취소됐으면 아래 미인증 화면으로 바뀐다)
+// - 미인증 회원: 상태를 1번 물어서 NONE/REJECTED/REVOKED면 신청 폼, PENDING이면 "심사 대기 중"을 보여 준다
+// 요청을 보내고 상태가 바뀌므로 StatefulWidget이다.
 class PermitVerificationSection extends StatefulWidget {
   const PermitVerificationSection({super.key});
 
@@ -50,11 +50,14 @@ class _PermitVerificationSectionState extends State<PermitVerificationSection> {
   @override
   void initState() {
     super.initState();
-    // 이미 인증한 회원은 물어볼 것이 없다. 미인증이면 상태를 한 번 묻는다
-    if (context.read<AuthState>().user?.verifiedSchool == null) {
+    // 미인증이면 상태를 한 번 묻는다. 인증 회원은 그새 취소됐을 수 있어 회원 정보를 다시 받는다
+    // (취소됐으면 학교가 사라져 뱃지가 없어지고, build가 상태를 물어 취소 안내를 보여 준다)
+    final auth = context.read<AuthState>();
+    if (auth.user?.verifiedSchool == null) {
       _fetch();
     } else {
       _loadState = _LoadState.ready;
+      auth.refreshUser();
     }
   }
 
@@ -98,8 +101,7 @@ class _PermitVerificationSectionState extends State<PermitVerificationSection> {
   Future<void> _applyStatus(PermitStatus status) async {
     final auth = context.read<AuthState>();
     if (status.status == 'APPROVED' && auth.user?.verifiedSchool == null) {
-      await auth
-          .refreshUser(); // 이게 끝나면 위쪽 AuthState가 바뀌어 뱃지(상단바 "인증" 포함)가 나타난다
+      await auth.refreshUser(); // 끝나면 AuthState가 바뀌어 뱃지(상단바 "인증" 포함)가 나타난다
       if (!mounted) return;
     }
     setState(() {
@@ -206,7 +208,7 @@ class _PermitVerificationSectionState extends State<PermitVerificationSection> {
         setState(
           () => _submitError = const ErrorMessage(permitRecheckFailed, null),
         );
-      } else if (s == 'NONE' || s == 'REJECTED') {
+      } else if (s == 'NONE' || s == 'REJECTED' || s == 'REVOKED') {
         setState(
           () => _submitError = const ErrorMessage(permitNotReceived, null),
         );
@@ -281,11 +283,14 @@ class _PermitVerificationSectionState extends State<PermitVerificationSection> {
 
   @override
   Widget build(BuildContext context) {
-    final school = context.watch<AuthState>().user?.verifiedSchool;
+    final user = context.watch<AuthState>().user;
+    final school = user?.verifiedSchool;
     // 인증 회원으로 시작했다가 인증이 풀려(학교가 사라져) 아직 상태를 모르면, 그때 한 번 묻는다.
     // 빌드 중에는 setState를 못 하니 값만 바꾸고 묻기는 그리기가 끝난 뒤로 미룬다
     // 단, 철회·해제 중 로그인이 풀린 경우(NeedLogin)는 묻지 않는다: 물어 봐야 실패해서 로그인 안내만 가려진다
-    if (school == null &&
+    // 로그인이 풀렸으면(user == null) 묻지 않는다: 물어 봐야 실패해서 [다시 시도]만 뜬다 (아래 _unverified가 로그인 안내를 보여 준다)
+    if (user != null &&
+        school == null &&
         _status == null &&
         _loadState == _LoadState.ready &&
         _removeError is! NeedLogin) {
@@ -348,25 +353,13 @@ class _PermitVerificationSectionState extends State<PermitVerificationSection> {
         final status = _status;
         if (status == null) return const [];
         if (status.status == 'PENDING') {
-          final date = status.requestedAt == null
-              ? ''
-              : formatDate(status.requestedAt!);
           return [
-            const Text('심사 대기 중'),
-            if (date.isNotEmpty)
-              FieldHint('신청한 때: $date')
-            else
-              const SizedBox(height: AppSizes.space3),
-            ...permitRemoveNotice(_removeError),
-            OutlinedButton(
-              key: const ValueKey('permit-withdraw-button'),
-              onPressed: _removing
-                  ? null
-                  : () => _remove(
-                      message: permitWithdrawConfirm,
-                      confirmLabel: '철회',
-                    ),
-              child: const Text('신청 철회'),
+            PermitPendingView(
+              status: status,
+              removeError: _removeError,
+              removing: _removing,
+              onWithdraw: () =>
+                  _remove(message: permitWithdrawConfirm, confirmLabel: '철회'),
             ),
           ];
         }
@@ -380,6 +373,9 @@ class _PermitVerificationSectionState extends State<PermitVerificationSection> {
           ...permitRemoveNotice(_removeError), // 404(이미 처리됨) 안내가 신청 폼 위에 남도록
           if (status.status == 'REJECTED')
             PermitRejectedNotice(rejectReason: status.rejectReason),
+          // 취소된 회원: 안내 + 사유 + 신청 폼 ([철회]·[인증 해제]는 없다)
+          if (status.status == 'REVOKED')
+            PermitRevokedNotice(rejectReason: status.rejectReason),
           PermitApplyForm(
             consent: _consent,
             photo: _photo,

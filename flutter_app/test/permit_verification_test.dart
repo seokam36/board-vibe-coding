@@ -94,9 +94,9 @@ void main() {
       );
     });
 
-    testWidgets('인증 회원: GET 0번, 뱃지 "유학생 인증 완료 · 학교명"과 "졸업 후에도 유지돼요"', (tester) async {
+    testWidgets('인증 회원: /auth/me 1번·상태 GET 0번, 뱃지 "유학생 인증 완료 · 학교명"과 "졸업 후에도 유지돼요"', (tester) async {
       final fake = await _pump(tester, FakeAdapter(), user: userJson(school: _school));
-      expect(fake.calls, isEmpty);
+      expect(fake.calls.map((c) => c.path), ['/api/auth/me']); // 취소됐는지 회원 정보만 1번 확인한다
       expect(find.text('유학생 인증'), findsOneWidget);
       expect(find.text('유학생 인증 완료 · 서울대'), findsOneWidget);
       expect(find.ancestor(of: find.text('유학생 인증 완료 · 서울대'), matching: find.byType(AppBadge)), findsOneWidget);

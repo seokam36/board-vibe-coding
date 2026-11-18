@@ -11,8 +11,7 @@ const permitMachineResultLabels = <String, String>{
   'ALL_PASSED': '4가지 모두 통과',
 };
 
-String machineResultText(String? code) =>
-    code == null ? '판정 없음' : (permitMachineResultLabels[code] ?? code);
+String machineResultText(String? code) => code == null ? '판정 없음' : (permitMachineResultLabels[code] ?? code);
 
 // 허가서 신청 한 건 (GET /admin/permit-requests)
 class AdminPermitRequest {
@@ -34,10 +33,10 @@ class AdminPermitRequest {
   final int id;
   final int userId; // 신청한 회원 (내 신청인지 가려내는 데 쓴다)
   final String nickname;
-  final String status; // PENDING | APPROVED | REJECTED
+  final String status; // PENDING | APPROVED | REJECTED | REVOKED
   final String createdAt; // ISO-8601 UTC 문자열
   final String? schoolName; // 승인된 학교
-  final String? rejectReason; // 반려 사유 코드
+  final String? rejectReason; // 반려·취소 사유 코드
   final int? detectedSchoolId; // 기계가 찾은 학교 id (승인 단계에서 쓴다)
   final String? detectedSchoolName; // 기계가 글자에서 찾은 학교
   final String? machineResult;

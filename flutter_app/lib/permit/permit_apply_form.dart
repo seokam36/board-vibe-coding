@@ -168,6 +168,29 @@ class PermitRejectedNotice extends StatelessWidget {
   }
 }
 
+// 관리자가 인증을 취소했을 때 신청 폼 위에 보여 주는 안내 + 취소 사유 (반려 사유 문구를 그대로 쓴다)
+class PermitRevokedNotice extends StatelessWidget {
+  const PermitRevokedNotice({super.key, required this.rejectReason});
+
+  final String? rejectReason;
+
+  @override
+  Widget build(BuildContext context) {
+    return Notice(
+      kind: NoticeKind.error,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(permitRevokedMessage),
+          Text(
+            permitRejectReasons[rejectReason] ?? permitRejectReasons['OTHER']!,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // 사전 검사(브라우저에서 미리 거르기): 문제가 있으면 안내 문구, 없으면 null.
 // 종류가 빈 글자면(브라우저가 모름) 통과시킨다. 진짜 판단은 서버가 파일 내용으로 한다
 String? checkPickedPhoto(PickedPhoto photo) {

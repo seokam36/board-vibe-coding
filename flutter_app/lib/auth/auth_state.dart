@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart' show Options;
 import 'package:flutter/foundation.dart';
 
 import '../api/api_client.dart';
@@ -73,11 +74,14 @@ class AuthState extends ChangeNotifier {
   }
 
   // /auth/me 를 다시 받아 회원 정보를 맞춘다(예: 허가서가 자동 승인된 뒤 인증 학교 반영).
-  // 내 정보의 "유학생 인증" 섹션(PermitVerificationSection)이 승인 직후에 부른다.
-  // 실패해도 조용히 넘어간다
+  // 내 정보의 "유학생 인증" 섹션(PermitVerificationSection)이 승인 직후와 /me 진입 때도 부른다.
+  // 실패해도 조용히 넘어간다. 응답이 없으면 무한정 기다리지 않게 시간 제한(30초)을 건다
   Future<void> refreshUser() async {
     try {
-      final res = await _api.dio.get<Map<String, dynamic>>('/auth/me');
+      final res = await _api.dio.get<Map<String, dynamic>>(
+        '/auth/me',
+        options: Options(receiveTimeout: const Duration(seconds: 30)),
+      );
       updateUser(AuthUser.fromJson(res.data!));
     } catch (_) {
       // 무시

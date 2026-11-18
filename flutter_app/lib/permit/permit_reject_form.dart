@@ -7,12 +7,11 @@ import '../widgets/select_field.dart';
 import '../widgets/small_button_style.dart';
 
 const _chooseReason = '반려 사유를 골라 주세요';
+const _chooseRevokeReason = '취소 사유를 골라 주세요';
 
 // 관리자가 고를 수 있는 반려 사유: 코드 목록(EXPIRED 제외)은 공용 파일에서 가져오고,
 // 문구는 회원에게 보이는 것 그대로 쓴다 (permitRejectReasons를 재사용)
-final _adminReasons = <(String, String)>[
-  for (final code in adminRejectReasonCodes) (code, permitRejectReasons[code]!),
-];
+final _adminReasons = <(String, String)>[for (final code in adminRejectReasonCodes) (code, permitRejectReasons[code]!)];
 
 // 대기 신청 줄 아래로 펼쳐지는 반려 양식: 사유 드롭다운 + [반려하기] [취소].
 // onSubmit은 사유 코드를 받아 처리(확인 창·요청)한다. 양식을 닫을지는 부모(줄)가 정한다
@@ -24,7 +23,11 @@ class PermitRejectForm extends StatefulWidget {
     required this.error,
     required this.onSubmit,
     required this.onCancel,
+    this.revoke = false,
   });
+
+  // true면 같은 양식을 "인증 취소" 용으로 쓴다 (문구만 다르고 사유 목록은 같다)
+  final bool revoke;
 
   final bool enabled; // false면(처리 중) 버튼을 막는다
   final String? error; // 처리 실패 안내 (양식 안에 보여 준다)
@@ -41,7 +44,7 @@ class _PermitRejectFormState extends State<PermitRejectForm> {
 
   void _submit() {
     if (_reason.isEmpty) {
-      setState(() => _message = _chooseReason); // 요청은 보내지 않는다
+      setState(() => _message = widget.revoke ? _chooseRevokeReason : _chooseReason); // 요청은 보내지 않는다
       return;
     }
     setState(() => _message = null);
@@ -64,11 +67,11 @@ class _PermitRejectFormState extends State<PermitRejectForm> {
           Padding(
             padding: const EdgeInsets.only(bottom: AppSizes.space2),
             child: SelectField(
-              fieldKey: const ValueKey('permit-reject-reason'),
-              label: '반려 사유',
+              fieldKey: ValueKey(widget.revoke ? 'permit-revoke-reason' : 'permit-reject-reason'),
+              label: widget.revoke ? '취소 사유' : '반려 사유',
               width: double.infinity,
               value: _reason,
-              options: [('', '반려 사유를 고르세요'), ..._adminReasons],
+              options: [('', widget.revoke ? '취소 사유를 고르세요' : '반려 사유를 고르세요'), ..._adminReasons],
               onChanged: (v) => setState(() {
                 _reason = v;
                 _message = null;
@@ -84,7 +87,7 @@ class _PermitRejectFormState extends State<PermitRejectForm> {
               OutlinedButton(
                 style: dangerSmallButtonStyle,
                 onPressed: widget.enabled ? _submit : null,
-                child: const Text('반려하기'),
+                child: Text(widget.revoke ? '인증 취소하기' : '반려하기'),
               ),
               OutlinedButton(
                 style: smallButtonStyle,

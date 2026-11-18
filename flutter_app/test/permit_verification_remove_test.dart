@@ -29,6 +29,10 @@ final _checkbox = find.byType(Checkbox);
 // 대기 중 회원으로 /me 를 띄운다 (처음 상태 GET = PENDING)
 FakeAdapter _pendingAdapter() => FakeAdapter()..on('GET', _path, FakeReply(200, _pending()));
 
+// 인증 회원으로 /me 를 띄우면 화면이 회원 정보(/auth/me)를 1번 다시 받는다 (관리자가 취소했을 수 있어서).
+// 그 첫 응답은 "아직 인증 회원"
+FakeAdapter _approvedAdapter() => FakeAdapter()..on('GET', '/auth/me', FakeReply(200, userJson(school: _school)));
+
 // (큐는 먼저 넣은 순서대로 나가므로, PENDING 응답이 든 어댑터를 넘겨야 한다)
 Future<TestApp> _pumpPending(WidgetTester tester, FakeAdapter fake) async {
   useTallScreen(tester);
@@ -227,7 +231,7 @@ void main() {
         '인증을 해제하면 글쓰기·댓글·공감·중고·쪽지를 쓸 수 없어요. 다시 쓰려면 허가서를 다시 올려 심사를 받아야 해요. 해제할까요?';
 
     testWidgets('인증 회원이면 [인증 해제] 버튼이 보이고, 확인 창 문구가 정해 둔 문장과 정확히 같다', (tester) async {
-      final fake = FakeAdapter();
+      final fake = _approvedAdapter();
       await _pumpApproved(tester, fake);
       expect(find.text('유학생 인증 완료 · 서울대'), findsOneWidget);
       expect(_unlinkButton, findsOneWidget);
@@ -239,7 +243,7 @@ void main() {
     });
 
     testWidgets('해제 확인 창에서 취소하면 요청이 없고 뱃지가 그대로다', (tester) async {
-      final fake = FakeAdapter();
+      final fake = _approvedAdapter();
       await _pumpApproved(tester, fake);
       await tester.tap(_unlinkButton);
       await tester.pumpAndSettle();
@@ -251,7 +255,7 @@ void main() {
     });
 
     testWidgets('해제 확인 → 204 → 회원 정보 재조회로 뱃지가 사라지고 신청 폼이 바로 보인다 (상태 GET 중복 없음)', (tester) async {
-      final fake = FakeAdapter()
+      final fake = _approvedAdapter()
         ..on('DELETE', _path, FakeReply(204))
         ..on('GET', '/auth/me', FakeReply(200, userJson()))
         ..on('GET', _path, FakeReply(200, _none()));
@@ -261,7 +265,7 @@ void main() {
       await tester.tap(_confirmBtn('해제'));
       await tester.pumpAndSettle();
       expect(fake.count('DELETE', _path), 1);
-      expect(fake.count('GET', '/auth/me'), 1);
+      expect(fake.count('GET', '/auth/me'), 2); // 화면 열 때 1번 + 해제 뒤 1번
       expect(fake.count('GET', _path), 1); // 두 번 나가면 안 된다
       expect(find.text('유학생 인증 완료 · 서울대'), findsNothing);
       expect(find.text('인증'), findsNothing); // 상단바 뱃지도 사라진다
@@ -272,7 +276,7 @@ void main() {
     });
 
     testWidgets('해제 404: 안내 문구 + 회원 정보·상태 재조회 → 신청 폼', (tester) async {
-      final fake = FakeAdapter()
+      final fake = _approvedAdapter()
         ..on('DELETE', _path, FakeReply(404))
         ..on('GET', '/auth/me', FakeReply(200, userJson()))
         ..on('GET', _path, FakeReply(200, _none()));
@@ -287,7 +291,7 @@ void main() {
     });
 
     testWidgets('해제 403: 거절 문구, 뱃지 유지·버튼 다시 활성, 재조회 없음', (tester) async {
-      final fake = FakeAdapter()..on('DELETE', _path, FakeReply(403));
+      final fake = _approvedAdapter()..on('DELETE', _path, FakeReply(403));
       await _pumpApproved(tester, fake);
       await tester.tap(_unlinkButton);
       await tester.pumpAndSettle();
@@ -296,11 +300,11 @@ void main() {
       expect(find.text('요청이 거절됐어요. 새로고침 후 다시 시도해 주세요'), findsOneWidget);
       expect(find.text('유학생 인증 완료 · 서울대'), findsOneWidget);
       expect(tester.widget<OutlinedButton>(_unlinkButton).onPressed, isNotNull);
-      expect(fake.count('GET', '/auth/me'), 0);
+      expect(fake.count('GET', '/auth/me'), 1); // 화면 열 때 1번뿐 (해제 실패라 재조회 없음)
     });
 
     testWidgets('해제 500: 일반 실패 문구', (tester) async {
-      final fake = FakeAdapter()..on('DELETE', _path, FakeReply(500));
+      final fake = _approvedAdapter()..on('DELETE', _path, FakeReply(500));
       await _pumpApproved(tester, fake);
       await tester.tap(_unlinkButton);
       await tester.pumpAndSettle();
@@ -311,7 +315,7 @@ void main() {
     });
 
     testWidgets('해제 네트워크 오류: 연결 실패 문구', (tester) async {
-      final fake = FakeAdapter()..on('DELETE', _path, FakeReply.networkError());
+      final fake = _approvedAdapter()..on('DELETE', _path, FakeReply.networkError());
       await _pumpApproved(tester, fake);
       await tester.tap(_unlinkButton);
       await tester.pumpAndSettle();
@@ -322,7 +326,7 @@ void main() {
     });
 
     testWidgets('해제 401(재발급도 401): 다시 로그인 안내', (tester) async {
-      final fake = FakeAdapter()
+      final fake = _approvedAdapter()
         ..on('DELETE', _path, FakeReply(401))
         ..on('POST', '/auth/refresh', FakeReply(401));
       await _pumpApproved(tester, fake);
@@ -367,7 +371,7 @@ void main() {
     });
 
     testWidgets('204 뒤 회원 정보 갱신이 실패해 뱃지가 남으면 "해제됐어요. 새로고침해 주세요."', (tester) async {
-      final fake = FakeAdapter()
+      final fake = _approvedAdapter()
         ..on('DELETE', _path, FakeReply(204))
         ..on('GET', '/auth/me', FakeReply(500))
         ..on('GET', _path, FakeReply(200, _none()));
@@ -381,7 +385,7 @@ void main() {
     });
 
     testWidgets('해제 요청이 시간 초과면 상태를 다시 조회한다', (tester) async {
-      final fake = FakeAdapter()
+      final fake = _approvedAdapter()
         ..on('DELETE', _path, FakeReply.timeout())
         ..on('GET', '/auth/me', FakeReply(200, userJson()))
         ..on('GET', _path, FakeReply(200, _none()));
@@ -396,7 +400,7 @@ void main() {
 
     testWidgets('해제 요청 중에는 버튼 비활성, 연타해도 DELETE는 1번', (tester) async {
       final gate = Completer<void>();
-      final fake = FakeAdapter()
+      final fake = _approvedAdapter()
         ..on('DELETE', _path, FakeReply(204, null, gate))
         ..on('GET', '/auth/me', FakeReply(200, userJson()))
         ..on('GET', _path, FakeReply(200, _none()));

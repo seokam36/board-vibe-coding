@@ -31,6 +31,8 @@ const permitTypeOnly = '사진은 JPEG·PNG만 올릴 수 있어요';
 const permitTooLarge = '사진은 10MB 이하여야 해요';
 // 로그인 중에 승인됐는데 회원 정보를 아직 못 받았을 때
 const permitApprovedReload = '인증이 승인됐어요. 새로고침하면 인증 표시가 나타나요';
+// 관리자가 인증을 취소한 회원에게 (사유는 반려 사유 문구를 재사용한다)
+const permitRevokedMessage = '인증이 취소됐어요. 허가서를 다시 올려 심사를 받아 주세요';
 // 실패 뒤 상태를 다시 확인해 봤을 때의 결과 문구
 const permitNotReceived = '접수되지 않았어요. 다시 신청해 주세요';
 const permitRecheckFailed = '접수됐는지 확인하지 못했어요. 새로고침해서 확인해 주세요';
