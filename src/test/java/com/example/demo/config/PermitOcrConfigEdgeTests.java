@@ -55,7 +55,7 @@ class PermitOcrConfigEdgeTests {
 
 	@Test
 	void 주소_끝_슬래시와_https_localhost와_http_IPv6_loopback은_시작에_성공한다() {
-		for (String ok : new String[] { "https://example.com/", "https://localhost", "https://localhost/", "http://[::1]:8080",
+		for (String ok : new String[] { "https://vision.googleapis.com/", "https://localhost", "https://localhost/", "http://[::1]:8080",
 				"http://localhost:1/", "https://vision.googleapis.com" }) {
 			visionWithUrl(ok).run(ctx -> {
 				assertThat(ctx).as(ok).hasNotFailed();
@@ -68,7 +68,7 @@ class PermitOcrConfigEdgeTests {
 	@Test
 	void 목록_밖의_http_주소는_loopback처럼_보여도_시작이_실패하고_메시지에_키가_없다() {
 		for (String bad : new String[] { "http://127.0.0.2", "http://127.0.0.2:8080", "http://localhost.evil.com", "http://127.0.0.1.evil.com",
-				"http://0.0.0.0:8080", "https:///only-path", "http://", "" }) {
+				"http://0.0.0.0:8080", "https://example.com/", "https:///only-path", "http://", "" }) {
 			visionWithUrl(bad).run(ctx -> {
 				assertThat(ctx).as("[" + bad + "]").hasFailed();
 				String all = ctx.getStartupFailure().toString() + rootMessage(ctx.getStartupFailure());
@@ -84,6 +84,23 @@ class PermitOcrConfigEdgeTests {
 			assertThat(ctx).hasFailed();
 			assertThat(rootMessage(ctx.getStartupFailure())).contains("base-url");
 		});
+	}
+
+	// 우회 주소: 사용자 정보, 끝 점, 대소문자(엄격), 다른 표기의 IPv6, 구글 호스트의 다른 포트
+	@Test
+	void 우회_주소는_시작이_실패하고_loopback_IP_직접_표기는_성공한다() {
+		for (String bad : new String[] { "https://vision.googleapis.com@evil.com", "https://abc@vision.googleapis.com", "http://abc@localhost:8080",
+				"https://vision.googleapis.com.", "https://VISION.GOOGLEAPIS.COM", "HTTPS://vision.googleapis.com", "http://LOCALHOST",
+				"http://[0:0:0:0:0:0:0:1]", "https://vision.googleapis.com:80" }) {
+			visionWithUrl(bad).run(ctx -> {
+				assertThat(ctx).as("[" + bad + "]").hasFailed();
+				String all = ctx.getStartupFailure().toString() + rootMessage(ctx.getStartupFailure());
+				assertThat(all).contains("base-url").doesNotContain(KEY);
+			});
+		}
+		for (String ok : new String[] { "https://127.0.0.1", "https://[::1]" }) {
+			visionWithUrl(ok).run(ctx -> assertThat(ctx).as(ok).hasNotFailed());
+		}
 	}
 
 	@Test

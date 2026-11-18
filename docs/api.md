@@ -565,7 +565,7 @@ id 오름차순(오래된 댓글이 먼저). 페이징 없음. 댓글이 없으�
 | 신고 기각 | PUT | `/admin/reports/{id}/dismiss` | 관리자 | 200 | 400, 401, 403, 404, 409 |
 | 신고된 대화 읽기 | GET | `/admin/reports/{id}/conversation` | 관리자 | 200 | 400, 401, 403, 404 |
 | 허가서 신청 목록 | GET | `/admin/permit-requests` | 관리자 | 200 | 400, 401, 403 |
-| 허가서 사진 보기 | GET | `/admin/permit-requests/{id}/photo` | 관리자 | 200 | 401, 403, 404 |
+| 허가서 사진 보기 | GET | `/admin/permit-requests/{id}/photo` | 관리자 | 200 | 401, 403, 404, 500 |
 | 허가서 승인 | PUT | `/admin/permit-requests/{id}/approve` | 관리자 | 200 | 400, 401, 403, 404, 409 |
 | 허가서 반려 | PUT | `/admin/permit-requests/{id}/reject` | 관리자 | 200 | 400, 401, 403, 404, 409 |
 
@@ -1136,8 +1136,8 @@ Content-Type: multipart/form-data; boundary=...
 
 ### 48. 허가서 사진 보기 `GET /admin/permit-requests/{id}/photo`
 
-성공 `200 OK`, 본문은 사진 바이트(`Content-Type`은 DB에 적어 둔 `image/jpeg` 또는 `image/png`). 개인정보라 응답 헤더에 `Cache-Control: no-store`와 `X-Content-Type-Options: nosniff`를 붙인다. 없는 신청 `404`, 사진이 없는 신청(처리가 끝나 지워짐·삭제됨) `404`.
-검사 순서: 로그인 401 → 토큰 role 403 → DB 재확인 401/403 → 없는 신청 404 → 사진 없음 404.
+성공 `200 OK`, 본문은 사진 바이트(`Content-Type`은 DB 값을 그대로가 아니라 `image/jpeg`·`image/png` 고정 값 중 하나). 개인정보라 응답 헤더에 `Cache-Control: no-store`와 `X-Content-Type-Options: nosniff`를 붙인다. 없는 신청 `404`, 사진이 없는 신청(처리가 끝나 지워짐·삭제됨) `404`. 저장된 종류가 `image/jpeg`·`image/png`가 아니면 `404`.
+검사 순서: 로그인 401 → 토큰 role 403 → DB 재확인 401/403 → 없는 신청 404 → 사진 없음 404 → 저장된 종류가 image/jpeg·image/png가 아니면 404 → 창고 열기(없으면 404, 실패하면 500).
 
 ### 49. 허가서 승인 `PUT /admin/permit-requests/{id}/approve`
 

@@ -25,6 +25,7 @@ import com.example.demo.permit.domain.PermitStatus;
 import com.example.demo.permit.dto.PermitStatusResponse;
 import com.example.demo.permit.repository.PermitRequestRepository;
 import com.example.demo.photo.repository.PhotoStorage;
+import com.example.demo.photo.repository.PhotoStorageException;
 import com.example.demo.photo.service.ImageProcessor;
 import com.example.demo.photo.service.InvalidImageException;
 import com.example.demo.photo.service.PhotoDeleteQueue;
@@ -148,7 +149,14 @@ public class PermitVerificationService {
         photoDeleteQueue.enqueue(keys);
         try {
             // 허가서는 본 사진 한 장만 보관한다(썸네일은 쓰지 않는다)
-            photoStorage.put(key, image.main().data(), image.main().contentType());
+            try {
+                photoStorage.put(key, image.main().data(), image.main().contentType());
+            } catch (PhotoStorageException e) {
+                // 창고 실패: 예외 이름과 userId만 남기고(메시지·key·스택은 남기지 않는다) 원인 없이 500으로 바꾼다.
+                // 아래 바깥 catch가 올린 파일 치우기를 하고, 위의 catch가 하루 횟수를 되돌린다.
+                log.warn("허가서 사진 저장 실패: userId={}, error={}", userId, e.getClass().getSimpleName());
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR);
+            }
             PermitRequest saved = new TransactionTemplate(txManager)
                     .execute(status -> insertLocked(userId, key, image.main().contentType()));
             log.info("허가서 신청 접수: userId={}", userId); // 파일 이름·key는 남기지 않는다

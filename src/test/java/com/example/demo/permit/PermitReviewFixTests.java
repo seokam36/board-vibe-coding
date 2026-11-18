@@ -354,8 +354,12 @@ class PermitReviewFixTests {
 	@Test
 	void 창고_저장이_실패하면_500_예외이고_행이_없고_대기_표가_정리되고_횟수가_되돌려진다(CapturedOutput output) throws Exception {
 		창고.넣기실패 = true;
-		// 창고 예외는 전용 처리기가 없어 MockMvc에서는 예외로 나온다(진짜 서버에서는 500). 중고 사진 테스트와 같은 방식
-		org.assertj.core.api.Assertions.assertThatThrownBy(() -> 신청()).hasRootCauseMessage("디스크 꽉 참");
+		// 창고 실패는 원인 없이 500 상태로 바뀐다(예외로 새지 않는다)
+		assertThat(신청()).isEqualTo(500);
+		// 로그에는 예외 이름만 남고 메시지·key·스택은 없다(스프링이 500을 다시 스택으로 찍지도 않는다)
+		assertThat(output.getAll()).contains("허가서 사진 저장 실패").contains("PhotoStorageException")
+				.doesNotContain("디스크 꽉 참").doesNotContain("permits/").doesNotContain("Resolved [")
+				.doesNotContain("\tat ").doesNotContain("SECRETPATH");
 		assertThat(행수()).isZero();
 		assertThat(큐줄수()).isZero();
 		assertThat(파일수()).isZero();

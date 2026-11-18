@@ -31,6 +31,7 @@ import com.example.demo.permit.dto.PermitApproveRequest;
 import com.example.demo.permit.dto.PermitPhotoContent;
 import com.example.demo.permit.repository.PermitRequestRepository;
 import com.example.demo.photo.repository.PhotoStorage;
+import com.example.demo.photo.repository.PhotoStorageException;
 import com.example.demo.photo.repository.StoredPhoto;
 import com.example.demo.photo.service.PhotoDeleteQueue;
 import com.example.demo.school.domain.School;
@@ -102,7 +103,8 @@ public class AdminPermitService {
                 .toList();
     }
 
-    // 허가서 사진 열기. 검사 순서: 관리자 재확인 -> 없는 신청 404 -> 사진 없음(처리 끝·삭제됨) 404.
+    // 허가서 사진 열기. 검사 순서: 관리자 재확인 -> 없는 신청 404 -> 사진 없음(처리 끝·삭제됨) 404
+    // -> 저장된 종류 확인 404 -> 창고 열기(없으면 404, 열기 실패 500).
     // 스트림은 호출한 쪽(컨트롤러)이 닫는다. 잠금은 잡지 않는다(읽기만).
     public PermitPhotoContent getPhoto(Long id, LoginUser loginUser) {
         accessGuard.requireAdmin(loginUser);
@@ -111,9 +113,21 @@ public class AdminPermitService {
         if (key == null || request.getContentType() == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "허가서 사진이 없습니다.");
         }
-        StoredPhoto photo = photoStorage.open(key)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "허가서 사진이 없습니다."));
-        return new PermitPhotoContent(request.getContentType(), photo);
+        // 창고를 열기 전에 저장된 종류를 확인한다: 우리가 저장하는 jpeg·png가 아니면(DB가 손상·조작됐으면) 없는 사진으로 처리한다.
+        String contentType = request.getContentType();
+        if (!"image/jpeg".equals(contentType) && !"image/png".equals(contentType)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "허가서 사진이 없습니다.");
+        }
+        StoredPhoto photo;
+        try {
+            photo = photoStorage.open(key)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "허가서 사진이 없습니다."));
+        } catch (PhotoStorageException e) {
+            // 창고 실패: 예외 이름·requestId·adminId만 남기고(메시지·key·스택은 남기지 않는다) 원인 없이 500으로 바꾼다
+            log.warn("허가서 사진 열기 실패: requestId={}, adminId={}, error={}", id, loginUser.id(), e.getClass().getSimpleName());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return new PermitPhotoContent(contentType, photo);
     }
 
     // 승인. 검사 순서: 관리자 재확인 401/403 -> 번호에 쓸 글자 없음 400 -> 없는 신청 404 -> 없는 학교 404

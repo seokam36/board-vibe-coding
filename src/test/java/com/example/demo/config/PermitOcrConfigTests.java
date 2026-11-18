@@ -137,15 +137,27 @@ class PermitOcrConfigTests {
 	}
 
 	@Test
-	void vision_주소는_https만_허용하고_내_컴퓨터만_http도_허용한다() {
-		for (String bad : new String[] { "http://example.com", "ftp://example.com", "example.com", "http://evil.test:8080" }) {
+	void vision_주소는_구글_Vision과_내_컴퓨터만_허용한다() {
+		// S20-j1: 구글 Vision 주소 그대로(https, 포트 없음·443)와 내 컴퓨터만 통과. 비슷하게 생긴 남의 주소·http·다른 포트는 실패
+		for (String bad : new String[] { "http://example.com", "ftp://example.com", "example.com", "http://evil.test:8080", "https://example.com",
+				"https://vision.googleapis.com.evil.com", "http://vision.googleapis.com", "https://vision.googleapis.com:8443" }) {
 			vision("app.permit.ocr.vision.base-url=" + bad).run(ctx -> {
 				assertFailsWithoutKey(ctx.getStartupFailure(), bad);
 				assertThat(rootMessage(ctx.getStartupFailure())).contains("base-url");
 			});
 		}
-		for (String ok : new String[] { "https://example.com", "http://127.0.0.1:8080", "http://localhost:8080" }) {
+		for (String ok : new String[] { "https://vision.googleapis.com", "https://vision.googleapis.com/", "https://vision.googleapis.com:443",
+				"http://127.0.0.1:8080", "http://localhost:8080" }) {
 			vision("app.permit.ocr.vision.base-url=" + ok).run(ctx -> assertThat(ctx).as(ok).hasNotFailed());
+		}
+	}
+
+	// S20-j1: off 모드는 주소를 검사하지 않는다(vision을 안 쓰니 아무 값이어도 시작 성공)
+	@Test
+	void off_모드는_vision_주소가_남의_주소여도_시작에_성공한다() {
+		for (String any : new String[] { "https://example.com", "https://vision.googleapis.com.evil.com" }) {
+			runner.withPropertyValues("app.permit.ocr.mode=off", "app.permit.ocr.vision.base-url=" + any)
+					.run(ctx -> assertThat(ctx).as(any).hasNotFailed());
 		}
 	}
 

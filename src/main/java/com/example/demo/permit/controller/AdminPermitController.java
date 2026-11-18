@@ -49,7 +49,8 @@ public class AdminPermitController {
         // 스트림이 이미 열린 상태다. 응답을 조립하다 예외가 나면 Spring이 닫아 주지 못하니 여기서 닫고 다시 던진다.
         try {
             return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(content.contentType()))
+                    // DB 값을 그대로 해석하지 않고 고정 상수로 내려보낸다(서비스가 jpeg·png만 통과시킨다)
+                    .contentType("image/png".equals(content.contentType()) ? MediaType.IMAGE_PNG : MediaType.IMAGE_JPEG)
                     .header(HttpHeaders.CACHE_CONTROL, "no-store")
                     .header("X-Content-Type-Options", "nosniff")
                     .contentLength(content.photo().length())

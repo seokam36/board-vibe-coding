@@ -3,6 +3,7 @@ package com.example.demo.permit.controller;
 import java.io.IOException;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -19,6 +20,12 @@ public class AdminPermitExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     void handleInvalidBody(HttpServletResponse response) throws IOException {
+        response.sendError(HttpStatus.BAD_REQUEST.value());
+    }
+
+    // 깨진 JSON 본문도 같은 방식(로그 없이 400). 스프링 기본 처리기는 "JSON parse error" 경고를 남긴다.
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    void handleUnreadableBody(HttpServletResponse response) throws IOException {
         response.sendError(HttpStatus.BAD_REQUEST.value());
     }
 }

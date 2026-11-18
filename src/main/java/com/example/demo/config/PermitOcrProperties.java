@@ -17,7 +17,7 @@ public record PermitOcrProperties(
         @DefaultValue Vision vision) {
 
     public record Vision(
-            // 전용 환경변수는 일부러 만들지 않았다(테스트만 가짜 서버 주소로 덮어씀). PermitOcrConfig가 https(내 컴퓨터만 http)만 허용한다.
+            // 전용 환경변수는 일부러 만들지 않았다(테스트만 가짜 서버 주소로 덮어씀). PermitOcrConfig가 구글 주소(https)와 내 컴퓨터(localhost 등)만 허용한다.
             @DefaultValue("https://vision.googleapis.com") String baseUrl,
             // 비밀 값. 기본은 빈 값이라 vision 모드인데 키가 없으면 PermitOcrConfig가 시작 때 막는다.
             @DefaultValue("") String apiKey,

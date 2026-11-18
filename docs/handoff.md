@@ -17,12 +17,14 @@
 - DB는 **V14까지**(새 V 파일 없음. `machine_result` CHECK V15는 나중).
 
 ## 다음에 할 일
-- **먼저 확인 못 한 것 하나**: 운영 로그 숫자 — 서버에서 `cd ~/board && docker compose --profile prod logs app | grep -c '사진 파일 삭제에 실패'` 와 `... | grep -c 'permits/'` 둘 다 0인지(사용자에게 아직 못 받음. 0이 아니면 로그를 펴 보지 말고 숫자만).
-- **다음: vision 전환** — deploy.md "S20 배포" 절의 "vision 전환" 순서대로. Google Cloud `board-vision` 프로젝트에서 **서버용 새 키**(API 제한 Cloud Vision만), **시험 키 `vision-local-test` 삭제 + 내 PC 로컬 `.env`의 `VISION_API_KEY` 줄 삭제**, 서버 `.env`에 `PERMIT_OCR_MODE=vision`·`VISION_API_KEY`, `up -d app`, 로그 "허가서 판독기: vision" 1·"한국어 나라 이름 없음" 경고 0(jre-alpine), `docker stats` 메모리, 견본 `C:\Users\seoka\permit-samples\표준1-test.jpg`(지어낸 학교·번호)로 자동 승인 확인.
+- (2026-11-18 확인 끝) 운영 로그 숫자 `사진 파일 삭제에 실패` 0, `permits/` 0.
+- **vision 전환 끝(2026-11-18, 노트북)**: 서버용 키 `vision-server`(Cloud Vision만) 만듦, 시험 키 `vision-local-test` 삭제(콘솔에서 23회 사용 = 어제 실물 시험), 서버 `.env` `PERMIT_OCR_MODE=vision`·`VISION_API_KEY` 1줄, `up -d app`, 로그 "판독기: vision" 1·국적 경고 0·키 누출 0, 화면에서 자동 승인 확인됨. 사고 메모: nano에서 키를 `PERMIT_HASH_SECRET` 줄에 덮어써 저장함 → 앱 재시작 전이라 `docker exec board-app printenv`로 원래 값을 꺼내 `.env`에 되살리고 `grep -cxF`로 일치 확인 뒤 재시작(값 그대로).
+  - **메모리 주의**: 자동 승인 시험 뒤 쉬는 상태에서 `docker stats` 392.1MiB / 512MiB(76.6%). off 때 350MiB. deploy.md 기준 "400MiB 근처면 동시 판독 수 1로 줄이는 새 단계 필요"에 거의 닿음 → 며칠 지켜보고 400 넘거나 앱이 죽으면(재시작) 새 S번호로.
+  - 남은 것: **집 PC 로컬 `.env`의 `VISION_API_KEY` 줄 삭제**(키는 이미 폐기), 시험에 쓴 계정 인증 해제·탈퇴.
 - **며칠 써 보고 S18로 되돌릴 일 없으면 정리**(deploy.md "확인 끝난 뒤 정리"): 서버 `~/board/.env.bak-s20` 삭제, `.env`의 MAIL_* 6줄 삭제, **Gmail 앱 비밀번호 폐기**, deploy.md 메일 절 삭제. (그 전엔 지우지 말 것 — S18 되돌리기에 필요.)
 - 그다음: S20 파트 정리(배포 뒤로 미룬 것, backlog "S20 파트 리뷰" 줄의 "나중" + "나중(S20-g1·g4·g5 리뷰)": SchoolVerificationSection 이름·603줄 파일 쪼개기, 탭 위젯 합치기, 스크린리더 버튼 이름, 사진 저장 실패 스택 로그, 테스트 빈 곳 등). 확인 필요: 실물 허가서 번호에 영문 접두어가 띄어쓰기로 있으면 기계·관리자 해시가 달라짐.
 - Google Cloud 현재 설정(2026-11-17): 프로젝트 `board-vision` + 새 결제 계정 `board-vision-billing`(유료 계정, 연결 프로젝트 board-vision 하나뿐, SpringStudy 무관), 예산 알림 `vision-budget` ₩5,000(Vision은 지출 한도 미지원이라 알림만), Vision "Requests per minute" 5(하루 상한 항목 없음). AWS: IAM 정책은 버킷 전체(`/*`) 허용이라 변경 없음, S3 `permits-expire-14d`(접두사 permits/ 14일), 버전 관리 꺼짐, SSE-S3.
-- Notion: S20 카드 단계 표 S20-i까지, S20 끝나면 🧭 파트 전체 정리(백엔드 흐름: 판정 규칙·자동 승인·사진 삭제·해시 비밀 값 이유).
+- Notion: S20 카드 단계 표 S20-i까지, S20 끝나면 🧭 파트 전체 정리(백엔드 흐름: 판정 규칙·자동 승인·사진 삭제·해시 비밀 값 이유). **한계점에 꼭 적기(2026-11-18 사용자 요청, 일단 그대로 둠)**: 기계는 사진 속 글자만 읽어서 학교명 등을 고친 위조 허가서도 자동 승인됨(예: 학교명 칸만 바꾸고 주소·직인은 다른 학교여도 통과). 막는 것은 같은 번호 재사용(해시)·5분 신청 제한·관리자 사후 취소뿐. 나중 선택지: off(전부 관리자 확인) / 자동 승인 사후 검토 화면 / 학교 메일 병행.
 - (선택, 예전부터) 구글 503 빈도 세기, 상단바 닉네임 위치, 운영 테스트 중고 글 15개는 실제 회원 받기 전에 지우기, EC2는 꺼 두기.
 
 ## 진행 중인 단계

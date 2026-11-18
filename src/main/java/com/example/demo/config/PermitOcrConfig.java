@@ -28,7 +28,8 @@ public class PermitOcrConfig {
 
     private static final Logger log = LoggerFactory.getLogger(PermitOcrConfig.class);
 
-    // vision 주소에서 http(암호화 없음)를 허락하는 곳: 내 컴퓨터 안(테스트의 가짜 서버)뿐
+    // 키를 실어 보내는 주소라 구글 호스트 하나와 내 컴퓨터 안(테스트의 가짜 서버)만 허락한다
+    private static final String VISION_HOST = "vision.googleapis.com";
     private static final Set<String> LOCAL_HOSTS = Set.of("localhost", "127.0.0.1", "[::1]");
 
     public PermitOcrConfig(PermitOcrProperties props) {
@@ -70,7 +71,7 @@ public class PermitOcrConfig {
         checkBaseUrl(v.baseUrl());
     }
 
-    // 키를 헤더에 실어 보내는 주소다. 암호화 없는 http로 바깥에 보내면 키가 샌다: https만 허용하고, 내 컴퓨터(가짜 서버)만 http도 허용한다.
+    // 키를 헤더에 실어 보내는 주소다. 엉뚱한 곳으로 보내면 키가 샌다: 구글 호스트(https, 기본 포트)와 내 컴퓨터(가짜 서버)만 허용한다.
     private static void checkBaseUrl(String baseUrl) {
         URI uri;
         try {
@@ -78,10 +79,16 @@ public class PermitOcrConfig {
         } catch (IllegalArgumentException e) {
             throw new IllegalStateException("app.permit.ocr.vision.base-url이 올바른 주소가 아닙니다.");
         }
-        boolean https = "https".equals(uri.getScheme());
-        boolean localHttp = "http".equals(uri.getScheme()) && uri.getHost() != null && LOCAL_HOSTS.contains(uri.getHost());
-        if (uri.getHost() == null || !(https || localHttp)) {
-            throw new IllegalStateException("app.permit.ocr.vision.base-url은 https 주소여야 합니다.");
+        String scheme = uri.getScheme();
+        String host = uri.getHost();
+        boolean httpOrHttps = "http".equals(scheme) || "https".equals(scheme);
+        // (a) 진짜 구글 주소: https + 정확히 이 호스트 + 포트 기본(없음 또는 443)
+        boolean google = "https".equals(scheme) && VISION_HOST.equals(host) && (uri.getPort() == -1 || uri.getPort() == 443);
+        // (b) 내 컴퓨터(가짜 서버): http·https 모두, 포트 자유
+        boolean local = httpOrHttps && host != null && LOCAL_HOSTS.contains(host);
+        // 사용자 정보(abc@호스트)가 낀 주소는 위장에 쓰일 수 있어 거절한다
+        if (uri.getUserInfo() != null || !(google || local)) {
+            throw new IllegalStateException("app.permit.ocr.vision.base-url은 https://vision.googleapis.com 이거나 내 컴퓨터(localhost) 주소여야 합니다.");
         }
     }
 

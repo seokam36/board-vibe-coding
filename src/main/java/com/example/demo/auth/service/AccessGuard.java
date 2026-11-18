@@ -33,13 +33,13 @@ public class AccessGuard {
                 .orElseThrow(ApiErrors::loginRequired);
     }
 
-    // 학교 인증을 마친 회원만 통과(관리자도 예외 없음). 인증 여부는 토큰이 아니라 매번 DB로 본다.
+    // 유학생 인증을 마친 회원만 통과(관리자도 예외 없음). 인증 여부는 토큰이 아니라 매번 DB로 본다.
     // 회원 없음 401 -> 미인증 403. 통과하면 그 회원을 돌려준다(verifiedSchool은 findById의 EntityGraph로 이미 읽혀 있다).
     // 401은 프론트가 토큰 재발급을 돌리므로 미인증에는 쓰지 않고 403을 쓴다.
     public User requireVerified(LoginUser loginUser) {
         User user = requireUser(loginUser);
         if (user.getVerifiedSchool() == null) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "학교 인증이 필요합니다.");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "유학생 인증이 필요합니다.");
         }
         return user;
     }
