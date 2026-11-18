@@ -37,14 +37,18 @@ public class PermitOcrConfig {
         if (!"off".equals(mode) && !"vision".equals(mode)) {
             throw new IllegalStateException("PERMIT_OCR_MODE는 off, vision 중 하나여야 합니다 (현재 값은 출력하지 않음).");
         }
+        // 하루 전체 상한은 모드와 상관없이 음수면 설정 실수라 시작 때 막는다(0은 "상한 끔")
+        if (props.vision().globalPerDay() < 0) {
+            throw new IllegalStateException("VISION_GLOBAL_PER_DAY는 0 이상이어야 합니다 (0이면 상한 없음).");
+        }
         if ("off".equals(mode)) {
             // 시작할 때 한 번만 알린다
             log.info("허가서 글자 판독 꺼짐(PERMIT_OCR_MODE=off): 모든 신청은 관리자 대기로 남습니다.");
         } else {
             checkVision(props.vision());
             // 시작 로그 한 줄: 키·주소는 출력하지 않는다(숫자 설정만)
-            log.info("허가서 판독기: vision(Google Cloud Vision) 켜짐, 시간 상한 {}초, 동시 {}건",
-                    props.vision().timeout().toSeconds(), props.vision().maxConcurrent());
+            log.info("허가서 판독기: vision(Google Cloud Vision) 켜짐, 시간 상한 {}초, 동시 {}건, 하루 전체 상한 {}건(0=없음)",
+                    props.vision().timeout().toSeconds(), props.vision().maxConcurrent(), props.vision().globalPerDay());
         }
     }
 

@@ -89,9 +89,12 @@ public abstract class AdminPermitTestBase {
 		postRepository.deleteAll();
 		userRepository.deleteAll();
 		FileSystemUtils.deleteRecursively(Path.of(uploadDir));
-		Set<String> keys = redis.keys("permit-upload-day:*");
-		if (keys != null && !keys.isEmpty()) {
-			redis.delete(keys);
+		// 회원별 하루 신청 횟수 키와 구글 하루 전체 상한 키(S21-d)를 지운다
+		for (String pattern : List.of("permit-upload-day:*", "permit-vision-day:*")) {
+			Set<String> keys = redis.keys(pattern);
+			if (keys != null && !keys.isEmpty()) {
+				redis.delete(keys);
+			}
 		}
 	}
 

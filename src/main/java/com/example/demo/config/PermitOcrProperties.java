@@ -26,7 +26,10 @@ public record PermitOcrProperties(
             // 구글을 동시에 부르는 최대 수. 가득 차면 기다리지 않고 바로 "못 읽음"
             @DefaultValue("2") int maxConcurrent,
             // 이보다 큰 사진은 구글을 부르지 않는다(요청 크기 한도 보호)
-            @DefaultValue("7MB") DataSize maxImageSize) {
+            @DefaultValue("7MB") DataSize maxImageSize,
+            // 서버 전체(모든 회원 합계)가 하루에 구글을 부를 수 있는 최대 횟수(서울 날짜, S21-d). 0이면 상한 끔, 음수면 시작 실패.
+            // 계정을 여러 개 만들어도 Vision 월 무료 한도(1,000건)를 넘기지 못하게 하는 안전장치다.
+            @DefaultValue("30") int globalPerDay) {
 
         // record의 기본 toString은 모든 값을 찍어서 키가 로그·화면에 나올 수 있다. 키만 가려서 찍는다.
         @Override

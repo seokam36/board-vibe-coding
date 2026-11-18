@@ -28,6 +28,7 @@ public class PermitAutoReview {
     private final PermitJudge judge;
     private final AdminPermitService adminPermitService;
     private final PermitRequestRepository permitRequestRepository;
+    private final PermitVisionDailyLimiter dailyLimiter;
 
     // 자동 승인되면 승인된 상태 응답을, 아니면 빈 값(호출한 쪽이 INSERT 시점의 PENDING 응답을 그대로 쓴다)을 돌려준다.
     public Optional<PermitStatusResponse> review(Long userId, Long requestId, byte[] image, String contentType) {
@@ -54,6 +55,10 @@ public class PermitAutoReview {
 
     // 글자 읽기 -> 판정. 못 읽거나(빈 값·공백·예외) 하면 판정 규칙을 부르지 않고 UNREADABLE로 한다(빈 글자를 judge에 주면 NO_TITLE이 나오기 때문).
     private PermitJudgement readAndJudge(Long userId, Long requestId, byte[] image, String contentType) {
+        // 서버 전체 하루 상한(S21-d): 넘었거나 Redis 오류면 구글을 부르지 않고 못 읽음으로 둔다(관리자 대기)
+        if (!dailyLimiter.tryAcquire()) {
+            return new PermitJudgement(PermitMachineResult.UNREADABLE, null, null);
+        }
         Optional<String> text;
         try {
             text = reader.read(image, contentType);
