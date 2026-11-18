@@ -14,7 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 // 신청 직후의 "자동 심사" (S20-d2): 사진 글자를 읽고(판독기) -> 4가지 규칙으로 판정하고(PermitJudge) -> 결과를 처리한다.
-//   모두 통과(ALL_PASSED)이고 번호가 처음이면 자동 승인(AdminPermitService.autoApprove).
+//   모두 통과(ALL_PASSED)이고 번호가 처음이면(이미 승인됐거나 관리자가 취소한 번호가 아니면) 자동 승인(AdminPermitService.autoApprove).
 //   그 밖(못 읽음·규칙 불통과·이미 승인된 번호·승인 순간 경쟁에서 짐)은 신청을 PENDING 그대로 두고 판정 결과만 적는다. 자동 반려는 없다.
 // 이 클래스에는 @Transactional이 없다: 판독기는 느릴 수 있어 DB 연결을 쥐고 부르면 안 되고,
 // PermitJudge(읽기 전용 트랜잭션을 씀)도 쓰기 트랜잭션 안에서 부르면 예외 때 바깥 트랜잭션이 롤백 전용이 돼 커밋이 500이 되기 때문이다.

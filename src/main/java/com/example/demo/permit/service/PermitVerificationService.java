@@ -187,7 +187,7 @@ public class PermitVerificationService {
                 .orElseGet(PermitStatusResponse::none);
     }
 
-    // 신청 철회 / 인증 해제. 한 트랜잭션에서: 회원 행 FOR UPDATE(탈퇴와 같은 잠금 순서) -> 이 회원의 신청 행 전부 삭제
+    // 신청 철회 / 인증 해제. 한 트랜잭션에서: 회원 행 FOR UPDATE(탈퇴와 같은 잠금 순서) -> 이 회원의 신청 행 삭제(취소된 REVOKED 행은 남김)
     // -> 학교 인증(verified_school_id·verified_at·school_email_hash)이 있으면 NULL로 비움(이후 글쓰기는 403).
     // 신청도 학교 인증도 없으면 404. 예전 메일 인증 회원(행 없이 학교만 있음)도 같은 처리다.
     // 사진 파일은 커밋 뒤에 지운다. 지울 키는 같은 트랜잭션에서 대기 표에 적어 두는데, 이 키의 행이 같은 트랜잭션에서 지워지므로
@@ -202,7 +202,8 @@ public class PermitVerificationService {
             User user = userRepository.findById(userId).orElseThrow(ApiErrors::loginRequired);
             boolean verified = user.getVerifiedSchool() != null;
             List<String> keys = permitRequestRepository.findPhotoKeysByUserId(userId);
-            int deleted = permitRequestRepository.deleteAllByUserId(userId);
+            // 취소된(REVOKED) 행은 지우지 않는다(S21-b). 그것만 있고 인증도 없으면 deleted가 0이라 아래에서 404가 된다
+            int deleted = permitRequestRepository.deleteByUserIdExceptStatus(userId, PermitStatus.REVOKED);
             if (deleted == 0 && !verified) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "철회할 허가서 인증 신청이나 인증이 없습니다.");
             }

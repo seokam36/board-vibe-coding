@@ -66,10 +66,11 @@ public interface PermitRequestRepository extends JpaRepository<PermitRequest, Lo
     int recordMachineResult(@Param("id") Long id, @Param("result") String result,
             @Param("detectedSchoolId") Long detectedSchoolId, @Param("pending") PermitStatus pending);
 
-    // 이 회원의 신청 행을 전부 지운다. 반환값 = 지운 행 수.
+    // 이 회원의 신청 행을 지운다(본인 철회용). 단, keep 상태(REVOKED, S21-b)의 행은 남긴다:
+    // 관리자가 취소한 기록과 번호 해시를 본인이 지워 같은 번호로 다시 자동 승인받지 못하게 하려는 것. 반환값 = 지운 행 수.
     // MANDATORY: 사진 이름 모으기·대기 표 적기와 반드시 한 트랜잭션이어야 하므로 바깥 트랜잭션 없이 부르면 예외
     @Modifying
     @Transactional(propagation = Propagation.MANDATORY)
-    @Query("delete from PermitRequest p where p.userId = :userId")
-    int deleteAllByUserId(@Param("userId") Long userId);
+    @Query("delete from PermitRequest p where p.userId = :userId and p.status <> :keep")
+    int deleteByUserIdExceptStatus(@Param("userId") Long userId, @Param("keep") PermitStatus keep);
 }

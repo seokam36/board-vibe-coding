@@ -279,7 +279,7 @@ public class AdminPermitService {
         return Boolean.TRUE.equals(expired);
     }
 
-    // 자동 승인의 결과: 승인됨 / 같은 번호가 이미 승인돼 있음 / 승인하지 않음(신청이 사라졌거나 이미 처리됨, 이미 인증된 회원)
+    // 자동 승인의 결과: 승인됨 / 같은 번호가 이미 승인됐거나 관리자가 취소한 번호 / 승인하지 않음(신청이 사라졌거나 이미 처리됨, 이미 인증된 회원)
     enum AutoApprovalOutcome {
         APPROVED, NUMBER_DUPLICATE, NOT_APPLIED
     }
@@ -291,7 +291,7 @@ public class AdminPermitService {
     // 기계 자동 승인 한 건 (S20-d2, PermitAutoReview가 부른다). 관리자 권한·본인 심사 검사는 없다(시스템 작업).
     // 관리자 승인과 같은 잠금 순서(회원 -> 신청 -> PENDING 재확인)와 같은 사진 삭제 방식(트랜잭션 안에서 대기 표에 적고 커밋 뒤 삭제)을 쓴다.
     // 승인 조건이 하나라도 안 맞으면 아무것도 바꾸지 않고 돌려준다: 그 사이 철회·탈퇴·처리됐거나(NOT_APPLIED),
-    // 이미 인증된 회원이거나(NOT_APPLIED), 같은 번호가 이미 승인됐으면(NUMBER_DUPLICATE). 예상 못 한 예외는 그대로 던지고, 부른 쪽(PermitVerificationService)이 삼켜 신청은 PENDING으로 남는다.
+    // 이미 인증된 회원이거나(NOT_APPLIED), 같은 번호가 이미 승인됐거나 관리자가 취소한 번호면(NUMBER_DUPLICATE). 예상 못 한 예외는 그대로 던지고, 부른 쪽(PermitVerificationService)이 삼켜 신청은 PENDING으로 남는다.
     AutoApproval autoApprove(Long id, Long userId, PermitJudgement judgement) {
         Long schoolId = judgement.detectedSchoolId();
         if (schoolId == null || judgement.normalizedNumber() == null) {
@@ -310,8 +310,14 @@ public class AdminPermitService {
                 }
                 PermitRequest request = locked.request();
                 Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+                // 주의: APPROVED를 먼저, REVOKED를 나중에 보는 순서를 바꾸지 말 것. 상태는 APPROVED -> REVOKED 한 방향이라
+                // 두 확인 사이에 취소가 커밋돼도 첫 확인(APPROVED)에서 이미 걸린다. 뒤집으면 "REVOKED 아직 없음 -> 취소 커밋 -> APPROVED 없음" 틈이 생긴다.
                 // 같은 번호가 이미 승인돼 있으면 DB 오류를 일으키기 전에 미리 알아본다(동시 경쟁의 최종 보장은 아래 catch의 부분 UNIQUE 위반)
                 if (permitRequestRepository.existsByPermitNumberHashAndStatus(hash, PermitStatus.APPROVED)) {
+                    return new AutoApproval(AutoApprovalOutcome.NUMBER_DUPLICATE, null);
+                }
+                // 관리자가 취소한(REVOKED) 번호는 기계가 다시 승인하지 않고 관리자 대기로 둔다(S21-b). 관리자의 직접 승인(approve)은 막지 않는다(잘못 취소했을 때 구제)
+                if (permitRequestRepository.existsByPermitNumberHashAndStatus(hash, PermitStatus.REVOKED)) {
                     return new AutoApproval(AutoApprovalOutcome.NUMBER_DUPLICATE, null);
                 }
                 // 회원 칸을 먼저 채운다. 판독하는 사이 이미 인증됐으면 0행이라 아무것도 바꾸지 않고 끝낸다
