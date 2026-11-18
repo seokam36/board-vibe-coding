@@ -113,7 +113,7 @@ public class RefreshTokenService {
         }
     }
 
-    // 이 회원의 모든 리프레시 토큰을 한꺼번에 무효화한다(모든 기기 로그아웃). 비밀번호 변경·탈퇴에서 쓸 예정.
+    // 이 회원의 모든 리프레시 토큰을 한꺼번에 무효화한다(모든 기기 로그아웃). 비밀번호 변경·탈퇴(UserService)에서 쓴다.
     // 알려진 틈: 이 호출과 동시에 같은 회원의 재발급이 일어나면 새 토큰 하나가 살아남을 수 있다(허용).
     public void revokeAll(Long userId) {
         redis.execute(REVOKE_ALL_SCRIPT, List.of(userKey(userId)), KEY_PREFIX);

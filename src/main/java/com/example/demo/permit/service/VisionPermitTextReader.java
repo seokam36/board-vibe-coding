@@ -180,7 +180,7 @@ public class VisionPermitTextReader implements PermitTextReader, AutoCloseable {
                     .uri(endpoint)
                     .header("x-goog-api-key", apiKey)
                     // 응답을 글자와 오류 코드만으로 줄인다(error.message도 안 옴).
-                    // Vision v1에서 이 헤더가 먹는지는 e2의 실제 호출 테스트에서 확인한다.
+                    // Vision v1에서 이 헤더는 S20-h 실물 시험에서 실제로 먹는 것을 확인했다.
                     .header("X-Goog-FieldMask", "responses.fullTextAnnotation.text,responses.error.code")
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBody)
