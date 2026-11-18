@@ -7,93 +7,17 @@ import '../auth/auth_state.dart';
 import '../common/file_picker.dart';
 import '../common/format_date.dart';
 import '../errors/error_messages.dart';
-import '../market/photo_upload.dart' show maxPhotoBytes;
-import '../permit/permit_reject_reasons.dart';
 import '../theme/app_colors.dart';
-import 'app_badge.dart';
-import 'confirm_dialog.dart';
-import 'loading.dart';
-import 'notice.dart';
-import 'panel.dart';
-import 'relogin_notice.dart';
-import 'section_parts.dart';
-
-// ---- 문구 (화면에 보이는 글자는 여기 한 곳에 모은다) ----
-
-// 사진을 수집하는 것에 대한 동의 문구 (체크박스 옆에 그대로 보인다)
-const permitConsentText =
-    '표준입학허가서 사진을 유학생·학교 확인 목적으로 수집합니다. 사진은 심사가 끝나면 바로 지우고, 늦어도 14일 뒤 삭제합니다. '
-    '허가서 번호는 중복 확인용 암호화 값(해시)만 보관합니다. 사진은 글자 확인을 위해 Google Cloud Vision으로 전송될 수 있습니다. '
-    '언제든 철회할 수 있습니다.';
-
-// 사진에서 가려야 할 것 / 보이게 둘 것 (두 줄로 나눠 보여 준다)
-const permitMaskHide = '가려 주세요: 여권번호, 생년월일, 이메일, 재정 금액';
-const permitMaskShow = '보이게 두세요: 국적, 학교명, 표준입학허가서 번호';
-
-// 반려 사유 문구(permitRejectReasons)는 ../permit/permit_reject_reasons.dart로 옮겼다
-
-// 신청(POST) 실패 상태코드별 문구 (401은 표에 두지 않는다 → describeError가 로그인 안내로 바꾼다)
-const permitSubmitErrors = <int, String>{
-  400: '사진을 확인해 주세요. 동의에 체크하고 JPEG·PNG 사진(10MB 이하)인지, 손상되지 않았는지 봐 주세요',
-  403: '신청하지 못했어요. 새로고침 후 다시 시도해 주세요',
-  409: '이미 인증됐거나 심사를 기다리는 신청이 있어요',
-  413: '사진은 10MB 이하여야 해요',
-  429: '오늘은 신청을 3번 다 썼어요. 내일 다시 신청해 주세요',
-  503: '서버가 바빠요. 잠시 뒤 다시 시도해 주세요',
-};
-const permitSubmitFailed = '신청하지 못했어요. 잠시 뒤 다시 시도해 주세요';
-// 시간 초과: 서버가 이미 접수했을 수도 있어서, 상태를 다시 확인한다고 알린다
-const permitTimeoutMessage = '시간이 오래 걸려 멈췄어요. 접수됐는지 상태를 다시 확인할게요';
-const permitProgressMessage = '확인 중이에요. 최대 몇십 초 걸릴 수 있어요';
-const permitLoadFailed = '인증 상태를 불러오지 못했어요';
-// 사전 검사(브라우저에서 미리 거르는 것)
-const permitTypeOnly = '사진은 JPEG·PNG만 올릴 수 있어요';
-const permitTooLarge = '사진은 10MB 이하여야 해요';
-// 로그인 중에 승인됐는데 회원 정보를 아직 못 받았을 때
-const permitApprovedReload = '인증이 승인됐어요. 새로고침하면 인증 표시가 나타나요';
-// 실패 뒤 상태를 다시 확인해 봤을 때의 결과 문구
-const permitNotReceived = '접수되지 않았어요. 다시 신청해 주세요';
-const permitRecheckFailed = '접수됐는지 확인하지 못했어요. 새로고침해서 확인해 주세요';
-
-// 신청 요청의 제한 시간 (5분). 웹에서는 업로드를 포함한 요청 전체의 제한 시간으로 쓰인다
-// (dio 웹 어댑터가 xhr.timeout = connectTimeout + receiveTimeout 으로 건다).
-// 서버 처리(사진 저장 + 글자 읽기 최대 약 10초)는 짧고 대부분이 업로드 시간이다.
-// 2분이면 느린 회선(약 0.5Mbps)에서 10MB 사진이 매번 시간 초과라 중고 사진 올리기(photo_upload.dart)와 같은 5분으로 둔다 (S20-h 결정)
-const permitSubmitTimeout = Duration(minutes: 5);
-
-// ---- 철회·해제 (DELETE) 문구 ----
-const permitWithdrawConfirm = '신청을 철회할까요?';
-const permitUnlinkConfirm =
-    '인증을 해제하면 글쓰기·댓글·공감·중고·쪽지를 쓸 수 없어요. 다시 쓰려면 허가서를 다시 올려 심사를 받아야 해요. 해제할까요?';
-// 철회·해제 실패 상태코드별 문구 (401은 표에 두지 않는다 → describeError가 로그인 안내로 바꾼다)
-const permitRemoveErrors = <int, String>{
-  403: '요청이 거절됐어요. 새로고침 후 다시 시도해 주세요',
-  404: '이미 철회되었거나 인증이 없어요',
-};
-// 해제는 됐는데 회원 정보를 못 받아 뱃지가 남았을 때
-const permitUnlinkReload = '해제됐어요. 새로고침해 주세요.';
-const permitRemoveFailed = '처리하지 못했어요. 잠시 뒤 다시 시도해 주세요';
-// 철회·해제 요청의 제한 시간 (공용 dio에는 시간 제한이 없어서 요청마다 건다)
-const permitRemoveTimeout = Duration(seconds: 30);
-
-// 서버가 알려 주는 "내 인증 상태" (GET·POST 응답 공통). status: NONE / PENDING / REJECTED / APPROVED
-class PermitStatus {
-  const PermitStatus({
-    required this.status,
-    this.rejectReason,
-    this.requestedAt,
-  });
-
-  final String status;
-  final String? rejectReason;
-  final String? requestedAt;
-
-  factory PermitStatus.fromJson(Map<String, dynamic> json) => PermitStatus(
-    status: json['status'] as String,
-    rejectReason: json['rejectReason'] as String?,
-    requestedAt: json['requestedAt'] as String?,
-  );
-}
+import '../widgets/app_badge.dart';
+import '../widgets/confirm_dialog.dart';
+import '../widgets/loading.dart';
+import '../widgets/notice.dart';
+import '../widgets/panel.dart';
+import '../widgets/relogin_notice.dart';
+import '../widgets/section_parts.dart';
+import 'permit_apply_form.dart';
+import 'permit_status.dart';
+import 'permit_texts.dart';
 
 // 화면이 상태를 알아 가는 단계
 enum _LoadState { loading, failed, ready }
@@ -102,15 +26,15 @@ enum _LoadState { loading, failed, ready }
 // - 인증 회원: 서버에 묻지 않고 뱃지만 보여 준다
 // - 미인증 회원: 상태를 1번 물어서 NONE/REJECTED면 신청 폼, PENDING이면 "심사 대기 중"을 보여 준다
 // 요청을 보내고 상태가 바뀌므로 StatefulWidget이다 (인증 여부 자체는 AuthState에서 읽는다).
-class SchoolVerificationSection extends StatefulWidget {
-  const SchoolVerificationSection({super.key});
+class PermitVerificationSection extends StatefulWidget {
+  const PermitVerificationSection({super.key});
 
   @override
-  State<SchoolVerificationSection> createState() =>
-      _SchoolVerificationSectionState();
+  State<PermitVerificationSection> createState() =>
+      _PermitVerificationSectionState();
 }
 
-class _SchoolVerificationSectionState extends State<SchoolVerificationSection> {
+class _PermitVerificationSectionState extends State<PermitVerificationSection> {
   _LoadState _loadState = _LoadState.loading;
   ErrorInfo? _loadError; // 상태를 못 불러온 이유
   PermitStatus? _status; // 서버가 알려 준 내 인증 상태
@@ -212,12 +136,7 @@ class _SchoolVerificationSectionState extends State<SchoolVerificationSection> {
       extra.release(); // 한 장만 쓴다
     }
     // 사전 검사: 종류가 빈 글자면(브라우저가 모름) 통과시킨다. 진짜 판단은 서버가 파일 내용으로 한다
-    String? problem;
-    if (picked.type.isNotEmpty && !allowedPhotoTypes.contains(picked.type)) {
-      problem = permitTypeOnly;
-    } else if (picked.size > maxPhotoBytes) {
-      problem = permitTooLarge;
-    }
+    final problem = checkPickedPhoto(picked);
     setState(() {
       _checkMessage = problem;
       if (problem == null) {
@@ -360,16 +279,6 @@ class _SchoolVerificationSectionState extends State<SchoolVerificationSection> {
     setState(() => _removing = false);
   }
 
-  // 철회·해제 실패 안내 (로그인 만료면 로그인 링크)
-  List<Widget> _removeNotice() {
-    final error = _removeError;
-    return [
-      if (error is NeedLogin) const ReloginNotice(),
-      if (error is ErrorMessage)
-        Notice(kind: NoticeKind.error, message: error.message),
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
     final school = context.watch<AuthState>().user?.verifiedSchool;
@@ -398,7 +307,7 @@ class _SchoolVerificationSectionState extends State<SchoolVerificationSection> {
               bg: AppColors.celadonSoft,
             ),
             const FieldHint('졸업 후에도 유지돼요'),
-            ..._removeNotice(),
+            ...permitRemoveNotice(_removeError),
             OutlinedButton(
               key: const ValueKey('permit-unlink-button'),
               onPressed: _removing
@@ -448,7 +357,7 @@ class _SchoolVerificationSectionState extends State<SchoolVerificationSection> {
               FieldHint('신청한 때: $date')
             else
               const SizedBox(height: AppSizes.space3),
-            ..._removeNotice(),
+            ...permitRemoveNotice(_removeError),
             OutlinedButton(
               key: const ValueKey('permit-withdraw-button'),
               onPressed: _removing
@@ -468,129 +377,20 @@ class _SchoolVerificationSectionState extends State<SchoolVerificationSection> {
           ];
         }
         return [
-          ..._removeNotice(), // 404(이미 처리됨) 안내가 신청 폼 위에 남도록
+          ...permitRemoveNotice(_removeError), // 404(이미 처리됨) 안내가 신청 폼 위에 남도록
           if (status.status == 'REJECTED')
-            Notice(
-              kind: NoticeKind.error,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('지난 신청이 반려됐어요'),
-                  Text(
-                    permitRejectReasons[status.rejectReason] ??
-                        permitRejectReasons['OTHER']!,
-                  ),
-                ],
-              ),
-            ),
-          ..._form(),
+            PermitRejectedNotice(rejectReason: status.rejectReason),
+          PermitApplyForm(
+            consent: _consent,
+            photo: _photo,
+            submitting: _submitting,
+            checkMessage: _checkMessage,
+            error: _submitError,
+            onConsentChanged: (v) => setState(() => _consent = v),
+            onPickPhoto: _openPicker,
+            onSubmit: _submit,
+          ),
         ];
     }
-  }
-
-  // 신청 폼: 가림 안내 + 동의 + 사진 고르기 + 신청 버튼
-  List<Widget> _form() {
-    final error = _submitError;
-    final photo = _photo;
-    return [
-      const Text(permitMaskHide),
-      const Text(permitMaskShow),
-      const SizedBox(height: AppSizes.space3),
-      // 동의 체크박스 + 문구. 문구를 눌러도 체크가 바뀌고, 스크린리더는 둘을 한 덩어리로 읽는다
-      // (CheckboxListTile은 판(Panel) 안에서 물결 효과 경고가 나서 Row로 직접 만들었다)
-      MergeSemantics(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Checkbox(
-              value: _consent,
-              // 신청 중에는 바꿀 수 없다 (onChanged가 null이면 비활성)
-              onChanged: _submitting
-                  ? null
-                  : (v) => setState(() => _consent = v ?? false),
-            ),
-            Expanded(
-              child: GestureDetector(
-                onTap: _submitting
-                    ? null
-                    : () => setState(() => _consent = !_consent),
-                child: const Padding(
-                  padding: EdgeInsets.only(top: AppSizes.space3),
-                  child: Text(
-                    permitConsentText,
-                    style: TextStyle(fontSize: AppSizes.fsSmall),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: AppSizes.space2),
-      Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: AppSizes.space3,
-        runSpacing: AppSizes.space2,
-        children: [
-          OutlinedButton(
-            key: const ValueKey('permit-pick-button'),
-            onPressed: _submitting ? null : _openPicker,
-            child: const Text('사진 고르기'),
-          ),
-          if (photo != null) ...[
-            // 작은 미리보기. 못 불러오면 빈 칸. 스크린리더에는 "고른 허가서 사진"으로 읽힌다
-            Semantics(
-              label: '고른 허가서 사진',
-              image: true,
-              excludeSemantics: true,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppSizes.radiusBtn),
-                child: SizedBox(
-                  width: 56,
-                  height: 56,
-                  child: ColoredBox(
-                    color: AppColors.hover,
-                    child: Image.network(
-                      photo.previewUrl,
-                      fit: BoxFit.cover,
-                      cacheWidth: 112, // 작은 칸이라 줄여서 푼다
-                      errorBuilder: (context, error, stack) =>
-                          const SizedBox.shrink(),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            // 긴 파일 이름은 한 줄로 줄이고 끝을 "..."로 (칸을 밀어내지 않게 폭을 제한한다)
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 240),
-              child: Text(
-                photo.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: AppSizes.fsSmall,
-                  color: AppColors.muted,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-      const SizedBox(height: AppSizes.space3),
-      if (_checkMessage != null)
-        Notice(kind: NoticeKind.error, message: _checkMessage),
-      if (_submitting)
-        const Notice(kind: NoticeKind.info, message: permitProgressMessage),
-      if (error is NeedLogin) const ReloginNotice(),
-      if (error is ErrorMessage)
-        Notice(kind: NoticeKind.error, message: error.message),
-      FilledButton(
-        key: const ValueKey('permit-submit-button'),
-        // 동의와 사진이 있어야 하고, 신청 중에는 잠근다
-        onPressed: (_consent && photo != null && !_submitting) ? _submit : null,
-        child: const Text('인증 신청'),
-      ),
-    ];
   }
 }

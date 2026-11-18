@@ -4,9 +4,9 @@ import 'package:dio/dio.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
-import '../admin/permit_approve_form.dart';
-import '../admin/permit_decision_form.dart';
-import '../admin/permit_models.dart';
+import '../permit/permit_approve_form.dart';
+import '../permit/permit_reject_form.dart';
+import '../permit/admin_permit_models.dart';
 import '../admin/report_meta_row.dart';
 import '../api/api_client.dart';
 import '../auth/auth_state.dart';
@@ -65,7 +65,9 @@ class _AdminPermitsPageState extends State<AdminPermitsPage> {
   String? _actionError; // 처리 실패 안내
   int? _actionErrorFor; // 그 안내가 난 신청 id (그 줄이 아직 있으면 안내는 줄의 양식 안에만 보여 준다)
   String? _notice; // 처리 성공 안내 (탭을 바꾸거나 다음 처리를 시작할 때 지운다)
-  String? _refreshError; // 처리 뒤 재조회 실패 안내 (목록은 지우지 않고 그대로 둔다)
+  // 목록이 보이는 상태의 재조회 실패 안내 (목록은 지우지 않고 그대로 둔다). 두 가지 뜻으로 쓴다:
+  // 일시적 실패(_refreshFailedMessage, [다시 불러오기] 버튼 보임) / 권한 없음 403(ErrorMessages.adminOnly, 버튼 숨김 — 다시 눌러도 소용없음)
+  String? _refreshError;
   // 학교 목록(승인 양식용): 화면당 한 번만 불러온다
   List<School>? _schools;
   bool _schoolsFailed = false;
@@ -145,6 +147,9 @@ class _AdminPermitsPageState extends State<AdminPermitsPage> {
           // 기존 목록(그리고 줄에 쳐 둔 입력)을 지키고 안내만 띄운다
           if (info is NeedLogin) {
             _needLogin = true;
+          } else if (info is ErrorMessage && info.status == 403) {
+            // 관리자 권한이 사라졌다: 다시 불러와도 소용없으니 권한 안내만 (버튼은 build에서 숨긴다)
+            _refreshError = ErrorMessages.adminOnly;
           } else {
             _refreshError = _refreshFailedMessage;
           }
@@ -377,11 +382,13 @@ class _AdminPermitsPageState extends State<AdminPermitsPage> {
                 children: [
                   Text(_refreshError!),
                   // 기존 목록은 그대로 두고 다시 읽기만 시도한다. 처리 중에는 막는다
-                  OutlinedButton(
-                    style: smallButtonStyle,
-                    onPressed: _busy ? null : _reload,
-                    child: const Text('다시 불러오기'),
-                  ),
+                  // 권한 없음(403) 안내일 때는 다시 읽어도 같으니 버튼을 숨긴다
+                  if (_refreshError != ErrorMessages.adminOnly)
+                    OutlinedButton(
+                      style: smallButtonStyle,
+                      onPressed: _busy ? null : _reload,
+                      child: const Text('다시 불러오기'),
+                    ),
                 ],
               ),
             ),

@@ -5,7 +5,7 @@ import 'dart:async';
 
 import 'package:board_web/errors/error_messages.dart' show networkErrorMessage;
 import 'package:board_web/widgets/relogin_notice.dart';
-import 'package:board_web/widgets/school_verification_section.dart';
+import 'package:board_web/permit/permit_texts.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 

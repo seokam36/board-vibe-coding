@@ -2,7 +2,7 @@
 // [반려] 버튼 노출 규칙, 사유 양식, 확인 창, PUT 요청, 성공·실패 안내, 연타 방지.
 import 'dart:async';
 
-import 'package:board_web/admin/permit_decision_form.dart';
+import 'package:board_web/permit/permit_reject_form.dart';
 import 'package:board_web/widgets/notice.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';

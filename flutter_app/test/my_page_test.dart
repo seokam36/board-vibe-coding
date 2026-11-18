@@ -110,7 +110,7 @@ void main() {
     });
   });
 
-  group('유학생 인증 자리 (자세한 동작은 school_verification_test.dart)', () {
+  group('유학생 인증 자리 (자세한 동작은 permit_verification_test.dart)', () {
     _test('인증한 회원: 뱃지 "유학생 인증 완료 · 학교명" + "졸업 후에도 유지돼요", 인증 상태 요청은 없다', (tester) async {
       final app = await pumpApp(tester, location: '/me', user: userJson(school: _school));
       expect(find.text('유학생 인증'), findsOneWidget);

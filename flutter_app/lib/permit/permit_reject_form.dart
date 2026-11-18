@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../permit/permit_reject_reasons.dart';
+import 'permit_reject_reasons.dart';
 import '../theme/app_colors.dart';
 import '../widgets/notice.dart';
 import '../widgets/select_field.dart';
@@ -28,7 +28,7 @@ class PermitRejectForm extends StatefulWidget {
 
   final bool enabled; // false면(처리 중) 버튼을 막는다
   final String? error; // 처리 실패 안내 (양식 안에 보여 준다)
-  final Future<void> Function(String reason) onSubmit;
+  final void Function(String reason) onSubmit; // 승인과 같은 void: 요청은 부모가 맡는다
   final VoidCallback onCancel;
 
   @override
@@ -68,7 +68,7 @@ class _PermitRejectFormState extends State<PermitRejectForm> {
               label: '반려 사유',
               width: double.infinity,
               value: _reason,
-              options: [('', '반려 사유를 고르세요'), ..._adminReasons.map((r) => (r.$1, r.$2))],
+              options: [('', '반려 사유를 고르세요'), ..._adminReasons],
               onChanged: (v) => setState(() {
                 _reason = v;
                 _message = null;

@@ -6,7 +6,8 @@ import 'package:board_web/auth/auth_state.dart';
 import 'package:board_web/common/file_picker.dart';
 import 'package:board_web/permit/permit_reject_reasons.dart';
 import 'package:board_web/theme/app_theme.dart';
-import 'package:board_web/widgets/school_verification_section.dart';
+import 'package:board_web/permit/permit_texts.dart';
+import 'package:board_web/permit/permit_verification_section.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -42,7 +43,7 @@ Future<LoadedAuthState> _pump(WidgetTester tester, FakeAdapter fake, {double? wi
             body: SingleChildScrollView(
               child: ValueListenableBuilder<bool>(
                 valueListenable: show ?? ValueNotifier(true),
-                builder: (_, on, _) => on ? const SchoolVerificationSection() : const SizedBox(),
+                builder: (_, on, _) => on ? const PermitVerificationSection() : const SizedBox(),
               ),
             ),
           ),
@@ -196,7 +197,7 @@ void main() {
               home: Scaffold(
                 body: ValueListenableBuilder<bool>(
                   valueListenable: show,
-                  builder: (_, on, _) => on ? const SchoolVerificationSection() : const SizedBox(),
+                  builder: (_, on, _) => on ? const PermitVerificationSection() : const SizedBox(),
                 ),
               ),
             ),

@@ -73,7 +73,7 @@ class AuthState extends ChangeNotifier {
   }
 
   // /auth/me 를 다시 받아 회원 정보를 맞춘다(예: 허가서가 자동 승인된 뒤 인증 학교 반영).
-  // 내 정보의 "유학생 인증" 섹션(SchoolVerificationSection)이 승인 직후에 부른다.
+  // 내 정보의 "유학생 인증" 섹션(PermitVerificationSection)이 승인 직후에 부른다.
   // 실패해도 조용히 넘어간다
   Future<void> refreshUser() async {
     try {

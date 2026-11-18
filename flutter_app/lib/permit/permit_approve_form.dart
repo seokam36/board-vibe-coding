@@ -141,7 +141,7 @@ class _PermitApproveFormState extends State<PermitApproveForm> {
             padding: EdgeInsets.only(bottom: AppSizes.space3),
             child: Text(
               "허가서의 '표준입학허가서 번호' 중 영문·숫자 부분만 입력해 주세요 ('제', '호'는 빼고)",
-              style: TextStyle(color: AppColors.muted, fontSize: 13),
+              style: TextStyle(color: AppColors.muted, fontSize: AppSizes.fsSmall),
             ),
           ),
           if (_message != null) Notice(kind: NoticeKind.error, message: _message),

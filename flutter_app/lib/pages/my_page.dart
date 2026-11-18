@@ -12,7 +12,7 @@ import '../widgets/notice.dart';
 import '../widgets/page_frame.dart';
 import '../widgets/panel.dart';
 import '../widgets/relogin_notice.dart';
-import '../widgets/school_verification_section.dart';
+import '../permit/permit_verification_section.dart';
 import '../widgets/section_parts.dart';
 import '../widgets/small_button_style.dart';
 
@@ -46,7 +46,7 @@ class MyPage extends StatelessWidget {
               ),
             ),
           // 유학생 인증: 인증했으면 뱃지, 아직이면 상태 보기 + 허가서 신청 폼 (S20-g1)
-          const SchoolVerificationSection(),
+          const PermitVerificationSection(),
           const _NicknameForm(),
           const _PasswordForm(),
           const _WithdrawForm(),

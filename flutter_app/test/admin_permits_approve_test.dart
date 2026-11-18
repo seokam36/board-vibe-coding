@@ -3,8 +3,9 @@
 // 성공·실패 안내(양식 안 표시), 재조회 실패 처리, 연타 방지, 반려 회귀, 로그에 번호가 안 남는지.
 import 'dart:async';
 
-import 'package:board_web/admin/permit_approve_form.dart';
-import 'package:board_web/admin/permit_decision_form.dart';
+import 'package:board_web/errors/error_messages.dart';
+import 'package:board_web/permit/permit_approve_form.dart';
+import 'package:board_web/permit/permit_reject_form.dart';
 import 'package:board_web/widgets/notice.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -856,6 +857,93 @@ void main() {
       expect(a.count('GET', _list), 3);
       expect(reloadBtn, findsNothing);
       expect(_row(1), findsNothing);
+    });
+
+    // S20-j2: 권한이 없어진 403은 다시 눌러도 소용없으니 "관리자만 볼 수 있습니다"를 띄우고 버튼은 숨긴다(목록은 유지)
+    _test('재조회가 403이면 "관리자만 볼 수 있습니다"가 한 번 뜨고 [다시 불러오기]는 없으며 기존 목록은 남는다', (tester) async {
+      final a = FakeAdapter()
+        ..on('GET', _list, FakeReply(200, [_req(id: 1, hasPhoto: true), _req(id: 2, nickname: '영희')]))
+        ..on('GET', _photoPath(1), FakeReply(404, {}))
+        ..on('GET', _list, FakeReply(403, {}));
+      await _open(tester, a);
+      await showRefreshFail(tester);
+      expect(a.count('GET', _list), 2);
+      expect(find.text(ErrorMessages.adminOnly), findsOneWidget);
+      expect(find.text(_msgRefreshFail), findsNothing);
+      expect(reloadBtn, findsNothing);
+      expect(_row(1), findsOneWidget);
+      expect(_row(2), findsOneWidget);
+    });
+
+    _test('[다시 불러오기]를 눌렀는데 403이면 버튼이 사라지고 "관리자만 볼 수 있습니다"로 바뀐다', (tester) async {
+      final a = failedRefresh();
+      a.on('GET', _list, FakeReply(403, {}));
+      await _open(tester, a);
+      await showRefreshFail(tester);
+      expect(reloadBtn, findsOneWidget);
+      await tester.tap(reloadBtn);
+      await tester.pumpAndSettle();
+      expect(a.count('GET', _list), 3);
+      expect(find.text(ErrorMessages.adminOnly), findsOneWidget);
+      expect(find.text(_msgRefreshFail), findsNothing);
+      expect(reloadBtn, findsNothing);
+      expect(_row(1), findsOneWidget);
+      expect(_row(2), findsOneWidget);
+    });
+
+    // S20-j2 review: 403 안내가 뜬 뒤 다른 재조회가 성공하면 안내가 사라진다(회복)
+    _test('403 안내 뒤 다른 재조회가 성공하면 "관리자만 볼 수 있습니다"가 사라지고 새 목록이 보인다', (tester) async {
+      final a = FakeAdapter()
+        ..on('GET', _list, FakeReply(200, [_req(id: 1, hasPhoto: true), _req(id: 2, nickname: '영희', hasPhoto: true)]))
+        ..on('GET', _photoPath(1), FakeReply(404, {}))
+        ..on('GET', _list, FakeReply(403, {}))
+        ..on('GET', _photoPath(2), FakeReply(404, {}))
+        ..on('GET', _list, FakeReply(200, [_req(id: 3, nickname: '철수')]));
+      await _open(tester, a);
+      await showRefreshFail(tester); // 줄 1 사진 404 → 재조회 403
+      expect(find.text(ErrorMessages.adminOnly), findsOneWidget);
+      await tester.tap(_btnIn(2, '사진 보기')); // 줄 2 사진 404 → 재조회 200
+      await tester.pumpAndSettle();
+      expect(a.count('GET', _list), 3);
+      expect(find.text(ErrorMessages.adminOnly), findsNothing);
+      expect(find.text(_msgRefreshFail), findsNothing);
+      expect(reloadBtn, findsNothing);
+      expect(_row(3), findsOneWidget);
+      expect(_row(1), findsNothing);
+    });
+
+    // S20-j2 review: 403 안내 뒤 탭을 바꾸면 안내가 지워지고, 그 탭의 첫 조회 403은 첫 조회 안내 한 번만 뜬다(섞이지 않음)
+    _test('403 안내 뒤 탭을 바꿔 첫 조회도 403이면 "관리자만 볼 수 있습니다"는 한 번만, 버튼은 둘 다 없다', (tester) async {
+      final a = FakeAdapter()
+        ..on('GET', _list, FakeReply(200, [_req(id: 1, hasPhoto: true), _req(id: 2, nickname: '영희')]))
+        ..on('GET', _photoPath(1), FakeReply(404, {}))
+        ..on('GET', _list, FakeReply(403, {}))
+        ..on('GET', _list, FakeReply(403, {})); // 승인 탭 첫 조회
+      await _open(tester, a);
+      await showRefreshFail(tester);
+      expect(find.text(ErrorMessages.adminOnly), findsOneWidget);
+      await tester.tap(find.text('승인').first); // 탭 (줄 버튼보다 위에 있다)
+      await tester.pumpAndSettle();
+      expect(a.count('GET', _list), 3);
+      expect(a.callsTo('GET', _list).last.query['status'], 'APPROVED');
+      expect(find.text(ErrorMessages.adminOnly), findsOneWidget);
+      expect(reloadBtn, findsNothing);
+      expect(find.widgetWithText(OutlinedButton, '다시 시도'), findsNothing);
+      expect(_row(1), findsNothing);
+    });
+
+    // 401(재발급도 실패)은 로그인 안내로 가고 "목록을 다시 불러오지 못했어요"는 뜨지 않는다(기존 동작 고정)
+    _test('재조회가 401이고 재발급도 실패하면 로그인 안내가 보이고 재조회 실패 문구는 없다', (tester) async {
+      final a = FakeAdapter()
+        ..on('GET', _list, FakeReply(200, [_req(id: 1, hasPhoto: true), _req(id: 2, nickname: '영희')]))
+        ..on('GET', _photoPath(1), FakeReply(404, {}))
+        ..on('GET', _list, FakeReply(401, {}))
+        ..on('POST', '/auth/refresh', FakeReply(401, {}));
+      await _open(tester, a);
+      await showRefreshFail(tester);
+      expect(find.text('다시 로그인해 주세요'), findsOneWidget);
+      expect(find.text(_msgRefreshFail), findsNothing);
+      expect(reloadBtn, findsNothing);
     });
   });
 

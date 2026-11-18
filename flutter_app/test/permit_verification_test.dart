@@ -9,7 +9,8 @@ import 'package:board_web/permit/permit_reject_reasons.dart';
 import 'package:board_web/theme/app_theme.dart';
 import 'package:board_web/widgets/app_badge.dart';
 import 'package:board_web/widgets/relogin_notice.dart';
-import 'package:board_web/widgets/school_verification_section.dart';
+import 'package:board_web/permit/permit_texts.dart';
+import 'package:board_web/permit/permit_verification_section.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
@@ -46,7 +47,7 @@ Future<FakeAdapter> _pump(WidgetTester tester, FakeAdapter fake, {Map<String, dy
         value: auth,
         child: MaterialApp(
           theme: buildAppTheme(),
-          home: const Scaffold(body: SingleChildScrollView(child: SchoolVerificationSection())),
+          home: const Scaffold(body: SingleChildScrollView(child: PermitVerificationSection())),
         ),
       ),
     ),
