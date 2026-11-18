@@ -7,6 +7,7 @@ const permitRejectReasons = <String, String>{
   'NOT_MASKED': '가려야 할 정보가 보여요. 가리고 다시 올려 주세요',
   'UNSUPPORTED_SCHOOL': '아직 지원하지 않는 학교예요',
   'DUPLICATE': '이미 다른 계정에서 인증한 허가서예요',
+  // 14일: 서버 app.permit.pending-ttl과 같이 바꾼다
   'EXPIRED': '14일 안에 확인하지 못했어요. 다시 신청해 주세요',
   'OTHER': '확인할 수 없었어요. 다시 신청해 주세요',
 };

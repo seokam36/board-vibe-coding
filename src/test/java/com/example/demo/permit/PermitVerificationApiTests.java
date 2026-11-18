@@ -230,9 +230,11 @@ class PermitVerificationApiTests {
 		assertThat(대기행수()).isEqualTo(1);
 		assertThat(행수()).isEqualTo(1);
 		String key = jdbc.queryForObject("select photo_key from permit_requests", String.class);
-		assertThat(key).startsWith("permits/");
+		// S21-e: 문자열 대신 원본 상수로 검사 (접두사 한 곳)
+		String 접두사 = com.example.demo.photo.service.PhotoDeleteQueue.PERMIT_KEY_PREFIX;
+		assertThat(key).startsWith(접두사);
 		assertThat(창고파일()).hasSize(1);
-		assertThat(Path.of(uploadDir).relativize(창고파일().get(0)).toString().replace('\\', '/')).startsWith("permits/");
+		assertThat(Path.of(uploadDir).relativize(창고파일().get(0)).toString().replace('\\', '/')).startsWith(접두사);
 		// 응답에 사진 이름·key가 들어가지 않는다
 		assertThat(r.getContentAsString()).doesNotContain("permits/").doesNotContain("photo");
 	}

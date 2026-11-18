@@ -140,7 +140,7 @@ public class PermitVerificationService {
 
         // 3)~4) 창고 저장 + DB 기록. 어디서 실패하든 저장한 사진을 치운다.
         String ext = "JPEG".equals(image.main().format()) ? "jpg" : "png";
-        String key = "permits/" + userId + "/" + UUID.randomUUID() + "." + ext; // 키는 UUID 기반이라 추측·충돌이 없다
+        String key = PhotoDeleteQueue.PERMIT_KEY_PREFIX + userId + "/" + UUID.randomUUID() + "." + ext; // 키는 UUID 기반이라 추측·충돌이 없다
         List<String> keys = List.of(key);
         // 창고에 넣기 "전에" 새 key를 지울 파일 대기 표에 먼저 적는다(중고 사진과 같은 방식, 짧은 별도 트랜잭션으로 커밋).
         // 저장 직후 서버가 죽어도 이름이 표에 남아 청소부가 고아 파일을 지운다. 성공하면 4)에서 같이 뗀다.

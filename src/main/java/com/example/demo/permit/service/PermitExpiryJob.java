@@ -16,7 +16,7 @@ import com.example.demo.permit.repository.PermitRequestRepository;
 
 import lombok.extern.slf4j.Slf4j;
 
-// 허가서 기한 만료 정리 (S20-c): 대기(PENDING)가 ttl(기본 14일)을 넘긴 신청을 매일 자동 반려(EXPIRED)하고 사진을 지운다.
+// 허가서 기한 만료 정리 (S20-c): 대기(PENDING)가 ttl(app.permit.pending-ttl, 설정에 14일)을 넘긴 신청을 주기적으로(켜지고 3분 뒤 + 1시간마다) 자동 반려(EXPIRED)하고 사진을 지운다.
 // 스케줄은 app.scheduling.enabled=false 이면 켜지지 않는다(테스트 설정). 테스트는 runOnce(now)를 직접 부른다.
 // 실행 주기: 서버가 켜지고 app.permit.expiry-initial-delay(기본 3분) 뒤 첫 실행, 그 뒤 한 번 끝나고 app.permit.expiry-interval(기본 1시간)마다.
 // (운영 서버는 평소 꺼 두므로 "매일 새벽 한 번" 방식은 거의 안 돌아서 사진 청소부처럼 켜진 뒤 바로 도는 방식을 쓴다)
@@ -36,7 +36,7 @@ public class PermitExpiryJob {
     private final int batchSize;
 
     public PermitExpiryJob(PermitRequestRepository permitRequestRepository, AdminPermitService adminPermitService,
-            Clock clock, @Value("${app.permit.pending-ttl:P14D}") Duration pendingTtl,
+            Clock clock, @Value("${app.permit.pending-ttl}") Duration pendingTtl,
             @Value("${app.permit.expiry-batch-size:100}") int batchSize) {
         // 잘못된 설정은 기동 때 바로 실패시킨다
         if (pendingTtl.isZero() || pendingTtl.isNegative()) {

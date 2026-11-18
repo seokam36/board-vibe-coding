@@ -25,7 +25,9 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class PhotoDeleteQueue {
 
-    static final String PERMIT_KEY_PREFIX = "permits/"; // 허가서 사진 key 접두사(PermitVerificationService가 만든다)
+    // 허가서 사진 key 접두사. PermitVerificationService가 key를 만들 때, 여기서 로그 가림 판별할 때 같이 쓴다.
+    // S3 수명 규칙(permits/ 14일)과 같은 값. 바꾸면 S3 수명 규칙(permits-expire-14d)·IAM 정책(docs/deploy.md)·이미 저장된 permit_requests.photo_key와 S3 객체도 함께 볼 것.
+    public static final String PERMIT_KEY_PREFIX = "permits/";
 
     private final NamedParameterJdbcTemplate jdbc;
     private final PhotoStorage photoStorage;
