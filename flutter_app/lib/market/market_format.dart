@@ -1,5 +1,7 @@
 // 중고·나눔 화면용 글자 만들기 (React의 marketFormat.ts, marketPhotoUrl.ts). intl 없이 직접 계산한다.
 
+import '../api/api_base_url.dart';
+
 // 가격 표기: 나눔(FREE)은 "나눔", 판매는 천 단위 쉼표를 넣은 "5,000원"
 String formatPrice(String tradeTypeCode, int price) {
   if (tradeTypeCode == 'FREE') return '나눔';
@@ -8,7 +10,8 @@ String formatPrice(String tradeTypeCode, int price) {
   return '$digits원';
 }
 
-// 사진 파일 주소 (docs/api.md 34번). 같은 출처('/api')라 브라우저가 쿠키 없이 바로 가져온다.
+// 사진 파일 주소 (docs/api.md 34번). 기준 주소 base 기본값은 apiBaseUrl: 웹은 같은 출처('/api')라 브라우저가 쿠키 없이 바로 가져온다.
+// base는 테스트·앱에서 다른 주소를 주입하려고 받는다(끝에 '/' 없이).
 // thumb이면 썸네일(긴 변 ≤ 320), 아니면 본 사진(긴 변 ≤ 2048)
-String marketPhotoUrl(int itemId, int photoId, {bool thumb = false}) =>
-    '/api/market-items/$itemId/photos/$photoId${thumb ? '?size=thumb' : ''}';
+String marketPhotoUrl(int itemId, int photoId, {bool thumb = false, String base = apiBaseUrl}) =>
+    '$base/market-items/$itemId/photos/$photoId${thumb ? '?size=thumb' : ''}';

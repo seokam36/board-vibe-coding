@@ -3,17 +3,19 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 
 import '../auth/auth_user.dart';
+import 'api_base_url.dart';
 import 'cookie_reader.dart';
 
-// 서버(백엔드) 호출 담당 (React의 api.ts). 주소는 여기서만 정한다.
-// 기본값 '/api': 같은 출처(화면과 같은 주소)로 보내서, 로컬은 개발 서버 프록시가, 배포는 nginx가 백엔드로 전달한다.
-// 같은 출처라서 withCredentials 없이도 쿠키가 자동으로 오간다.
+// 서버(백엔드) 호출 담당 (React의 api.ts). 주소 값은 api_base_url.dart에서 정하고, 여기서는 그걸 받아 쓴다.
+// 웹은 '/api'(같은 출처)라서 로컬은 개발 서버 프록시가, 배포는 nginx가 백엔드로 전달한다.
+// 앱은 빌드 때 --dart-define=API_BASE_URL=https://사이트주소/api 로 절대 주소를 넣는다.
+// 웹은 같은 출처라서 withCredentials 없이도 쿠키가 자동으로 오간다(앱의 쿠키 보관은 다음 단계 S23-c).
 // 다만 XSRF-TOKEN 쿠키를 X-XSRF-TOKEN 헤더로 옮기는 건 dio가 안 해 주므로 아래 인터셉터가 직접 한다.
 class ApiClient {
   ApiClient({
     HttpClientAdapter? adapter, // 테스트에서 가짜 서버를 끼우려고 받는다. 없으면 웹 기본 어댑터
     CookieReader? cookieReader, // 테스트에서 가짜 쿠키를 주려고 받는다
-    String baseUrl = '/api',
+    String baseUrl = apiBaseUrl,
     Duration refreshTimeout = const Duration(seconds: 10),
   }) : _cookies = cookieReader ?? createCookieReader() {
     dio = Dio(BaseOptions(baseUrl: baseUrl));
