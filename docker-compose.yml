@@ -114,6 +114,10 @@ services:
       VISION_API_KEY: ${VISION_API_KEY:-}
       # 사진 한 장 판독의 전체 시간 상한. 빈 값이면 읽기 실패라 :-로 채운다
       VISION_TIMEOUT: ${VISION_TIMEOUT:-10s}
+      # 구글 Vision 하루 전체 호출 상한(S21-d, 모든 회원 합계, 서울 날짜 기준). 앱 기본도 30이다.
+      # 빈 값이면 숫자 읽기에 실패하므로 :-로 30을 채운다. 0이면 상한 끔, 음수면 앱이 시작 실패.
+      # 월 무료 1,000건 안에 들도록 30 x 31 = 930. 넘으면 구글을 안 부르고 관리자 대기로 남긴다
+      VISION_GLOBAL_PER_DAY: ${VISION_GLOBAL_PER_DAY:-30}
     depends_on:
       postgres:
         # DB가 healthy가 된 뒤에 앱 시작

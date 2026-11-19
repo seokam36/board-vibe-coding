@@ -404,6 +404,65 @@ SQL
 4. **[서버]** (선택) 이제 필요 없는 `~/board/docker-compose.yml.bak-s20`(S18 compose, 비밀 값 없음)을 지우거나 보관합니다. 옛 compose 백업(`.bak-s18` 등)이 쌓였다면 같이 정리합니다.
 5. 문서 정리(저장소): 위 "메일 발송 (S10)" 절 중 메일 설정·"학교 인증 코드가 막혔다는 문의"·"학교 메일 없이 운영에서 인증 테스트하기"와 "S10 이미지로 돌아갈 때" 메모의 메일 관련 내용을 지웁니다(S18 되돌리기가 필요 없어진 뒤).
 
+### S21 배포 (유학생 인증 보강: 인증 취소·취소 번호 자동 승인 막기·Vision 하루 상한)
+S20 다음 운영 배포입니다. 위 S20 절 중 "처음엔 off"·"가장 위가 `14 | t`"처럼 S20 배포 당시를 가정한 문장은 S21 이후 사실과 다릅니다(운영은 이미 `PERMIT_OCR_MODE=vision`이고 Flyway 최신은 15). 그 부분은 이 절을 기준으로 봅니다.
+
+메모:
+- **`<퍼블릭IP>` 칸**: 실제로 진행할 때 메인 대화(Claude)가 사용자에게 IP를 받아 완성된 명령으로 바꿔 줍니다. 아래 명령은 PowerShell 모양입니다(`ssh`·`scp`는 전체 경로, 키는 `"$HOME\.ssh\board-ec2"`, 서버 사용자 `ec2-user`).
+- **왜 Deploy 버튼만으로 안 되나**: compose가 바뀌었습니다(app에 `VISION_GLOBAL_PER_DAY` 한 줄 추가). Deploy 버튼은 서버의 compose를 바꾸지 않으므로 먼저 새 compose를 서버로 복사해야 합니다. 빼먹으면 앱 기본값(30)이 그대로 쓰여 지금은 동작이 같지만, 나중에 `.env`로 값을 바꿔도 전달되지 않습니다.
+- **V15**(`permit_requests` 상태 CHECK에 `REVOKED` 추가)가 앱이 켜질 때 Flyway로 적용됩니다. 기존 행은 모두 새 CHECK를 통과합니다. Deploy가 직전에 DB를 자동 백업합니다.
+- **서버 `.env`는 안 고쳐도 됩니다.** `VISION_GLOBAL_PER_DAY`를 안 적으면 compose 기본값 30이 들어갑니다. 값은 하루 30건(30 x 31일 = 930건, 월 무료 1,000건 안)이고 `0`은 상한 끔, 음수는 앱 시작 실패입니다.
+- 상한을 넘으면 구글을 부르지 않고 그 신청은 "못 읽음"으로 관리자 대기에 남습니다(신청 자체는 접수됨). 카운터는 Redis 키 `permit-vision-day:{서울 날짜}`(2일 뒤 자동 삭제)이고, Redis를 재시작하면 0으로 돌아갑니다.
+
+**1) 서버 준비 (Deploy 버튼 전)**
+1. **[PC]** 배포할 커밋을 push한 뒤(push는 직접) GitHub Actions 탭에서 그 커밋의 CI 세 작업(backend, flutter, images)이 모두 초록인지 봅니다. 배포할 커밋이 main의 마지막 커밋인지도 확인합니다. `git rev-parse HEAD` 로 SHA를 적어 둡니다.
+2. **[콘솔]** EC2 인스턴스를 켜고(시작) 퍼블릭 IP를 확인합니다.
+3. **[PC, PowerShell]** 서버의 현재 compose를 백업합니다(S20 compose, 되돌리기용). 같은 이름이 있으면 덮어쓰지 않고 멈춥니다:
+   - `& "C:\Windows\System32\OpenSSH\ssh.exe" -i "$HOME\.ssh\board-ec2" ec2-user@<퍼블릭IP> 'test ! -e ~/board/docker-compose.yml.bak-s21 && cp ~/board/docker-compose.yml ~/board/docker-compose.yml.bak-s21 && ls -l ~/board/docker-compose.yml.bak-s21'`
+4. **[PC, PowerShell, 저장소 루트에서]** 새 compose를 서버로 복사합니다:
+   - `& "C:\Windows\System32\OpenSSH\scp.exe" -i "$HOME\.ssh\board-ec2" docker-compose.yml ec2-user@<퍼블릭IP>:~/board/docker-compose.yml`
+5. **[PC, PowerShell]** 서버 compose에 새 줄이 들어갔는지 봅니다: `& "C:\Windows\System32\OpenSSH\ssh.exe" -i "$HOME\.ssh\board-ec2" ec2-user@<퍼블릭IP> "grep -c VISION_GLOBAL_PER_DAY ~/board/docker-compose.yml"` 가 `1` 이상(주석 줄까지 세어져 2일 수 있음)인지 봅니다.
+6. **[브라우저]** Actions 탭 -> Deploy -> Run workflow (위 "자동 배포"와 같음). DB 백업·헬스체크가 모두 초록인지 봅니다.
+
+**2) 배포 뒤 확인** (앞에서부터 순서대로)
+1. **[브라우저]** Deploy 실행이 초록이고 `http://<퍼블릭IP>/actuator/health`가 UP인지 봅니다.
+2. **[서버]** 시작 실패가 없는지: `cd ~/board && docker compose --profile prod logs app | grep -c -E 'IllegalStateException|APPLICATION FAILED|Application run failed'` 가 `0`.
+3. **[서버]** 표 변경: `docker exec board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT version, success FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 3;"'` 에서 가장 위가 `15 | t`.
+4. **[서버]** 새 값이 앱에 들어갔는지: `docker exec board-app printenv VISION_GLOBAL_PER_DAY` 가 `30`. (비밀 값이 아니라 그대로 출력해도 됩니다. 키는 `printenv VISION_API_KEY`로 확인하지 않습니다.)
+5. **[서버]** 메모리와 재시작: `docker stats --no-stream board-app` 의 메모리(직전 약 392MiB/512MiB, **400MiB를 넘으면 지켜보기**, 512MiB에 가까우면 알려 주세요). `docker ps` 에서 `board-app`이 `Restarting`이 아니고 `Up` 시간이 늘어나는지 1분쯤 뒤 한 번 더 봅니다.
+6. **[브라우저]** 화면 확인(**실제로 [인증 취소]를 누르지는 않습니다**): 관리자 계정으로 로그인 -> "인증 심사"에 **"취소" 탭**이 보이는지, "승인" 탭의 남의 줄에 **[인증 취소]** 버튼이 보이는지. 운영 테스트 계정 `wntjrdka`는 SQL로 인증된 계정이라 신청 줄이 없을 수 있으니, 승인 줄이 하나도 없으면 버튼은 못 봐도 정상입니다(탭만 봅니다). 이어서 회원 계정으로 `/me`가 정상으로 열리고 글 목록·새로고침해도 로그인 유지가 되는지 봅니다.
+7. **[서버]** 로그에 개인정보·키가 없는지(0이어야 정상): `docker compose --profile prod logs app | grep -c 'permits/'` 와 `docker compose --profile prod logs app | grep -c 'x-goog-api-key\|AIza\|AQ\.'`.
+
+**3) Vision 하루 상한 확인·풀기** (**[서버]**)
+- 상한에 닿았는지: `docker logs board-app 2>&1 | grep '하루 전체 상한'` — 처음 넘을 때 한 줄 `Vision 하루 전체 상한(N건)에 도달`이 남습니다(그날 한 번만, 건수 외에 개인정보는 없음). 이 줄이 있으면 오늘 신청은 전부 관리자 대기입니다(정상 동작).
+- 오늘 카운터 보기(비밀번호는 컨테이너에 이미 `REDISCLI_AUTH`로 들어 있어 따로 안 침): `docker exec board-redis redis-cli GET "permit-vision-day:$(TZ=Asia/Seoul date +%F)"` — 숫자가 오늘 판독 시도 건수입니다(없으면 `nil` = 오늘 아직 0건).
+- **급히 오늘만 풀기**: `docker exec board-redis redis-cli DEL "permit-vision-day:$(TZ=Asia/Seoul date +%F)"` — 카운터를 0으로 되돌려 오늘 30건을 더 쓸 수 있게 됩니다. 월 무료 1,000건을 넘을 수 있으니 자주 하지 않습니다.
+- **값 자체를 올리기**: `nano ~/board/.env` 에 `VISION_GLOBAL_PER_DAY=숫자` 줄을 추가하거나 고칩니다(빈 값 금지, 음수 금지, `0`은 상한 끔). 저장 전에 키 줄을 건드리지 않았는지 확인하고, **`up -d app` 전에 반드시** `PERMIT_HASH_SECRET` 확인을 합니다: `grep -cxF "PERMIT_HASH_SECRET=$(docker exec board-app printenv PERMIT_HASH_SECRET)" ~/board/.env` 가 `1`(파일 값 = 실행 중인 앱 값, 값은 화면에 안 나옴. 이 명령은 아직 안 재시작한 앱이 떠 있을 때만 쓸 수 있습니다). 이어서 `grep -c '^VISION_GLOBAL_PER_DAY=' ~/board/.env` 가 `1`이면 `cd ~/board && docker compose --profile prod up -d app`, 뒤에 `docker exec board-app printenv VISION_GLOBAL_PER_DAY` 로 새 값을 확인합니다.
+
+**S21 되돌리기** (문제가 있을 때만)
+- 되돌릴 이미지(직전 운영 = S20 배포 때의 이미지, 커밋 2375394): `seokam36/demo:2375394a8e1aca7e4464abea4702b554937e6b11`, `seokam36/demo-web:2375394a8e1aca7e4464abea4702b554937e6b11`. 그 뒤 운영에 다른 배포가 있었다면 그 직전 운영 배포 커밋의 40자리 SHA로 바꿉니다(찾는 법은 위 "(a) 이전 이미지로 되돌리기" 1번: GitHub Commits 목록에서 복사, 그 커밋 CI images가 초록이었어야 태그가 있음).
+- **V15는 그대로 남습니다.** 옛 코드는 `validate`라서 CHECK 제약이 바뀐 것은 무관하고 앱은 뜹니다. **그러나 `REVOKED` 행이 DB에 있으면 옛 코드의 상태 목록에 그 값이 없어, 그 회원의 인증 상태 조회와 관리자 인증 심사 목록이 500이 됩니다.** 그래서 이미지를 되돌리기 전에 먼저 셉니다(**[서버]**):
+  1. `docker exec board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT status, count(*) FROM permit_requests GROUP BY status ORDER BY status;"'` — `REVOKED` 줄이 없으면 아래 2번은 건너뜁니다(사용자가 [인증 취소]를 한 번도 안 눌렀다면 없습니다).
+  2. 있으면 **되돌린 뒤 다시 S21로 올 때 복구할 수 있게 id를 적어 둡니다**: 서버 셸에서
+     ```sh
+     docker exec -i board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+     SELECT id FROM permit_requests WHERE status = 'REVOKED' ORDER BY id;
+     SQL
+     ```
+  3. 그 행들을 `REJECTED`로 바꿉니다(취소 사유 칸은 그대로라 반려 사유로 보임):
+     ```sh
+     docker exec -i board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1' <<'SQL'
+     UPDATE permit_requests SET status = 'REJECTED' WHERE status = 'REVOKED';
+     SQL
+     ```
+     `UPDATE 건수`가 1번의 `REVOKED` 건수와 같아야 합니다.
+  - **대가**: 옛 코드는 "취소된 번호는 자동 승인하지 않는다"를 모릅니다. 취소된 허가서 번호를 다시 올리면 **자동 승인될 수 있고**, 이 행들은 "취소"가 아니라 "반려"로 보입니다. 이미 인증이 비워진 회원은 그대로 인증 해제 상태입니다. 다시 S21로 올라온 뒤 2번의 id만 `UPDATE permit_requests SET status = 'REVOKED' WHERE id IN (...)` 로 되돌릴 수 있습니다(그 사이 새 승인·반려가 섞였다면 id로만 고릅니다).
+- 이미지·compose 되돌리는 순서 (**[서버]**): ① 위 REVOKED 처리 ② `cd ~/board && cp docker-compose.yml docker-compose.yml.bak-s21-new` (지금 S21 compose 보관, 이미 있으면 다른 이름) ③ `cp docker-compose.yml.bak-s21 docker-compose.yml` (S20 compose로 복귀) ④ `sed -i 's#image: seokam36/demo:latest#image: seokam36/demo:2375394a8e1aca7e4464abea4702b554937e6b11#; s#image: seokam36/demo-web:latest#image: seokam36/demo-web:2375394a8e1aca7e4464abea4702b554937e6b11#' docker-compose.yml` ⑤ `grep 'image: seokam36' docker-compose.yml` 두 줄 모두 `2375394...` ⑥ `docker compose --profile prod pull app web && docker compose --profile prod up -d app web` ⑦ 로그에 시작 실패가 없고(`newer than the latest available migration (14) ... (15)` 경고는 정상) `/actuator/health`가 UP, 글 목록이 뜨는지 봅니다. `.env`의 `VISION_GLOBAL_PER_DAY`가 있어도 옛 코드는 무시합니다.
+- **주의**: 위 "(a)"의 주의 박스와 같습니다. image 줄을 SHA로 고정해 두면 **다음 Deploy도 옛 이미지를 받습니다.** 고친 새 `latest`가 올라온 뒤(Actions 초록) `cp docker-compose.yml.bak-s21-new docker-compose.yml` 로 원복하고 `grep 'image: seokam36' docker-compose.yml` 로 두 줄이 `:latest`인지 확인한 다음 Deploy를 누릅니다.
+- **하지 말 것**: V15를 손으로 되돌리거나(CHECK 다시 만들기) `flyway_schema_history`의 15번 행을 지우지 않습니다(`REVOKED` 행이 있으면 CHECK를 옛 모양으로 되돌리는 것 자체가 실패하고, 새 코드로 돌아올 때 "이미 있음" 오류가 납니다).
+
+**S21 배포 끝난 뒤 정리**: 며칠 써 보고 되돌릴 일이 없다고 판단하면 **[서버]** `~/board/docker-compose.yml.bak-s21`(비밀 값 없음)을 지우거나 보관합니다.
+
 ## 웹 화면: Flutter로 교체 (S16-n2)
 운영 `web` 이미지가 React에서 **Flutter 웹**(`flutter_app/`)으로 바뀌었습니다. `/v2` 같은 별도 주소 없이 통째로 교체합니다.
 - 이미지 이름은 그대로 `seokam36/demo-web`(`:latest`, `:<커밋 SHA>`)이라 **EC2의 `docker-compose.yml`을 바꿀 필요가 없습니다**(포트 80, 볼륨 없음, healthcheck 없음 - Flutter 이미지와 그대로 맞음. Deploy 워크플로의 헬스체크는 `/actuator/health`를 nginx 경유로 부르는데 Flutter nginx.conf에도 같은 블록이 있습니다).
