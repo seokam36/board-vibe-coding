@@ -49,9 +49,6 @@ class _NavBarState extends State<NavBar> {
       AppLink(label: '비자 후기', onTap: () => context.go('/visa-reviews')),
       AppLink(label: '중고·나눔', onTap: () => context.go('/market')),
       if (user != null) ...[
-        Text('${user.nickname} 님', style: const TextStyle(fontSize: AppSizes.fsSmall2)),
-        // 학교 인증을 마친 회원 표시. 학교 이름은 마우스를 올리거나 스크린리더로 알 수 있다
-        if (school != null) _VerifiedBadge(schoolName: school.name),
         // 비자 일정은 학교 인증 회원에게만 보인다
         if (school != null) AppLink(label: '비자 일정', onTap: () => context.go('/visa-plan')),
         // 중고 글 챗봇은 로그인한 회원 누구나 (학교 인증 불필요)
@@ -62,6 +59,10 @@ class _NavBarState extends State<NavBar> {
         // 관리자에게만 보이는 메뉴
         if (user.isAdmin) AppLink(label: '신고 관리', onTap: () => context.go('/admin/reports')),
         if (user.isAdmin) AppLink(label: '인증 심사', onTap: () => context.go('/admin/permits')),
+        // 닉네임은 메뉴 맨 끝, 로그아웃 버튼 바로 왼쪽 ("누가 로그인했나"와 "나가기"를 한 자리에)
+        Text('${user.nickname} 님', style: const TextStyle(fontSize: AppSizes.fsSmall2)),
+        // 학교 인증을 마친 회원 표시. 학교 이름은 마우스를 올리거나 스크린리더로 알 수 있다
+        if (school != null) _VerifiedBadge(schoolName: school.name),
         OutlinedButton(
           onPressed: _logout,
           style: OutlinedButton.styleFrom(

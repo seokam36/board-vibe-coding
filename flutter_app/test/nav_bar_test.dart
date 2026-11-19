@@ -28,9 +28,10 @@ void main() {
       }
     });
 
-    testWidgets('로그인(일반·미인증): 닉네임 · 쪽지 · 내 정보 · 로그아웃, 인증 뱃지·비자 일정·신고 관리는 없다', (tester) async {
+    // 닉네임은 메뉴 맨 끝, 로그아웃 바로 왼쪽 (2026-11-19 사용자 요청으로 옮김)
+    testWidgets('로그인(일반·미인증): 쪽지 · 내 정보 · 닉네임 · 로그아웃, 인증 뱃지·비자 일정·신고 관리는 없다', (tester) async {
       await pumpApp(tester, user: userJson());
-      final order = ['비자 후기', '중고·나눔', '홍길동 님', '챗봇', '쪽지', '내 정보', '로그아웃'];
+      final order = ['비자 후기', '중고·나눔', '챗봇', '쪽지', '내 정보', '홍길동 님', '로그아웃'];
       for (final t in order) {
         expect(find.text(t), findsOneWidget);
       }
@@ -41,10 +42,10 @@ void main() {
       }
     });
 
-    testWidgets('인증 회원: 인증 뱃지(학교 이름 시맨틱·툴팁)와 비자 일정이 닉네임 뒤에 보인다', (tester) async {
+    testWidgets('인증 회원: 비자 일정이 보이고, 인증 뱃지(학교 이름 시맨틱·툴팁)는 닉네임 바로 뒤·로그아웃 앞에 보인다', (tester) async {
       final semantics = tester.ensureSemantics();
       await pumpApp(tester, user: userJson(school: _school));
-      final order = ['홍길동 님', '인증', '비자 일정', '챗봇', '쪽지', '내 정보', '로그아웃'];
+      final order = ['비자 일정', '챗봇', '쪽지', '내 정보', '홍길동 님', '인증', '로그아웃'];
       for (final t in order) {
         expect(find.text(t), findsOneWidget);
       }
