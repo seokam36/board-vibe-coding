@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
@@ -113,10 +114,19 @@ class _BoardAppState extends State<BoardApp> {
         // 시작 확인이 끝날 때까지는 화면 대신 "불러오는 중..." 문구만 (쓰기 요청 전에 CSRF 쿠키가 있어야 해서).
         // React처럼 상단바도 아직 안 보인다.
         builder: (context, child) {
+          // 폰(앱)에서는 상태 표시줄·아래 제스처 막대 밑으로 화면이 들어가지 않게 안전 영역 안에 그린다.
+          // 안전 영역 바깥 띠는 Scaffold 배경과 같은 색으로 칠해서 검은 띠가 안 보이게 한다.
+          // 웹은 그대로(여백이 0이라 어차피 달라지지 않지만, 확실히 건드리지 않는다).
+          Widget safe(Widget w) => kIsWeb
+              ? w
+              : ColoredBox(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  child: SafeArea(child: w),
+                );
           if (context.watch<AuthState>().loading) {
-            return const Scaffold(body: PageFrame(showNavBar: false, child: Loading()));
+            return safe(const Scaffold(body: PageFrame(showNavBar: false, child: Loading())));
           }
-          return child ?? const SizedBox.shrink();
+          return safe(child ?? const SizedBox.shrink());
         },
       ),
     );

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 디버그 빌드 전용: 에뮬레이터에서 PC의 로컬 백엔드(http://10.0.2.2:8080)에 붙기 위해
+     이 두 주소에만 http(암호화 없음)를 허락한다. 그 밖의 주소는 https만 된다.
+     USB 실기기는 adb reverse tcp:8080 tcp:8080 을 한 뒤 http://localhost:8080 으로 붙는다.
+     릴리스 빌드에는 이 파일이 들어가지 않는다(src/debug 폴더라서). -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>

@@ -13,6 +13,18 @@ double _x(WidgetTester tester, String text) => tester.getTopLeft(find.text(text)
 final _school = {'id': 3, 'name': '서울대'};
 
 void main() {
+  // S23-b 안드로이드: 상태 표시줄 여백(위쪽 padding)이 있으면 상단바가 그 아래에 그려진다 (테스트는 VM이라 kIsWeb=false)
+  testWidgets('위쪽 여백이 있으면 상단바가 안전 영역 아래에 그려진다', (tester) async {
+    const topPx = 120.0; // 물리 픽셀
+    tester.view.padding = const FakeViewPadding(top: topPx);
+    tester.view.viewPadding = const FakeViewPadding(top: topPx);
+    addTearDown(tester.view.resetPadding);
+    addTearDown(tester.view.resetViewPadding);
+    await pumpApp(tester);
+    final topLogical = topPx / tester.view.devicePixelRatio;
+    expect(tester.getTopLeft(find.text('게시판')).dy, greaterThanOrEqualTo(topLogical));
+  });
+
   group('메뉴 구성', () {
     testWidgets('비로그인: 비자 후기 · 중고·나눔 · 로그인 · 회원가입 순서, 로그인 전용 메뉴는 없다', (tester) async {
       await pumpApp(tester);
