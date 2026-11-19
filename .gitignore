@@ -42,6 +42,8 @@ out/
 # 값이 빈 예시 파일은 커밋 대상이므로 무시에서 제외
 !.env.example
 *.pem
+# S22: Let's Encrypt 인증서·ACME 계정 키·도메인이 적힌 갱신 설정(서버의 ~/board/certbot). 로컬 리허설에서 생겨도 커밋 금지
+certbot/
 
 ### Uploads (S13-g, 로컬 사진 저장 폴더) ###
 uploads/

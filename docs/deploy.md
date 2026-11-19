@@ -1,7 +1,11 @@
 # 배포 방법 (EC2, nginx 컨테이너)
 브라우저 -> EC2 80번 -> nginx(`web` 컨테이너). 화면은 **Flutter 웹**(S16-n2부터, 아래 "웹 화면: Flutter로 교체 (S16-n2)" 참고)이고, nginx가 화면 파일을 주고,
 `/api/...` 는 `/api`를 떼고 백엔드(`app:8080`)로, `/actuator/health` 는 그대로 넘깁니다.
-화면과 API 주소가 같아서 CORS 설정이 필요 없습니다 (EC2 `.env`에 `CORS_ALLOWED_ORIGINS`는 넣지 않아도 됩니다).
+화면과 API 주소가 같아서 CORS 허용 목록(`CORS_ALLOWED_ORIGINS`)은 EC2 `.env`에 넣지 않아도 됩니다. 단 https 전환(S22) 뒤에도 같은 출처로 인정받으려면 compose app의 `SERVER_FORWARD_HEADERS_STRATEGY: native`(nginx가 넘긴 `X-Forwarded-Proto`를 믿게 함)가 있어야 합니다. 없으면 쓰기 요청이 403(`Invalid CORS request`)입니다.
+
+> **경고 (S22-a 커밋 이후)**: 이 커밋 이후의 web 이미지에는 443(https) 블록이 있습니다. 서버에 인증서(`~/board/certbot/conf/live/board/`)가 생기기 **전**(S22-c 전)에 Deploy를 누르면 nginx가 시작에 실패해서 **사이트 전체가 내려갑니다.**
+> 급하면 이전 web 이미지(S21 배포, `seokam36/demo-web:0dc513f93fbefe64e750ffc65a1f16349729b4ff`)로 고정합니다. 방법은 아래 "S22 되돌리기" 또는 "(a) 이전 이미지로 되돌리기"를 봅니다.
+> 전환 순서는 아래 "S22 HTTPS 전환"입니다. 그 순서대로 하기 전에는 Deploy를 누르지 않습니다.
 
 ## 자동 배포 (GitHub Actions 버튼)
 이미지는 main에 push하면 CI가 Docker Hub에 올려 둡니다(`latest`). 배포는 아래처럼 버튼으로 합니다.
@@ -463,11 +467,106 @@ S20 다음 운영 배포입니다. 위 S20 절 중 "처음엔 off"·"가장 위�
 
 **S21 배포 끝난 뒤 정리**: 며칠 써 보고 되돌릴 일이 없다고 판단하면 **[서버]** `~/board/docker-compose.yml.bak-s21`(비밀 값 없음)을 지우거나 보관합니다.
 
+## S22 HTTPS 전환 (고정 주소 + Let's Encrypt)
+목표: `https://board.<도메인>` 으로 접속. 서버(Spring)·DB 변경은 없고, nginx(web)와 compose만 바뀝니다. 실제 도메인 이름은 이 공개 파일에 적지 않고 `board.<도메인>` 자리표시를 씁니다.
+- 80번은 남깁니다: 인증서 확인(Let's Encrypt), Deploy 헬스체크(`http://<IP>/actuator/health`, 리다이렉트 없이 답함), 나머지는 https로 301 이동.
+- 인증서는 서버의 `~/board/certbot/conf`(인증서)·`~/board/certbot/www`(확인용 파일) 폴더에 저장되고, web 컨테이너가 읽기 전용으로 봅니다. 인증서 이름은 `board`로 고정(`--cert-name board`)이라 nginx 설정에 도메인이 없습니다.
+- HSTS(브라우저에게 "앞으로 https만"이라고 기억시키는 헤더)는 일부러 넣지 않았습니다. 되돌릴 때 브라우저가 http를 못 쓰게 되는 걸 피하기 위해서입니다.
+
+### 준비물 (사용자가 직접, AWS·도메인 업체 화면에서)
+1. **도메인 구매**: 업체에서 도메인을 사고 **자동 연장**을 켭니다(만료되면 사이트가 사라집니다).
+2. **Elastic IP(고정 IP) 할당·연결**: AWS 콘솔 -> EC2 -> 탄력적 IP -> 할당 -> 인스턴스에 연결.
+   - **연결하면 기존 퍼블릭 IP는 사라지고** Elastic IP가 대신 주소가 됩니다. 이후 아래 `<퍼블릭IP>`는 이 고정 IP입니다. PC에서 처음 접속할 때 "처음 보는 주소" 확인이 한 번 나올 수 있습니다(yes).
+   - **비용**: 공개 IPv4 주소는 인스턴스를 꺼 두어도 계속 요금이 나옵니다(시간당 약 $0.005, 월 약 $3.65). EC2를 안 쓰는 날에도 같습니다.
+3. **DNS A 레코드**: 도메인 업체의 DNS 설정에서 `board` -> Elastic IP (A 레코드).
+4. **DNS 확인**: PC에서 `nslookup board.<도메인>` 이 Elastic IP를 돌려주는지 봅니다. **안 나오면 아래 인증서 발급을 하지 않습니다**(DNS가 퍼지기 전에 시도하면 실패하고, 실패가 쌓이면 제한이 걸립니다).
+5. **보안 그룹**: 인바운드에 **443(HTTPS)** 추가(소스 `0.0.0.0/0`). 80은 그대로 둡니다.
+
+### 전환 순서 (한 번에, 순서대로)
+**443 열기 + 인증서 + `COOKIE_SECURE=true`는 같은 배포에서 함께 합니다.** 따로 하면 로그인이 깨집니다(Secure 쿠키는 http에서 전달되지 않고, 반대로 https인데 Secure가 꺼져 있으면 쿠키가 약합니다). 전환 직후 기존 로그인은 한 번 풀립니다(다시 로그인).
+
+아래 명령의 `<퍼블릭IP>`는 꺾쇠까지 지우고 숫자만 넣습니다. PowerShell 기준(Git Bash는 `ssh -i ~/.ssh/board-ec2 ...`로 그대로): ssh는 `& "C:\Windows\System32\OpenSSH\ssh.exe" -i "$HOME\.ssh\board-ec2" ec2-user@<퍼블릭IP>`, scp는 `& "C:\Windows\System32\OpenSSH\scp.exe" -i "$HOME\.ssh\board-ec2" ...`.
+
+1. **[브라우저]** 이번 커밋의 CI 세 작업(backend, flutter, images)이 초록인지 Actions 탭에서 봅니다(images가 초록이어야 새 web 이미지가 있습니다). **Deploy는 아직 누르지 않습니다.**
+2. **[PC]** 서버 compose 백업. 이미 `.bak-s22`가 있으면 **멈춥니다**(덮어쓰면 되돌릴 원본을 잃습니다. 있는 이유부터 확인):
+   `& "C:\Windows\System32\OpenSSH\ssh.exe" -i "$HOME\.ssh\board-ec2" ec2-user@<퍼블릭IP> 'test ! -e ~/board/docker-compose.yml.bak-s22 && cp ~/board/docker-compose.yml ~/board/docker-compose.yml.bak-s22 && echo 백업됨'`
+3. **[PC, 저장소 루트에서]** 새 compose를 서버로 복사: `& "C:\Windows\System32\OpenSSH\scp.exe" -i "$HOME\.ssh\board-ec2" docker-compose.yml ec2-user@<퍼블릭IP>:~/board/docker-compose.yml`
+   (복사만으로는 실행 중인 컨테이너가 바뀌지 않습니다. 옛 web은 계속 80에서 동작합니다.)
+4. **[서버]** 인증서 폴더를 미리 만들고 certbot 이미지를 **미리** 받아 둡니다(사이트를 끄기 전에 받아야 꺼진 시간이 짧습니다): `mkdir -p ~/board/certbot/conf ~/board/certbot/www && cd ~/board && docker compose --profile certbot pull certbot`
+5. **[서버]** `docker stop board-web` 전에 `.env`부터 고칩니다(사이트가 꺼진 시간을 줄이기 위함). `.env`에 `COOKIE_SECURE=true`를 넣습니다. `.env`는 컨테이너를 새로 만들 때만 읽히므로 미리 고쳐도 지금 떠 있는 앱엔 영향이 없어 안전합니다. **단, 이 단계부터 Deploy(7번)까지 사이에 app이 저절로 재시작되면(서버 재부팅 등) http인데 Secure 쿠키라 로그인이 깨집니다.** 그 경우 7번을 서둘러 끝내거나 `COOKIE_SECURE`를 `false`로 되돌립니다. `cat .env`는 쓰지 않고 `nano ~/board/.env`로 고칩니다(이미 `COOKIE_SECURE` 줄이 있으면 그 줄을 `true`로, 없으면 맨 아래에 추가). 저장 후 **`.env`를 고친 뒤에는 반드시 확인**합니다(nano에서 다른 줄을 망가뜨리지 않았는지):
+   - `grep -c '^COOKIE_SECURE=true$' ~/board/.env` 가 `1`
+   - `grep -cxF "PERMIT_HASH_SECRET=$(docker exec board-app printenv PERMIT_HASH_SECRET)" ~/board/.env` 가 `1` (파일 값 = 지금 실행 중인 앱의 값. 이 값이 바뀌면 허가서 번호 해시가 전부 달라집니다. 0이면 저장하지 말고 원래 값으로 되살립니다.)
+   - `ls -l ~/board/.env` 가 `-rw-------`
+6. **[서버] 인증서 첫 발급.** 문제: 지금 떠 있는 옛 nginx(80만, 옛 이미지)는 `/.well-known/`(인증서 확인 길)을 모르고, 새 이미지는 인증서가 있어야 뜹니다. 닭-달걀 문제입니다. 선택지 비교:
+   | 방법 | 장점 | 단점 |
+   | --- | --- | --- |
+   | A. `certonly --standalone` (옛 web을 잠깐 멈추고 certbot이 80을 직접 씀) | 명령 하나, 설정 변경 없음, 가장 단순 | 몇 분 사이트가 꺼짐(학습용 사이트라 괜찮음) |
+   | B. 임시 nginx를 80에 띄워 webroot로 발급 | 다운 시간이 거의 같음(어차피 80이 필요해서 옛 web을 멈춰야 함) | 임시 설정이 더 필요해서 실수 여지만 늘어남 |
+   | C. 먼저 Deploy 후 webroot 발급 | 없음 | 인증서가 없어 새 nginx가 시작 실패 -> 불가능 |
+   | D. DNS 방식(TXT 레코드를 손으로) | 80 필요 없음 | 갱신을 자동화할 수 없어서 90일마다 손으로 해야 함 |
+
+   **추천: A.** (B는 80을 쓰는 건 같아서 이득이 없고 D는 자동 갱신이 안 됩니다.) 순서:
+   1. `cd ~/board && docker stop board-web` — 80을 비웁니다(여기서부터 사이트 꺼짐. `restart: unless-stopped`라도 손으로 멈춘 건 자동으로 안 켜집니다). **발급을 중간에 포기하면 `docker start board-web`으로 옛 사이트를 되살립니다.**
+   2. **연습(--dry-run)**: Let's Encrypt의 시험용 서버로 해 보는 것이라 진짜 인증서도 안 남고 발급 제한도 거의 안 셉니다.
+      `docker compose run --rm -p 80:80 certbot certonly --standalone --dry-run -d board.<도메인> --cert-name board --email <내메일> --agree-tos --no-eff-email`
+      `The dry run was successful.` 가 나와야 합니다. 실패하면 **진짜 발급으로 넘어가지 않고** 원인(DNS·80 열림·보안 그룹)부터 고칩니다.
+      (`--staging`으로 진짜 저장하는 연습은 하지 않습니다: 시험용 가짜 인증서가 `board` 이름으로 남아서 진짜 발급 때 꼬입니다.)
+   3. **진짜 발급** (한 번만): 같은 명령에서 `--dry-run`만 뺍니다.
+      `docker compose run --rm -p 80:80 certbot certonly --standalone -d board.<도메인> --cert-name board --email <내메일> --agree-tos --no-eff-email`
+      - `-p 80:80`: certbot 컨테이너가 80을 직접 열어 Let's Encrypt의 확인을 받습니다. `--cert-name board`: 인증서 이름 고정. `--email`은 계정 연락처일 뿐입니다(Let's Encrypt는 2025년에 만료 알림 메일을 끝냈습니다). 만료 확인은 `docker compose run -T --rm certbot certificates`와 `~/board/certbot/renew.log`로 합니다.
+   4. 확인: `sudo ls ~/board/certbot/conf/live/board/` 에 `fullchain.pem`, `privkey.pem`이 있어야 합니다. **`sudo` 없이 `ls`하면 폴더가 root 전용(700)이라 `Permission denied`가 나옵니다. 이건 실패가 아닙니다.** 오해해서 다시 발급하면 발급 제한이 걸립니다. sudo가 싫으면 `docker compose run -T --rm certbot certificates`로 확인해도 됩니다.
+   - 이 시점에 사이트는 아직 꺼져 있습니다. 바로 7번으로 갑니다.
+7. **[브라우저]** Actions 탭 -> Deploy -> Run workflow. 새 web 이미지가 인증서를 읽어 443을 열고, app이 `COOKIE_SECURE=true`로 새로 만들어집니다. (자동 DB 백업 -> 배포 -> http 헬스체크가 초록이어야 합니다.)
+8. **[브라우저]** GitHub 저장소 Settings -> Secrets and variables -> Actions -> **Variables** 탭에 `SITE_DOMAIN` = `board.<도메인>` 을 추가합니다. 이때부터 Deploy가 `https://$SITE_DOMAIN/actuator/health`도 같이 확인합니다(없으면 그 단계는 건너뜀). 도메인은 비밀이 아니라서 Secrets가 아닌 Variables입니다. 이건 **자동 갱신 설정(아래)과 확인 목록을 끝낸 뒤**에 해도 됩니다.
+
+### 확인 목록 (배포 뒤)
+1. `https://board.<도메인>/actuator/health` 가 200(`UP`)이고 브라우저 주소창에 **인증서 경고가 없음**.
+2. `http://board.<도메인>/` 가 `https://` 로 **301 이동**: PC에서 `curl.exe -sI http://board.<도메인>/` 의 첫 줄 `301`, `Location: https://...`. 반면 `http://<퍼블릭IP>/actuator/health` 는 이동 없이 200(Deploy 헬스체크용).
+3. 브라우저에서 **로그인**(전환 직후 다시 로그인) -> 새로고침해도 유지. 개발자도구 -> Application -> Cookies에서 `access_token`·`refresh_token`에 **Secure** 체크. **403 + `Invalid CORS request`가 나오면** 서버가 https를 http로 보고 있는 것입니다. compose app의 `SERVER_FORWARD_HEADERS_STRATEGY`를 확인합니다: `docker exec board-app printenv SERVER_FORWARD_HEADERS_STRATEGY` 가 `native`여야 합니다.
+4. **글 작성**이 됨(CSRF 포함, 403이 아님). 403 + `Invalid CORS request`면 위 3번의 `SERVER_FORWARD_HEADERS_STRATEGY`(`native`) 확인.
+5. **1MB 넘는 사진** 올리기가 됨(본문 한도 규칙이 443에도 그대로 적용됐는지).
+6. Actions Deploy 헬스체크가 초록.
+7. **[서버]** `docker stats --no-stream board-web` 의 메모리가 `64MiB` 미만(443·TLS 추가로 늘었는지).
+8. **[서버]** `cd ~/board && docker compose run -T --rm certbot renew --dry-run --webroot -w /var/www/certbot; echo "종료코드=$?"` 가 `종료코드=0`(`all simulated renewals succeeded`). 첫 발급은 standalone 방식이었는데 갱신은 webroot로 하므로, **이 연습이 통과해야 자동 갱신이 믿을 만합니다.** 실패하면 갱신 설정 파일(`~/board/certbot/conf/renewal/board.conf`, root 전용이라 `sudo cat`·`sudo nano`로 열어야 합니다)의 `authenticator`가 `standalone`인 것이 원인일 수 있습니다(`webroot`로 고쳐야 할 수 있음, 아직 실제로 겪어 본 적 없음).
+9. `docker ps` 에서 네 컨테이너가 `Up`(`Restarting` 아님), `docker logs --tail 50 board-web` 에 `emerg`가 없음.
+
+### 자동 갱신 (서버 crontab)
+Let's Encrypt 인증서는 **90일**짜리입니다. certbot은 만료 30일 전부터만 실제로 갱신하므로 매일 돌려도 안전합니다. 갱신하면 nginx가 새 인증서를 읽도록 `reload`(연결을 끊지 않고 설정 다시 읽기)를 합니다.
+- **cron이 없을 수 있습니다**: Amazon Linux 2023에는 cron(`cronie`)이 기본으로 설치돼 있지 않을 수 있습니다(이 서버에서 직접 확인하지 못함). `crontab -l` 이 "command not found"면 설치합니다: `sudo dnf install -y cronie && sudo systemctl enable --now crond`
+- `crontab -e` 로 아래 두 줄을 넣습니다:
+  ```
+  # 부팅 5분 뒤(docker가 컨테이너를 다 올린 뒤) 한 번: EC2를 오래 꺼 뒀다 켰을 때 만료된 인증서를 바로 갱신
+  @reboot sleep 300 && ( cd "$HOME/board" && docker compose run -T --rm certbot renew --webroot -w /var/www/certbot && docker exec board-web nginx -s reload ) >> "$HOME/board/certbot/renew.log" 2>&1
+  # 켜져 있는 동안은 매일 04:17(서버 시각, UTC)에 한 번
+  17 4 * * * ( cd "$HOME/board" && docker compose run -T --rm certbot renew --webroot -w /var/www/certbot && docker exec board-web nginx -s reload ) >> "$HOME/board/certbot/renew.log" 2>&1
+  ```
+  - `-T`: cron에는 키보드 화면(TTY)이 없어서 필요합니다(없으면 "not a TTY" 오류).
+  - EC2를 쓸 때만 켜므로 매일 줄만으로는 부족합니다. **90일 넘게 꺼 두면 켰을 때 이미 만료**돼 있고(브라우저 경고), `@reboot` 줄이 켜진 지 5분 뒤 갱신합니다. 그 5분 동안은 경고가 보일 수 있습니다.
+- 확인: `crontab -l`, 며칠 뒤 `tail ~/board/certbot/renew.log`(`not yet due for renewal`이면 정상), 인증서 만료일: `docker compose run -T --rm certbot certificates`.
+
+### 인증서 발급 제한 주의 (Let's Encrypt)
+- 같은 이름으로 **실패를 반복하면 제한**이 걸려 한동안(최대 1시간~일주일) 발급이 막힙니다. 진짜 발급은 `--dry-run`이 통과한 뒤에 **한 번만** 합니다. 실패하면 원인을 먼저 고치고 다시 하지, 연달아 재시도하지 않습니다.
+- DNS가 퍼지기 전(`nslookup`이 Elastic IP를 안 돌려줌)에는 시도하지 않습니다.
+- `--dry-run`은 시험용 서버를 써서 제한이 훨씬 넉넉하지만, 그래도 무한 반복은 피합니다.
+
+### S22 되돌리기 (문제가 있을 때만)
+HTTPS를 도입한 뒤 문제가 생겨 옛 방식(http 80)으로 돌아가는 방법입니다. 핵심 네 가지를 **함께** 합니다(하나라도 빠지면 로그인이나 시작이 깨집니다).
+- 되돌릴 web 이미지: `seokam36/demo-web:0dc513f93fbefe64e750ffc65a1f16349729b4ff` (S21 배포 때의 web, 443 블록 없음)
+1. **[서버]** `cd ~/board && cp docker-compose.yml docker-compose.yml.bak-s22-new` — 지금 compose 보관(이미 있으면 다른 이름).
+2. **[서버]** `cp docker-compose.yml.bak-s22 docker-compose.yml` — 443·인증서 폴더가 없던 옛 compose로 복귀.
+3. **[서버]** web 이미지를 SHA로 고정: `sed -i 's#image: seokam36/demo-web:latest#image: seokam36/demo-web:0dc513f93fbefe64e750ffc65a1f16349729b4ff#' docker-compose.yml` 그리고 `grep 'image: seokam36' docker-compose.yml` 로 web 줄이 `0dc513f...` 인지 확인.
+4. **[서버]** `.env`의 `COOKIE_SECURE`를 `false`로 되돌리거나 그 줄을 지웁니다(`nano ~/board/.env`). Secure 쿠키가 켜진 채 http로 돌아가면 로그인이 안 됩니다. 이어서 확인(위 5번과 같음): `grep -cxF "PERMIT_HASH_SECRET=$(docker exec board-app printenv PERMIT_HASH_SECRET)" ~/board/.env` 가 `1`, `ls -l ~/board/.env` 가 `-rw-------`.
+5. **[서버]** `docker compose --profile prod pull web && docker compose --profile prod up -d --remove-orphans` — web은 옛 이미지로, app은 새 `COOKIE_SECURE` 값으로 다시 만들어집니다. 그다음 `http://<퍼블릭IP>/actuator/health` 가 UP이고 로그인이 되는지 봅니다.
+6. **[브라우저]** 저장소 Variables에서 `SITE_DOMAIN`을 **지웁니다**(남기면 Deploy의 https 확인 단계가 실패합니다).
+7. **[서버]** `crontab -e` 로 위 "자동 갱신"의 두 줄(`@reboot ...`, `17 4 * * * ...`) 앞에 `#`을 붙여 주석 처리합니다. 옛 compose에는 certbot 서비스가 없어서 그대로 두면 매일 오류가 납니다. 나중에 다시 https로 전환할 때는 `#`을 지워 되살립니다.
+- HSTS를 넣지 않았으므로 브라우저가 `https://`를 기억해 http를 막지는 않습니다. 다만 주소창이 자동완성으로 `https://`를 시도해 안 열릴 수 있으니 `http://`를 직접 칩니다.
+- **주의**: (a)의 주의 박스와 같습니다. web image 줄을 SHA로 고정해 두면 **다음 Deploy도 옛 web을 받습니다.** 고친 새 `latest`가 올라온 뒤(Actions 초록) `cp docker-compose.yml.bak-s22-new docker-compose.yml` 로 되돌리고 `grep 'image: seokam36' docker-compose.yml` 로 두 줄이 `:latest`인지 확인한 다음 Deploy를 누릅니다.
+
 ## 웹 화면: Flutter로 교체 (S16-n2)
 운영 `web` 이미지가 React에서 **Flutter 웹**(`flutter_app/`)으로 바뀌었습니다. `/v2` 같은 별도 주소 없이 통째로 교체합니다.
 - 이미지 이름은 그대로 `seokam36/demo-web`(`:latest`, `:<커밋 SHA>`)이라 **EC2의 `docker-compose.yml`을 바꿀 필요가 없습니다**(포트 80, 볼륨 없음, healthcheck 없음 - Flutter 이미지와 그대로 맞음. Deploy 워크플로의 헬스체크는 `/actuator/health`를 nginx 경유로 부르는데 Flutter nginx.conf에도 같은 블록이 있습니다).
 - 만드는 방법: CI의 `flutter` 작업이 `flutter build web --web-content-hash`로 `build/web`을 만들고 e2e까지 통과시킨 뒤, 그 결과를 `images` 작업이 받아 `flutter_app/Dockerfile`(빌드 없이 COPY만)로 이미지에 담습니다. 그래서 Flutter 검사가 실패하면 이미지도 올라가지 않습니다.
-- nginx 설정(`flutter_app/nginx.conf`)은 React 때와 같은 `/api` 전달(사진 올리기 `client_max_body_size 11m`·`proxy_read_timeout 150s` 포함, `/api/chat`만 75초(S17-h), **허가서 신청 주소 `/api/users/me/permit-verification`도 같은 11m·150s**(S20, 없으면 1MB 넘는 허가서 사진이 413))과 `/actuator/health` 열기, `/api/actuator` 404를 갖습니다. 달라진 점: 해시 붙은 파일(`main.dart.<해시>.js`)만 1년 immutable 캐시, `index.html` 등 나머지는 `no-cache`, 없는 `/assets/...`·`/canvaskit/...`은 404, 그 밖의 주소는 `index.html`(딥링크), JSON도 gzip 압축.
+- nginx 설정(`/api` 전달 규칙은 `flutter_app/board-locations.conf`, 서버 블록(80·443)은 `flutter_app/nginx.conf`)은 React 때와 같은 `/api` 전달(사진 올리기 `client_max_body_size 11m`·`proxy_read_timeout 150s` 포함, `/api/chat`만 75초(S17-h), **허가서 신청 주소 `/api/users/me/permit-verification`도 같은 11m·150s**(S20, 없으면 1MB 넘는 허가서 사진이 413))과 `/actuator/health` 열기, `/api/actuator` 404를 갖습니다. 달라진 점: 해시 붙은 파일(`main.dart.<해시>.js`)만 1년 immutable 캐시, `index.html` 등 나머지는 `no-cache`, 없는 `/assets/...`·`/canvaskit/...`은 404, 그 밖의 주소는 `index.html`(딥링크), JSON도 gzip 압축.
 - 배포 절차는 위 "자동 배포"와 똑같습니다(Deploy 버튼). 바뀌는 건 화면 파일뿐이고 DB·백엔드는 영향이 없습니다.
 
 **첫 배포 뒤 확인할 것** (브라우저 `http://<퍼블릭IP>/`)
@@ -605,7 +704,7 @@ SQL
   - `PHOTO_STORAGE`: compose에서 기본 `s3`(빈 값이어도 `s3`로 채워짐). `local`이면 컨테이너 안 폴더에 저장하는데, 운영에는 사진 볼륨이 없어서 재배포하면 사라집니다. 보통 적지 않습니다.
   - `PHOTO_S3_BUCKET`: 버킷 이름 (**필수**, 비어 있으면 앱이 시작 때 실패).
   - `PHOTO_S3_REGION`: 기본 `ap-northeast-2`(서울). 서울이면 적지 않아도 됩니다.
-- nginx(`web`) 설정: **사진 올리기 주소**(`POST /api/market-items/{id}/photos`)에만 업로드 한도 `client_max_body_size 11m`(스프링 `max-request-size`와 같음)과 응답 대기 `proxy_read_timeout 150s`를 줍니다. 한도가 없으면 nginx 기본 1MB 때문에 3MB 사진도 413입니다. 대기 150초는 S3가 느릴 때(처리 자리 대기 최대 5초 + 이미지 처리 + put 2번 각 최대 60초) nginx가 먼저 504를 내서 "서버는 저장했는데 화면은 실패"가 되는 어긋남을 막습니다. **유학생 허가서 신청 주소**(`/api/users/me/permit-verification`, 사진 최대 10MB)도 같은 11MB·150초 예외입니다(없으면 413, 이 주소의 GET·DELETE도 같은 블록을 지나가지만 값만 넉넉할 뿐 문제 없음). 나머지 API는 nginx 기본값(본문 1MB, 대기 60초) 그대로입니다. 단 `/api/chat`만 대기 75초입니다(S17-h, 서버 질문 예산 60초 < nginx 75초 < 화면 90초). 이 설정은 web 이미지 안에 있으므로 Deploy 버튼이 새 이미지를 받아 반영합니다. (S16-n2부터 이 설정은 `flutter_app/nginx.conf`에 있고 내용은 같습니다.)
+- nginx(`web`) 설정: **사진 올리기 주소**(`POST /api/market-items/{id}/photos`)에만 업로드 한도 `client_max_body_size 11m`(스프링 `max-request-size`와 같음)과 응답 대기 `proxy_read_timeout 150s`를 줍니다. 한도가 없으면 nginx 기본 1MB 때문에 3MB 사진도 413입니다. 대기 150초는 S3가 느릴 때(처리 자리 대기 최대 5초 + 이미지 처리 + put 2번 각 최대 60초) nginx가 먼저 504를 내서 "서버는 저장했는데 화면은 실패"가 되는 어긋남을 막습니다. **유학생 허가서 신청 주소**(`/api/users/me/permit-verification`, 사진 최대 10MB)도 같은 11MB·150초 예외입니다(없으면 413, 이 주소의 GET·DELETE도 같은 블록을 지나가지만 값만 넉넉할 뿐 문제 없음). 나머지 API는 nginx 기본값(본문 1MB, 대기 60초) 그대로입니다. 단 `/api/chat`만 대기 75초입니다(S17-h, 서버 질문 예산 60초 < nginx 75초 < 화면 90초). 이 설정은 web 이미지 안에 있으므로 Deploy 버튼이 새 이미지를 받아 반영합니다. (S16-n2부터 이 설정은 `flutter_app/nginx.conf`, S22부터 규칙 부분은 `flutter_app/board-locations.conf`에 있고 내용은 같습니다.)
 
 **운영에 적용하기**
 1. **[콘솔]** (처음 한 번) EC2 -> 인스턴스 -> 해당 인스턴스 선택 -> 작업 -> 인스턴스 설정 -> 인스턴스 메타데이터 옵션 수정에서 "메타데이터 응답 홉 제한"이 **2 이상**인지 확인합니다. **1이면 2로 바꾸고 저장합니다.** 1이면 컨테이너 안의 앱이 역할 자격 증명을 받지 못해서 시작할 때 HeadBucket(버킷 확인) 단계에서 실패합니다. 같은 인스턴스에 역할 `board-ec2-role`이 연결돼 있는지도 봅니다(작업 -> 보안 -> IAM 역할 수정).

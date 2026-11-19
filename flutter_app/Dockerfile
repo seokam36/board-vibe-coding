@@ -9,5 +9,9 @@ FROM nginx:1.30-alpine
 COPY build/web /usr/share/nginx/html
 # 우리 설정이 nginx 기본 설정(default.conf)을 대체한다 (옛 React 이미지의 frontend/Dockerfile과 같은 위치, S16-p에서 삭제)
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+# 화면·/api 규칙 공용 파일(S22). nginx.conf의 443 블록이 include 한다
+COPY board-locations.conf /etc/nginx/snippets/board-locations.conf
 
-EXPOSE 80
+# 80: 인증서 확인·헬스체크·https로 이동 / 443: 실제 사이트
+# 주의: 443은 인증서 볼륨(/etc/letsencrypt)이 연결돼 있어야 시작된다. 없으면 nginx가 시작 실패한다.
+EXPOSE 80 443

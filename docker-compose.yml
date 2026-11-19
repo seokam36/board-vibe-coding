@@ -78,6 +78,11 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       # DB 연결 풀 기본값(10)은 작은 서버에 과함 -> 3으로 축소 (설정 파일 없이 환경변수로 처리)
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
+      # https 뒤에서 Spring이 요청을 https로 인식하게 함: nginx가 붙인 X-Forwarded-Proto를 Tomcat이 믿는다
+      # (Tomcat RemoteIpValve는 내부망, 즉 도커 172.16/12 등에서 온 것만 믿음).
+      # 없으면 브라우저 Origin(https://...)과 scheme(http)이 달라 같은 사이트 POST/PUT/DELETE가
+      # CORS 요청으로 판정돼 403("Invalid CORS request")이 난다. http 운영에도 무해(X-Forwarded-Proto=http).
+      SERVER_FORWARD_HEADERS_STRATEGY: native
       # 리프레시 토큰 저장소(Redis) 접속 정보. 같은 compose 안이라 서비스명(redis)이 호스트
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD:?.env에 REDIS_PASSWORD를 설정하세요}
@@ -134,11 +139,36 @@ services:
     restart: unless-stopped
     mem_limit: 64m
     ports:
-      # 브라우저 80 -> nginx 80 (유일한 외부 입구. /api 요청은 nginx가 app으로 전달)
+      # 브라우저 443(https) -> nginx 443 (실제 사이트. /api 요청은 nginx가 app으로 전달)
+      - "443:443"
+      # 80은 유지: 인증서 확인(Let's Encrypt)·Deploy 헬스체크·https로 이동(301)용
       - "80:80"
-    # IP 변경은 nginx.conf의 resolver가 처리, 여기서는 시작 순서만
+    volumes:
+      # 인증서 폴더: 서버의 ~/board/certbot/ 아래(compose 파일 기준 상대 경로). 읽기 전용(:ro)이라 nginx는 읽기만 한다
+      # 이름 있는 볼륨 대신 호스트 폴더(bind mount)를 쓴 이유: 서버 cron에서 certbot을 돌리고 파일을 바로 확인하기 쉽다
+      - ./certbot/conf:/etc/letsencrypt:ro
+      # 인증서 확인용 파일(.well-known)을 certbot이 쓰고 nginx가 읽어서 내주는 폴더
+      - ./certbot/www:/var/www/certbot:ro
+    # IP 변경은 board-locations.conf의 resolver가 처리, 여기서는 시작 순서만
     depends_on:
       - app
+
+  certbot:
+    # 상시 실행 아님: certbot 프로필을 줄 때만 쓰고, prod로 up 할 때는 뜨지 않는다 (`docker compose run --rm certbot ...` 로 필요할 때만 실행)
+    profiles: ["certbot"]
+    # Let's Encrypt 인증서 발급·갱신 도구. latest 대신 정확한 버전 고정(갑자기 바뀌지 않게)
+    image: certbot/certbot:v5.10.0
+    container_name: board-certbot
+    # 서버 메모리 1GB 대비 상한 (잠깐 돌고 끝나는 일)
+    mem_limit: 128m
+    volumes:
+      # web과 같은 두 폴더를 읽기·쓰기로 (발급한 인증서를 여기에 저장)
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    # entrypoint는 이미지 기본(certbot)이라 뒤에 certonly / renew 를 붙여 쓴다
+    # 첫 발급(80이 비어 있을 때): docker compose run --rm -p 80:80 certbot certonly --standalone -d board.<도메인> --cert-name board --email <메일> --agree-tos --no-eff-email  (먼저 --dry-run 으로 연습)
+    # 이후 발급(web이 떠 있을 때): docker compose run --rm certbot certonly --webroot -w /var/www/certbot -d board.<도메인> --cert-name board --email <메일> --agree-tos --no-eff-email
+    # 갱신: docker compose run --rm certbot renew --webroot -w /var/www/certbot  그다음  docker exec board-web nginx -s reload
 
 volumes:
   postgres-data:
