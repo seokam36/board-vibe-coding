@@ -1,11 +1,10 @@
 # 배포 방법 (EC2, nginx 컨테이너)
-브라우저 -> EC2 80번 -> nginx(`web` 컨테이너). 화면은 **Flutter 웹**(S16-n2부터, 아래 "웹 화면: Flutter로 교체 (S16-n2)" 참고)이고, nginx가 화면 파일을 주고,
+브라우저 -> `https://<사이트주소>`(Cloudflare DNS가 지금 EC2 IP를 가리킴) -> EC2 443번(80번은 https로 301 안내·인증서 확인·헬스체크만) -> nginx(`web` 컨테이너). (S22, 2026-11-19 운영 전환) 화면은 **Flutter 웹**(S16-n2부터, 아래 "웹 화면: Flutter로 교체 (S16-n2)" 참고)이고, nginx가 화면 파일을 주고,
 `/api/...` 는 `/api`를 떼고 백엔드(`app:8080`)로, `/actuator/health` 는 그대로 넘깁니다.
 화면과 API 주소가 같아서 CORS 허용 목록(`CORS_ALLOWED_ORIGINS`)은 EC2 `.env`에 넣지 않아도 됩니다. 단 https 전환(S22) 뒤에도 같은 출처로 인정받으려면 compose app의 `SERVER_FORWARD_HEADERS_STRATEGY: native`(nginx가 넘긴 `X-Forwarded-Proto`를 믿게 함)가 있어야 합니다. 없으면 쓰기 요청이 403(`Invalid CORS request`)입니다.
 
-> **경고 (S22-a 커밋 이후)**: 이 커밋 이후의 web 이미지에는 443(https) 블록이 있습니다. 서버에 인증서(`~/board/certbot/conf/live/board/`)가 생기기 **전**(S22-c 전)에 Deploy를 누르면 nginx가 시작에 실패해서 **사이트 전체가 내려갑니다.**
-> 급하면 이전 web 이미지(S21 배포, `seokam36/demo-web:0dc513f93fbefe64e750ffc65a1f16349729b4ff`)로 고정합니다. 방법은 아래 "S22 되돌리기" 또는 "(a) 이전 이미지로 되돌리기"를 봅니다.
-> 전환 순서는 아래 "S22 HTTPS 전환"입니다. 그 순서대로 하기 전에는 Deploy를 누르지 않습니다.
+> **주의 (S22 이후)**: web 이미지에는 443(https) 블록이 있어 서버에 인증서(`~/board/certbot/conf/live/board/`)가 있어야 nginx가 뜹니다. 운영 서버는 2026-11-19에 발급을 마쳐 Deploy 버튼을 평소처럼 써도 됩니다. **서버를 새로 만들거나 `~/board/certbot`을 지웠다면** Deploy 전에 아래 "S22 HTTPS 전환"의 인증서 첫 발급부터 다시 합니다(안 그러면 사이트 전체가 내려감).
+> 직전(S21) web 이미지: `seokam36/demo-web:0dc513f93fbefe64e750ffc65a1f16349729b4ff` — 되돌리기는 아래 "S22 되돌리기".
 
 ## 자동 배포 (GitHub Actions 버튼)
 이미지는 main에 push하면 CI가 Docker Hub에 올려 둡니다(`latest`). 배포는 아래처럼 버튼으로 합니다.
@@ -18,7 +17,7 @@
 3. 워크플로가 하는 일: 켜진 EC2의 퍼블릭 IP 조회 -> 보안 그룹에 이 러너 IP의 SSH(22) 허용을 잠깐 추가
    -> **DB 자동 백업**(배포 직전에 서버 DB를 파일로 저장. 실패하면 여기서 중단, 자세한 내용은 아래 "배포 전 DB 백업") -> SSH로 `docker compose pull`/`up -d` -> `/actuator/health`가 UP일 때까지 최대 약 3~4분 확인 -> (성공/실패 상관없이) SSH 허용 규칙 삭제.
    앱이 켜질 때 Flyway가 표 변경(V 파일)을 적용합니다. 실패하면 아래 'Flyway(표 변경) 문제와 되돌리기'를 참고합니다.
-4. 초록색이면 끝입니다. 확인용 주소는 `http://<퍼블릭IP>/`. 다 쓰고 나면 EC2를 콘솔에서 중지합니다.
+4. 초록색이면 끝입니다(저장소 Variables `SITE_DOMAIN`이 있어 https 헬스체크도 함께 확인). 확인용 주소는 `https://<사이트주소>/`(IP로 열면 https로 넘어가 인증서 이름 경고가 납니다. IP는 Deploy 헬스체크용 `http://<퍼블릭IP>/actuator/health`만). 다 쓰고 나면 EC2를 콘솔에서 중지합니다. 켤 때는 1~5분 뒤 DNS가 새 IP를 따라옵니다(아래 "S22 DNS 자동 고침").
 
 만약 실행이 중간에 강제로 끊겨 `github-actions-deploy` 설명이 붙은 22번 규칙이 보안 그룹에 남았다면 콘솔에서 직접 지웁니다.
 
@@ -469,6 +468,7 @@ S20 다음 운영 배포입니다. 위 S20 절 중 "처음엔 off"·"가장 위�
 **S21 배포 끝난 뒤 정리**: 며칠 써 보고 되돌릴 일이 없다고 판단하면 **[서버]** `~/board/docker-compose.yml.bak-s21`(비밀 값 없음)을 지우거나 보관합니다.
 
 ## S22 HTTPS 전환 (도메인 + Let's Encrypt, 켤 때 DNS 자동 고침)
+> **2026-11-19 운영 전환 끝** (이미지 커밋 bd6c70b). 실제로 해 본 결과: DDNS 첫 실행(실제 Cloudflare) 성공, 인증서 standalone 첫 발급 → webroot `renew --dry-run` 통과(authenticator 수정 필요 없었음), 서버에 cron(cronie)이 없어 설치함, crontab 세 줄 등록, 저장소 Variables `SITE_DOMAIN` 등록. 이메일은 등록하지 않고 `--register-unsafely-without-email`로 발급했습니다(만료 알림 메일이 없어져 받을 메일이 없음). 아래 순서는 서버를 새로 만들 때 다시 씁니다.
 목표: `https://<사이트주소>` 로 접속. 서버(Spring)·DB 변경은 없고, nginx(web)와 compose만 바뀝니다. 실제 도메인 이름은 이 공개 파일에 적지 않고 `<도메인>`, `<사이트주소>`(게시판 서브도메인 전체, 예: `kampus.<도메인>`) 자리표시를 씁니다.
 - 고정 IP(Elastic IP)는 쓰지 않습니다. EC2는 쓸 때만 켜서 켤 때마다 공인 IP가 바뀌므로, 켜질 때 서버가 스스로 Cloudflare DNS를 새 IP로 고칩니다(아래 "S22 DNS 자동 고침").
 - 80번은 남깁니다: 인증서 확인(Let's Encrypt), Deploy 헬스체크(`http://<IP>/actuator/health`, 리다이렉트 없이 답함), 나머지는 https로 301 이동.
@@ -570,12 +570,12 @@ S20 다음 운영 배포입니다. 위 S20 절 중 "처음엔 off"·"가장 위�
    **추천: A.** (B는 80을 쓰는 건 같아서 이득이 없고 D는 자동 갱신이 안 됩니다.) 순서:
    1. `cd ~/board && docker stop board-web` — 80을 비웁니다(여기서부터 사이트 꺼짐. `restart: unless-stopped`라도 손으로 멈춘 건 자동으로 안 켜집니다). **발급을 중간에 포기하면 `docker start board-web`으로 옛 사이트를 되살립니다.**
    2. **연습(--dry-run)**: Let's Encrypt의 시험용 서버로 해 보는 것이라 진짜 인증서도 안 남고 발급 제한도 거의 안 셉니다.
-      `docker compose run --rm -p 80:80 certbot certonly --standalone --dry-run -d <사이트주소> --cert-name board --email <내메일> --agree-tos --no-eff-email`
+      `docker compose run --rm -p 80:80 certbot certonly --standalone --dry-run -d <사이트주소> --cert-name board --register-unsafely-without-email --agree-tos`
       `The dry run was successful.` 가 나와야 합니다. 실패하면 **진짜 발급으로 넘어가지 않고** 원인(DNS·80 열림·보안 그룹)부터 고칩니다.
       (`--staging`으로 진짜 저장하는 연습은 하지 않습니다: 시험용 가짜 인증서가 `board` 이름으로 남아서 진짜 발급 때 꼬입니다.)
    3. **진짜 발급** (한 번만): 같은 명령에서 `--dry-run`만 뺍니다.
-      `docker compose run --rm -p 80:80 certbot certonly --standalone -d <사이트주소> --cert-name board --email <내메일> --agree-tos --no-eff-email`
-      - `-p 80:80`: certbot 컨테이너가 80을 직접 열어 Let's Encrypt의 확인을 받습니다. `--cert-name board`: 인증서 이름 고정. `--email`은 계정 연락처일 뿐입니다(Let's Encrypt는 2025년에 만료 알림 메일을 끝냈습니다). 만료 확인은 `docker compose run -T --rm certbot certificates`와 `~/board/certbot/renew.log`로 합니다.
+      `docker compose run --rm -p 80:80 certbot certonly --standalone -d <사이트주소> --cert-name board --register-unsafely-without-email --agree-tos`
+      - `-p 80:80`: certbot 컨테이너가 80을 직접 열어 Let's Encrypt의 확인을 받습니다. `--cert-name board`: 인증서 이름 고정. `--register-unsafely-without-email`: 계정에 이메일을 등록하지 않습니다(이메일은 연락처일 뿐이고, Let's Encrypt는 2025년에 만료 알림 메일을 끝냈습니다. 등록하고 싶으면 이 옵션 대신 `--email <메일> --no-eff-email`). 만료 확인은 `docker compose run -T --rm certbot certificates`와 `~/board/certbot/renew.log`로 합니다.
    4. 확인: `sudo ls ~/board/certbot/conf/live/board/` 에 `fullchain.pem`, `privkey.pem`이 있어야 합니다. **`sudo` 없이 `ls`하면 폴더가 root 전용(700)이라 `Permission denied`가 나옵니다. 이건 실패가 아닙니다.** 오해해서 다시 발급하면 발급 제한이 걸립니다. sudo가 싫으면 `docker compose run -T --rm certbot certificates`로 확인해도 됩니다.
    - 이 시점에 사이트는 아직 꺼져 있습니다. 바로 8번으로 갑니다.
 8. **[브라우저]** Actions 탭 -> Deploy -> Run workflow. 새 web 이미지가 인증서를 읽어 443을 열고, app이 `COOKIE_SECURE=true`로 새로 만들어집니다. (자동 DB 백업 -> 배포 -> http 헬스체크가 초록이어야 합니다.)
