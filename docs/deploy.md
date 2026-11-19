@@ -114,6 +114,7 @@ EC2는 이미지를 받아 실행만 합니다. 저장소를 clone할 필요 없
 - 주의: S4부터 `docker-compose.yml`이 바뀌었습니다(위 환경변수 전달). S4를 처음 배포할 때는 변경된 `docker-compose.yml`을 EC2의 `~/board`로 먼저 `scp`해야 합니다.
 - 백엔드 이미지 `seokam36/demo:latest`가 Docker Hub에 올라가 있어야 합니다.
 - 퍼블릭 IP는 인스턴스를 시작할 때마다 바뀝니다 (탄력적 IP를 쓰지 않는 경우). 아래 `<퍼블릭IP>`는 그때그때 확인한 값으로 바꿉니다.
+  - S22-c 이후: 이 서버는 탄력적 IP를 쓰지 않는 게 맞고, 켤 때마다 `cloudflare-ddns.sh`가 도메인(DNS)을 새 IP로 자동으로 고칩니다("S22 DNS 자동 고침" 절). 그래서 평소엔 `https://<사이트주소>`로 들어가면 되고, `<퍼블릭IP>`는 켠 직후 DNS가 퍼지기 전이나 비상용(Deploy 헬스체크 등)일 때만 콘솔에서 확인해 씁니다.
 
 1. (개발 PC) 이미지 빌드 (S16-n2부터 web 이미지는 Flutter. 빌드 컨텍스트는 `flutter_app/`이고, 이미지 안에서 빌드하지 않으니 **먼저 `build/web`을 만듭니다**)
    - `cd flutter_app && flutter build web --web-content-hash && cd ..`
@@ -467,20 +468,79 @@ S20 다음 운영 배포입니다. 위 S20 절 중 "처음엔 off"·"가장 위�
 
 **S21 배포 끝난 뒤 정리**: 며칠 써 보고 되돌릴 일이 없다고 판단하면 **[서버]** `~/board/docker-compose.yml.bak-s21`(비밀 값 없음)을 지우거나 보관합니다.
 
-## S22 HTTPS 전환 (고정 주소 + Let's Encrypt)
-목표: `https://board.<도메인>` 으로 접속. 서버(Spring)·DB 변경은 없고, nginx(web)와 compose만 바뀝니다. 실제 도메인 이름은 이 공개 파일에 적지 않고 `board.<도메인>` 자리표시를 씁니다.
+## S22 HTTPS 전환 (도메인 + Let's Encrypt, 켤 때 DNS 자동 고침)
+목표: `https://<사이트주소>` 로 접속. 서버(Spring)·DB 변경은 없고, nginx(web)와 compose만 바뀝니다. 실제 도메인 이름은 이 공개 파일에 적지 않고 `<도메인>`, `<사이트주소>`(게시판 서브도메인 전체, 예: `kampus.<도메인>`) 자리표시를 씁니다.
+- 고정 IP(Elastic IP)는 쓰지 않습니다. EC2는 쓸 때만 켜서 켤 때마다 공인 IP가 바뀌므로, 켜질 때 서버가 스스로 Cloudflare DNS를 새 IP로 고칩니다(아래 "S22 DNS 자동 고침").
 - 80번은 남깁니다: 인증서 확인(Let's Encrypt), Deploy 헬스체크(`http://<IP>/actuator/health`, 리다이렉트 없이 답함), 나머지는 https로 301 이동.
 - 인증서는 서버의 `~/board/certbot/conf`(인증서)·`~/board/certbot/www`(확인용 파일) 폴더에 저장되고, web 컨테이너가 읽기 전용으로 봅니다. 인증서 이름은 `board`로 고정(`--cert-name board`)이라 nginx 설정에 도메인이 없습니다.
 - HSTS(브라우저에게 "앞으로 https만"이라고 기억시키는 헤더)는 일부러 넣지 않았습니다. 되돌릴 때 브라우저가 http를 못 쓰게 되는 걸 피하기 위해서입니다.
 
-### 준비물 (사용자가 직접, AWS·도메인 업체 화면에서)
-1. **도메인 구매**: 업체에서 도메인을 사고 **자동 연장**을 켭니다(만료되면 사이트가 사라집니다).
-2. **Elastic IP(고정 IP) 할당·연결**: AWS 콘솔 -> EC2 -> 탄력적 IP -> 할당 -> 인스턴스에 연결.
-   - **연결하면 기존 퍼블릭 IP는 사라지고** Elastic IP가 대신 주소가 됩니다. 이후 아래 `<퍼블릭IP>`는 이 고정 IP입니다. PC에서 처음 접속할 때 "처음 보는 주소" 확인이 한 번 나올 수 있습니다(yes).
-   - **비용**: 공개 IPv4 주소는 인스턴스를 꺼 두어도 계속 요금이 나옵니다(시간당 약 $0.005, 월 약 $3.65). EC2를 안 쓰는 날에도 같습니다.
-3. **DNS A 레코드**: 도메인 업체의 DNS 설정에서 `board` -> Elastic IP (A 레코드).
-4. **DNS 확인**: PC에서 `nslookup board.<도메인>` 이 Elastic IP를 돌려주는지 봅니다. **안 나오면 아래 인증서 발급을 하지 않습니다**(DNS가 퍼지기 전에 시도하면 실패하고, 실패가 쌓이면 제한이 걸립니다).
-5. **보안 그룹**: 인바운드에 **443(HTTPS)** 추가(소스 `0.0.0.0/0`). 80은 그대로 둡니다.
+### 준비물 (사용자가 직접, AWS·Cloudflare 화면에서) — 2026-11-19 모두 끝남
+1. **도메인 구매**: Cloudflare Registrar에서 구매 완료, **자동 갱신** 켬(만료되면 사이트가 사라집니다).
+2. **Elastic IP를 안 쓰는 이유·비용**: 공개 IPv4 주소는 인스턴스를 꺼 두어도 계속 요금이 나옵니다(시간당 약 $0.005, 월 약 $3.65). 포트폴리오용이라 꺼 둔 동안의 요금이 아까워서 쓰지 않고, 대신 켤 때 DNS를 자동으로 고칩니다. 단점: 켠 뒤 1~5분은 새 IP가 퍼지는 동안 접속이 안 될 수 있습니다.
+3. **DNS A 레코드**: Cloudflare DNS에 `<사이트주소>`(게시판 서브도메인) A 레코드를 만들어 둠. **프록시 끔(회색 구름)**, **TTL 1분**, 처음 값은 아무 IP(`192.0.2.1`)여도 됩니다(스크립트가 켤 때 진짜 IP로 고침). 프록시를 끄는 이유: 인증서 발급(80 직접 확인)·헬스체크가 서버로 곧장 오게 하려는 것입니다.
+4. **Cloudflare API 토큰**: 그 도메인의 **DNS 편집 권한만**(Zone / DNS / Edit, 해당 영역 하나만), 만료 없음. 비밀 값입니다(서버 `.env`에만 둠, 채팅·문서·깃에 쓰지 않음).
+5. **영역 ID(Zone ID)**: 32글자. Cloudflare 도메인 개요 화면 오른쪽 아래 API 칸에 있습니다. 비밀은 아닙니다.
+6. **보안 그룹**: 인바운드에 **443(HTTPS)** 추가(소스 `0.0.0.0/0`). 80은 그대로 둡니다.
+
+### S22 DNS 자동 고침 (켤 때 IP → Cloudflare)
+서버가 켜지면 `~/board/cloudflare-ddns.sh`(저장소 `deploy/cloudflare-ddns.sh`)가 EC2 메타데이터(IMDSv2)로 **자기 공인 IP**를 알아내 Cloudflare API로 A 레코드를 새 IP로 고칩니다. 이미 같은 IP면 "그대로"라고 로그만 남기고 끝납니다. 설정(`.env`의 세 줄)에서 토큰은 화면·로그에 찍지 않습니다. IMDS 홉 제한 2·IMDSv2 필수는 이미 설정돼 있습니다.
+
+**설치 (처음 한 번)**
+1. **[PC, 저장소 루트에서]** 스크립트 복사: `& "C:\Windows\System32\OpenSSH\scp.exe" -i "$HOME\.ssh\board-ec2" deploy\cloudflare-ddns.sh ec2-user@<퍼블릭IP>:~/board/cloudflare-ddns.sh` (`<퍼블릭IP>`는 지금 콘솔에서 본 값, 꺾쇠 없이 숫자만)
+2. **[서버]** 실행 권한(나만 읽고 실행)과 줄 끝 확인: `chmod 700 ~/board/cloudflare-ddns.sh && bash -n ~/board/cloudflare-ddns.sh && head -1 ~/board/cloudflare-ddns.sh | od -c | head -1`
+   - 윈도우에서 복사하면 줄 끝에 `\r`이 붙어 스크립트가 안 돌 수 있습니다. `od` 출력 끝에 `\r`이 **없어야** 합니다(`\n`으로 끝남). 있으면 `sed -i 's/\r$//' ~/board/cloudflare-ddns.sh` 로 지우고 다시 확인합니다. `bash -n`은 문법만 검사하고 아무것도 보내지 않습니다.
+3. **[서버]** `.env`에 세 줄을 넣습니다. **토큰은 만료가 없고 그 영역의 DNS 전체를 고칠 수 있는 비밀입니다. S18 절 4번과 같은 주의**로, `cat .env`나 `echo ... >> .env`는 쓰지 않고 편집기로 고칩니다.
+   - `nano ~/board/.env` 를 엽니다. **nano 화면이 뜬 것을 확인한 뒤에** 붙여 넣습니다. 셸 프롬프트에 붙여 넣었다면 토큰이 화면과 `~/.bash_history`에 남으니 Cloudflare에서 그 토큰을 **Roll(교체)** 합니다.
+   - 맨 아래에 세 줄을 적습니다(이미 같은 이름의 줄이 있으면 그 줄을 고칩니다):
+     ```
+     CF_API_TOKEN=<토큰>
+     CF_ZONE_ID=<영역 ID 32글자>
+     CF_RECORD_NAME=<사이트주소 전체>
+     ```
+   - **`<토큰>` 등 자리 글자를 꺾쇠 `<` `>` 까지 전부 지우고** 진짜 값을 붙여 넣습니다. `=` 앞뒤에 띄어쓰기·따옴표를 넣지 않고 줄바꿈이 끼어도 안 됩니다.
+   - 저장하고 닫습니다(`Ctrl+O` 엔터 -> `Ctrl+X`). nano가 비정상으로 끝났다면 `ls -la ~/board`에 `.env.save`가 남았는지 보고 있으면 열어 보지 말고 `rm`으로 지웁니다(토큰이 들어 있을 수 있음).
+4. **[서버]** 확인(다른 줄을 망가뜨리지 않았는지, 값은 화면에 안 나옵니다. **값을 보려고 `cat`하지 않습니다**):
+   - `grep -c '^CF_API_TOKEN=<' ~/board/.env` 가 `0` (자리 글자가 남지 않음)
+   - `grep -c '^CF_' ~/board/.env` 가 `3`
+   - `grep -cxF "PERMIT_HASH_SECRET=$(docker exec board-app printenv PERMIT_HASH_SECRET)" ~/board/.env` 가 `1`
+   - `ls -l ~/board/.env` 가 `-rw-------`
+
+**첫 실행 확인**
+- **이 실행이 실제 Cloudflare API와의 첫 확인입니다.** 스크립트 시험은 가짜 서버로만 했기 때문에, 진짜 응답 모양·토큰 권한은 여기서 처음 맞아 봅니다. 실패하면 아래 "실패 대처" 표를 봅니다.
+- **[서버]** `~/board/cloudflare-ddns.sh; echo "종료코드=$?"` → `고침: ... -> <IP>`(처음엔 `192.0.2.1`에서 바뀜) 또는 `그대로: ...` 가 나오고 `종료코드=0`.
+- **[PC]** `nslookup <사이트주소> 1.1.1.1` 이 EC2 퍼블릭 IP(콘솔 값)와 같은지 봅니다. 아니면 1~2분 뒤 다시 봅니다.
+
+**켤 때 자동 실행 (서버 crontab)**
+`crontab -e` 에 아래 줄을 넣습니다(cron이 없으면 아래 "자동 갱신"의 `cronie` 설치 안내를 먼저 따릅니다):
+```
+# 부팅 20초 뒤 한 번: 새 공인 IP를 Cloudflare DNS에 적기 (네트워크가 늦으면 스크립트가 다시 시도)
+@reboot sleep 20 && "$HOME/board/cloudflare-ddns.sh" >> "$HOME/board/ddns.log" 2>&1
+```
+- **순서가 중요합니다.** 이 줄이 "자동 갱신"의 certbot `@reboot` 줄(`sleep 600`)보다 **먼저** 끝나야 합니다. certbot 갱신은 Let's Encrypt가 `<사이트주소>`로 서버를 찾아오는데, DNS가 옛 IP를 가리키면 확인이 엉뚱한 곳으로 가서 실패하기 때문입니다.
+- **최악의 시간**: 20초 대기 + 공인 IP 받기 최대 약 192초 + Cloudflare 조회·수정 각 최대 약 75초(15초 x 4번 + 5초 x 3번) = 약 6분. 그래서 certbot 줄은 600초(10분)로 둡니다(`crontab -l`에서도 이 줄을 위에 둡니다).
+- `>> ddns.log 2>&1`: 결과(성공·실패 이유)를 `~/board/ddns.log`에 쌓습니다. 토큰은 로그에 안 찍힙니다.
+
+**로그 확인과 실패 대처** (실패 대처 표): `tail ~/board/ddns.log`
+| 로그 메시지 | 원인·대처 |
+| --- | --- |
+| `실패: .env에 ... 빈 값` / `CF_ZONE_ID·CF_RECORD_NAME 형식이 아님` | `.env` 세 줄 확인. 영역 ID는 32글자 16진수(복사 오타), 이름은 영문·숫자·점·하이픈만 |
+| `실패: CF_API_TOKEN 형식이 아님` | 토큰에 꺾쇠 `<>`·따옴표·공백이 섞임(영문·숫자·`_`·`-`만 가능). `nano`로 그 줄을 고침. 값은 화면에 안 나옵니다 |
+| `실패: ... Cloudflare에 연결 못 함` | 3번 다시 시도한 뒤에도 바깥 인터넷·DNS가 안 됨. 보안 그룹 아웃바운드·인스턴스 네트워크 확인 뒤 스크립트를 손으로 다시 실행 |
+| `실패: 찾은 레코드 이름이 ... 이 아님` | 검색 조건이 어긋나 다른 레코드가 왔음. **다른 레코드를 덮어쓰지 않으려고 고치지 않고 멈춘 것**입니다. `CF_RECORD_NAME` 오타·대소문자 확인 |
+| `실패: ... A 레코드가 1개가 아님` | 같은 이름의 A 레코드가 2개 이상. Cloudflare 콘솔에서 하나만 남김 |
+| `실패: 레코드 조회 실패 (오류 코드: ...)` | 토큰이 틀렸거나 만료·삭제됨, 또는 권한(DNS 편집)·대상 영역이 다름, 또는 영역 ID 오타. Cloudflare에서 토큰 권한 범위와 영역 ID를 다시 확인 |
+| `실패: Cloudflare에 ... A 레코드가 없음` | `CF_RECORD_NAME` 오타이거나 레코드가 없음. Cloudflare DNS에서 A 레코드(프록시 끔)를 만들고 이름을 맞춤 |
+| `실패: 레코드 수정 실패` | 토큰에 "편집" 권한이 없음(읽기만 있음). 권한을 DNS Edit로 |
+| `실패: EC2 메타데이터에서 공인 IP를 못 받음` | 약 2분(10초 간격 12번) 동안 IMDS에 못 닿음. 홉 제한 2·IMDSv2 필수 설정 확인(이미 해 둠), 인스턴스에 공인 IP가 붙어 있는지 확인. 급하면 콘솔 IP를 보고 `~/board/cloudflare-ddns.sh`를 손으로 다시 실행 |
+
+**켤 때 사용자 흐름**
+1. AWS 콘솔에서 인스턴스를 시작합니다.
+2. **1~5분 기다립니다**(부팅 -> 스크립트가 DNS를 고침 -> 새 IP가 퍼짐. TTL이 1분이라 보통 빨리 퍼집니다. 네트워크가 늦으면 스크립트가 최대 약 6분까지 다시 시도하므로 그때는 더 걸립니다).
+3. `https://<사이트주소>` 로 접속합니다. 안 열리면 조금 더 기다린 뒤 `nslookup <사이트주소> 1.1.1.1` 이 콘솔의 퍼블릭 IP와 같은지 봅니다.
+- SSH도 이제 `ec2-user@<사이트주소>` 로 가능합니다. 단 DNS가 갱신되기 전에는 옛 IP라 연결이 실패할 수 있으니, 그땐 콘솔의 퍼블릭 IP로 접속합니다. 이름으로 처음 접속하면 ssh의 `known_hosts`에 "이름" 기준 항목이 하나 더 생기는 정도(처음 확인 질문에 yes)입니다.
+
+**토큰이 새어 나갔을 때**: Cloudflare -> 내 프로필 -> API 토큰에서 그 토큰을 **삭제하거나 Roll(새 값으로 교체)** 하고, 새 토큰을 서버 `.env`의 `CF_API_TOKEN=` 에 `nano`로 교체합니다. 이어서 위 "설치" 3번(nano 주의)·4번 확인과 "첫 실행 확인"을 다시 합니다.
 
 ### 전환 순서 (한 번에, 순서대로)
 **443 열기 + 인증서 + `COOKIE_SECURE=true`는 같은 배포에서 함께 합니다.** 따로 하면 로그인이 깨집니다(Secure 쿠키는 http에서 전달되지 않고, 반대로 https인데 Secure가 꺼져 있으면 쿠키가 약합니다). 전환 직후 기존 로그인은 한 번 풀립니다(다시 로그인).
@@ -493,11 +553,13 @@ S20 다음 운영 배포입니다. 위 S20 절 중 "처음엔 off"·"가장 위�
 3. **[PC, 저장소 루트에서]** 새 compose를 서버로 복사: `& "C:\Windows\System32\OpenSSH\scp.exe" -i "$HOME\.ssh\board-ec2" docker-compose.yml ec2-user@<퍼블릭IP>:~/board/docker-compose.yml`
    (복사만으로는 실행 중인 컨테이너가 바뀌지 않습니다. 옛 web은 계속 80에서 동작합니다.)
 4. **[서버]** 인증서 폴더를 미리 만들고 certbot 이미지를 **미리** 받아 둡니다(사이트를 끄기 전에 받아야 꺼진 시간이 짧습니다): `mkdir -p ~/board/certbot/conf ~/board/certbot/www && cd ~/board && docker compose --profile certbot pull certbot`
-5. **[서버]** `docker stop board-web` 전에 `.env`부터 고칩니다(사이트가 꺼진 시간을 줄이기 위함). `.env`에 `COOKIE_SECURE=true`를 넣습니다. `.env`는 컨테이너를 새로 만들 때만 읽히므로 미리 고쳐도 지금 떠 있는 앱엔 영향이 없어 안전합니다. **단, 이 단계부터 Deploy(7번)까지 사이에 app이 저절로 재시작되면(서버 재부팅 등) http인데 Secure 쿠키라 로그인이 깨집니다.** 그 경우 7번을 서둘러 끝내거나 `COOKIE_SECURE`를 `false`로 되돌립니다. `cat .env`는 쓰지 않고 `nano ~/board/.env`로 고칩니다(이미 `COOKIE_SECURE` 줄이 있으면 그 줄을 `true`로, 없으면 맨 아래에 추가). 저장 후 **`.env`를 고친 뒤에는 반드시 확인**합니다(nano에서 다른 줄을 망가뜨리지 않았는지):
+5. **[서버]** `docker stop board-web` 전에 `.env`부터 고칩니다(사이트가 꺼진 시간을 줄이기 위함). `.env`에 `COOKIE_SECURE=true`와 DNS 자동 고침용 `CF_*` 세 줄을 **한 번의 nano로 함께** 넣습니다(`CF_*` 줄 적는 법·꺾쇠 지우기·토큰 주의는 위 "S22 DNS 자동 고침" 설치 3번과 같음. 토큰을 셸에 붙였다면 Roll). `.env`는 컨테이너를 새로 만들 때만 읽히므로 미리 고쳐도 지금 떠 있는 앱엔 영향이 없어 안전합니다. **단, 이 단계부터 Deploy(8번)까지 사이에 app이 저절로 재시작되면(서버 재부팅 등) http인데 Secure 쿠키라 로그인이 깨집니다.** 그 경우 8번을 서둘러 끝내거나 `COOKIE_SECURE`를 `false`로 되돌립니다. `cat .env`는 쓰지 않고 `nano ~/board/.env`로 고칩니다(이미 `COOKIE_SECURE` 줄이 있으면 그 줄을 `true`로, 없으면 맨 아래에 추가). 저장 후 **`.env`를 고친 뒤에는 반드시 확인**합니다(nano에서 다른 줄을 망가뜨리지 않았는지):
    - `grep -c '^COOKIE_SECURE=true$' ~/board/.env` 가 `1`
+   - `grep -c '^CF_API_TOKEN=<' ~/board/.env` 가 `0`, `grep -c '^CF_' ~/board/.env` 가 `3` (값은 `cat` 금지, `.env.save`가 생기지 않았는지도 `ls -la ~/board`로 확인)
    - `grep -cxF "PERMIT_HASH_SECRET=$(docker exec board-app printenv PERMIT_HASH_SECRET)" ~/board/.env` 가 `1` (파일 값 = 지금 실행 중인 앱의 값. 이 값이 바뀌면 허가서 번호 해시가 전부 달라집니다. 0이면 저장하지 말고 원래 값으로 되살립니다.)
    - `ls -l ~/board/.env` 가 `-rw-------`
-6. **[서버] 인증서 첫 발급.** 문제: 지금 떠 있는 옛 nginx(80만, 옛 이미지)는 `/.well-known/`(인증서 확인 길)을 모르고, 새 이미지는 인증서가 있어야 뜹니다. 닭-달걀 문제입니다. 선택지 비교:
+6. **[PC·서버] DNS 자동 고침 설치 + 첫 실행 + `nslookup` 확인** (위 "S22 DNS 자동 고침"의 설치 1~2번[복사·권한·줄 끝 확인], 첫 실행 확인, crontab 줄. 설치 3~4번은 5번에서 이미 했습니다). 첫 실행 확인은 **실제 Cloudflare와의 첫 확인**이라 실패하면 그 절의 실패 대처 표를 봅니다. **인증서 첫 발급 전에** DNS가 지금 EC2의 IP를 가리켜야 하기 때문입니다(인증서 발급 때 Let's Encrypt가 `<사이트주소>`로 이 서버를 찾아옵니다). 지금 IP(`<퍼블릭IP>`)는 AWS 콘솔에서 봅니다. **`nslookup <사이트주소> 1.1.1.1` 이 이 IP를 돌려주지 않으면 7번으로 가지 않습니다**(DNS가 퍼지기 전에 시도하면 실패하고, 실패가 쌓이면 제한이 걸립니다). 이 단계는 사이트를 끄지 않습니다.
+7. **[서버] 인증서 첫 발급.** 문제: 지금 떠 있는 옛 nginx(80만, 옛 이미지)는 `/.well-known/`(인증서 확인 길)을 모르고, 새 이미지는 인증서가 있어야 뜹니다. 닭-달걀 문제입니다. 선택지 비교:
    | 방법 | 장점 | 단점 |
    | --- | --- | --- |
    | A. `certonly --standalone` (옛 web을 잠깐 멈추고 certbot이 80을 직접 씀) | 명령 하나, 설정 변경 없음, 가장 단순 | 몇 분 사이트가 꺼짐(학습용 사이트라 괜찮음) |
@@ -508,20 +570,20 @@ S20 다음 운영 배포입니다. 위 S20 절 중 "처음엔 off"·"가장 위�
    **추천: A.** (B는 80을 쓰는 건 같아서 이득이 없고 D는 자동 갱신이 안 됩니다.) 순서:
    1. `cd ~/board && docker stop board-web` — 80을 비웁니다(여기서부터 사이트 꺼짐. `restart: unless-stopped`라도 손으로 멈춘 건 자동으로 안 켜집니다). **발급을 중간에 포기하면 `docker start board-web`으로 옛 사이트를 되살립니다.**
    2. **연습(--dry-run)**: Let's Encrypt의 시험용 서버로 해 보는 것이라 진짜 인증서도 안 남고 발급 제한도 거의 안 셉니다.
-      `docker compose run --rm -p 80:80 certbot certonly --standalone --dry-run -d board.<도메인> --cert-name board --email <내메일> --agree-tos --no-eff-email`
+      `docker compose run --rm -p 80:80 certbot certonly --standalone --dry-run -d <사이트주소> --cert-name board --email <내메일> --agree-tos --no-eff-email`
       `The dry run was successful.` 가 나와야 합니다. 실패하면 **진짜 발급으로 넘어가지 않고** 원인(DNS·80 열림·보안 그룹)부터 고칩니다.
       (`--staging`으로 진짜 저장하는 연습은 하지 않습니다: 시험용 가짜 인증서가 `board` 이름으로 남아서 진짜 발급 때 꼬입니다.)
    3. **진짜 발급** (한 번만): 같은 명령에서 `--dry-run`만 뺍니다.
-      `docker compose run --rm -p 80:80 certbot certonly --standalone -d board.<도메인> --cert-name board --email <내메일> --agree-tos --no-eff-email`
+      `docker compose run --rm -p 80:80 certbot certonly --standalone -d <사이트주소> --cert-name board --email <내메일> --agree-tos --no-eff-email`
       - `-p 80:80`: certbot 컨테이너가 80을 직접 열어 Let's Encrypt의 확인을 받습니다. `--cert-name board`: 인증서 이름 고정. `--email`은 계정 연락처일 뿐입니다(Let's Encrypt는 2025년에 만료 알림 메일을 끝냈습니다). 만료 확인은 `docker compose run -T --rm certbot certificates`와 `~/board/certbot/renew.log`로 합니다.
    4. 확인: `sudo ls ~/board/certbot/conf/live/board/` 에 `fullchain.pem`, `privkey.pem`이 있어야 합니다. **`sudo` 없이 `ls`하면 폴더가 root 전용(700)이라 `Permission denied`가 나옵니다. 이건 실패가 아닙니다.** 오해해서 다시 발급하면 발급 제한이 걸립니다. sudo가 싫으면 `docker compose run -T --rm certbot certificates`로 확인해도 됩니다.
-   - 이 시점에 사이트는 아직 꺼져 있습니다. 바로 7번으로 갑니다.
-7. **[브라우저]** Actions 탭 -> Deploy -> Run workflow. 새 web 이미지가 인증서를 읽어 443을 열고, app이 `COOKIE_SECURE=true`로 새로 만들어집니다. (자동 DB 백업 -> 배포 -> http 헬스체크가 초록이어야 합니다.)
-8. **[브라우저]** GitHub 저장소 Settings -> Secrets and variables -> Actions -> **Variables** 탭에 `SITE_DOMAIN` = `board.<도메인>` 을 추가합니다. 이때부터 Deploy가 `https://$SITE_DOMAIN/actuator/health`도 같이 확인합니다(없으면 그 단계는 건너뜀). 도메인은 비밀이 아니라서 Secrets가 아닌 Variables입니다. 이건 **자동 갱신 설정(아래)과 확인 목록을 끝낸 뒤**에 해도 됩니다.
+   - 이 시점에 사이트는 아직 꺼져 있습니다. 바로 8번으로 갑니다.
+8. **[브라우저]** Actions 탭 -> Deploy -> Run workflow. 새 web 이미지가 인증서를 읽어 443을 열고, app이 `COOKIE_SECURE=true`로 새로 만들어집니다. (자동 DB 백업 -> 배포 -> http 헬스체크가 초록이어야 합니다.)
+9. **[브라우저]** GitHub 저장소 Settings -> Secrets and variables -> Actions -> **Variables** 탭에 `SITE_DOMAIN` = `<사이트주소>` 를 추가합니다. 이때부터 Deploy가 `https://$SITE_DOMAIN/actuator/health`도 같이 확인합니다(없으면 그 단계는 건너뜀). 도메인은 비밀이 아니라서 Secrets가 아닌 Variables입니다. 이건 **자동 갱신 설정(아래)과 확인 목록을 끝낸 뒤**에 해도 됩니다.
 
 ### 확인 목록 (배포 뒤)
-1. `https://board.<도메인>/actuator/health` 가 200(`UP`)이고 브라우저 주소창에 **인증서 경고가 없음**.
-2. `http://board.<도메인>/` 가 `https://` 로 **301 이동**: PC에서 `curl.exe -sI http://board.<도메인>/` 의 첫 줄 `301`, `Location: https://...`. 반면 `http://<퍼블릭IP>/actuator/health` 는 이동 없이 200(Deploy 헬스체크용).
+1. `https://<사이트주소>/actuator/health` 가 200(`UP`)이고 브라우저 주소창에 **인증서 경고가 없음**.
+2. `http://<사이트주소>/` 가 `https://` 로 **301 이동**: PC에서 `curl.exe -sI http://<사이트주소>/` 의 첫 줄 `301`, `Location: https://...`. 반면 `http://<퍼블릭IP>/actuator/health` 는 이동 없이 200(Deploy 헬스체크용).
 3. 브라우저에서 **로그인**(전환 직후 다시 로그인) -> 새로고침해도 유지. 개발자도구 -> Application -> Cookies에서 `access_token`·`refresh_token`에 **Secure** 체크. **403 + `Invalid CORS request`가 나오면** 서버가 https를 http로 보고 있는 것입니다. compose app의 `SERVER_FORWARD_HEADERS_STRATEGY`를 확인합니다: `docker exec board-app printenv SERVER_FORWARD_HEADERS_STRATEGY` 가 `native`여야 합니다.
 4. **글 작성**이 됨(CSRF 포함, 403이 아님). 403 + `Invalid CORS request`면 위 3번의 `SERVER_FORWARD_HEADERS_STRATEGY`(`native`) 확인.
 5. **1MB 넘는 사진** 올리기가 됨(본문 한도 규칙이 443에도 그대로 적용됐는지).
@@ -535,18 +597,19 @@ Let's Encrypt 인증서는 **90일**짜리입니다. certbot은 만료 30일 전
 - **cron이 없을 수 있습니다**: Amazon Linux 2023에는 cron(`cronie`)이 기본으로 설치돼 있지 않을 수 있습니다(이 서버에서 직접 확인하지 못함). `crontab -l` 이 "command not found"면 설치합니다: `sudo dnf install -y cronie && sudo systemctl enable --now crond`
 - `crontab -e` 로 아래 두 줄을 넣습니다:
   ```
-  # 부팅 5분 뒤(docker가 컨테이너를 다 올린 뒤) 한 번: EC2를 오래 꺼 뒀다 켰을 때 만료된 인증서를 바로 갱신
-  @reboot sleep 300 && ( cd "$HOME/board" && docker compose run -T --rm certbot renew --webroot -w /var/www/certbot && docker exec board-web nginx -s reload ) >> "$HOME/board/certbot/renew.log" 2>&1
+  # 부팅 10분 뒤(docker가 컨테이너를 다 올리고, DDNS가 DNS를 먼저 고친 뒤) 한 번: EC2를 오래 꺼 뒀다 켰을 때 만료된 인증서를 바로 갱신
+  @reboot sleep 600 && ( cd "$HOME/board" && docker compose run -T --rm certbot renew --webroot -w /var/www/certbot && docker exec board-web nginx -s reload ) >> "$HOME/board/certbot/renew.log" 2>&1
   # 켜져 있는 동안은 매일 04:17(서버 시각, UTC)에 한 번
   17 4 * * * ( cd "$HOME/board" && docker compose run -T --rm certbot renew --webroot -w /var/www/certbot && docker exec board-web nginx -s reload ) >> "$HOME/board/certbot/renew.log" 2>&1
   ```
   - `-T`: cron에는 키보드 화면(TTY)이 없어서 필요합니다(없으면 "not a TTY" 오류).
-  - EC2를 쓸 때만 켜므로 매일 줄만으로는 부족합니다. **90일 넘게 꺼 두면 켰을 때 이미 만료**돼 있고(브라우저 경고), `@reboot` 줄이 켜진 지 5분 뒤 갱신합니다. 그 5분 동안은 경고가 보일 수 있습니다.
+  - 위 "S22 DNS 자동 고침"의 DDNS `@reboot` 줄(sleep 20, 최악 약 6분)이 이 `@reboot` 줄(sleep 600)보다 먼저 끝나야 합니다(`crontab -l`에서 위에 둠). 600초로 늘린 이유: DNS가 먼저 새 IP로 맞아야 Let's Encrypt의 인증서 확인이 이 서버로 옵니다.
+  - EC2를 쓸 때만 켜므로 매일 줄만으로는 부족합니다. **90일 넘게 꺼 두면 켰을 때 이미 만료**돼 있고(브라우저 경고), `@reboot` 줄이 켜진 지 10분 뒤 갱신합니다. 그 10분 동안은 경고가 보일 수 있습니다.
 - 확인: `crontab -l`, 며칠 뒤 `tail ~/board/certbot/renew.log`(`not yet due for renewal`이면 정상), 인증서 만료일: `docker compose run -T --rm certbot certificates`.
 
 ### 인증서 발급 제한 주의 (Let's Encrypt)
 - 같은 이름으로 **실패를 반복하면 제한**이 걸려 한동안(최대 1시간~일주일) 발급이 막힙니다. 진짜 발급은 `--dry-run`이 통과한 뒤에 **한 번만** 합니다. 실패하면 원인을 먼저 고치고 다시 하지, 연달아 재시도하지 않습니다.
-- DNS가 퍼지기 전(`nslookup`이 Elastic IP를 안 돌려줌)에는 시도하지 않습니다.
+- DNS가 퍼지기 전(`nslookup <사이트주소> 1.1.1.1`이 지금 EC2 IP를 안 돌려줌)에는 시도하지 않습니다.
 - `--dry-run`은 시험용 서버를 써서 제한이 훨씬 넉넉하지만, 그래도 무한 반복은 피합니다.
 
 ### S22 되돌리기 (문제가 있을 때만)
@@ -559,6 +622,7 @@ HTTPS를 도입한 뒤 문제가 생겨 옛 방식(http 80)으로 돌아가는 �
 5. **[서버]** `docker compose --profile prod pull web && docker compose --profile prod up -d --remove-orphans` — web은 옛 이미지로, app은 새 `COOKIE_SECURE` 값으로 다시 만들어집니다. 그다음 `http://<퍼블릭IP>/actuator/health` 가 UP이고 로그인이 되는지 봅니다.
 6. **[브라우저]** 저장소 Variables에서 `SITE_DOMAIN`을 **지웁니다**(남기면 Deploy의 https 확인 단계가 실패합니다).
 7. **[서버]** `crontab -e` 로 위 "자동 갱신"의 두 줄(`@reboot ...`, `17 4 * * * ...`) 앞에 `#`을 붙여 주석 처리합니다. 옛 compose에는 certbot 서비스가 없어서 그대로 두면 매일 오류가 납니다. 나중에 다시 https로 전환할 때는 `#`을 지워 되살립니다.
+8. **[서버]** DDNS `@reboot` 줄(`cloudflare-ddns.sh`)은 **그대로 둬도 무해**합니다(DNS 레코드만 고치고 사이트·컨테이너엔 영향이 없음). 켤 때 DNS가 새 IP를 따라가므로 오히려 두는 게 편합니다. 완전히 그만두려면 그 줄 앞에 `#`을 붙이고, Cloudflare 토큰도 삭제한 뒤 `.env`의 `CF_*` 세 줄을 지웁니다.
 - HSTS를 넣지 않았으므로 브라우저가 `https://`를 기억해 http를 막지는 않습니다. 다만 주소창이 자동완성으로 `https://`를 시도해 안 열릴 수 있으니 `http://`를 직접 칩니다.
 - **주의**: (a)의 주의 박스와 같습니다. web image 줄을 SHA로 고정해 두면 **다음 Deploy도 옛 web을 받습니다.** 고친 새 `latest`가 올라온 뒤(Actions 초록) `cp docker-compose.yml.bak-s22-new docker-compose.yml` 로 되돌리고 `grep 'image: seokam36' docker-compose.yml` 로 두 줄이 `:latest`인지 확인한 다음 Deploy를 누릅니다.
 
