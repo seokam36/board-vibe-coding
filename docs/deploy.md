@@ -4,7 +4,7 @@
 화면과 API 주소가 같아서 CORS 허용 목록(`CORS_ALLOWED_ORIGINS`)은 EC2 `.env`에 넣지 않아도 됩니다. 단 https 전환(S22) 뒤에도 같은 출처로 인정받으려면 compose app의 `SERVER_FORWARD_HEADERS_STRATEGY: native`(nginx가 넘긴 `X-Forwarded-Proto`를 믿게 함)가 있어야 합니다. 없으면 쓰기 요청이 403(`Invalid CORS request`)입니다.
 
 > **주의 (S22 이후)**: web 이미지에는 443(https) 블록이 있어 서버에 인증서(`~/board/certbot/conf/live/board/`)가 있어야 nginx가 뜹니다. 운영 서버는 2026-11-19에 발급을 마쳐 Deploy 버튼을 평소처럼 써도 됩니다. **서버를 새로 만들거나 `~/board/certbot`을 지웠다면** Deploy 전에 아래 "S22 HTTPS 전환"의 인증서 첫 발급부터 다시 합니다(안 그러면 사이트 전체가 내려감).
-> 직전(S21) web 이미지: `seokam36/demo-web:0dc513f93fbefe64e750ffc65a1f16349729b4ff` — 되돌리기는 아래 "S22 되돌리기".
+> 직전(S22) app·web 이미지: `seokam36/demo:bd6c70b5c3e15762a396403beab491f59811325c`, `seokam36/demo-web:bd6c70b5c3e15762a396403beab491f59811325c` — 되돌리기는 아래 "S23 운영 배포 (2026-11-20)"의 "S23 되돌리기".
 
 ## 자동 배포 (GitHub Actions 버튼)
 이미지는 main에 push하면 CI가 Docker Hub에 올려 둡니다(`latest`). 배포는 아래처럼 버튼으로 합니다.
@@ -660,6 +660,27 @@ Flutter 화면(`flutter_app/`)을 안드로이드 앱(앱 이름 "게시판", ap
 4. 글 안의 바깥 링크를 누르면 폰 브라우저가 열리는지 봅니다.
 5. 뒤로 가기 버튼이 이전 화면으로 가는지(로그아웃·만료 뒤에는 보호 화면으로 돌아가지 않는지) 봅니다.
 - 유학생 인증(허가서 신청)은 운영에서 시험하지 않습니다. 진짜 OCR·개인정보가 오가고 Vision 호출은 하루 30회 상한이 있기 때문입니다.
+
+## S23 운영 배포 (2026-11-20)
+S23(안드로이드 앱)은 Flutter 화면 코드만 바뀌어서 Deploy 버튼으로 운영에 올렸습니다. 커밋 `fe3871c95db20febb3eeb374e84d7e366909f318`, CI(backend·flutter·images)와 Deploy 모두 초록이었습니다.
+- **무엇이 바뀌었나(웹)**: 두 군데입니다. (1) 없는 주소 화면(404)이 상단바와 함께 보입니다(화면 틀 안에 들어옴). (2) 사진 미리보기가 공용 부품으로 바뀌었습니다. 쿠키 보관함·바깥 링크·갤러리·뒤로 가기는 **앱 전용**이라 웹에서는 켜지지 않습니다.
+- **배포 방법**: 버튼만 눌렀습니다. 서버(`src`)·compose·nginx 설정 변경이 없어서(`git diff bd6c70b..fe3871c` 결과가 비어 있음) EC2 `docker-compose.yml` 백업·scp가 필요 없었습니다. compose 파일을 바꿀 때만 백업·scp를 하는 위 "자동 배포"의 규칙대로입니다.
+- **확인한 것(모두 정상)**:
+  1. 웹: 글 목록, 로그인 유지, 없는 주소 화면(상단바와 함께 보임).
+  2. 릴리스 APK(LTE): 목록과 사진.
+  3. 앱 로그인, 껐다 켜도 유지, 16분 뒤 자동 재발급.
+  4. 하이코리아 바깥 링크, 뒤로 가기, 사진 업로드.
+  5. EC2를 켤 때 DNS 자동 고침이 첫 실제 재부팅에서도 정상(몇 분 안에 `https://<사이트주소>`가 열림).
+
+### S23 되돌리기 (문제가 있을 때만)
+- 직전(S22) 이미지: web `seokam36/demo-web:bd6c70b5c3e15762a396403beab491f59811325c`. app은 서버 코드 변경이 없어 **되돌릴 필요가 없습니다**(web만 되돌립니다).
+  1. **[서버]** `cd ~/board && cp docker-compose.yml docker-compose.yml.bak-s23` — 지금 compose 보관(이미 있으면 다른 이름).
+  2. **[서버]** `sed -i 's#image: seokam36/demo-web:latest#image: seokam36/demo-web:bd6c70b5c3e15762a396403beab491f59811325c#' docker-compose.yml` — web 이미지 줄만 바꿉니다.
+  3. **[서버]** `grep 'image: seokam36' docker-compose.yml` — web 줄이 `demo-web:bd6c70b...`이고 app 줄은 그대로인지 확인합니다.
+  4. **[서버]** `docker compose --profile prod pull web && docker compose --profile prod up -d web` — web만 받아서 다시 띄웁니다.
+  5. 브라우저에서 `https://<사이트주소>/` 가 열리는지 봅니다(강력 새로고침).
+- **주의**: 위 "(a) 이전 이미지로 되돌리기"의 주의 박스와 같습니다. web image 줄을 SHA로 고정해 두면 **다음 Deploy도 옛 web을 받습니다.** 고친 새 `latest`가 올라온 뒤(Actions 초록) `cp docker-compose.yml.bak-s23 docker-compose.yml` 로 되돌리고 `grep 'image: seokam36' docker-compose.yml` 로 두 줄이 `:latest`인지 확인한 다음 Deploy를 누릅니다.
+- **앱(APK)**: 서버와 따로입니다. 문제가 앱에만 있으면 이전 APK를 다시 설치합니다(위 "4) 앱 되돌리기").
 
 ## 웹 화면: Flutter로 교체 (S16-n2)
 운영 `web` 이미지가 React에서 **Flutter 웹**(`flutter_app/`)으로 바뀌었습니다. `/v2` 같은 별도 주소 없이 통째로 교체합니다.
