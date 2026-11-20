@@ -8,6 +8,8 @@ import 'api/api_base_url.dart';
 import 'api/api_client.dart';
 import 'api/app_cookies.dart';
 import 'app.dart';
+import 'common/app_external_link.dart';
+import 'common/external_link.dart';
 import 'widgets/config_error_app.dart';
 
 Future<void> main() async {
@@ -36,5 +38,7 @@ Future<void> main() async {
     // 파일 보관함을 못 만들어도 앱은 떠야 한다: 메모리 보관함으로 대신한다 (앱을 끄면 로그인이 풀릴 뿐)
     cookieInterceptors = await createMemoryAppCookieInterceptors();
   }
+  // 앱에는 window.open이 없으니 바깥 링크(하이코리아 등)는 기기 브라우저로 여는 도구로 바꾼다
+  externalLinkOpener = createAppExternalLinkOpener();
   runApp(BoardApp(apiClient: ApiClient(extraInterceptors: cookieInterceptors)));
 }

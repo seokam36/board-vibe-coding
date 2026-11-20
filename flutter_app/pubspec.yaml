@@ -57,6 +57,9 @@ dependencies:
   # 쿠키 파일을 둘 앱 전용 폴더의 경로를 알려 준다
   path_provider: ^2.1.6
 
+  # 앱(안드로이드)에서 하이코리아 같은 바깥 링크를 기기 브라우저로 열려고 필요 (웹은 window.open을 그대로 씀)
+  url_launcher: ^6.3.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
