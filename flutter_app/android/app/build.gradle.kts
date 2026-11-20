@@ -31,7 +31,8 @@ android {
 
     buildTypes {
         release {
-            // 개인 설치용이라 지금은 디버그 키로 서명한다. S23-f에서 다시 본다.
+            // S23-f 결정: 개인 설치용이라 디버그 키로 서명한다(스토어에 낼 때 전용 키를 만든다).
+            // 디버그 키는 PC마다 달라서 릴리스 빌드는 집 PC에서만 한다(다른 PC 것은 덮어 설치가 안 됨).
             signingConfig = signingConfigs.getByName("debug")
         }
     }

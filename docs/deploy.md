@@ -626,6 +626,41 @@ HTTPS를 도입한 뒤 문제가 생겨 옛 방식(http 80)으로 돌아가는 �
 - HSTS를 넣지 않았으므로 브라우저가 `https://`를 기억해 http를 막지는 않습니다. 다만 주소창이 자동완성으로 `https://`를 시도해 안 열릴 수 있으니 `http://`를 직접 칩니다.
 - **주의**: (a)의 주의 박스와 같습니다. web image 줄을 SHA로 고정해 두면 **다음 Deploy도 옛 web을 받습니다.** 고친 새 `latest`가 올라온 뒤(Actions 초록) `cp docker-compose.yml.bak-s22-new docker-compose.yml` 로 되돌리고 `grep 'image: seokam36' docker-compose.yml` 로 두 줄이 `:latest`인지 확인한 다음 Deploy를 누릅니다.
 
+## 안드로이드 앱 릴리스 빌드·설치 (S23)
+Flutter 화면(`flutter_app/`)을 안드로이드 앱(앱 이름 "게시판", applicationId `com.kampus.board`)으로도 만들었습니다. 앱은 서버에 올리는 것이 아니라 **내 PC에서 APK 파일을 만들어 폰에 직접 설치**합니다(Play 스토어 등록 없음). 그래서 Deploy 버튼·Docker와 상관없고, 서버 쪽 변경도 없습니다.
+- 앱은 서버가 켜져 있어야 씁니다. 평소 EC2를 꺼 두므로, 쓰기 전에 EC2를 켜고 1~5분 DNS를 기다립니다(위 "자동 배포" 4번, "S22 DNS 자동 고침" 참고). 서버가 꺼져 있으면 앱은 네트워크 오류만 보여 줍니다.
+- 서버 주소는 앱 안에 **빌드할 때 박아 넣습니다**(`--dart-define=API_BASE_URL`, 코드는 `flutter_app/lib/api/api_base_url.dart`). 웹과 달리 같은 주소의 `/api`로 자동 연결되지 않기 때문입니다.
+
+### 1) 릴리스 빌드 (집 PC, flutter_app 폴더에서)
+- `flutter build apk --release --dart-define=API_BASE_URL=https://<사이트주소>/api`
+  - `<사이트주소>`는 실제 사이트 주소(예: `kampus.<도메인>`)로 바꿉니다. 꺾쇠(`<` `>`)는 지웁니다. 실제 주소는 이 파일에 적지 않습니다.
+  - 규칙: `https://`로 시작(릴리스는 https만 됩니다), 맨 끝에 `/`를 붙이지 않습니다, 끝은 `/api`입니다.
+  - 주소를 틀리게 넣으면 앱이 서버에 붙지 않고 "설정 오류" 안내 화면을 띄웁니다. 그러면 주소를 고쳐 다시 빌드합니다.
+- 빌드가 끝나면 Gradle 백그라운드 프로그램(데몬)이 메모리를 잡고 남아 있으니 정리합니다: `flutter_app/android/gradlew.bat --stop` (PowerShell에서는 `.\android\gradlew.bat --stop`, flutter_app 폴더 기준)
+- 결과 파일: `flutter_app/build/app/outputs/flutter-apk/app-release.apk` (크기는 대략 50MB대). `/build/`는 `.gitignore`에 있어 커밋되지 않습니다.
+
+### 2) 폰에 설치 (두 방법 중 하나)
+- **(a) USB + adb**: 폰에서 개발자 옵션 -> USB 디버깅을 켜고 USB로 연결한 뒤 `C:\Users\seoka\AppData\Local\Android\Sdk\platform-tools\adb.exe install -r <APK 전체 경로>`. `-r`은 이미 설치된 앱 위에 덮어 설치(로그인 기록 유지)하는 옵션입니다.
+  - 삼성 폰은 설정의 "자동 차단"(Auto Blocker)이 켜져 있으면 USB 디버깅이 잠겨 있습니다. 끄고 시도합니다.
+- **(b) 파일로 설치**: APK 파일을 폰으로 복사(USB 파일 전송, 클라우드 등)하고 폰의 파일 앱에서 눌러 설치합니다. "출처를 알 수 없는 앱" 설치 허용이 필요하고, Play 프로텍트 경고가 뜰 수 있습니다(직접 만든 앱이라 뜨는 정상 경고입니다. "그래도 설치"를 고릅니다).
+
+### 3) 주의
+- **릴리스 빌드는 집 PC에서만 합니다.** 지금 릴리스 서명은 디버그 키(`android/app/build.gradle.kts`)인데, 디버그 키는 PC마다 달라서 다른 PC에서 만든 APK는 폰에 이미 있는 앱 위에 덮어 설치되지 않습니다(`INSTALL_FAILED_UPDATE_INCOMPATIBLE`). 사용자 폴더 이름이 영문인 집 PC에서 빌드합니다(안드로이드 빌드 환경은 `docs/handoff.md`의 "안드로이드 빌드 환경").
+- 덮어 설치가 위 오류로 안 되면(집 PC 포맷 등으로 키가 바뀐 경우도 같음) 폰에서 기존 앱을 삭제하고 새로 설치합니다. 로그인만 다시 하면 됩니다(데이터는 서버에 있음).
+
+### 4) 앱 되돌리기
+- 이전 버전 APK 파일이 남아 있으면 다시 설치합니다(같은 PC·같은 키로 만든 것이어야 덮어 설치됩니다. 안 되면 삭제 후 설치).
+- 개발용으로 잠깐 쓸 때는 USB로 연결해 `flutter run`으로 올립니다(명령은 CLAUDE.md의 "안드로이드 앱(개발)").
+- 앱은 서버 배포와 따로라서, 서버를 되돌려도 앱은 그대로입니다(S22 되돌리기 등과 무관).
+
+### 5) 운영 확인 목록 (설치 뒤, EC2를 켜 둔 상태에서)
+1. Wi-Fi를 끄고 LTE(모바일 데이터)에서 글 목록과 중고 글 사진이 보이는지 봅니다.
+2. 로그인한 뒤 앱을 완전히 닫았다 켜도 로그인이 유지되는지 봅니다.
+3. 로그인 후 16분쯤 지나서(접근 토큰 만료 후) 목록을 열어도 로그아웃되지 않고 재발급으로 이어지는지 봅니다.
+4. 글 안의 바깥 링크를 누르면 폰 브라우저가 열리는지 봅니다.
+5. 뒤로 가기 버튼이 이전 화면으로 가는지(로그아웃·만료 뒤에는 보호 화면으로 돌아가지 않는지) 봅니다.
+- 유학생 인증(허가서 신청)은 운영에서 시험하지 않습니다. 진짜 OCR·개인정보가 오가고 Vision 호출은 하루 30회 상한이 있기 때문입니다.
+
 ## 웹 화면: Flutter로 교체 (S16-n2)
 운영 `web` 이미지가 React에서 **Flutter 웹**(`flutter_app/`)으로 바뀌었습니다. `/v2` 같은 별도 주소 없이 통째로 교체합니다.
 - 이미지 이름은 그대로 `seokam36/demo-web`(`:latest`, `:<커밋 SHA>`)이라 **EC2의 `docker-compose.yml`을 바꿀 필요가 없습니다**(포트 80, 볼륨 없음, healthcheck 없음 - Flutter 이미지와 그대로 맞음. Deploy 워크플로의 헬스체크는 `/actuator/health`를 nginx 경유로 부르는데 Flutter nginx.conf에도 같은 블록이 있습니다).
