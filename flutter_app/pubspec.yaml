@@ -48,6 +48,15 @@ dependencies:
   # 브라우저의 document.cookie를 읽으려고 필요 (XSRF-TOKEN 쿠키)
   web: ^1.1.2
 
+  # 앱(안드로이드)용 쿠키 보관함: 브라우저가 없어서 로그인 쿠키를 직접 저장해 둔다
+  cookie_jar: ^4.0.9
+
+  # 쿠키 보관함을 dio 요청·응답에 끼워 주는 인터셉터
+  dio_cookie_manager: ^3.5.0
+
+  # 쿠키 파일을 둘 앱 전용 폴더의 경로를 알려 준다
+  path_provider: ^2.1.6
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

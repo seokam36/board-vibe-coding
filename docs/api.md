@@ -13,7 +13,7 @@
 
 S4-a부터 Spring Security가 켜져 있어서, **POST/PUT/DELETE는 `X-XSRF-TOKEN` 헤더가 없으면 `403`** 이다 (GET은 필요 없음).
 1. 앱 시작 시 `GET /csrf`를 한 번 호출하면 `XSRF-TOKEN` 쿠키가 설정된다.
-2. 이후 POST/PUT/DELETE마다 그 쿠키 값을 `X-XSRF-TOKEN` 헤더에 실어 보낸다 (axios는 같은 주소 요청에서 자동으로 해 준다).
+2. 이후 POST/PUT/DELETE마다 그 쿠키 값을 `X-XSRF-TOKEN` 헤더에 실어 보낸다 (axios는 같은 주소 요청에서 자동으로 해 준다). 안드로이드 앱은 브라우저가 없어서 쿠키 보관함(cookie_jar)이 쿠키 저장·전송을 대신하고, 앱 코드가 보관한 `XSRF-TOKEN` 쿠키 값을 같은 헤더에 옮겨 싣는다.
 
 서버는 세션(`JSESSIONID`)을 만들지 않는다. 로그인이 필요한 경로는 인증 없이 부르면 `401`이다 (허용 목록 밖의 없는 경로도 404가 아니라 401).
 글 API는 **목록·단건 조회(GET)만 로그인 없이** 쓸 수 있다. 작성·수정·삭제(POST/PUT/DELETE)는 로그인(`access_token` 쿠키)이 필요하고, 토큰이 없거나 만료·변조되면 `401`이다.
@@ -795,7 +795,7 @@ id 오름차순(오래된 댓글이 먼저). 페이징 없음. 댓글이 없으�
 
 로그인 없이 호출 가능하지만 CSRF 헤더(`X-XSRF-TOKEN`)는 필요하다.
 성공하면 액세스 토큰(JWT, HS256)을 `access_token` 쿠키로 내려준다. 쿠키: `HttpOnly; Path=/; SameSite=Lax; Max-Age=900` (HTTPS 환경에서는 `Secure`도 붙음). 세션(JSESSIONID)은 만들지 않는다.
-리프레시 토큰도 `refresh_token` 쿠키로 함께 내려준다. 값은 랜덤 문자열(서버 Redis에는 해시만 저장), 쿠키: `HttpOnly; Path=/api/auth; SameSite=Lax; Max-Age=604800`(7일, HTTPS 환경에서는 `Secure`도 붙음). 경로는 브라우저 기준이며 설정 `app.cookie.refresh-path`로 바꾼다. 여러 기기에서 동시에 로그인할 수 있다(로그인마다 별도 토큰).
+리프레시 토큰도 `refresh_token` 쿠키로 함께 내려준다. 값은 랜덤 문자열(서버 Redis에는 해시만 저장), 쿠키: `HttpOnly; Path=/api/auth; SameSite=Lax; Max-Age=604800`(7일, HTTPS 환경에서는 `Secure`도 붙음). 경로는 브라우저 기준이며 설정 `app.cookie.refresh-path`로 바꾼다. 여러 기기에서 동시에 로그인할 수 있다(로그인마다 별도 토큰). 앱은 쿠키 보관함(cookie_jar)이 브라우저 대신 같은 일(저장, Path에 맞춰 보내기)을 한다. 앱이 `/api` 없이 백엔드에 직통(`http://localhost:8080`)으로 붙는 로컬 시험에서는 앱이 보내는 경로가 `/auth/...`라서 쿠키 Path가 맞지 않으므로, bootRun 때 `APP_COOKIE_REFRESH_PATH=/auth` 환경변수가 필요하다.
 토큰 클레임: `sub`=사용자 id, `username`, `role`(`USER`|`ADMIN`), `iat`, `exp`(발급 15분 후). `role`이 없는 옛 토큰은 `USER`로 취급한다.
 만료되거나 변조된 `access_token` 쿠키가 붙어 와도 이 API는 정상 동작한다.
 

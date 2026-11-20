@@ -13,11 +13,12 @@ const fakeBaseUrl = 'http://fake.test/api';
 
 // 가짜 응답 하나. error가 있으면 응답 대신 그 에러(네트워크 끊김 등)를 던진다.
 class FakeReply {
-  FakeReply(this.status, [this.body, this.gate]) : error = null;
+  FakeReply(this.status, [this.body, this.gate, this.headers = const {}]) : error = null;
   FakeReply.networkError()
     : status = 0,
       body = null,
       gate = null,
+      headers = const {},
       error = DioExceptionType.connectionError;
 
   // 제한 시간 초과 (응답 없음). 사진 올리기의 시간 초과 문구 시험용
@@ -25,9 +26,11 @@ class FakeReply {
     : status = 0,
       body = null,
       gate = null,
+      headers = const {},
       error = DioExceptionType.receiveTimeout;
 
   final int status;
+  final Map<String, List<String>> headers; // 응답 헤더 (Set-Cookie 등, 선택)
   final Object? body; // JSON으로 바꿔서 보낼 값
   final Completer<void>? gate; // 있으면 이게 완료될 때까지 응답을 붙잡아 둔다 (요청을 겹치게 만들 때)
   final DioExceptionType? error;
@@ -90,6 +93,7 @@ class FakeAdapter implements HttpClientAdapter {
       reply.status,
       headers: {
         Headers.contentTypeHeader: ['application/json'],
+        ...reply.headers,
       },
     );
   }

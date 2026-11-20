@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ 백업·기기 이동 규칙: 로그인 쿠키 파일을 새 폰으로 옮기지 않는다.
+     쿠키는 앱 전용 폴더(getApplicationSupportDirectory = files 폴더) 아래 cookies 폴더에 있다
+     (lib/api/app_cookies_io.dart 와 같은 이름). 이 앱은 따로 백업할 데이터가 없어서 나머지도 같이 제외한다. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="cookies"/>
+        <exclude domain="file" path="."/>
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="cookies"/>
+        <exclude domain="file" path="."/>
+    </device-transfer>
+</data-extraction-rules>

@@ -9,14 +9,17 @@ import 'cookie_reader.dart';
 // 서버(백엔드) 호출 담당 (React의 api.ts). 주소 값은 api_base_url.dart에서 정하고, 여기서는 그걸 받아 쓴다.
 // 웹은 '/api'(같은 출처)라서 로컬은 개발 서버 프록시가, 배포는 nginx가 백엔드로 전달한다.
 // 앱은 빌드 때 --dart-define=API_BASE_URL=https://사이트주소/api 로 절대 주소를 넣는다.
-// 웹은 같은 출처라서 withCredentials 없이도 쿠키가 자동으로 오간다(앱의 쿠키 보관은 다음 단계 S23-c).
+// 웹은 같은 출처라서 withCredentials 없이도 쿠키가 자동으로 오간다.
 // 다만 XSRF-TOKEN 쿠키를 X-XSRF-TOKEN 헤더로 옮기는 건 dio가 안 해 주므로 아래 인터셉터가 직접 한다.
+// 앱은 브라우저가 없어서, main.dart가 쿠키 보관함 인터셉터(app_cookies.dart)를 extraInterceptors로 넣어 준다.
+// 그 인터셉터들은 이 클래스의 인터셉터 "뒤에" 붙어서, 보관함이 붙인 Cookie 헤더에서 XSRF 값을 헤더로 옮긴다.
 class ApiClient {
   ApiClient({
     HttpClientAdapter? adapter, // 테스트에서 가짜 서버를 끼우려고 받는다. 없으면 웹 기본 어댑터
     CookieReader? cookieReader, // 테스트에서 가짜 쿠키를 주려고 받는다
     String baseUrl = apiBaseUrl,
     Duration refreshTimeout = const Duration(seconds: 10),
+    List<Interceptor> extraInterceptors = const [], // 앱의 쿠키 보관 인터셉터 같은 추가분 (두 Dio 모두에 붙는다)
   }) : _cookies = cookieReader ?? createCookieReader() {
     dio = Dio(BaseOptions(baseUrl: baseUrl));
     // 재발급 전용 Dio: 인터셉터(401 처리)가 없다. 재발급 요청이 또 401을 받아 재발급을 부르는 순환·교착을 막으려고.
@@ -47,6 +50,10 @@ class ApiClient {
         onError: _onError,
       ),
     );
+    // 추가 인터셉터는 맨 뒤에: 앞의 _attachXsrf가 헤더를 지운 뒤에 쿠키 보관함이 일하도록.
+    // 같은 인스턴스를 두 Dio가 함께 쓴다 (재발급 응답의 새 쿠키도 같은 보관함에 저장돼야 하니까).
+    _refreshDio.interceptors.addAll(extraInterceptors);
+    dio.interceptors.addAll(extraInterceptors);
   }
 
   // 앱 전체가 쓰는 Dio (화면 코드는 이걸로 요청한다)
@@ -58,8 +65,11 @@ class ApiClient {
   void Function(AuthUser user)? onRefreshed; // 재발급 성공: 최신 사용자 정보
   void Function()? onExpired; // 재발급이 401: 로그인이 진짜 풀림
 
-  static const _xsrfCookie = 'XSRF-TOKEN';
-  static const _xsrfHeader = 'X-XSRF-TOKEN';
+  // 앱 쿠키 보관함(app_cookies_io.dart)도 같은 이름을 쓰도록 공개한다
+  static const xsrfCookieName = 'XSRF-TOKEN';
+  static const xsrfHeaderName = 'X-XSRF-TOKEN';
+  static const _xsrfCookie = xsrfCookieName;
+  static const _xsrfHeader = xsrfHeaderName;
   static const _retryKey = 'retried'; // 재시도 표시: 이미 한 번 다시 보낸 요청이라는 뜻
   // 요청 extra에 FormData 생성 함수(FormData Function())를 넣을 때 쓰는 이름. 401 재시도 때 본문을 새로 만든다.
   // 주의: FormData를 보내는 요청은 재시도용 생성 함수가 필수다 (FormData는 한 번 보내면 소진돼서 같은 것을 다시 못 보낸다).
@@ -115,6 +125,12 @@ class ApiClient {
           // 그래서 호출한 쪽이 extra에 "FormData를 새로 만드는 함수"를 넣어 두면 다시 보내기 직전에 새로 만들어 바꿔 끼운다
           final factory = original.extra[formDataFactoryKey];
           if (factory is FormData Function()) original.data = factory();
+          // 앱: 첫 시도 때 보관함이 붙인 옛 Cookie 헤더(만료된 access_token)를 지우고 다시 보낸다.
+          // dio_cookie_manager 3.5.0은 같은 요청을 재사용해도 자기가 붙인 헤더를 스스로 새로 만들어서
+          // 라이브러리도 처리하지만, 버전이 바뀌어도 안전하도록 여기서도 한 번 더 지우는 이중 방어다.
+          // (웹은 Cookie 헤더를 직접 안 넣어서 영향 없음)
+          original.headers.remove('cookie');
+          original.headers.remove('Cookie');
           // 새 쿠키가 생겼으니 원래 요청을 다시 보낸다 (성공하면 그 응답이 호출한 쪽에 간다)
           dio.fetch<dynamic>(original).then(
             handler.resolve,
