@@ -53,7 +53,8 @@ final _protectedPaths = <RegExp>[
   RegExp(r'^/chat$'), // S17-d: 중고 글 챗봇
 ];
 
-bool _isProtected(String normalizedPath) =>
+// 이 경로(normalizePath로 정리한 것)가 로그인해야 볼 수 있는 주소인가. 문지기와 앱 뒤로 가기 기록 정리가 같이 쓴다.
+bool isProtectedPath(String normalizedPath) =>
     _protectedPaths.any((p) => p.hasMatch(normalizedPath));
 
 // 화면 전환을 "즉시"로 만드는 헬퍼.
@@ -79,7 +80,7 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
       authState.clearExpiredIfPathChanged(path);
       // 시작 확인(/auth/me)이 끝나기 전엔 로그인 여부를 모르니 판단을 미룬다 (끝나면 알림이 와서 다시 돈다)
       if (authState.loading) return null;
-      if (!_isProtected(path)) return null;
+      if (!isProtectedPath(path)) return null;
       // 로그인해 있다가 재발급 실패로 풀린 "그 화면"은 입력 내용을 지키려고 그대로 둔다
       // (화면 안에서 401을 받으면 "다시 로그인해 주세요" 안내가 뜬다). 다른 경로면 expiredPath와 달라 /login 으로 간다.
       if (authState.user == null && authState.expiredPath != path) return '/login';
@@ -282,11 +283,20 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
             caseSensitive: false,
             pageBuilder: (context, state) => _page(state, const ChatPage()),
           ),
+          // 위 주소에 하나도 안 맞는 "그 밖의 모든 주소"는 404 화면 (상단바는 똑같이 보인다).
+          // 반드시 맨 마지막에 둔다(앞에서 먼저 맞는 주소가 이긴다).
+          // errorPageBuilder 대신 ShellRoute 안의 라우트로 둔 이유: 에러 화면은 go_router의 네비게이터 밖이라
+          // 앱 뒤로 가기(popRoute)가 거기서 터졌다. 이렇게 하면 다른 화면과 똑같이 AppShell 안에서 뒤로 가기가 돈다.
+          GoRoute(
+            path: '/:rest(.*)',
+            caseSensitive: false,
+            pageBuilder: (context, state) => _page(state, const NotFoundPage()),
+          ),
         ],
       ),
     ],
-    // 위 주소에 없으면 404 화면 (상단바는 똑같이 보인다)
-    // errorBuilder도 MaterialPage를 만들므로 errorPageBuilder로 즉시 전환 페이지를 쓴다
+    // 안전망: 위의 "그 밖의 모든 주소" 라우트가 주소 불일치를 전부 받으므로, 여기로 오는 건 go_router 내부 오류뿐이다.
+    // 이 화면은 go_router의 네비게이터 밖이라 앱 뒤로 가기(방문 기록)를 처리하지 못한다(한계).
     errorPageBuilder: (context, state) => _page(state, const AppShell(child: NotFoundPage())),
   );
 }

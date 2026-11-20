@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import 'api/api_client.dart';
 import 'auth/auth_state.dart';
+import 'common/app_history.dart';
 import 'messages/unread_store.dart';
 import 'router.dart';
 import 'site_name.dart';
@@ -17,7 +18,18 @@ import 'widgets/page_frame.dart';
 // 앱 전체의 뼈대. 서버 통로(ApiClient)와 로그인 상태(AuthState)를 만들어 앱 전체에 나눠 주고,
 // 주소에 따라 화면을 바꾸는 라우터를 연결한다.
 class BoardApp extends StatefulWidget {
-  const BoardApp({super.key, this.initialLocation = '/', this.apiClient, this.authState, this.now});
+  const BoardApp({
+    super.key,
+    this.initialLocation = '/',
+    this.apiClient,
+    this.authState,
+    this.now,
+    this.enableAppBack = false,
+  });
+
+  // 앱(안드로이드) 전용 스위치: 켜면 방문 기록을 적고 기기의 뒤로 가기를 받아 한 칸 앞 화면으로 보낸다.
+  // 웹은 브라우저가 뒤로 가기를 맡으니 꺼 둔다(기본값).
+  final bool enableAppBack;
 
   // 테스트에서 "지금 시각"을 고정하려고 받는다(비자 일정의 서울 오늘 계산용). 없으면 진짜 지금.
   final DateTime Function()? now;
@@ -66,8 +78,30 @@ class _BoardAppState extends State<BoardApp> {
     _visaPlan = VisaPlanStore(auth: _auth, now: widget.now);
     // 안 읽은 쪽지 수 보관소: 로그인 회원이 바뀔 때, 그리고 화면 경로가 바뀔 때마다 숫자를 다시 받는다
     _unread = UnreadStore(auth: _auth);
+    _history = AppHistory(enabled: widget.enableAppBack);
+    _loggedIn = _auth.user != null;
     _router.routerDelegate.addListener(_onRouteChanged);
     _onRouteChanged(); // 지금 경로를 기억해 둔다 (첫 경로는 새로 받는 계기가 아니다)
+    _auth.addListener(_onAuthChanged);
+  }
+
+  // 앱 뒤로 가기용 방문 기록 (앱 모드가 꺼져 있으면 아무것도 안 한다)
+  late final AppHistory _history;
+  bool _loggedIn = false; // 마지막으로 본 로그인 여부 (바뀐 순간을 알아채려고)
+
+  // 지금 라우터가 가리키는 전체 주소 (쿼리 포함)
+  String _currentLocation() => _router.routerDelegate.currentConfiguration.uri.toString();
+
+  // 로그인 여부가 바뀌면 방문 기록을 비운다 (로그아웃 뒤 뒤로 가기로 보호 화면에 못 가게, 로그인 직후 뒤로 가기는 바로 앱 밖).
+  // 문지기가 /login 으로 바꾸는 이동이 같은 때 일어나므로, 그게 끝난 뒤(다음 턴)에 지금 주소 하나만 남긴다.
+  void _onAuthChanged() {
+    if (!widget.enableAppBack) return; // 앱 모드가 아니면 할 일 없음 (웹·기존 테스트엔 타이머도 안 만든다)
+    final now = _auth.user != null;
+    if (now == _loggedIn) return;
+    _loggedIn = now;
+    Future<void>.delayed(Duration.zero, () {
+      if (mounted) _history.reset(_currentLocation());
+    });
   }
 
   // 라우터가 주소를 확정할 때마다 불린다. 경로(쿼리 뺀 주소)를 보관소에 알려 주면 이전과 다를 때만 다시 받는다.
@@ -76,12 +110,23 @@ class _BoardAppState extends State<BoardApp> {
     final path = _router.routerDelegate.currentConfiguration.uri.path;
     if (path.isEmpty) return; // 아직 첫 주소가 안 정해진 상태
     _unread.onPathChanged(path);
+    final here = _currentLocation();
+    _history.record(here); // 앱 뒤로 가기용 방문 기록 (앱 모드일 때만 적힌다)
+    // 비로그인인데 기록에 "지금 화면이 아닌 보호 주소"가 남아 있으면 뺀다.
+    // (세션이 풀린 보호 화면을 떠나는 순간 정리 → 뒤로 가기로 거기 돌아가려다 문지기에 튕기며 헛도는 일을 막는다)
+    if (_auth.user == null) {
+      _history.removeWhere(
+        (location) => location != here && isProtectedPath(normalizePath(Uri.parse(location).path)),
+      );
+    }
   }
 
   @override
   void dispose() {
     // 우리가 만든 것만 정리한다 (밖에서 넣어 준 건 넣은 쪽이 정리)
     _router.routerDelegate.removeListener(_onRouteChanged);
+    _auth.removeListener(_onAuthChanged);
+    _history.dispose();
     _unread.dispose();
     _router.dispose(); // 로그인 상태 구독을 먼저 끊고
     _visaBanner.dispose();
@@ -98,6 +143,7 @@ class _BoardAppState extends State<BoardApp> {
         ChangeNotifierProvider<AuthState>.value(value: _auth),
         ChangeNotifierProvider<VisaPlanStore>.value(value: _visaPlan),
         ChangeNotifierProvider<UnreadStore>.value(value: _unread), // 상단바 "쪽지 (n)"
+        ChangeNotifierProvider<AppHistory>.value(value: _history), // 앱 뒤로 가기 (AppShell이 쓴다)
         // 이번 화면에서 닫은 비자 띠 (화면을 옮겨도 유지)
         ChangeNotifierProvider<VisaBannerState>.value(value: _visaBanner),
       ],

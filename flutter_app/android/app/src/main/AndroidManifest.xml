@@ -5,9 +5,13 @@
     <!-- 로그인 쿠키 파일(리프레시 토큰)이 새 폰으로 따라가지 않게 한다.
          allowBackup=false: Android 11 이하의 백업을 막는다. Android 12+에서는 클라우드 백업만 막고
          기기 간 이동(삼성 Smart Switch 등)은 못 막아서, dataExtractionRules(res/xml)로 둘 다 제외한다. -->
+    <!-- enableOnBackInvokedCallback=true: 안드로이드 13+에서 예측형 뒤로 가기를 켠다.
+         Flutter가 "뒤로 가기를 받겠다"고 알린 때만 앱이 뒤로 가기를 받는다 (PopScope가 그 알림을 한다).
+         (앱의 방문 기록 뒤로 가기: lib/common/app_history.dart, 화면 틀 AppShell의 PopScope) -->
     <application
         android:label="게시판"
         android:name="${applicationName}"
+        android:enableOnBackInvokedCallback="true"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher">

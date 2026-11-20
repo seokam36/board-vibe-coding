@@ -59,7 +59,7 @@
 - **review 에이전트는 git을 못 돌린다** → 비교는 메인이 `git show HEAD:경로`로.
 - **Notion**: 표 칸에 `|` 금지. 표 줄만 따로 update_content로 넣으면 표 밖 글자가 됨(머리 줄과 붙여서 넣기). 토글은 `<toggle>`(`<details>`는 변환 경고). ASCII 그림은 ```text.
 - **IDE(VS Code Java)의 "getId() undefined"·"log cannot be resolved" 진단은 무시**(Lombok).
-- **Flutter 작업 메모**: 이동은 `context.go`만, FormData는 `Options(extra: {ApiClient.formDataFactoryKey: make})`, 파일 고르기는 `photoPicker`, 허가서 화면은 `lib/permit/`, 상단바는 `lib/widgets/nav_bar.dart`(메뉴 순서 테스트 `test/nav_bar_test.dart`). e2e는 `flutter build web --web-content-hash` 뒤 `flutter_app/e2e`에서 `npm test`. 로컬 `.env`에 `CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5175`.
+- **Flutter 작업 메모**: 이동은 `context.go`만, FormData는 `Options(extra: {ApiClient.formDataFactoryKey: make})`, 파일 고르기는 `photoPicker`, 허가서 화면은 `lib/permit/`, 상단바는 `lib/widgets/nav_bar.dart`(메뉴 순서 테스트 `test/nav_bar_test.dart`), 앱 뒤로 가기는 `lib/common/app_history.dart` 방문 기록(BoardApp 앱 모드, AppShell PopScope). e2e는 `flutter build web --web-content-hash` 뒤 `flutter_app/e2e`에서 `npm test`. 로컬 `.env`에 `CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5175`.
 - **제미나이(S18)**: 로컬은 `.env`에 `GEMINI_API_KEY` + `LLM_MODE=gemini`. 커밋 전 `git diff --cached | grep -c 'x-goog-api-key\|AIza\|AQ\.'`가 0.
 - **compose가 바뀌는 배포는 Deploy 버튼만으로 안 됨**: compose 백업·scp 먼저(deploy.md). 새 비밀 값은 서버 `.env`에 nano로.
 - **로컬 LLM(S17)**: 실제 Ollama 테스트는 `OLLAMA_LIVE_TEST=true`. 백엔드 테스트는 Docker Desktop 필요. Spring AI 재시도 함정 주의.

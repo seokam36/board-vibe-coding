@@ -44,5 +44,11 @@ Future<void> main() async {
   externalLinkOpener = createAppExternalLinkOpener();
   // 앱에는 <input type=file>이 없으니 사진 고르기는 갤러리(image_picker)로 바꾼다
   photoPicker = createAppPhotoPicker();
-  runApp(BoardApp(apiClient: ApiClient(extraInterceptors: cookieInterceptors)));
+  // 앱에는 브라우저의 뒤로 가기가 없으니 방문 기록으로 기기의 뒤로 가기를 받는다 (앱 모드 스위치 켬)
+  runApp(
+    BoardApp(
+      apiClient: ApiClient(extraInterceptors: cookieInterceptors),
+      enableAppBack: true,
+    ),
+  );
 }
