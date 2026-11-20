@@ -9,6 +9,8 @@ import 'api/api_client.dart';
 import 'api/app_cookies.dart';
 import 'app.dart';
 import 'common/app_external_link.dart';
+import 'common/app_photo_picker.dart';
+import 'common/file_picker.dart' show photoPicker;
 import 'common/external_link.dart';
 import 'widgets/config_error_app.dart';
 
@@ -40,5 +42,7 @@ Future<void> main() async {
   }
   // 앱에는 window.open이 없으니 바깥 링크(하이코리아 등)는 기기 브라우저로 여는 도구로 바꾼다
   externalLinkOpener = createAppExternalLinkOpener();
+  // 앱에는 <input type=file>이 없으니 사진 고르기는 갤러리(image_picker)로 바꾼다
+  photoPicker = createAppPhotoPicker();
   runApp(BoardApp(apiClient: ApiClient(extraInterceptors: cookieInterceptors)));
 }

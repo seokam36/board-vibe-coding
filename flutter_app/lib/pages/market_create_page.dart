@@ -121,7 +121,10 @@ class _MarketCreatePageState extends State<MarketCreatePage> {
           const PageTitle('중고·나눔 글쓰기'),
           // 사진 미리보기·고르기 영역 (글 저장 + 사진 올리는 동안 잠금)
           MarketPhotoPicker(
-            items: [for (final p in _picked) PhotoTile(key: p.key, src: p.photo.previewUrl)],
+            items: [
+              for (final p in _picked)
+                PhotoTile(key: p.key, src: p.photo.previewUrl, bytes: p.photo.previewBytes),
+            ],
             disabled: _saving,
             progress: _progress,
             error: null,

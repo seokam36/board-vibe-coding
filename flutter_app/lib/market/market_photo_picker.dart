@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:material_ui/material_ui.dart';
 
 import '../common/file_picker.dart';
+import '../common/picked_photo_image.dart';
 import '../errors/error_messages.dart';
 import '../theme/app_colors.dart';
 import '../widgets/notice.dart';
@@ -12,10 +15,11 @@ import 'photo_upload.dart';
 
 // 사진 한 칸에 보여 줄 것 (src는 썸네일 주소: 수정 화면은 서버 썸네일, 글쓰기 화면은 미리보기 blob 주소)
 class PhotoTile {
-  const PhotoTile({required this.key, required this.src});
+  const PhotoTile({required this.key, required this.src, this.bytes});
 
   final Object key;
   final String src;
+  final Uint8List? bytes; // 앱은 blob 주소가 없어서 내용(바이트)으로 보여 준다. 있으면 src보다 먼저 쓴다
 }
 
 // 글쓰기·수정 화면 공용 사진 영역 (React의 MarketPhotoPicker).
@@ -91,6 +95,7 @@ class _MarketPhotoPickerState extends State<MarketPhotoPicker> {
                       key: ValueKey('photo-item-${items[i].key}'),
                       number: i + 1,
                       src: items[i].src,
+                      bytes: items[i].bytes,
                       removeLabel: widget.removeLabel,
                       disabled: widget.disabled,
                       onRemove: () => widget.onRemove(items[i].key),
@@ -130,6 +135,7 @@ class _PhotoItem extends StatelessWidget {
     super.key,
     required this.number,
     required this.src,
+    this.bytes,
     required this.removeLabel,
     required this.disabled,
     required this.onRemove,
@@ -137,6 +143,7 @@ class _PhotoItem extends StatelessWidget {
 
   final int number;
   final String src;
+  final Uint8List? bytes;
   final String removeLabel;
   final bool disabled;
   final VoidCallback onRemove;
@@ -162,15 +169,15 @@ class _PhotoItem extends StatelessWidget {
                   height: size,
                   child: ColoredBox(
                     color: AppColors.hover,
-                    child: Image.network(
-                      src,
+                    // 바이트가 있으면(앱) 메모리 그림, 없으면(웹·서버 썸네일) 주소로 불러온다.
+                    // 72px 칸에 원본 크기 그대로 풀면 큰 사진 10장에 메모리를 많이 쓴다.
+                    // 칸 크기(화면 배율 반영)로 줄여서 푼다. 가로만 줘서 사진 비율은 그대로 지킨다(둘 다 주면 찌그러짐)
+                    child: PickedPhotoImage(
+                      bytes: bytes,
+                      url: src,
                       width: size,
                       height: size,
-                      fit: BoxFit.cover,
-                      // 72px 칸에 원본 크기 그대로 풀면 큰 사진 10장에 메모리를 많이 쓴다.
-                      // 칸 크기(화면 배율 반영)로 줄여서 푼다. 가로만 줘서 사진 비율은 그대로 지킨다(둘 다 주면 찌그러짐)
                       cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
-                      errorBuilder: (context, error, stack) => const SizedBox.shrink(),
                     ),
                   ),
                 ),

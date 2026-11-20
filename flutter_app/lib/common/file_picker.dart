@@ -21,6 +21,7 @@ class PickedPhoto {
     required this.previewUrl,
     required this.readBytes,
     this.onRelease,
+    this.previewBytes,
   });
 
   final String name;
@@ -29,6 +30,7 @@ class PickedPhoto {
   final String previewUrl; // 미리보기용 주소 (웹은 blob 주소)
   final Future<Uint8List> Function() readBytes; // 파일 내용을 읽는다 (올리기 직전에 한 장씩)
   final void Function()? onRelease; // 미리보기 주소를 반납하는 함수 (웹: revokeObjectURL)
+  final Uint8List? previewBytes; // 미리보기용 내용 (앱은 blob 주소가 없어서 바이트로 보여 준다. 웹은 null)
   bool _released = false;
 
   // 더 안 쓰는 사진의 미리보기 주소를 반납한다. 두 번 불러도 한 번만 동작한다

@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../common/file_picker.dart';
+import '../common/picked_photo_image.dart';
 import '../errors/error_messages.dart';
 import '../market/photo_upload.dart' show maxPhotoBytes;
 import '../theme/app_colors.dart';
@@ -97,12 +98,11 @@ class PermitApplyForm extends StatelessWidget {
                     height: 56,
                     child: ColoredBox(
                       color: AppColors.hover,
-                      child: Image.network(
-                        photo.previewUrl,
-                        fit: BoxFit.cover,
+                      // 바이트가 있으면(앱) 메모리 그림, 없으면(웹) 주소로 불러온다
+                      child: PickedPhotoImage(
+                        bytes: photo.previewBytes,
+                        url: photo.previewUrl,
                         cacheWidth: 112, // 작은 칸이라 줄여서 푼다
-                        errorBuilder: (context, error, stack) =>
-                            const SizedBox.shrink(),
                       ),
                     ),
                   ),
