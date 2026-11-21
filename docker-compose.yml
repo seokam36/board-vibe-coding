@@ -123,6 +123,18 @@ services:
       # 빈 값이면 숫자 읽기에 실패하므로 :-로 30을 채운다. 0이면 상한 끔, 음수면 앱이 시작 실패.
       # 월 무료 1,000건 안에 들도록 30 x 31 = 930. 넘으면 구글을 안 부르고 관리자 대기로 남긴다
       VISION_GLOBAL_PER_DAY: ${VISION_GLOBAL_PER_DAY:-30}
+      # 비자 일정 푸시 알림(S24): off(기본, 알림을 안 보냄) | fcm(구글 FCM으로 보냄). 서버 .env에 안 적으면 off.
+      # 빈 값이면 앱이 시작 실패하므로 :-로 off를 채운다. 켜려면 서버 .env에 PUSH_MODE=fcm (키 파일이 읽혀야 함, 아래 volumes)
+      PUSH_MODE: ${PUSH_MODE:-off}
+      # 서비스 계정 키(JSON) 파일의 컨테이너 안 경로. 고정값이라 .env에 안 적는다(경로는 비밀이 아님, 파일 내용이 비밀).
+      # off일 때는 앱이 이 파일을 읽지 않으므로 폴더가 비어 있어도 정상이다. fcm인데 못 읽으면 앱이 시작 실패한다
+      FCM_CREDENTIALS_FILE: /app/fcm/service-account.json
+    volumes:
+      # 서비스 계정 키 폴더: 서버의 ~/board/fcm/ (compose 파일 기준 상대 경로) -> 컨테이너 /app/fcm/, 읽기 전용(:ro)
+      # 파일이 아니라 폴더를 마운트한 이유: 없는 파일을 마운트하면 Docker가 그 이름으로 빈 폴더를 만들어 버린다
+      # (그러면 파일 경로가 폴더가 되어 fcm 모드가 시작 실패한다). 폴더는 비어 있어도 안전하다.
+      # 키 파일은 저장소·이미지에 넣지 않고 서버에만 둔다 (파일 이름은 service-account.json)
+      - ./fcm:/app/fcm:ro
     depends_on:
       postgres:
         # DB가 healthy가 된 뒤에 앱 시작

@@ -682,6 +682,83 @@ S23(안드로이드 앱)은 Flutter 화면 코드만 바뀌어서 Deploy 버튼�
 - **주의**: 위 "(a) 이전 이미지로 되돌리기"의 주의 박스와 같습니다. web image 줄을 SHA로 고정해 두면 **다음 Deploy도 옛 web을 받습니다.** 고친 새 `latest`가 올라온 뒤(Actions 초록) `cp docker-compose.yml.bak-s23 docker-compose.yml` 로 되돌리고 `grep 'image: seokam36' docker-compose.yml` 로 두 줄이 `:latest`인지 확인한 다음 Deploy를 누릅니다.
 - **앱(APK)**: 서버와 따로입니다. 문제가 앱에만 있으면 이전 APK를 다시 설치합니다(위 "4) 앱 되돌리기").
 
+## S24 푸시 알림 배포 (비자 일정 알림, FCM)
+S24(비자 만료 전 휴대폰 알림)를 운영에 올립니다. 서버가 구글 FCM에 "이 폰에 알림 보내 줘"라고 부탁하려면 **서비스 계정 키(JSON 파일)** 가 필요합니다. 이 파일은 비밀이라 저장소·이미지에 넣지 않고 **서버에만 두고, compose가 앱 컨테이너에 읽기 전용으로 보여 줍니다.** 이번에는 **compose가 바뀝니다**(위 "자동 배포"의 규칙: compose를 바꾼 배포는 Deploy 버튼만으로 안 되고 백업·scp를 먼저 합니다).
+
+메모:
+- 서버 설정은 `PUSH_MODE`(`off` 기본 / `fcm`)와 `FCM_CREDENTIALS_FILE`(컨테이너 안 키 파일 경로) 두 가지입니다. 서버 `.env`에는 **`PUSH_MODE=fcm` 한 줄만** 넣으면 됩니다. 키 파일 경로(`/app/fcm/service-account.json`)는 compose에 고정돼 있어 `.env`에 안 적습니다. `FCM_TIMEOUT`(기본 10초)과 알림 주기(켜지고 5분 뒤 + 1시간마다, 서울 09~21시만)도 기본값 그대로 씁니다. **운영 `.env`·compose에 `GOOGLE_SDK_JAVA_LOGGING`을 넣지 않습니다**(켜면 구글 요청 내용이 로그에 찍혀 출입증이 샐 수 있음).
+- **DB 표가 처음 늘어납니다**: V16(`device_tokens`, 폰 알림 주소), V17(`visa_plan_notifications`, 이미 보낸 알림 기록)이 이번 Deploy에서 Flyway로 자동 적용됩니다. Deploy가 배포 직전에 DB를 자동 백업합니다.
+- compose 폴더 마운트: 서버 `~/board/fcm/` 폴더를 컨테이너 `/app/fcm/`에 읽기 전용(`:ro`)으로 보여 줍니다. 파일이 아니라 **폴더**를 마운트한 이유는, 없는 파일을 마운트하면 Docker가 그 이름으로 빈 **폴더**를 만들어 버려서 "키 파일 경로가 폴더"가 되기 때문입니다. 폴더는 비어 있어도 안전하고, `PUSH_MODE=off`이면 앱이 키 파일을 읽지 않아 폴더가 비어 있어도 정상입니다.
+- 앱 컨테이너는 root가 아니라 `app`이라는 사용자로 돕니다(Dockerfile의 `USER app`). 서버 파일이 `ec2-user` 전용(600)이면 컨테이너가 못 읽어서 `PUSH_MODE=fcm`일 때 앱이 시작 실패합니다. 그래서 아래 3번에서 파일 주인을 컨테이너 사용자로 맞춥니다.
+- web(화면) 이미지도 새 커밋이라 같이 배포되지만 웹에는 푸시 칸이 없어서 화면은 거의 그대로입니다.
+- 직전(S23) 이미지: `seokam36/demo:fe3871c95db20febb3eeb374e84d7e366909f318`, `seokam36/demo-web:fe3871c95db20febb3eeb374e84d7e366909f318` — 되돌리기는 아래 "S24 되돌리기".
+
+준비 (Deploy 버튼 누르기 전). **IP는 EC2를 켠 뒤 AWS 콘솔에서 보는 값입니다. 아래 `ssh`·`scp` 명령은 메인 대화가 IP(와 키 파일 이름)를 받아서 완성해 줍니다**(이 문서에는 자리표시를 두지 않고 명령의 모양만 적습니다). 사용자 PowerShell은 `C:\Windows\System32`에서 열려 있을 수 있어서 **파일은 항상 전체 경로**로 씁니다. ssh·scp는 `& "C:\Windows\System32\OpenSSH\ssh.exe" -i "$HOME\.ssh\board-ec2" ec2-user@...` 형식입니다.
+1. **[PC]** 이번 커밋의 CI 세 작업(backend, flutter, images)이 모두 초록인지 GitHub Actions 탭에서 봅니다(images가 초록이어야 새 이미지가 올라가 있습니다). 그리고 서버를 켜고 1~5분 DNS를 기다립니다.
+2. **[PC → 서버]** 서버에 키 폴더를 만듭니다. 왜: scp가 폴더가 없으면 실패하고, 폴더가 없는 채로 compose를 올리면 Docker가 root 소유 빈 폴더를 만들어 권한이 꼬입니다. 명령 모양: `& "C:\Windows\System32\OpenSSH\ssh.exe" -i "$HOME\.ssh\board-ec2" ec2-user@(IP) 'mkdir -p ~/board/fcm'`
+3. **[PC → 서버]** 키 파일을 서버로 올립니다. 키 파일은 집 PC `C:\Users\seoka\Documents\` 안의 `...-firebase-adminsdk-....json`(저장소 밖)입니다. 왜: 서버가 구글에 "나는 이 Firebase 프로젝트의 서버"라고 증명하는 출입증입니다. 파일 이름의 가운데 글자는 PowerShell에서 `Get-ChildItem "C:\Users\seoka\Documents\*-firebase-adminsdk-*.json" | Select-Object -ExpandProperty FullName` 로 전체 경로를 보고 확인합니다(와일드카드는 scp에 직접 쓸 수 없습니다). 명령 모양: `& "C:\Windows\System32\OpenSSH\scp.exe" -i "$HOME\.ssh\board-ec2" "(위에서 확인한 전체 경로)" ec2-user@(IP):~/board/fcm/service-account.json` — **서버 쪽 이름은 반드시 `service-account.json`**(compose가 이 이름을 가리킵니다). 키 내용을 화면에 띄우거나 붙여넣지 않습니다.
+4. **[서버]** 컨테이너 사용자가 읽을 수 있게 주인·권한을 맞춥니다(ssh로 접속한 서버 셸에서):
+   - `sudo chown -R "$(docker exec board-app id -u):$(docker exec board-app id -g)" ~/board/fcm` — 왜: 실행 중인 앱 컨테이너의 사용자(`app`) 번호를 `docker exec ... id`로 물어서, 폴더와 파일의 주인을 그 번호로 바꿉니다(번호를 외워 적지 않아도 됩니다). 앱이 안 떠 있으면 이 명령이 실패하니 먼저 `docker ps`로 `board-app`이 Up인지 봅니다.
+   - `sudo chmod 700 ~/board/fcm && sudo chmod 400 ~/board/fcm/service-account.json` — 왜: 주인(컨테이너 사용자)만 읽게 하고 다른 사람은 못 보게 합니다(키는 비밀).
+   - `sudo ls -l ~/board/fcm` — 확인: 파일이 `-r--------` 이고 주인이 `ec2-user`가 아니라 숫자 또는 `app`인지 봅니다. 이제 `ec2-user`는 `sudo` 없이는 이 폴더를 못 봅니다(정상). 키 파일을 다시 올릴 때는 `sudo rm ~/board/fcm/service-account.json` 뒤 3번부터 다시 합니다.
+5. **[PC → 서버]** 서버의 현재 compose를 백업합니다. 왜: 되돌리기용. 명령 모양: `ssh ... 'cp ~/board/docker-compose.yml ~/board/docker-compose.yml.bak-s24'` (이미 `.bak-s24`가 있으면 덮어쓰지 말고 다른 이름으로).
+6. **[PC → 서버]** 새 compose를 서버로 복사합니다. 왜: Deploy 버튼은 서버의 compose를 바꾸지 않아서, 안 올리면 키 폴더 마운트와 `PUSH_MODE`가 앱에 전달되지 않습니다. 명령 모양(저장소 폴더 `C:\Users\seoka\IdeaProjects\board-vibe-coding`의 파일을 전체 경로로): `& "C:\Windows\System32\OpenSSH\scp.exe" -i "$HOME\.ssh\board-ec2" "C:\Users\seoka\IdeaProjects\board-vibe-coding\docker-compose.yml" ec2-user@(IP):~/board/docker-compose.yml`
+7. **[서버]** 새 compose로 앱만 다시 띄워 키가 **읽히는지 먼저** 확인합니다. 왜: 아직 `PUSH_MODE`가 `off`라 이때는 옛 이미지든 새 이미지든 안전하고, 권한 실수를 켜기 전에 잡을 수 있습니다.
+   - `cd ~/board && docker compose --profile prod up -d app` — 마운트가 추가돼 app이 새로 만들어집니다(몇 초 끊김).
+   - `docker exec board-app sh -c 'test -r /app/fcm/service-account.json && echo 읽힘 || echo 못읽음'` — `읽힘`이어야 합니다. `못읽음`이면 4번의 주인·권한을 다시 봅니다(`docker exec board-app id`로 사용자 번호, `sudo ls -ln ~/board/fcm`으로 파일 주인 번호가 같은지).
+   - `docker exec board-app sh -c 'test -f /app/fcm/service-account.json && echo 파일 || echo 파일아님'` — `파일`이어야 합니다(`파일아님`이면 폴더가 만들어진 것이니 3번 업로드를 확인).
+8. **[서버]** `.env`에 한 줄을 넣습니다. **`cat .env`나 `echo ... >> .env`는 쓰지 않고 편집기로 고칩니다**(`.env`에는 다른 비밀 값이 많습니다).
+   - `nano ~/board/.env` 를 열고 **nano 화면이 뜬 것을 확인한 뒤** 맨 아래에 `PUSH_MODE=fcm` 한 줄을 적습니다(이미 같은 이름의 줄이 있으면 새로 만들지 말고 고칩니다). `=` 앞뒤에 띄어쓰기·따옴표를 넣지 않습니다. 저장은 `Ctrl+O` 엔터 -> `Ctrl+X`.
+   - 확인: `grep -c '^PUSH_MODE=fcm$' ~/board/.env` 가 `1`, `grep -c 'GOOGLE_SDK_JAVA_LOGGING' ~/board/.env` 가 `0`.
+   - **허가서 해시 비밀이 안 바뀌었는지 확인**(앱을 다시 띄우기 전에 항상): `grep -cxF "PERMIT_HASH_SECRET=$(docker exec board-app printenv PERMIT_HASH_SECRET)" ~/board/.env` 가 `1`(0이면 멈추고 `.env`를 다시 봅니다. 이 값은 절대 바꾸지 않습니다). `ls -l ~/board/.env` 가 `-rw-------` 인지도 봅니다.
+9. **[브라우저]** Actions 탭 -> Deploy -> Run workflow (위 "자동 배포"와 같음). 새 이미지를 받아 앱이 `PUSH_MODE=fcm`으로 뜨고, Flyway가 V16·V17을 적용합니다. DB 백업·헬스체크가 모두 초록이어야 합니다. (버튼을 못 쓰면 **[서버]** `cd ~/board && docker compose --profile prod pull && docker compose --profile prod up -d`.)
+
+확인 (배포 뒤)
+1. **[브라우저]** `https://<사이트주소>/actuator/health` 가 `UP`인지 봅니다.
+2. **[서버]** 푸시가 켜졌는지: `docker logs board-app 2>&1 | grep -c '푸시 fcm 켜짐'` 이 `1` 이상(로그 "푸시 fcm 켜짐, 시간 상한 10초"). 0이면 `docker logs --tail 50 board-app` 에서 시작 실패 메시지를 봅니다(아래 문제 해결).
+3. **[서버]** 표 변경(V16·V17) 확인: `docker exec board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT version, success FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 3;"'` 에서 `17 | t`, `16 | t`가 보이는지 봅니다(`f`가 있으면 아래 "Flyway(표 변경) 문제와 되돌리기"로).
+4. **[서버]** 로그에 키 내용이 없는지: `docker logs board-app 2>&1 | grep -ci 'private.key\|begin.*key'` 가 `0`. (명령에 내 키를 쓰지 않고 키 파일에 들어 있는 글자 모양으로 찾는 것입니다. 0이 아니면 로그를 펴 보지 말고 Firebase 콘솔에서 그 키를 삭제하고 새로 만든 뒤 위 3~4번으로 교체합니다.)
+5. **[서버]** 메모리와 재시작: `docker stats --no-stream board-app` 의 메모리가 `512MiB` 미만인지, `docker ps` 에서 `board-app`이 `Restarting`이 아니고 `Up` 시간이 늘어나는지 봅니다.
+6. **[브라우저]** 기존 기능 3가지(글 목록, 중고 글 상세, 새로고침해도 로그인 유지)를 봅니다.
+
+문제 해결
+- 앱이 시작 때 실패하고 로그에 "FCM_CREDENTIALS_FILE을 읽을 수 없습니다(파일이 없거나, 읽기 권한이 없거나, 서비스 계정 키가 아님)": 위 7번의 `읽힘` 확인을 다시 합니다. 주인 번호 불일치(4번), 파일이 아니라 폴더(3번), 파일이 서비스 계정 키가 아님(콘솔에서 받은 `...-firebase-adminsdk-....json`이 맞는지) 중 하나입니다. 급하면 아래 "푸시 끄기"로 먼저 살립니다.
+- `PUSH_MODE는 off, fcm 중 하나여야 합니다`: `.env`의 값 철자·공백을 봅니다(`grep -c '^PUSH_MODE=fcm$'`).
+- 알림이 안 옴: 아래 "운영 알림 시험"의 안내를 봅니다(앱이 화면에 떠 있으면 알림이 안 보입니다).
+
+**푸시 끄기** (이미지를 되돌릴 필요가 없습니다)
+1. **[서버]** `nano ~/board/.env` 에서 `PUSH_MODE=fcm` 을 `PUSH_MODE=off` 로 바꿉니다(줄을 지워도 같습니다).
+2. **[서버]** `cd ~/board && docker compose --profile prod up -d app` — 환경변수가 바뀌어 app이 새로 만들어집니다(단순 `restart`는 `.env`를 다시 읽지 않습니다). 앞의 `PERMIT_HASH_SECRET` 확인 명령도 같이 칩니다.
+3. 확인: `docker logs board-app 2>&1 | grep -c '푸시 알림 꺼짐'` 이 `1` 이상. 키 파일과 폴더는 남겨 둬도 됩니다(off면 안 읽음).
+
+### 운영 알림 시험 (테스트 계정으로 1회)
+운영 테스트 계정(`wntjrdka`, 연세대 인증)으로 확인합니다. 계정의 [인증 해제]는 누르지 않습니다. **운영 DB에서 알림 기록(`visa_plan_notifications`)을 지우는 조작은 하지 않습니다**(로컬 시험과 달리 진짜 데이터라서). 알림은 계정당 한 번만 가므로 시험은 한 번만 하고, 안 와도 기록을 지우지 말고 원인을 먼저 찾습니다.
+1. **[브라우저/앱]** 시험 시간은 **서울 09~21시** 안이어야 합니다(밖이면 알림이 안 갑니다). 앱이 켜지고 5분 뒤 + 매 정시 주기에 돌아서, 최대 약 1시간(+5분) 안에 옵니다.
+2. **[앱]** 운영용 릴리스 앱(아래 "앱 다시 설치")으로 테스트 계정 로그인 -> 비자 일정 화면에서 **만료일을 오늘부터 7일 뒤**로 저장합니다.
+3. **[앱]** 비자 일정 화면의 "휴대폰 알림" 칸에서 **[알림 켜기]** -> 폰의 알림 권한 팝업에서 허용. 확인(**[서버]**, 토큰 값은 출력하지 않고 개수만): `docker exec board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT count(*) FROM device_tokens;"'` 가 1 이상.
+4. **[앱]** 앱을 **홈 버튼으로 내려 둡니다**(앱이 화면에 떠 있으면 알림이 표시되지 않습니다. 앱을 완전히 닫아도 됩니다). 다음 정시 주기를 기다립니다.
+5. **[폰]** "비자 일정 알림"이 **한 번** 오는지 봅니다. **[서버]** 보낸 결과 로그 확인: `docker logs --since 2h board-app 2>&1 | grep -i '푸시\|알림' | tail -20` (토큰·키는 로그에 안 남게 만들어져 있습니다. 구글 호출 실패 줄이 있으면 상태 숫자를 봅니다: 401·403이면 키·프로젝트 문제, 404면 토큰이 낡음).
+6. **[앱]** 시험이 끝나면 **만료일을 원래대로 되돌립니다**(또는 시험 전 값으로). 같은 화면에서 로그아웃도 한 번 해 보고, **[서버]** 위 3번의 개수가 줄어드는지 봅니다(로그아웃 때 기기 토큰 삭제 요청이 nginx를 거쳐 서버에 전달되는지 확인).
+- 이 시험에서 **구글 액세스 토큰을 처음 실제로 받습니다**(자동 테스트는 가짜 출입증으로 했음). 서버 시계가 크게 어긋나 있으면 토큰 요청이 실패할 수 있습니다.
+
+### 앱 다시 설치 (운영용 릴리스)
+지금 폰의 "게시판" 앱은 로컬(8081) 개발용 디버그 앱이라, 운영에서 쓰려면 릴리스 APK를 다시 설치합니다. 빌드·설치 방법은 위 "안드로이드 앱 릴리스 빌드·설치 (S23)"를 그대로 따릅니다. 이번에 추가로 알 것:
+- **`flutter_app/android/app/google-services.json`이 있어야 빌드됩니다**(Firebase 앱 명찰 파일, 커밋 안 함, 저장소 밖 사본이나 Firebase 콘솔에서 받기). 없으면 "File google-services.json is missing"으로 실패합니다.
+- **빌드 전에 도메인부터 확인**(S23 규칙): `https://<사이트주소>/actuator/health` 가 `{"status":"UP"}`이고 네임서버가 `*.ns.cloudflare.com`인지 확인하고 나서 빌드합니다. 아니면 빌드·설치 금지.
+- 집 PC(영문 사용자 폴더)에서만 빌드·`adb install -r`로 덮어 설치합니다(디버그 키 서명). 설치 뒤 로그인을 다시 하고 [알림 켜기]를 누릅니다.
+
+### S24 되돌리기 (문제가 있을 때만)
+- **먼저 푸시만 끄면 되는 문제인지** 봅니다(위 "푸시 끄기"). 알림 문제는 대부분 이걸로 충분하고 이미지·compose를 되돌릴 필요가 없습니다.
+- 이미지·compose까지 되돌릴 때: 직전(S23) 이미지는 app `seokam36/demo:fe3871c95db20febb3eeb374e84d7e366909f318`, web `seokam36/demo-web:fe3871c95db20febb3eeb374e84d7e366909f318`.
+  1. **[서버]** `cd ~/board && cp docker-compose.yml docker-compose.yml.bak-s24-new` — 지금 compose 보관(이미 있으면 다른 이름).
+  2. **[서버]** `cp docker-compose.yml.bak-s24 docker-compose.yml` — 키 폴더 마운트와 `PUSH_MODE`가 없던 옛 compose로 복귀. (`.env`의 `PUSH_MODE=fcm` 줄은 옛 compose가 앱에 안 넘기므로 무해합니다. 지워도 됩니다.)
+  3. **[서버]** `sed -i 's#image: seokam36/demo:latest#image: seokam36/demo:fe3871c95db20febb3eeb374e84d7e366909f318#; s#image: seokam36/demo-web:latest#image: seokam36/demo-web:fe3871c95db20febb3eeb374e84d7e366909f318#' docker-compose.yml` 그리고 `grep 'image: seokam36' docker-compose.yml` 로 두 줄이 `fe3871c...` 인지 확인합니다.
+  4. **[서버]** `.env` 확인(앱을 다시 띄우기 전에): `grep -cxF "PERMIT_HASH_SECRET=$(docker exec board-app printenv PERMIT_HASH_SECRET)" ~/board/.env` 가 `1`.
+  5. **[서버]** `docker compose --profile prod pull app web && docker compose --profile prod up -d app web` 후 `https://<사이트주소>/actuator/health` 가 UP이고 글 목록이 뜨는지 봅니다.
+- **DB(V16·V17)는 되돌리지 않습니다.** 표 `device_tokens`·`visa_plan_notifications`가 남아도 옛 앱은 문제없이 뜹니다. 옛 앱에는 그 표의 엔티티가 없어서 시작 때 표 구조 검사(validate) 대상이 아니기 때문입니다(Flyway 기록 17은 옛 앱이 몰라도 무시되는 새 항목일 뿐). 다시 올릴 때도 표가 이미 있어 그대로 이어집니다.
+- **주의**: 위 "(a) 이전 이미지로 되돌리기"의 주의 박스와 같습니다. 이미지를 SHA로 고정해 두면 **다음 Deploy도 옛 이미지를 받습니다.** 고친 새 `latest`가 올라온 뒤(Actions 초록) `cp docker-compose.yml.bak-s24-new docker-compose.yml` 로 되돌리고 `grep 'image: seokam36' docker-compose.yml` 로 두 줄이 `:latest`인지 확인한 다음 Deploy를 누릅니다.
+- **앱(APK)**: 서버와 따로입니다. 푸시를 끄면 앱은 알림만 안 올 뿐 그대로 씁니다. 앱의 [알림 켜기]는 서버가 되돌아가 있으면 실패 안내가 뜰 수 있습니다(옛 서버에는 그 API가 없음).
+
 ## 웹 화면: Flutter로 교체 (S16-n2)
 운영 `web` 이미지가 React에서 **Flutter 웹**(`flutter_app/`)으로 바뀌었습니다. `/v2` 같은 별도 주소 없이 통째로 교체합니다.
 - 이미지 이름은 그대로 `seokam36/demo-web`(`:latest`, `:<커밋 SHA>`)이라 **EC2의 `docker-compose.yml`을 바꿀 필요가 없습니다**(포트 80, 볼륨 없음, healthcheck 없음 - Flutter 이미지와 그대로 맞음. Deploy 워크플로의 헬스체크는 `/actuator/health`를 nginx 경유로 부르는데 Flutter nginx.conf에도 같은 블록이 있습니다).
