@@ -4,11 +4,17 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:board_web/widgets/nav_bar.dart';
+
 import 'support/fake_adapter.dart';
 import 'support/loaded_auth.dart';
 
 // 글자 위치(왼쪽 x 좌표): 메뉴 순서를 좌표로 확인하려고 쓴다 (넓은 화면에서는 한 줄에 놓인다)
-double _x(WidgetTester tester, String text) => tester.getTopLeft(find.text(text)).dx;
+double _x(WidgetTester tester, String text) => tester.getTopLeft(_inNavBar(text)).dx;
+
+// 위 막대 안의 글자만 찾는다 (아래 탭에도 "게시판" 같은 글자가 있어서)
+Finder _inNavBar(String text) => find.descendant(of: find.byType(NavBar), matching: find.text(text));
+final _siteName = _inNavBar('게시판');
 
 final _school = {'id': 3, 'name': '서울대'};
 
@@ -22,44 +28,46 @@ void main() {
     addTearDown(tester.view.resetViewPadding);
     await pumpApp(tester);
     final topLogical = topPx / tester.view.devicePixelRatio;
-    expect(tester.getTopLeft(find.text('게시판')).dy, greaterThanOrEqualTo(topLogical));
+    expect(tester.getTopLeft(_siteName).dy, greaterThanOrEqualTo(topLogical));
   });
 
+  // S26-c: 위 막대는 얇게. 사이트 이름 + 로그인 상태 메뉴만 있고, 비자 후기·중고·나눔·쪽지·내 정보와 비자 일정·관리자 메뉴는 없다
+  // (앞의 다섯은 아래 탭으로, 뒤의 둘은 내 정보 화면 맨 위로 옮겼다).
   group('메뉴 구성', () {
-    testWidgets('비로그인: 비자 후기 · 중고·나눔 · 로그인 · 회원가입 순서, 로그인 전용 메뉴는 없다', (tester) async {
+    testWidgets('비로그인: 로그인 · 회원가입 순서, 로그인 전용 메뉴와 옮겨 간 메뉴는 없다', (tester) async {
       await pumpApp(tester);
-      expect(find.text('게시판'), findsOneWidget); // 사이트 이름
-      final order = ['비자 후기', '중고·나눔', '로그인', '회원가입'];
+      expect(_siteName, findsOneWidget); // 사이트 이름
+      final order = ['로그인', '회원가입'];
       for (final t in order) {
-        expect(find.text(t), findsOneWidget);
+        expect(_inNavBar(t), findsOneWidget);
       }
       final xs = [for (final t in order) _x(tester, t)];
       expect(xs, [...xs]..sort()); // 왼쪽부터 같은 순서
-      for (final t in ['챗봇', '쪽지', '내 정보', '비자 일정', '신고 관리', '로그아웃', '인증']) {
-        expect(find.text(t), findsNothing);
+      for (final t in ['챗봇', '비자 후기', '중고·나눔', '쪽지', '내 정보', '비자 일정', '신고 관리', '로그아웃', '인증']) {
+        expect(_inNavBar(t), findsNothing);
       }
     });
 
     // 닉네임은 메뉴 맨 끝, 로그아웃 바로 왼쪽 (2026-11-19 사용자 요청으로 옮김)
-    testWidgets('로그인(일반·미인증): 쪽지 · 내 정보 · 닉네임 · 로그아웃, 인증 뱃지·비자 일정·신고 관리는 없다', (tester) async {
+    testWidgets('로그인(일반·미인증): 챗봇 · 닉네임 · 로그아웃, 인증 뱃지는 없다', (tester) async {
       await pumpApp(tester, user: userJson());
-      final order = ['비자 후기', '중고·나눔', '챗봇', '쪽지', '내 정보', '홍길동 님', '로그아웃'];
+      final order = ['챗봇', '홍길동 님', '로그아웃'];
       for (final t in order) {
-        expect(find.text(t), findsOneWidget);
+        expect(_inNavBar(t), findsOneWidget);
       }
       final xs = [for (final t in order) _x(tester, t)];
       expect(xs, [...xs]..sort());
-      for (final t in ['로그인', '회원가입', '인증', '비자 일정', '신고 관리']) {
-        expect(find.text(t), findsNothing);
+      for (final t in ['로그인', '회원가입', '인증', '비자 일정', '신고 관리', '인증 심사', '쪽지', '내 정보']) {
+        expect(_inNavBar(t), findsNothing);
       }
     });
 
-    testWidgets('인증 회원: 비자 일정이 보이고, 인증 뱃지(학교 이름 시맨틱·툴팁)는 닉네임 바로 뒤·로그아웃 앞에 보인다', (tester) async {
+    testWidgets('인증 회원: 인증 뱃지(학교 이름 시맨틱·툴팁)는 닉네임 바로 뒤·로그아웃 앞에 보이고, 비자 일정 링크는 없다', (tester) async {
       final semantics = tester.ensureSemantics();
       await pumpApp(tester, user: userJson(school: _school));
-      final order = ['비자 일정', '챗봇', '쪽지', '내 정보', '홍길동 님', '인증', '로그아웃'];
+      final order = ['챗봇', '홍길동 님', '인증', '로그아웃'];
       for (final t in order) {
-        expect(find.text(t), findsOneWidget);
+        expect(_inNavBar(t), findsOneWidget);
       }
       final xs = [for (final t in order) _x(tester, t)];
       expect(xs, [...xs]..sort());
@@ -68,21 +76,19 @@ void main() {
       // 툴팁에는 학교 이름
       final tooltip = tester.widget<Tooltip>(find.byType(Tooltip));
       expect(tooltip.message, '서울대');
-      expect(find.text('신고 관리'), findsNothing);
+      expect(_inNavBar('비자 일정'), findsNothing);
       semantics.dispose();
     });
 
-    testWidgets('관리자: 신고 관리가 내 정보 뒤·로그아웃 앞에 보인다', (tester) async {
+    testWidgets('관리자: 위 막대에 신고 관리·인증 심사가 없다 (내 정보 화면으로 옮겼다)', (tester) async {
       await pumpApp(tester, user: userJson(role: 'ADMIN'));
-      final order = ['챗봇', '쪽지', '내 정보', '신고 관리', '로그아웃'];
-      for (final t in order) {
-        expect(find.text(t), findsOneWidget);
-      }
-      final xs = [for (final t in order) _x(tester, t)];
-      expect(xs, [...xs]..sort());
+      expect(_inNavBar('신고 관리'), findsNothing);
+      expect(_inNavBar('인증 심사'), findsNothing);
+      expect(_inNavBar('챗봇'), findsOneWidget);
+      expect(_inNavBar('로그아웃'), findsOneWidget);
     });
 
-    testWidgets('링크를 누르면 그 주소로 간다 (비자 후기 → /visa-reviews)', (tester) async {
+    testWidgets('아래 탭을 누르면 그 주소로 간다 (비자 후기 → /visa-reviews)', (tester) async {
       // S16-h1: 비자 후기 목록은 진짜 화면이라 시작 화면(글 목록)과 후기 목록이 부르는 요청을 모두 준비한다
       final adapter = FakeAdapter()
         ..on('GET', '/schools', FakeReply(200, []))
@@ -92,7 +98,7 @@ void main() {
         ..on('GET', '/visa-review-options', FakeReply(200, {'visaTypes': [], 'applicationTypes': [], 'results': []}))
         ..on('GET', '/visa-reviews', FakeReply(200, []));
       final app = await pumpApp(tester, adapter: adapter);
-      await tester.tap(find.text('비자 후기'));
+      await tester.tap(find.text('비자'));
       await tester.pumpAndSettle();
       expect(find.text('아직 후기가 없습니다'), findsOneWidget);
       expect(app.router.routerDelegate.currentConfiguration.uri.path, '/visa-reviews');
@@ -101,9 +107,9 @@ void main() {
     testWidgets('사이트 이름은 홈 링크: 링크 시맨틱이 있고 누르면 "/"로 간다', (tester) async {
       final semantics = tester.ensureSemantics();
       final app = await pumpApp(tester, location: '/visa-reviews');
-      final data = tester.getSemantics(find.text('게시판')).getSemanticsData();
+      final data = tester.getSemantics(_siteName).getSemanticsData();
       expect(data.flagsCollection.isLink, isTrue);
-      await tester.tap(find.text('게시판'));
+      await tester.tap(_siteName);
       await tester.pumpAndSettle();
       expect(app.router.routerDelegate.currentConfiguration.uri.path, '/');
       expect(find.text('전체 게시판'), findsOneWidget);
@@ -191,13 +197,30 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await pumpApp(tester, location: '/login');
-    final before = tester.getTopLeft(find.text('게시판')).dy;
+    final before = tester.getTopLeft(_siteName).dy;
     await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -200));
     await tester.pumpAndSettle();
-    expect(tester.getTopLeft(find.text('게시판')).dy, lessThan(before));
+    expect(tester.getTopLeft(_siteName).dy, lessThan(before));
   });
 
-  testWidgets('375px 좁은 화면: 메뉴가 줄바꿈되고 넘침 에러가 없다 (관리자·인증·긴 닉네임)', (tester) async {
+  testWidgets('375px: 인증 회원(닉네임 4글자)이면 위 막대가 한 줄이다', (tester) async {
+    tester.view.physicalSize = const Size(375, 812);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await pumpApp(tester, user: userJson(nickname: '홍길동이', school: _school));
+    expect(tester.takeException(), isNull); // 레이아웃 넘침(overflow) 에러가 없다
+    // 이름·챗봇·닉네임·인증·로그아웃의 세로 가운데가 모두 같은 줄(몇 px 안)에 있다
+    final ys = [
+      for (final t in ['게시판', '챗봇', '홍길동이 님', '인증', '로그아웃']) tester.getCenter(_inNavBar(t)).dy,
+    ];
+    expect(ys.reduce((a, b) => a > b ? a : b) - ys.reduce((a, b) => a < b ? a : b), lessThan(8));
+    // 막대 높이도 한 줄 높이다 (로그아웃 버튼 눌림 영역 48 + 여백 = 73, 두 줄이면 100을 넘는다)
+    expect(tester.getSize(find.byType(NavBar)).height, lessThan(90));
+  });
+
+  testWidgets('375px: 아주 긴 닉네임이어도 넘침 에러 없이 줄바꿈되고 화면 폭 안이다', (tester) async {
     tester.view.physicalSize = const Size(375, 812);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -207,11 +230,10 @@ void main() {
       tester,
       user: userJson(role: 'ADMIN', nickname: '아주아주아주긴닉네임입니다', school: _school),
     );
-    expect(tester.takeException(), isNull); // 레이아웃 넘침(overflow) 에러가 없다
-    for (final t in ['비자 후기', '중고·나눔', '인증', '비자 일정', '챗봇', '쪽지', '내 정보', '신고 관리', '로그아웃']) {
-      expect(find.text(t), findsOneWidget);
-      // 모든 메뉴가 화면 폭 안에 있다
-      expect(tester.getTopRight(find.text(t)).dx, lessThanOrEqualTo(375));
+    expect(tester.takeException(), isNull);
+    for (final t in ['챗봇', '인증', '로그아웃']) {
+      expect(_inNavBar(t), findsOneWidget);
+      expect(tester.getTopRight(_inNavBar(t)).dx, lessThanOrEqualTo(375)); // 모든 메뉴가 화면 폭 안에 있다
     }
   });
 }

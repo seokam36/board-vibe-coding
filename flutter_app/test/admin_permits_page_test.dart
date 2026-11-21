@@ -116,11 +116,10 @@ Future<void> _settleImage(WidgetTester tester) async {
 
 void main() {
   group('조건1 메뉴·권한', () {
-    _test('관리자 상단바에 "인증 심사"가 있고 누르면 /admin/permits로 가며 목록을 부른다', (tester) async {
+    _test('관리자의 내 정보 맨 위에 "인증 심사"가 있고 누르면 /admin/permits로 가며 목록을 부른다', (tester) async {
       final a = FakeAdapter()
-        ..on('GET', '/admin/reports', FakeReply(200, []))
         ..on('GET', _list, FakeReply(200, []));
-      final app = await pumpApp(tester, location: '/admin/reports', user: adminUser(), adapter: a);
+      final app = await pumpApp(tester, location: '/me', user: adminUser(), adapter: a); // S26-c: 관리자 메뉴는 내 정보 화면 맨 위
       expect(find.text('인증 심사'), findsOneWidget);
       await tester.tap(find.text('인증 심사'));
       await tester.pumpAndSettle();

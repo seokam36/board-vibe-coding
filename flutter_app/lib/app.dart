@@ -160,7 +160,7 @@ class _BoardAppState extends State<BoardApp> {
         Provider<PushRegistrar?>.value(value: _pushRegistrar),
         ChangeNotifierProvider<AuthState>.value(value: _auth),
         ChangeNotifierProvider<VisaPlanStore>.value(value: _visaPlan),
-        ChangeNotifierProvider<UnreadStore>.value(value: _unread), // 상단바 "쪽지 (n)"
+        ChangeNotifierProvider<UnreadStore>.value(value: _unread), // 아래 탭 쪽지 배지
         ChangeNotifierProvider<AppHistory>.value(value: _history), // 앱 뒤로 가기 (AppShell이 쓴다)
         // 이번 화면에서 닫은 비자 띠 (화면을 옮겨도 유지)
         ChangeNotifierProvider<VisaBannerState>.value(value: _visaBanner),

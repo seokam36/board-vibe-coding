@@ -89,7 +89,7 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
     // 상단바가 모든 화면 위에 보이도록 공통 틀(AppShell)로 감싼다
     routes: [
       ShellRoute(
-        pageBuilder: (context, state, child) => _page(state, AppShell(child: child)),
+        pageBuilder: (context, state, child) => _page(state, AppShell(location: state.uri.path, child: child)),
         routes: [
           GoRoute(
             path: '/',
@@ -297,6 +297,6 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
     ],
     // 안전망: 위의 "그 밖의 모든 주소" 라우트가 주소 불일치를 전부 받으므로, 여기로 오는 건 go_router 내부 오류뿐이다.
     // 이 화면은 go_router의 네비게이터 밖이라 앱 뒤로 가기(방문 기록)를 처리하지 못한다(한계).
-    errorPageBuilder: (context, state) => _page(state, const AppShell(child: NotFoundPage())),
+    errorPageBuilder: (context, state) => _page(state, AppShell(location: state.uri.path, child: const NotFoundPage())),
   );
 }

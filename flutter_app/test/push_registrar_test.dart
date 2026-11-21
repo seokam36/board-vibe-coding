@@ -391,7 +391,7 @@ void main() {
       await tester.pumpWidget(BoardApp(authState: auth, push: FakePush(initThrows: true)));
       await tester.pumpAndSettle();
 
-      expect(find.text('비자 후기'), findsOneWidget); // 상단바가 그려졌다
+      expect(find.text('비자'), findsOneWidget); // 아래 탭이 그려졌다
       expect(adapter.calls.where((c) => c.path.contains('device-tokens')), isEmpty);
     });
   });

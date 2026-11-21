@@ -7,6 +7,7 @@ import '../auth/auth_state.dart';
 import '../auth/auth_user.dart';
 import '../errors/error_messages.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_link.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/notice.dart';
 import '../widgets/page_frame.dart';
@@ -33,6 +34,8 @@ class MyPage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const PageTitle('내 정보'),
+          // 아래 탭에서 빠진 바로가기: 비자 일정(인증 회원), 신고 관리·인증 심사(관리자) (S26-c)
+          const _Shortcuts(),
           // 아이디는 바꿀 수 없어 읽기 전용 글자. 로그인이 풀린 직후엔 user가 없을 수 있다
           if (user != null)
             Panel(
@@ -59,6 +62,28 @@ class MyPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// 내 정보 맨 위 바로가기 줄. 위 막대에 있던 조건을 그대로 옮겼다: 비자 일정은 학교 인증 회원만, 관리자 메뉴는 관리자만.
+// 보여 줄 링크가 하나도 없으면 아무것도 그리지 않는다(빈 줄 없음).
+class _Shortcuts extends StatelessWidget {
+  const _Shortcuts();
+
+  @override
+  Widget build(BuildContext context) {
+    final user = context.watch<AuthState>().user;
+    if (user == null) return const SizedBox.shrink();
+    final links = <Widget>[
+      if (user.verifiedSchool != null) AppLink(label: '비자 일정', onTap: () => context.go('/visa-plan')),
+      if (user.isAdmin) AppLink(label: '신고 관리', onTap: () => context.go('/admin/reports')),
+      if (user.isAdmin) AppLink(label: '인증 심사', onTap: () => context.go('/admin/permits')),
+    ];
+    if (links.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSizes.space4),
+      child: Wrap(spacing: AppSizes.space4, runSpacing: AppSizes.space2, children: links),
     );
   }
 }

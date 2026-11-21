@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../auth/auth_state.dart';
 
-// 안 읽은 쪽지 수를 앱 전체에서 한 번만 들고 있다가 상단바에 나눠 주는 보관소 (React의 UnreadProvider).
+// 안 읽은 쪽지 수를 앱 전체에서 한 번만 들고 있다가 아래 탭 쪽지 배지에 나눠 주는 보관소 (React의 UnreadProvider).
 // 로그인했을 때만 GET을 부른다(비로그인 401이 토큰 재발급을 돌리지 않게). 로그아웃하면 0으로 되돌린다.
 // 회원이 바뀔 때(로그인 직후 포함)와 화면 경로가 바뀔 때 다시 받아 온다(실시간은 아님, 쿼리만 바뀌면 안 부른다).
 class UnreadStore extends ChangeNotifier {

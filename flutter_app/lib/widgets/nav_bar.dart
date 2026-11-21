@@ -5,7 +5,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../auth/auth_state.dart';
-import '../messages/unread_store.dart';
 import '../site_name.dart';
 import '../theme/app_colors.dart';
 import 'app_link.dart';
@@ -14,8 +13,7 @@ import 'notice.dart';
 // 로그아웃 실패 때 보여 주는 문구
 const logoutFailedMessage = '로그아웃하지 못했습니다. 다시 시도해 주세요';
 
-// 모든 화면 맨 위 한 줄 (React의 NavBar): 왼쪽 홈 링크, 오른쪽 로그인 상태에 따른 메뉴.
-// 쪽지 옆 숫자는 안 읽은 쪽지 수(UnreadStore)다. 비로그인이면 보관소가 0이고 API도 부르지 않는다.
+// 모든 화면 맨 위 얇은 한 줄: 왼쪽 사이트 이름(홈 링크), 오른쪽 로그인 상태에 따른 메뉴(로그인·회원가입 / 챗봇·닉네임·인증·로그아웃).
 class NavBar extends StatefulWidget {
   const NavBar({super.key});
 
@@ -51,23 +49,13 @@ class _NavBarState extends State<NavBar> {
   Widget build(BuildContext context) {
     final user = context.watch<AuthState>().user;
     final school = user?.verifiedSchool;
-    final unread = context.watch<UnreadStore>().count;
 
-    // 메뉴 항목들 (React와 같은 순서·조건). 비자 후기·중고·나눔은 로그인과 무관하게 누구나 본다
+    // 얇은 위 막대(S26-c): 비자 후기·중고·나눔·쪽지·내 정보는 아래 탭(BottomTabs)으로, 비자 일정·관리자 메뉴는 내 정보 화면으로 옮겼다.
+    // 여기엔 로그인 상태에 따른 것만 남는다.
     final menu = <Widget>[
-      AppLink(label: '비자 후기', onTap: () => context.go('/visa-reviews')),
-      AppLink(label: '중고·나눔', onTap: () => context.go('/market')),
       if (user != null) ...[
-        // 비자 일정은 학교 인증 회원에게만 보인다
-        if (school != null) AppLink(label: '비자 일정', onTap: () => context.go('/visa-plan')),
         // 중고 글 챗봇은 로그인한 회원 누구나 (학교 인증 불필요)
         AppLink(label: '챗봇', onTap: () => context.go('/chat')),
-        // 안 읽은 쪽지가 있으면 "쪽지 (3)"처럼 개수를 붙인다 (99+ 줄임 없이 숫자 그대로, 0이면 숫자 없음)
-        AppLink(label: unread > 0 ? '쪽지 ($unread)' : '쪽지', onTap: () => context.go('/messages')),
-        AppLink(label: '내 정보', onTap: () => context.go('/me')),
-        // 관리자에게만 보이는 메뉴
-        if (user.isAdmin) AppLink(label: '신고 관리', onTap: () => context.go('/admin/reports')),
-        if (user.isAdmin) AppLink(label: '인증 심사', onTap: () => context.go('/admin/permits')),
         // 닉네임은 메뉴 맨 끝, 로그아웃 버튼 바로 왼쪽 ("누가 로그인했나"와 "나가기"를 한 자리에)
         Text('${user.nickname} 님', style: const TextStyle(fontSize: AppSizes.fsSmall2)),
         // 학교 인증을 마친 회원 표시. 학교 이름은 마우스를 올리거나 스크린리더로 알 수 있다
@@ -103,12 +91,9 @@ class _NavBarState extends State<NavBar> {
             children: [
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: pad, vertical: AppSizes.space3),
-                // Wrap: 좁은 화면(모바일)에서 메뉴가 넘치지 않고 줄바꿈된다
-                child: Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: AppSizes.space4,
-                  runSpacing: AppSizes.space2,
+                // Row: 이름은 왼쪽, 메뉴는 남은 자리의 오른쪽 끝. 375px에서도 한 줄에 들어오게 한다
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     // 사이트 이름은 홈 링크: 스크린리더가 "링크"로 읽게 한다
                     Semantics(
@@ -125,11 +110,16 @@ class _NavBarState extends State<NavBar> {
                         ),
                       ),
                     ),
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: AppSizes.space4,
-                      runSpacing: AppSizes.space2,
-                      children: menu,
+                    const SizedBox(width: AppSizes.space3),
+                    Expanded(
+                      // Wrap: 아주 좁거나 글자가 크면 넘치지 않고 줄바꿈된다
+                      child: Wrap(
+                        alignment: WrapAlignment.end,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: AppSizes.space3,
+                        runSpacing: AppSizes.space2,
+                        children: menu,
+                      ),
                     ),
                   ],
                 ),

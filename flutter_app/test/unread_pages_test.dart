@@ -1,5 +1,5 @@
 // S16-l2 테스트 (React의 messages-extra / messages-report / unread-badge-hasmore 회원 시나리오):
-// 안 읽은 수 보관소(상단바 "쪽지 (n)", 경로가 바뀔 때만 다시 받기, 로그인·로그아웃·회원 교체, 실패·늦은 응답),
+// 안 읽은 수 보관소(아래 탭 쪽지 배지, 경로가 바뀔 때만 다시 받기, 로그인·로그아웃·회원 교체, 실패·늦은 응답),
 // 쪽지함 행 배지, 대화를 열 때 읽음 PUT, 대화 신고, hasMore 안내.
 import 'dart:async';
 
@@ -38,6 +38,10 @@ FakeAdapter _counts(List<int> counts) {
   return a;
 }
 
+// 쪽지 탭의 노랑 배지 (안 읽은 수가 0이면 아예 없다)와 그 안의 글자
+final _badge = find.byKey(const ValueKey('unread-badge'));
+Finder _badgeText(String n) => find.descendant(of: _badge, matching: find.text(n));
+
 int _unreadCalls(FakeAdapter a) => a.count('GET', '/conversations/unread-count');
 
 String _uri(TestApp app) => app.router.routerDelegate.currentConfiguration.uri.toString();
@@ -66,38 +70,39 @@ Future<void> _waitRefresh(WidgetTester tester) async {
 }
 
 void main() {
-  group('상단바 숫자', () {
-    _test('안 읽은 쪽지가 있으면 "쪽지 (3)"이고 숫자 없이 "쪽지"는 보이지 않는다', (tester) async {
+  group('아래 탭 쪽지 배지', () {
+    _test('안 읽은 쪽지가 3이면 쪽지 탭에 노랑 배지 "3"이 보인다', (tester) async {
       await pumpApp(tester, location: '/zzz', user: userJson(), adapter: _counts([3]));
-      expect(find.text('쪽지 (3)'), findsOneWidget);
-      expect(find.text('쪽지'), findsNothing);
+      expect(_badgeText('3'), findsOneWidget);
     });
 
-    _test('0이면 숫자 없이 "쪽지"만 보인다', (tester) async {
+    _test('0이면 배지(숫자)가 없고 "쪽지" 글자만 있다', (tester) async {
       await pumpApp(tester, location: '/zzz', user: userJson(), adapter: _counts([0]));
       expect(find.text('쪽지'), findsOneWidget);
-      expect(find.textContaining('쪽지 ('), findsNothing);
+      expect(_badge, findsNothing);
     });
 
-    _test('100개 이상이어도 99+로 줄이지 않고 숫자 그대로 보인다', (tester) async {
+    _test('100개 이상이면 눈에는 99+, 스크린리더에는 실제 개수 문장', (tester) async {
+      final semantics = tester.ensureSemantics();
       await pumpApp(tester, location: '/zzz', user: userJson(), adapter: _counts([120]));
-      expect(find.text('쪽지 (120)'), findsOneWidget);
-      expect(find.textContaining('99+'), findsNothing);
+      expect(_badgeText('99+'), findsOneWidget);
+      expect(find.bySemanticsLabel('쪽지, 안 읽은 쪽지 120개'), findsOneWidget);
+      semantics.dispose();
     });
 
-    _test('비로그인이면 unread-count를 한 번도 부르지 않고 쪽지 메뉴도 없다', (tester) async {
+    _test('비로그인이면 unread-count를 한 번도 부르지 않고 배지도 없다 (쪽지 탭은 있다)', (tester) async {
       final adapter = FakeAdapter();
       final app = await pumpApp(tester, location: '/zzz', adapter: adapter);
       app.router.go('/yyy');
       await tester.pumpAndSettle();
       expect(_unreadCalls(adapter), 0);
-      expect(find.textContaining('쪽지'), findsNothing);
+      expect(_badge, findsNothing);
     });
 
-    _test('쪽지 링크를 누르면 /messages로 간다 (숫자가 붙어도 링크)', (tester) async {
+    _test('쪽지 탭을 누르면 /messages로 간다 (배지가 붙어도 탭)', (tester) async {
       final adapter = _counts([2, 2])..on('GET', '/conversations', FakeReply(200, []));
       final app = await pumpApp(tester, location: '/zzz', user: userJson(), adapter: adapter);
-      await tester.tap(find.text('쪽지 (2)'));
+      await tester.tap(find.text('쪽지'));
       await tester.pumpAndSettle();
       expect(_uri(app), '/messages');
     });
@@ -108,17 +113,17 @@ void main() {
       final adapter = _counts([1, 2, 3]);
       final app = await pumpApp(tester, location: '/zzz', user: userJson(), adapter: adapter);
       expect(_unreadCalls(adapter), 1);
-      expect(find.text('쪽지 (1)'), findsOneWidget);
+      expect(_badgeText('1'), findsOneWidget);
 
       app.router.go('/yyy');
       await tester.pumpAndSettle();
       expect(_unreadCalls(adapter), 2);
-      expect(find.text('쪽지 (2)'), findsOneWidget);
+      expect(_badgeText('2'), findsOneWidget);
 
       app.router.go('/xxx');
       await tester.pumpAndSettle();
       expect(_unreadCalls(adapter), 3);
-      expect(find.text('쪽지 (3)'), findsOneWidget);
+      expect(_badgeText('3'), findsOneWidget);
     });
 
     _test('경로는 그대로이고 쿼리만 바뀌면 다시 부르지 않는다', (tester) async {
@@ -133,7 +138,7 @@ void main() {
       app.router.go('/yyy?page=3&q=a');
       await tester.pumpAndSettle();
       expect(_unreadCalls(adapter), 2);
-      expect(find.text('쪽지 (2)'), findsOneWidget);
+      expect(_badgeText('2'), findsOneWidget);
     });
 
     _test('로그인한 직후 숫자를 받아 온다', (tester) async {
@@ -143,20 +148,20 @@ void main() {
       app.auth.updateUser(AuthUser.fromJson(userJson()));
       await tester.pumpAndSettle();
       expect(_unreadCalls(adapter), 1);
-      expect(find.text('쪽지 (5)'), findsOneWidget);
+      expect(_badgeText('5'), findsOneWidget);
     });
 
     _test('로그아웃하면 숫자가 사라지고 더 부르지 않는다', (tester) async {
       final adapter = _counts([4, 4])..on('POST', '/auth/logout', FakeReply(200));
       final app = await pumpApp(tester, location: '/zzz', user: userJson(), adapter: adapter);
-      expect(find.text('쪽지 (4)'), findsOneWidget);
+      expect(_badgeText('4'), findsOneWidget);
       await tester.tap(find.text('로그아웃'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('쪽지'), findsNothing);
+      expect(_badge, findsNothing);
       app.router.go('/yyy');
       await tester.pumpAndSettle();
       expect(_unreadCalls(adapter), 1);
-      expect(find.textContaining('쪽지'), findsNothing);
+      expect(_badge, findsNothing);
     });
 
     _test('다른 회원으로 바뀌면 이전 회원의 숫자는 새 응답이 오기 전에 바로 비워진다', (tester) async {
@@ -165,15 +170,15 @@ void main() {
       _count(adapter, 7);
       _count(adapter, 2, gate);
       final app = await pumpApp(tester, location: '/zzz', user: userJson(id: 1), adapter: adapter);
-      expect(find.text('쪽지 (7)'), findsOneWidget);
+      expect(_badgeText('7'), findsOneWidget);
 
       app.auth.updateUser(AuthUser.fromJson(userJson(id: 2)));
       await tester.pump();
-      expect(find.text('쪽지 (7)'), findsNothing); // 이전 회원 숫자는 안 보인다
-      expect(find.text('쪽지'), findsOneWidget);
+      expect(_badgeText('7'), findsNothing); // 이전 회원 숫자는 안 보인다
+      expect(_badge, findsNothing); // 새 회원은 숫자(배지)가 없다
       gate.complete();
       await tester.pumpAndSettle();
-      expect(find.text('쪽지 (2)'), findsOneWidget);
+      expect(_badgeText('2'), findsOneWidget);
     });
 
     _test('같은 회원의 닉네임만 바뀌면 다시 부르지 않는다', (tester) async {
@@ -182,7 +187,7 @@ void main() {
       app.auth.updateUser(AuthUser.fromJson(userJson(nickname: '새닉')));
       await tester.pumpAndSettle();
       expect(_unreadCalls(adapter), 1);
-      expect(find.text('쪽지 (1)'), findsOneWidget);
+      expect(_badgeText('1'), findsOneWidget);
     });
   });
 
@@ -193,14 +198,14 @@ void main() {
       app.router.go('/yyy');
       await tester.pumpAndSettle();
       expect(_unreadCalls(adapter), 2);
-      expect(find.text('쪽지 (5)'), findsOneWidget);
+      expect(_badgeText('5'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
-    _test('시작 때 실패하면 숫자 없이 "쪽지"이고 화면은 멀쩡하다', (tester) async {
+    _test('시작 때 실패하면 배지 없이 화면은 멀쩡하다', (tester) async {
       final adapter = FakeAdapter()..on('GET', '/conversations/unread-count', FakeReply.networkError());
       await pumpApp(tester, location: '/zzz', user: userJson(), adapter: adapter);
-      expect(find.text('쪽지'), findsOneWidget);
+      expect(_badge, findsNothing); // 실패하면 숫자(배지) 없이 탭 글자만
     });
 
     _test('먼저 보낸 요청의 응답이 늦게 와도 가장 마지막 응답이 이긴다', (tester) async {
@@ -214,11 +219,11 @@ void main() {
       await tester.pump();
       app.router.go('/xxx');
       await tester.pumpAndSettle();
-      expect(find.text('쪽지 (2)'), findsOneWidget);
+      expect(_badgeText('2'), findsOneWidget);
       gate.complete(); // 옛 응답(9)이 이제 도착
       await tester.pumpAndSettle();
-      expect(find.text('쪽지 (2)'), findsOneWidget);
-      expect(find.text('쪽지 (9)'), findsNothing);
+      expect(_badgeText('2'), findsOneWidget);
+      expect(_badgeText('9'), findsNothing);
     });
 
     _test('로그아웃 뒤에 도착한 응답은 버린다', (tester) async {
@@ -229,22 +234,22 @@ void main() {
       adapter.on('POST', '/auth/logout', FakeReply(200));
       final app = await pumpApp(tester, location: '/zzz', user: userJson(), adapter: adapter);
       app.router.go('/yyy');
-      await tester.pumpAndSettle(); // 화면 전환이 끝나야 상단바 버튼이 눌린다 (붙잡아 둔 응답은 화면을 안 멈춘다)
+      await tester.pumpAndSettle(); // 화면 전환이 끝나야 위 막대 버튼이 눌린다 (붙잡아 둔 응답은 화면을 안 멈춘다)
       await tester.tap(find.text('로그아웃'));
       await tester.pumpAndSettle();
       gate.complete();
       await tester.pumpAndSettle();
-      expect(find.textContaining('쪽지'), findsNothing);
+      expect(_badge, findsNothing);
     });
 
-    _test('unread-count가 401(재발급도 401)이면 로그인이 풀려 비로그인 상단바가 된다', (tester) async {
+    _test('unread-count가 401(재발급도 401)이면 로그인이 풀려 비로그인 위 막대가 된다', (tester) async {
       final adapter = FakeAdapter()
         ..on('GET', '/conversations/unread-count', FakeReply(401))
         ..on('POST', '/auth/refresh', FakeReply(401));
       await pumpApp(tester, location: '/zzz', user: userJson(), adapter: adapter);
       await _waitRefresh(tester);
       expect(find.text('로그인'), findsOneWidget);
-      expect(find.textContaining('쪽지'), findsNothing);
+      expect(_badge, findsNothing);
     });
   });
 
@@ -333,13 +338,13 @@ void main() {
       ]);
     });
 
-    _test('성공하면 상단바 숫자를 다시 받아 줄어든다', (tester) async {
+    _test('성공하면 쪽지 탭 배지 숫자를 다시 받아 없어진다', (tester) async {
       final adapter = _convAdapter(counts: [3, 0]);
       await openConv(tester, adapter);
       expect(adapter.count('PUT', '/conversations/3/read'), 1);
       expect(_unreadCalls(adapter), 2); // 시작 때 + 읽음 처리 뒤
-      expect(find.text('쪽지 (3)'), findsNothing);
-      expect(find.text('쪽지'), findsOneWidget);
+      expect(_badgeText('3'), findsNothing);
+      expect(_badge, findsNothing); // 읽고 나면 0이라 숫자(배지)가 없다
     });
 
     _test('쪽지가 0통이면 PUT을 보내지 않는다', (tester) async {
@@ -357,7 +362,7 @@ void main() {
       expect(find.text('판매자닉'), findsOneWidget);
       expect(find.byKey(const ValueKey('msg-2')), findsOneWidget);
       expect(_unreadCalls(adapter), 1); // 실패하면 다시 받지 않는다
-      expect(find.text('쪽지 (3)'), findsOneWidget);
+      expect(_badgeText('3'), findsOneWidget);
       expect(find.text('쪽지를 보내지 못했습니다'), findsNothing);
       expect(tester.takeException(), isNull);
     });
