@@ -1,6 +1,7 @@
 package com.example.demo.visa.repository;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -35,4 +36,22 @@ public interface VisaPlanRepository extends JpaRepository<VisaPlan, Long> {
     @Transactional(propagation = Propagation.MANDATORY)
     @Query("delete from VisaPlan p where p.userId = :userId")
     int deleteByUserIdReturningCount(@Param("userId") Long userId);
+
+    // 푸시 알림 후보 (S24-c): 유학생 인증이 지금 유효하고(verified_school_id 있음) 기기 토큰이 1개 이상인 회원 중
+    // 만료일이 [from, to] 안인 사람. 단계(PREPARE·CHECK·URGENT)와 "이미 보냈는지"는 호출한 쪽이 고른다.
+    // 같은 SQL로 말하면: select p.user_id, p.expiry_date from visa_plans p join users u on u.id = p.user_id
+    //   where u.verified_school_id is not null and p.expiry_date between :from and :to
+    //   and exists (select 1 from device_tokens d where d.user_id = p.user_id) order by p.user_id
+    @Query("select new com.example.demo.visa.repository.VisaPushTarget(p.userId, p.expiryDate) "
+            + "from VisaPlan p, User u "
+            + "where u.id = p.userId and u.verifiedSchool is not null "
+            + "and p.expiryDate between :from and :to "
+            + "and exists (select 1 from DeviceToken d where d.userId = p.userId) "
+            + "order by p.userId")
+    List<VisaPushTarget> findPushCandidates(@Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    // 보내기 직전 재확인 (S24-c): 그 회원이 지금도 유학생 인증이 유효하고, 비자 일정 만료일이 후보로 뽑았을 때와 같은가
+    @Query("select count(p) from VisaPlan p, User u "
+            + "where u.id = p.userId and p.userId = :userId and p.expiryDate = :expiryDate and u.verifiedSchool is not null")
+    long countStillTarget(@Param("userId") Long userId, @Param("expiryDate") LocalDate expiryDate);
 }

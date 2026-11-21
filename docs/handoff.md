@@ -20,7 +20,7 @@
   - 저장소 Variables `SITE_DOMAIN` 등록 → Deploy가 https 헬스체크도 함(도메인 이름을 잊으면 여기서 확인).
   - Cloudflare: 도메인 자동 갱신(만료 2027-11-19), DNS A `kampus` 프록시 끔·TTL 1분, API 토큰 `kampus-ddns`(그 영역 DNS 편집만, 만료 없음). 인증서 만료 2027-02-17(자동 갱신, 이메일 등록 안 함).
 - **S21(유학생 인증 보강)** 끝: 관리자 인증 취소·취소 번호 자동 승인 막기·Vision 하루 상한 30. 알려진 한계: 탈퇴→재가입으로 취소 번호 우회, 허가서 번호 전국 유일 여부 미확인(backlog S21).
-- 테스트: 백엔드 1907개(건너뜀 13), Flutter 1584개, e2e 15개 통과. DB는 **V15까지**.
+- 테스트: 백엔드 2001개(건너뜀 13), Flutter 1584개, e2e 15개 통과. DB는 **V17까지**(S24-c).
 - Notion: S23 카드(📱 휴대폰 앱) + 페이지 5장(앱 설정 정리 a~c, d1, d2, e, f)·상위 페이지 진행 현황 S23 체크·아키텍처 표 S23 줄 끝. **notion-guide 규칙 바뀜(2026-11-20): 프론트 단계도 "프론트 단계 페이지 틀"로 가볍게 씀.** S21 🧭 파트 전체 정리는 아직.
 
 ## 다음에 할 일
@@ -72,7 +72,7 @@
 - **집 PC 스마트 앱 컨트롤은 2026-11-13에 끔.**
 - **이 PC엔 `gh` CLI가 없다.** CI 상태는 `curl https://api.github.com/repos/seokam36/board-vibe-coding/actions/runs?head_sha=<40자리 SHA>` → run id로 `/jobs`(JSON은 파일로 저장해 `node -e`로 읽으면 편함). Deploy 전에 images까지 초록 확인.
 - **docs 파일을 Git Bash `sed -i`로 고치지 말 것**(CRLF가 LF로 바뀜). Edit 도구로. backlog는 CRLF라 끝에 줄을 붙일 땐 `printf '%s\r\n'`.
-- **표 바꾸는 기능은 새 V 파일**(다음은 `V16__...sql`). 커밋된 V 파일은 고치지 않는다. ddl-auto validate.
+- **표 바꾸는 기능은 새 V 파일**(다음은 `V18__...sql`). 커밋된 V 파일은 고치지 않는다. ddl-auto validate.
 - **FK·UNIQUE·CHECK 제약에는 반드시 이름.**
 - **잠금 순서**: 탈퇴는 회원 행 FOR UPDATE 먼저, 쪽지는 회원 행 FOR KEY SHARE 먼저, 허가서 승인·취소·반려·만료·철회·탈퇴는 신청자 회원 행 FOR UPDATE → 신청 행 → 상태 재확인(`lockPending`/`lockWithStatus`).
 - **사진 대기 표(photo_delete_queue)**: 허가서 사진은 "저장 전에 적고 INSERT 트랜잭션에서 떼기", "결정·삭제 트랜잭션 안에서 적고 커밋 뒤 지우기".

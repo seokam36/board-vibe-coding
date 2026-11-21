@@ -187,20 +187,22 @@ class FcmPushSenderTests {
 
 	// UNREGISTERED가 없는 404는 프로젝트 ID 실수 같은 설정 문제일 수 있어 토큰을 지우라고 하지 않는다
 	@Test
-	void UNREGISTERED_없는_404는_FAILED다() {
+	void UNREGISTERED_없는_404는_REJECTED다() {
 		status = 404;
 		responseBody = "{\"error\":{\"code\":404,\"status\":\"NOT_FOUND\"}}";
 
-		assertThat(sender().send(DEVICE_TOKEN, "t", "b")).isEqualTo(PushResult.FAILED);
+		assertThat(sender().send(DEVICE_TOKEN, "t", "b")).isEqualTo(PushResult.REJECTED);
 		assertNoSecretsInLogs();
 	}
 
+	// 4xx(429 제외)는 구글이 답한 거절(REJECTED), 429·5xx는 구글이 제대로 못 답한 것(FAILED)
 	@Test
-	void 오류_상태_코드는_모두_FAILED이고_예외가_안_난다() {
+	void 오류_상태_코드는_4xx는_REJECTED_429와_5xx는_FAILED이고_예외가_안_난다() {
 		for (int code : new int[] { 400, 401, 403, 429, 500, 503 }) {
 			status = code;
 			responseBody = "{\"error\":{\"code\":" + code + ",\"message\":\"" + DEVICE_TOKEN + " " + ACCESS_TOKEN + "\"}}";
-			assertThat(sender().send(DEVICE_TOKEN, "t", "b")).as("HTTP " + code).isEqualTo(PushResult.FAILED);
+			PushResult expected = (code == 429 || code >= 500) ? PushResult.FAILED : PushResult.REJECTED;
+			assertThat(sender().send(DEVICE_TOKEN, "t", "b")).as("HTTP " + code).isEqualTo(expected);
 		}
 		// 로그에는 상태 숫자만 있고, 응답 본문에 섞여 온 토큰은 없다
 		assertThat(logs.list).hasSize(6);

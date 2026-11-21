@@ -104,7 +104,9 @@ public class FcmPushSender implements PushSender {
     }
 
     // 4xx·5xx 처리. 404 + errorCode UNREGISTERED만 "이 토큰은 죽었다"로 본다.
-    // (404여도 UNREGISTERED가 없으면 프로젝트 ID 같은 설정 실수일 수 있어, 토큰을 지우지 않도록 FAILED로 둔다)
+    // 나머지 4xx(429 제외)는 REJECTED: 구글이 답은 했으니 서버는 살아 있고, 토큰·요청·권한 문제다. 토큰은 지우지 않는다.
+    // (404여도 UNREGISTERED가 없으면 프로젝트 ID 같은 설정 실수일 수 있어 토큰을 지우지 않고 REJECTED로 둔다)
+    // 429(한도 초과)·5xx는 구글이 제대로 답을 못 한 것이라 FAILED(주기 작업이 "구글 장애"로 센다).
     private PushResult handleErrorResponse(RestClientResponseException e) {
         int status = e.getStatusCode().value();
         if (status == 404 && e.getResponseBodyAsString().contains("UNREGISTERED")) {
@@ -112,6 +114,9 @@ public class FcmPushSender implements PushSender {
             return PushResult.TOKEN_INVALID;
         }
         log.warn("fcm 발송 실패: HTTP {}{}", status, status == 429 ? " (한도 초과)" : "");
+        if (status >= 400 && status < 500 && status != 429) {
+            return PushResult.REJECTED;
+        }
         return PushResult.FAILED;
     }
 

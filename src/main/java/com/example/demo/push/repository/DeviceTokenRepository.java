@@ -1,5 +1,7 @@
 package com.example.demo.push.repository;
 
+import java.util.List;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -43,4 +45,8 @@ public interface DeviceTokenRepository extends JpaRepository<DeviceToken, Long> 
     @Transactional(propagation = Propagation.MANDATORY)
     @Query(value = "delete from device_tokens where user_id = :userId", nativeQuery = true)
     int deleteAllByUserId(@Param("userId") Long userId);
+
+    // 그 회원의 토큰 값들 (알림 보낼 때 읽는다. 짧은 읽기라 연결을 바로 돌려준다)
+    @Query("select d.token from DeviceToken d where d.userId = :userId order by d.id")
+    List<String> findTokensByUserId(@Param("userId") Long userId);
 }
