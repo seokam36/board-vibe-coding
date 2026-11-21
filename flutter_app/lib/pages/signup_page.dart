@@ -7,6 +7,8 @@ import '../errors/error_messages.dart';
 import '../theme/app_colors.dart';
 import '../widgets/auth_card.dart';
 import '../widgets/notice.dart';
+import '../widgets/panel.dart';
+import '../widgets/section_parts.dart';
 
 // 회원가입 화면 (React의 SignupPage). 입력 형식 검사는 하지 않고 빈 값도 서버로 보내 서버의 400 문구를 쓴다.
 class SignupPage extends StatefulWidget {
@@ -77,15 +79,8 @@ class _SignupPageState extends State<SignupPage> {
   Widget build(BuildContext context) {
     return AuthCard(
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: AppSizes.space4),
-          // 제목은 스크린리더가 가장 큰 제목(React의 h1)으로 읽게 한다
-          child: Semantics(
-            header: true,
-            headingLevel: 1,
-            child: Text('회원가입', style: Theme.of(context).textTheme.titleLarge),
-          ),
-        ),
+        // 제목(22·700, 스크린리더는 heading 1)은 다른 화면과 같은 PageTitle
+        const PageTitle('회원가입'),
         // 휴대폰이 첫 글자를 대문자로 바꾸면 서버 규칙(소문자만)에 걸리므로 자동 대문자·맞춤법 검사를 끈다
         TextField(
           controller: _username,
@@ -108,14 +103,8 @@ class _SignupPageState extends State<SignupPage> {
           onSubmitted: (_) => _submit(),
         ),
         // 서버는 완성형 한글만 받으므로 "ㅋㅋ" 같은 자음·모음만은 안 된다고 미리 알려 준다
-        Padding(
-          padding: const EdgeInsets.only(top: AppSizes.space1),
-          child: Text(
-            '한글(완성형)·영문·숫자·_ 2~20자, 공백·자음/모음만은 불가',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
-        const SizedBox(height: AppSizes.space4),
+        // FieldHint(13·muted)는 아래 여백 16을 스스로 갖고 있다
+        const FieldHint('한글(완성형)·영문·숫자·_ 2~20자, 공백·자음/모음만은 불가'),
         TextField(
           controller: _password,
           decoration: const InputDecoration(labelText: '비밀번호'),

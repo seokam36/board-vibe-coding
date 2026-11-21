@@ -2,11 +2,11 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../common/format_date.dart';
-import '../common/utf16_length_formatter.dart';
 import '../errors/error_messages.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_badge.dart';
 import '../widgets/date_field.dart';
+import '../widgets/labeled_field.dart';
 import '../widgets/notice.dart';
 import '../widgets/panel.dart';
 import '../widgets/relogin_notice.dart';
@@ -211,34 +211,20 @@ class _VisaReviewFormState extends State<VisaReviewForm> {
                   : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [received, resultDay]);
             },
           ),
-          // 본문: 선택 입력, 최대 2000자(UTF-16 길이), 8줄. 아래에 "n / 2000" 글자 수
-          ExcludeSemantics(
-            child: const Text(
-              '본문 (선택)',
-              style: TextStyle(fontSize: AppSizes.fsSmall2, fontWeight: FontWeight.w500, color: AppColors.ink),
-            ),
-          ),
-          const SizedBox(height: AppSizes.space1),
-          Semantics(
+          // 본문: 선택 입력, 최대 2000자(UTF-16 길이), 8줄, 글 보기와 같은 15·1.65. 아래에 "n / 2000" 글자 수
+          LabeledField(
+            fieldKey: const ValueKey('content-field'),
             label: '본문 (선택)',
-            child: TextField(
-              key: const ValueKey('content-field'),
-              controller: _content,
-              decoration: const InputDecoration(
-                hintText: '준비한 서류, 팁 등을 남겨 주세요',
-                hintStyle: TextStyle(color: AppColors.muted),
-              ),
-              inputFormatters: const [Utf16LengthFormatter(2000)],
-              minLines: 8,
-              maxLines: 8,
-              keyboardType: TextInputType.multiline,
-              textInputAction: TextInputAction.newline,
+            controller: _content,
+            hint: '준비한 서류, 팁 등을 남겨 주세요',
+            maxLength: 2000,
+            lines: 8,
+            textStyle: postBodyInputStyle,
+            // 글자 수는 입력이 바뀔 때마다 새로 그린다 (React의 content.length)
+            below: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _content,
+              builder: (context, value, _) => FieldHint('${value.text.length} / 2000'),
             ),
-          ),
-          // 글자 수는 입력이 바뀔 때마다 새로 그린다 (React의 content.length)
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: _content,
-            builder: (context, value, _) => FieldHint('${value.text.length} / 2000'),
           ),
           if (_error != null) Notice(kind: NoticeKind.error, message: _error),
           if (_needLogin) const ReloginNotice(),

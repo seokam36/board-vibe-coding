@@ -1,7 +1,6 @@
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../common/utf16_length_formatter.dart';
 import '../errors/error_messages.dart';
 import '../theme/app_colors.dart';
 import '../widgets/labeled_field.dart';
@@ -122,76 +121,50 @@ class _MarketItemFormState extends State<MarketItemForm> {
             maxLength: 100,
             onSubmitted: _submit,
           ),
-          // 판매/나눔 + (판매일 때만) 가격
+          // 판매/나눔 상자 (아래 여백 16)
           Padding(
             padding: const EdgeInsets.only(bottom: AppSizes.space4),
-            child: Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: AppSizes.space2,
-              runSpacing: AppSizes.space2,
-              children: [
-                SelectField(
-                  fieldKey: const ValueKey('trade-type-select'),
-                  label: '판매/나눔',
-                  width: 120,
-                  value: _tradeType,
-                  options: const [('SALE', '판매'), ('FREE', '나눔')],
-                  onChanged: (v) => setState(() => _tradeType = v),
+            // 자식이 하나뿐이라 Wrap 대신 왼쪽 정렬만 한다
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: SelectField(
+                fieldKey: const ValueKey('trade-type-select'),
+                label: '판매/나눔',
+                width: 120,
+                value: _tradeType,
+                options: const [('SALE', '판매'), ('FREE', '나눔')],
+                onChanged: (v) => setState(() => _tradeType = v),
+              ),
+            ),
+          ),
+          // 가격: 다른 칸처럼 라벨이 위, 폭 160 (나눔이면 칸을 숨긴다)
+          if (_tradeType == 'SALE')
+            Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                width: 160,
+                child: LabeledField(
+                  fieldKey: const ValueKey('price-field'),
+                  label: '가격(원)',
+                  controller: _price,
+                  keyboardType: TextInputType.number,
+                  onSubmitted: _submit,
                 ),
-                // 나눔이면 가격 칸을 숨긴다
-                if (_tradeType == 'SALE')
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ExcludeSemantics(
-                        child: const Text(
-                          '가격(원)',
-                          style: TextStyle(fontSize: AppSizes.fsSmall2, fontWeight: FontWeight.w500, color: AppColors.ink),
-                        ),
-                      ),
-                      const SizedBox(width: AppSizes.space2),
-                      SizedBox(
-                        width: 160,
-                        child: Semantics(
-                          label: '가격(원)',
-                          child: TextField(
-                            key: const ValueKey('price-field'),
-                            controller: _price,
-                            keyboardType: TextInputType.number,
-                            textInputAction: TextInputAction.done,
-                            onSubmitted: (_) => _submit(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
+              ),
             ),
-          ),
-          // 본문: 최대 2000자(UTF-16 길이), 8줄. 아래에 "n / 2000" 글자 수
-          ExcludeSemantics(
-            child: const Text(
-              '본문',
-              style: TextStyle(fontSize: AppSizes.fsSmall2, fontWeight: FontWeight.w500, color: AppColors.ink),
-            ),
-          ),
-          const SizedBox(height: AppSizes.space1),
-          Semantics(
+          // 본문: 최대 2000자(UTF-16 길이), 8줄, 글 보기와 같은 15·1.65. 아래에 "n / 2000" 글자 수
+          LabeledField(
+            fieldKey: const ValueKey('content-field'),
             label: '본문',
-            child: TextField(
-              key: const ValueKey('content-field'),
-              controller: _content,
-              inputFormatters: const [Utf16LengthFormatter(2000)],
-              minLines: 8,
-              maxLines: 8,
-              keyboardType: TextInputType.multiline,
-              textInputAction: TextInputAction.newline,
+            controller: _content,
+            maxLength: 2000,
+            lines: 8,
+            textStyle: postBodyInputStyle,
+            // 글자 수는 입력이 바뀔 때마다 새로 그린다 (React의 content.length)
+            below: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _content,
+              builder: (context, value, _) => FieldHint('${value.text.length} / 2000'),
             ),
-          ),
-          // 글자 수는 입력이 바뀔 때마다 새로 그린다 (React의 content.length)
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: _content,
-            builder: (context, value, _) => FieldHint('${value.text.length} / 2000'),
           ),
           if (_error != null) Notice(kind: NoticeKind.error, message: _error),
           if (_needLogin) const ReloginNotice(),

@@ -7,6 +7,7 @@ import '../errors/error_messages.dart';
 import '../theme/app_colors.dart';
 import '../widgets/auth_card.dart';
 import '../widgets/notice.dart';
+import '../widgets/panel.dart';
 
 // 로그인 화면 (React의 LoginPage). 클라이언트 검증은 없다: 빈 값도 서버로 보내고 서버의 400 문구를 보여 준다.
 class LoginPage extends StatefulWidget {
@@ -69,15 +70,8 @@ class _LoginPageState extends State<LoginPage> {
     // 카드 틀(최대 400 폭 가운데)은 회원가입과 같이 쓰는 AuthCard
     return AuthCard(
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: AppSizes.space4),
-          // 제목은 스크린리더가 가장 큰 제목(React의 h1)으로 읽게 한다
-          child: Semantics(
-            header: true,
-            headingLevel: 1,
-            child: Text('로그인', style: Theme.of(context).textTheme.titleLarge),
-          ),
-        ),
+        // 제목(22·700, 스크린리더는 heading 1)은 다른 화면과 같은 PageTitle
+        const PageTitle('로그인'),
         if (notice != null) Notice(kind: NoticeKind.info, message: notice),
         // 휴대폰이 첫 글자를 대문자로 바꾸면 로그인이 실패하므로 자동 대문자·맞춤법 검사를 끈다
         TextField(

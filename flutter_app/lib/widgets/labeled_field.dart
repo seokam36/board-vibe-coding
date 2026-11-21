@@ -7,8 +7,8 @@ import '../theme/app_colors.dart';
 const postBodyInputStyle = TextStyle(fontSize: AppSizes.fsBody, height: AppSizes.bodyLineHeight);
 
 // 위에 라벨 글자가 있는 입력칸 (라벨 + 입력칸 + .field 아래 여백 16, 칸 안 힌트 글자는 선택).
-// maxLength가 있으면 그 글자 수를 넘겨 입력되지 않는다(글자 수 표시는 없다). lines가 1보다 크면 여러 줄 칸.
-// 글쓰기·글 수정, 중고 글 폼, 인증 승인 폼이 같이 쓴다.
+// maxLength가 있으면 그 글자 수를 넘겨 입력되지 않는다(글자 수 표시는 below로 붙일 수 있다). lines가 1보다 크면 여러 줄 칸.
+// 글쓰기·글 수정, 중고 글 폼, 비자 후기 폼, 인증 승인 폼이 같이 쓴다.
 class LabeledField extends StatelessWidget {
   const LabeledField({
     super.key,
@@ -20,6 +20,8 @@ class LabeledField extends StatelessWidget {
     this.lines = 1,
     this.onSubmitted,
     this.textStyle,
+    this.keyboardType,
+    this.below,
   });
 
   final Key fieldKey;
@@ -30,11 +32,13 @@ class LabeledField extends StatelessWidget {
   final int lines;
   final VoidCallback? onSubmitted; // 한 줄 칸에서 Enter를 눌렀을 때
   final TextStyle? textStyle; // 입력 글자 모양(없으면 기본). 글 내용칸이 글 보기 본문과 같은 줄 간격을 쓰려고 넘긴다
+  final TextInputType? keyboardType; // 숫자 칸 등 (없으면 한 줄은 글자, 여러 줄은 multiline)
+  final Widget? below; // 칸 바로 아래에 붙일 글자 수 안내 등 (있으면 아래 여백 16은 이 위젯이 가진다)
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSizes.space4),
+      padding: EdgeInsets.only(bottom: below == null ? AppSizes.space4 : 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -62,14 +66,15 @@ class LabeledField extends StatelessWidget {
               ),
               // UTF-16 길이로 제한한다 (React maxLength와 같은 단위, 이모지 = 2)
               inputFormatters: [if (maxLength != null) Utf16LengthFormatter(maxLength!)],
-              // 여러 줄 칸은 줄 수를 고정하고(10줄) 넘치면 안에서 스크롤된다
+              // 여러 줄 칸은 줄 수(lines 인자)를 고정하고 넘치면 안에서 스크롤된다
               minLines: lines,
               maxLines: lines,
-              keyboardType: lines > 1 ? TextInputType.multiline : TextInputType.text,
+              keyboardType: keyboardType ?? (lines > 1 ? TextInputType.multiline : TextInputType.text),
               textInputAction: lines > 1 ? TextInputAction.newline : TextInputAction.done,
               onSubmitted: onSubmitted == null ? null : (_) => onSubmitted!(),
             ),
           ),
+          ?below,
         ],
       ),
     );
