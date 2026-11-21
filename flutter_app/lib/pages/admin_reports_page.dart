@@ -368,7 +368,7 @@ class _ReportRow extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               AppBadge(text: _badgeLabel[t.type] ?? t.type, ink: ink, bg: bg),
-              if (linkTo != null) AppLink(label: linkLabel, onTap: () => context.go(linkTo)),
+              if (linkTo != null) AppLink(label: linkLabel, tall: true, onTap: () => context.go(linkTo)), // 눌림 높이 48 이상
             ],
           ),
           // 줄바꿈은 그대로, 글자로만 그린다(HTML이 실행되지 않음)

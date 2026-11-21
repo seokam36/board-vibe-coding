@@ -194,7 +194,7 @@ class _AdminPermitRowState extends State<AdminPermitRow> {
             children: [
               Text(
                 it.nickname,
-                style: const TextStyle(color: AppColors.ink, fontWeight: FontWeight.w500),
+                style: const TextStyle(color: AppColors.ink, fontWeight: FontWeight.w700), // 500 글꼴 파일이 없어 700으로
               ),
               if (it.autoDecided) const AppBadge(text: '자동'),
             ],

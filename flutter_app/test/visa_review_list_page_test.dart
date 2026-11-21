@@ -6,7 +6,6 @@ import 'package:board_web/theme/app_colors.dart';
 import 'package:board_web/widgets/initial_avatar.dart';
 import 'package:board_web/widgets/notice.dart';
 import 'package:board_web/widgets/page_frame.dart';
-import 'package:board_web/widgets/row_link.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -512,9 +511,8 @@ void main() {
       }
     });
 
-    testWidgets('줄 안에 RowLink·이니셜 동그라미는 없다', (tester) async {
+    testWidgets('줄 안에 이니셜 동그라미는 없다', (tester) async {
       await pumpApp(tester, location: '/visa-reviews', adapter: _adapter([FakeReply(200, [reviewJson()])]));
-      expect(find.byType(RowLink), findsNothing);
       expect(find.byType(InitialAvatar), findsNothing);
     });
 

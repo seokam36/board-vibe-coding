@@ -187,39 +187,42 @@ class _AdminConversationPageState extends State<AdminConversationPage> {
         ),
       ),
       if (view.messages.isEmpty) const PanelState(child: Text('아직 쪽지가 없습니다')),
-      if (view.hasMore)
-        const Padding(
-          padding: EdgeInsets.only(top: AppSizes.space4),
-          child: Text(
-            _truncatedInfo,
-            key: ValueKey('msg-truncated'),
-            style: TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.muted),
-          ),
-        ),
-      // 판매자는 오른쪽(포인트 배경), 구매자·누구인지 모르는(탈퇴) 사람은 왼쪽. 폭은 최대 85%
-      Semantics(
-        container: true,
-        label: '쪽지 목록',
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSizes.space4),
-          child: LayoutBuilder(
-            builder: (context, constraints) => Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var i = 0; i < view.messages.length; i++)
-                  Padding(
-                    padding: EdgeInsets.only(top: i == 0 ? 0 : AppSizes.space3),
-                    child: _AdminBubble(
-                      m: view.messages[i],
-                      role: _roleOf(view, view.messages[i].sender),
-                      maxWidth: constraints.maxWidth * 0.85,
+      // 쪽지 대화 화면처럼 말풍선 목록을 흰 판(Panel) 안에 둔다 (판 밖이면 구매자 말풍선 색이 바탕색에 묻힌다)
+      // 판매자는 오른쪽(포인트 배경), 구매자·누구인지 모르는(탈퇴) 사람은 왼쪽. 폭은 판 안쪽 폭의 85%
+      // 쪽지가 없으면 위의 "아직 쪽지가 없습니다" 칸만 보이도록 빈 판은 그리지 않는다
+      if (view.messages.isNotEmpty)
+        Panel(
+          child: Semantics(
+            container: true,
+            label: '쪽지 목록',
+            child: LayoutBuilder(
+              builder: (context, constraints) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 최근 200통만 받았으면(hasMore) 말풍선 위(판 안 맨 위)에 안내, 아래 간격 12
+                  if (view.hasMore)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: AppSizes.space3),
+                      child: Text(
+                        _truncatedInfo,
+                        key: ValueKey('msg-truncated'),
+                        style: TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.muted),
+                      ),
                     ),
-                  ),
-              ],
+                  for (var i = 0; i < view.messages.length; i++)
+                    Padding(
+                      padding: EdgeInsets.only(top: i == 0 ? 0 : AppSizes.space3),
+                      child: _AdminBubble(
+                        m: view.messages[i],
+                        role: _roleOf(view, view.messages[i].sender),
+                        maxWidth: constraints.maxWidth * 0.85,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
     ];
   }
 

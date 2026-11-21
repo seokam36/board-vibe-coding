@@ -245,7 +245,7 @@ void main() {
       expect(find.descendant(of: bubble, matching: find.byType(Text)), findsOneWidget);
     });
 
-    _test('출처 2건: 응답 순서대로 제목·가격·상태, 제목을 누르면 /market/{id}', (tester) async {
+    _test('출처 2건: 응답 순서대로 제목·가격·상태, 줄을 누르면 /market/{id}', (tester) async {
       final adapter = FakeAdapter()
         ..on(
           'POST',

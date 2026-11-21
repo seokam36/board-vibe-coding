@@ -11,7 +11,6 @@ import 'package:board_web/common/format_date.dart';
 import 'package:board_web/widgets/feed_row.dart';
 import 'package:board_web/widgets/notice.dart';
 import 'package:board_web/widgets/panel.dart';
-import 'package:board_web/widgets/row_link.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -678,15 +677,14 @@ void main() {
       expect(find.text('글을 올리려면 로그인이 필요해요'), findsOneWidget);
     });
 
-    testWidgets('중고 줄은 FeedRow 하나(RowLink 없음)', (tester) async {
+    testWidgets('중고 줄은 FeedRow 하나', (tester) async {
       await pumpApp(
         tester,
         location: '/market',
         user: userJson(school: marketSeoul),
         adapter: marketAdapter([FakeReply(200, [marketItemJson()])]),
       );
-      expect(find.byType(RowLink), findsNothing);
-      expect(find.byType(FeedRow), findsOneWidget);
+      expect(find.byType(FeedRow), findsOneWidget); // (RowLink 클래스는 S26-k7에서 지워 "없음" 단언은 뺐다)
     });
 
     testWidgets('375px: 넘치지 않고 연필 버튼 오른쪽 끝은 375-16', (tester) async {
@@ -738,7 +736,7 @@ void main() {
       return style.fontSize! * style.height!;
     }
 
-    testWidgets('완료조건1: 판은 FeedPanel, 줄마다 FeedRow 1개, 줄 안 RowLink 0개', (tester) async {
+    testWidgets('완료조건1: 판은 FeedPanel, 줄마다 FeedRow 1개', (tester) async {
       await pumpApp(
         tester,
         location: '/market',
@@ -749,7 +747,6 @@ void main() {
       expect(find.byType(FeedPanel), findsOneWidget);
       expect(find.byType(FlushPanel), findsNothing); // 옛 판은 더 안 쓴다
       expect(find.byType(FeedRow), findsNWidgets(3));
-      expect(find.descendant(of: find.byType(FeedPanel), matching: find.byType(RowLink)), findsNothing);
       for (final id in [1, 2, 3]) {
         expect(find.descendant(of: find.byKey(ValueKey(id)), matching: find.byType(FeedRow)), findsOneWidget);
       }
