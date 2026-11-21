@@ -17,6 +17,7 @@ import com.example.demo.comment.repository.CommentRepository;
 import com.example.demo.common.ApiErrors;
 import com.example.demo.permit.repository.PermitRequestRepository;
 import com.example.demo.photo.service.PhotoDeleteQueue;
+import com.example.demo.push.repository.DeviceTokenRepository;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.school.dto.SchoolResponse;
 import com.example.demo.user.domain.User;
@@ -43,6 +44,7 @@ public class UserService {
     private final AccessGuard accessGuard;
     private final PhotoDeleteQueue photoDeleteQueue; // 지울 사진 파일 대기 표 (S13-g4)
     private final PermitRequestRepository permitRequestRepository; // 허가서 신청 (탈퇴 때 사진 정리, S20-a)
+    private final DeviceTokenRepository deviceTokenRepository; // 기기 토큰 (비밀번호 변경 때 전부 삭제, S24-a)
 
     // 회원가입. 아이디 또는 닉네임이 이미 있으면 409.
     // 메서드 전체에 @Transactional을 걸지 않는다: saveAndFlush()가 자기 트랜잭션에서 끝나야
@@ -100,7 +102,7 @@ public class UserService {
 
     // 비밀번호 변경. 현재 비밀번호가 틀리거나 새 비밀번호가 현재와 같으면 400
     // (401로 하면 프론트가 토큰 재발급을 돌리므로 400으로 한다).
-    // 순서: DB 변경(UPDATE 쿼리가 자기 트랜잭션으로 커밋) -> 그다음 Redis의 리프레시 토큰 전부 삭제.
+    // 순서: DB 변경(비밀번호 UPDATE + 기기 토큰 삭제, 한 트랜잭션으로 커밋) -> 그다음 Redis의 리프레시 토큰 전부 삭제.
     // - DB 변경이 실패하면 revokeAll까지 가지 않으므로 "비밀번호는 그대로인데 로그아웃만 된" 상태가 생기지 않는다.
     // - revokeAll이 실패하면(Redis 장애) 비밀번호는 이미 바뀌었고 500이 난다. 옛 리프레시 토큰이 남을 수 있어
     //   실패를 숨기지 않고 500으로 드러낸다(알림·재시도는 운영에서 다룰 몫).
@@ -113,9 +115,19 @@ public class UserService {
         if (request.currentPassword().equals(request.newPassword())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "새 비밀번호는 현재 비밀번호와 달라야 합니다.");
         }
-        // 비밀번호 컬럼만 UPDATE(자체 트랜잭션으로 커밋). 통째 저장하면 동시에 바뀐 닉네임을 옛 값으로 덮어쓸 수 있다.
-        // bcrypt(encode)는 DB 연결을 잡지 않은 채 돌리고, UPDATE만 짧게 트랜잭션을 쓴다.
-        if (userRepository.updatePassword(id, passwordEncoder.encode(request.newPassword())) == 0) {
+        // 비밀번호 컬럼만 UPDATE한다. 통째 저장하면 동시에 바뀐 닉네임을 옛 값으로 덮어쓸 수 있다.
+        // bcrypt(encode)는 DB 연결을 잡지 않은 채 돌리고, 아래 transactionTemplate 안(UPDATE + 기기 토큰 삭제)만 짧게 트랜잭션을 쓴다.
+        String newHash = passwordEncoder.encode(request.newPassword());
+        // 비밀번호 UPDATE와 기기 토큰(푸시 알림용 휴대폰 주소) 전체 삭제를 한 트랜잭션으로 묶는다(S24-a):
+        // 비밀번호는 바뀌었는데 옛 기기로 알림이 계속 가거나, 토큰만 지워지고 비밀번호는 그대로인 상태를 막는다.
+        Integer changed = transactionTemplate.execute(status -> {
+            int updated = userRepository.updatePassword(id, newHash);
+            if (updated > 0) {
+                deviceTokenRepository.deleteAllByUserId(id);
+            }
+            return updated;
+        });
+        if (changed == null || changed == 0) {
             throw ApiErrors.loginRequired(); // 읽은 뒤 회원이 삭제됨
         }
         refreshTokenService.revokeAll(id); // 모든 기기 로그아웃
