@@ -12,7 +12,7 @@ class AppLink extends StatelessWidget {
   final bool oneLine;
   final VoidCallback onTap;
   final TextStyle? style;
-  // true면 눌림 높이를 최소 48로 키운다(글자는 세로 가운데). 단독으로 놓인 링크(위 막대·바로가기)용.
+  // true면 눌림 높이를 최소 48로 키운다(글자는 세로 가운데). 단독으로 놓인 링크(위 막대)용.
   // 문장 속 링크는 높이가 커지면 줄 간격이 깨지니 false(기본)로 둔다.
   final bool tall;
 

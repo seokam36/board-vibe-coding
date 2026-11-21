@@ -242,7 +242,7 @@ void main() {
       expect(app.router.routerDelegate.currentConfiguration.uri.path, '/admin/reports');
     });
 
-    testWidgets('일반 회원(미인증)이면 바로가기 줄이 없다', (tester) async {
+    testWidgets('일반 회원(미인증)이면 바로가기 판이 없다', (tester) async {
       await pumpApp(tester, location: '/me', user: userJson());
       expect(find.text('비자 일정'), findsNothing);
       expect(find.text('신고 관리'), findsNothing);

@@ -7,8 +7,9 @@ import '../auth/auth_state.dart';
 import '../auth/auth_user.dart';
 import '../errors/error_messages.dart';
 import '../theme/app_colors.dart';
-import '../widgets/app_link.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/feed_row.dart';
+import '../widgets/initial_avatar.dart';
 import '../widgets/notice.dart';
 import '../widgets/page_frame.dart';
 import '../widgets/panel.dart';
@@ -33,20 +34,30 @@ class MyPage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const BoardTitle('내 정보'),
-          // 아래 탭에서 빠진 바로가기: 비자 일정(인증 회원), 신고 관리·인증 심사(관리자) (S26-c)
-          const _Shortcuts(),
           // 아이디는 바꿀 수 없어 읽기 전용 글자. 로그인이 풀린 직후엔 user가 없을 수 있다
+          // 왼쪽 이니셜은 닉네임 첫 글자라, 닉네임을 바꾸면 같이 바뀐다 (user를 watch 하니까)
           if (user != null)
             Panel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text('아이디: ${user.username}'),
-                  const SizedBox(height: AppSizes.space2),
-                  Text('닉네임: ${user.nickname}'),
+                  InitialAvatar(nickname: user.nickname),
+                  const SizedBox(width: AppSizes.space3),
+                  // Expanded: 닉네임이 길어도 남는 폭 안에서 줄바꿈해 넘치지 않는다
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('아이디: ${user.username}'),
+                        const SizedBox(height: AppSizes.space2),
+                        Text('닉네임: ${user.nickname}'),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
+          // 아래 탭에서 빠진 바로가기: 비자 일정(인증 회원), 신고 관리·인증 심사(관리자) (S26-c)
+          const _Shortcuts(),
           // 유학생 인증: 인증했으면 뱃지, 아직이면 상태 보기 + 허가서 신청 폼 (S20-g1)
           const PermitVerificationSection(),
           const _NicknameForm(),
@@ -65,8 +76,9 @@ class MyPage extends StatelessWidget {
   }
 }
 
-// 내 정보 맨 위 바로가기 줄. 위 막대에 있던 조건을 그대로 옮겼다: 비자 일정은 학교 인증 회원만, 관리자 메뉴는 관리자만.
-// 보여 줄 링크가 하나도 없으면 아무것도 그리지 않는다(빈 줄 없음).
+// 내 정보 바로가기 판(프로필 아래). 위 막대에 있던 조건을 그대로 옮겼다: 비자 일정은 학교 인증 회원만, 관리자 메뉴는 관리자만.
+// 게시판 목록처럼 FeedPanel 안의 FeedRow 줄: 줄 하나 = 링크 하나, 오른쪽에 chevron.
+// 보여 줄 링크가 하나도 없으면 판 자체를 그리지 않는다.
 class _Shortcuts extends StatelessWidget {
   const _Shortcuts();
 
@@ -74,16 +86,32 @@ class _Shortcuts extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = context.watch<AuthState>().user;
     if (user == null) return const SizedBox.shrink();
-    final links = <Widget>[
-      // tall: 손가락으로 누르기 쉽게 눌림 높이를 48로
-      if (user.verifiedSchool != null) AppLink(label: '비자 일정', tall: true, onTap: () => context.go('/visa-plan')),
-      if (user.isAdmin) AppLink(label: '신고 관리', tall: true, onTap: () => context.go('/admin/reports')),
-      if (user.isAdmin) AppLink(label: '인증 심사', tall: true, onTap: () => context.go('/admin/permits')),
+    // 보일 글자(label)와 갈 주소(path)를 묶은 목록
+    final links = <({String label, String path})>[
+      if (user.verifiedSchool != null) (label: '비자 일정', path: '/visa-plan'),
+      if (user.isAdmin) (label: '신고 관리', path: '/admin/reports'),
+      if (user.isAdmin) (label: '인증 심사', path: '/admin/permits'),
     ];
     if (links.isEmpty) return const SizedBox.shrink();
+    // FeedPanel에는 바깥 여백이 없어 아래 16을 직접 준다 (Panel과 같은 간격)
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSizes.space4),
-      child: Wrap(spacing: AppSizes.space4, runSpacing: AppSizes.space2, children: links),
+      child: FeedPanel(
+        children: [
+          for (var i = 0; i < links.length; i++)
+            FeedRow(
+              label: links[i].label,
+              onTap: () => context.go(links[i].path),
+              first: i == 0,
+              child: Row(
+                children: [
+                  Expanded(child: Text(links[i].label)),
+                  const Icon(Icons.chevron_right, size: 20, color: AppColors.muted),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
