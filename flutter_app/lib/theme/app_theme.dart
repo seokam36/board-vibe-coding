@@ -16,24 +16,24 @@ class _NoTransitionBuilder extends PageTransitionsBuilder {
   ) => child;
 }
 
-// 앱 전체 테마: 항상 어두운 테마 (Material 3 기본 모양에 색·폭·크기만 React 디자인에 맞춘다)
+// 앱 전체 테마: 밝은 테마 (여권 남색 + 노랑. Material 3 기본 모양에 색·폭·크기만 React 디자인에 맞춘다)
 ThemeData buildAppTheme() {
   // 색 토큰을 Material 색 역할에 하나씩 꽂는다
-  const scheme = ColorScheme.dark(
+  const scheme = ColorScheme.light(
     primary: AppColors.accent,
-    onPrimary: AppColors.canvas, // 밝은 포인트 바탕 위엔 어두운 글자
+    onPrimary: AppColors.paper, // 파랑 바탕 위엔 흰 글자
     primaryContainer: AppColors.accentSoft,
     onPrimaryContainer: AppColors.accentInk,
     secondary: AppColors.accent,
-    onSecondary: AppColors.canvas,
+    onSecondary: AppColors.paper,
     surface: AppColors.paper,
     onSurface: AppColors.ink,
     onSurfaceVariant: AppColors.muted,
     surfaceContainerHighest: AppColors.hover,
-    outline: AppColors.line,
+    outline: AppColors.fieldBorder, // 입력칸·메뉴 테두리
     outlineVariant: AppColors.line,
     error: AppColors.danger,
-    onError: AppColors.canvas,
+    onError: AppColors.paper, // 빨강 바탕 위엔 흰 글자
     errorContainer: AppColors.dangerSoft,
     onErrorContainer: AppColors.danger,
   );
@@ -63,7 +63,7 @@ ThemeData buildAppTheme() {
 
   return ThemeData(
     useMaterial3: true,
-    brightness: Brightness.dark,
+    brightness: Brightness.light,
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.canvas,
     // 모든 OS에서 같은 글꼴(번들한 IBM Plex Sans KR, pubspec에서 'Roboto' 이름으로 등록)을 쓰게 못 박는다.
@@ -81,13 +81,13 @@ ThemeData buildAppTheme() {
         TargetPlatform.fuchsia: _NoTransitionBuilder(),
       },
     ),
-    // 주요 버튼: 포인트 바탕 + 어두운 글자, 높이 40, 모서리 6
+    // 주요 버튼: 남색(ink) 바탕 + 흰 글자, 높이 40, 모서리 6
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: AppColors.accent,
-        foregroundColor: AppColors.canvas,
-        disabledBackgroundColor: AppColors.accent.withValues(alpha: 0.5),
-        disabledForegroundColor: AppColors.canvas.withValues(alpha: 0.7),
+        backgroundColor: AppColors.ink,
+        foregroundColor: AppColors.paper,
+        disabledBackgroundColor: AppColors.ink.withValues(alpha: 0.6), // 흰 글자와 3:1 이상 (color_contrast_test)
+        disabledForegroundColor: AppColors.paper, // 비활성이어도 글자는 흰색 그대로 (읽히게)
         minimumSize: const Size(0, 40),
         padding: btnPadding,
         shape: btnShape,
@@ -98,7 +98,7 @@ ThemeData buildAppTheme() {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: AppColors.ink,
-        side: const BorderSide(color: AppColors.line),
+        side: const BorderSide(color: AppColors.fieldBorder), // 흰 바탕에서 버튼 테두리가 보이게
         minimumSize: const Size(0, 40),
         padding: btnPadding,
         shape: btnShape,
@@ -114,7 +114,7 @@ ThemeData buildAppTheme() {
         textStyle: btnText,
       ),
     ),
-    // 입력칸: 높이 40 이상, 모서리 8, 테두리 line, 포커스는 포인트
+    // 입력칸: 높이 40 이상, 모서리 8, 테두리 fieldBorder(흰 바탕에서 보이는 진하기), 포커스는 포인트
     inputDecorationTheme: InputDecorationThemeData(
       filled: true,
       fillColor: AppColors.paper,
@@ -124,16 +124,16 @@ ThemeData buildAppTheme() {
         vertical: AppSizes.space3,
       ),
       constraints: const BoxConstraints(minHeight: 40),
-      border: inputBorder(AppColors.line),
-      enabledBorder: inputBorder(AppColors.line),
+      border: inputBorder(AppColors.fieldBorder),
+      enabledBorder: inputBorder(AppColors.fieldBorder),
       focusedBorder: inputBorder(AppColors.accent),
       labelStyle: const TextStyle(fontSize: AppSizes.fsSmall2, color: AppColors.muted),
       floatingLabelStyle: const TextStyle(fontSize: AppSizes.fsSmall2, color: AppColors.accentInk),
     ),
     tooltipTheme: const TooltipThemeData(
-      textStyle: TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.ink),
+      textStyle: TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.paper), // 남색 상자 + 흰 글자 (흰 판 위에서도 보이게)
       decoration: BoxDecoration(
-        color: AppColors.hover,
+        color: AppColors.ink,
         borderRadius: BorderRadius.all(Radius.circular(AppSizes.radiusBtn)),
       ),
     ),

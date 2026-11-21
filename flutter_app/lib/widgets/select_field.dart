@@ -32,7 +32,7 @@ class SelectField extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AppSizes.space3),
         decoration: BoxDecoration(
           color: AppColors.paper,
-          border: Border.all(color: AppColors.line),
+          border: Border.all(color: AppColors.fieldBorder), // 선택 상자도 입력칸이라 진한 테두리
           borderRadius: BorderRadius.circular(AppSizes.radiusPanel),
         ),
         child: DropdownButtonHideUnderline(

@@ -324,8 +324,8 @@ void main() {
       expect(bg('잡담'), AppColors.badgeChatBg);
       expect(ink('질문'), AppColors.badgeQuestionInk);
       expect(bg('질문'), AppColors.badgeQuestionBg);
-      expect(ink('캠퍼스 생활'), AppColors.accentInk);
-      expect(bg('캠퍼스 생활'), AppColors.accentSoft);
+      expect(ink('캠퍼스 생활'), AppColors.highlightInk);
+      expect(bg('캠퍼스 생활'), AppColors.highlightSoft);
 
       // 학교 뱃지: 글자 muted, 배경 paper, 테두리 line
       expect(ink('서울대'), AppColors.muted);

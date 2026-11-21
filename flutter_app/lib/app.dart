@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
@@ -11,6 +12,7 @@ import 'push/app_push.dart';
 import 'push/push_registrar.dart';
 import 'router.dart';
 import 'site_name.dart';
+import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
 import 'visa/visa_banner_state.dart';
 import 'visa/visa_plan_store.dart';
@@ -165,7 +167,7 @@ class _BoardAppState extends State<BoardApp> {
       ],
       child: MaterialApp.router(
         title: siteName,
-        // 어두운 테마 (색·글자 크기·버튼·입력칸은 lib/theme 참고)
+        // 밝은 테마 (색·글자 크기·버튼·입력칸은 lib/theme 참고)
         theme: buildAppTheme(),
         routerConfig: _router,
         // 한국어 전용 앱: 달력(showDatePicker)의 요일·월·툴팁 같은 기본 글자를 한국어로
@@ -185,10 +187,21 @@ class _BoardAppState extends State<BoardApp> {
                   color: Theme.of(context).scaffoldBackgroundColor,
                   child: SafeArea(child: w),
                 );
+          // 밝은 화면이라 상태 표시줄·내비게이션 바를 canvas 바탕 + 어두운 아이콘으로 정한다
+          // (SystemUiOverlayStyle.dark 그대로는 내비게이션 바가 검정+흰 아이콘이라 직접 지정)
+          // 상태 표시줄 바탕도 canvas로 해 화면 바탕과 이어지게 한다
+          Widget darkSystemIcons(Widget w) => AnnotatedRegion<SystemUiOverlayStyle>(
+            value: SystemUiOverlayStyle.dark.copyWith(
+              statusBarColor: AppColors.canvas,
+              systemNavigationBarColor: AppColors.canvas,
+              systemNavigationBarIconBrightness: Brightness.dark,
+            ),
+            child: w,
+          );
           if (context.watch<AuthState>().loading) {
-            return safe(const Scaffold(body: PageFrame(showNavBar: false, child: Loading())));
+            return darkSystemIcons(safe(const Scaffold(body: PageFrame(showNavBar: false, child: Loading()))));
           }
-          return safe(child ?? const SizedBox.shrink());
+          return darkSystemIcons(safe(child ?? const SizedBox.shrink()));
         },
       ),
     );

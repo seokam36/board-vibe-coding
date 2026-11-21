@@ -16,12 +16,12 @@ final ButtonStyle smallFilledButtonStyle = FilledButton.styleFrom(
 );
 
 // 위험 버튼의 색 (React의 .btn-danger): 평소엔 빨간 글자·선만, 마우스를 올리면 옅은 빨강 배경,
-// 누르는 동안엔 React의 :active처럼 배경·선이 진한 빨강(danger-strong)이고 글자는 본문색(ink).
+// 누르는 동안엔 React의 :active처럼 배경·선이 진한 빨강(danger-strong)이고 글자는 흰색(paper).
 // 비활성은 React의 opacity 0.5처럼 반투명. 크기는 건드리지 않아 확인 창(보통 크기)과 작업 줄(작은 크기)이 같이 쓴다.
 final ButtonStyle dangerButtonStyle = OutlinedButton.styleFrom().copyWith(
   foregroundColor: WidgetStateProperty.resolveWith((states) {
     if (states.contains(WidgetState.disabled)) return AppColors.danger.withValues(alpha: 0.5);
-    if (states.contains(WidgetState.pressed)) return AppColors.ink;
+    if (states.contains(WidgetState.pressed)) return AppColors.paper;
     return AppColors.danger;
   }),
   side: WidgetStateProperty.resolveWith((states) {

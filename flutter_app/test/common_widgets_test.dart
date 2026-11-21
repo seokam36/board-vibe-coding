@@ -36,13 +36,13 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('success: 상태(status), 포인트 배경', (tester) async {
+    testWidgets('success: 상태(status), 성공(초록) 배경', (tester) async {
       final handle = tester.ensureSemantics();
       await _pump(tester, const Notice(kind: NoticeKind.success, message: '완료'));
       final data = tester.getSemantics(find.byType(Notice)).getSemanticsData();
       expect(data.role, SemanticsRole.status);
       final box = tester.widget<Container>(find.descendant(of: find.byType(Notice), matching: find.byType(Container)));
-      expect((box.decoration as BoxDecoration).color, AppColors.accentSoft);
+      expect((box.decoration as BoxDecoration).color, AppColors.successSoft);
       handle.dispose();
     });
 
