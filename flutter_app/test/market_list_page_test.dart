@@ -7,8 +7,12 @@ import 'package:board_web/market/market_format.dart';
 import 'package:board_web/market/market_thumb.dart';
 import 'package:board_web/market/models.dart';
 import 'package:board_web/theme/app_colors.dart';
+import 'package:board_web/common/format_date.dart';
+import 'package:board_web/widgets/feed_row.dart';
 import 'package:board_web/widgets/notice.dart';
+import 'package:board_web/widgets/panel.dart';
 import 'package:board_web/widgets/row_link.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -675,14 +679,15 @@ void main() {
       expect(find.text('글을 올리려면 로그인이 필요해요'), findsOneWidget);
     });
 
-    testWidgets('중고 줄은 그대로 RowLink', (tester) async {
+    testWidgets('중고 줄은 FeedRow 하나(RowLink 없음)', (tester) async {
       await pumpApp(
         tester,
         location: '/market',
         user: userJson(school: marketSeoul),
         adapter: marketAdapter([FakeReply(200, [marketItemJson()])]),
       );
-      expect(find.byType(RowLink), findsOneWidget);
+      expect(find.byType(RowLink), findsNothing);
+      expect(find.byType(FeedRow), findsOneWidget);
     });
 
     testWidgets('375px: 넘치지 않고 연필 버튼 오른쪽 끝은 375-16', (tester) async {
@@ -708,9 +713,192 @@ void main() {
       );
       await tester.drag(find.text('물건 번호 1'), const Offset(0, -3000));
       await tester.pumpAndSettle();
-      // 줄 전체(_MarketRow, 썸네일 포함)의 아래로 비교한다 (제목 링크만 재면 여백을 0으로 해도 통과한다)
+      // 줄 전체(_MarketRow, 썸네일 포함)의 아래로 비교한다 (제목 글자만 재면 여백을 0으로 해도 통과한다)
       final last = tester.getRect(find.byKey(const ValueKey(8)));
       expect(last.bottom, lessThanOrEqualTo(tester.getRect(find.byType(FloatingActionButton)).top));
+    });
+  });
+
+  // S26-i1: 중고 줄이 공용 FeedRow(피드형)로 바뀜
+  group('피드형 줄 (S26-i1)', () {
+    void size(WidgetTester tester, double w, [double h = 1200]) {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = Size(w, h);
+      addTearDown(tester.view.reset);
+    }
+
+    // 판 아래 여백 = 화면에서 FeedPanel 아래 끝과 그걸 감싼 Padding 아래 끝 사이 거리
+    double panelBottomGap(WidgetTester tester) {
+      final pad = find.ancestor(of: find.byType(FeedPanel), matching: find.byType(Padding)).first;
+      return tester.getRect(pad).bottom - tester.getRect(find.byType(FeedPanel)).bottom;
+    }
+
+    // 한 줄 메타 글자(13 × 줄높이 1.65)의 높이
+    double metaLine(WidgetTester tester, Finder f) {
+      final style = tester.widget<Text>(f).style!;
+      return style.fontSize! * style.height!;
+    }
+
+    testWidgets('완료조건1: 판은 FeedPanel, 줄마다 FeedRow 1개, 줄 안 RowLink 0개', (tester) async {
+      await pumpApp(
+        tester,
+        location: '/market',
+        adapter: marketAdapter([
+          FakeReply(200, [marketItemJson(id: 1), marketItemJson(id: 2, title: '둘째'), marketItemJson(id: 3, title: '셋째')]),
+        ]),
+      );
+      expect(find.byType(FeedPanel), findsOneWidget);
+      expect(find.byType(FlushPanel), findsNothing); // 옛 판은 더 안 쓴다
+      expect(find.byType(FeedRow), findsNWidgets(3));
+      expect(find.descendant(of: find.byType(FeedPanel), matching: find.byType(RowLink)), findsNothing);
+      for (final id in [1, 2, 3]) {
+        expect(find.descendant(of: find.byKey(ValueKey(id)), matching: find.byType(FeedRow)), findsOneWidget);
+      }
+    });
+
+    testWidgets('완료조건2: 줄의 빈 곳(오른쪽 아래 가장자리)을 눌러도 상세로 간다', (tester) async {
+      final app = await pumpApp(
+        tester,
+        location: '/market',
+        adapter: marketAdapter([FakeReply(200, [marketItemJson(id: 7)])]),
+      );
+      final rect = tester.getRect(find.byType(FeedRow));
+      await tester.tapAt(rect.bottomRight - const Offset(4, 4)); // 글자가 없는 안쪽 여백
+      await tester.pumpAndSettle();
+      expect(_uri(app), '/market/7');
+    });
+
+    // 테스트에선 사진이 늘 빈칸으로 그려지므로 사진 유무와 상관없이 썸네일 자리를 누르는 것 하나로 본다
+    testWidgets('완료조건2: 썸네일 자리를 눌러도 상세로 간다', (tester) async {
+      final app = await pumpApp(
+        tester,
+        location: '/market',
+        adapter: marketAdapter([FakeReply(200, [marketItemJson(id: 7, coverPhoto: coverJson())])]),
+      );
+      await tester.tap(find.byType(MarketThumb));
+      await tester.pumpAndSettle();
+      expect(_uri(app), '/market/7');
+    });
+
+    testWidgets('완료조건3: 줄 높이는 썸네일 72 + 위아래 여백 이상 (짧은 줄 포함)', (tester) async {
+      await pumpApp(
+        tester,
+        location: '/market',
+        adapter: marketAdapter([
+          FakeReply(200, [
+            marketItemJson(id: 1, title: '짧', tradeCode: 'FREE', tradeName: '나눔', price: 0),
+            marketItemJson(id: 2, coverPhoto: coverJson()),
+          ]),
+        ]),
+      );
+      final thumbHeight = tester.getSize(find.byType(MarketThumb).first).height;
+      expect(thumbHeight, 72);
+      for (var row = 0; row < 2; row++) {
+        final h = tester.getSize(find.byType(FeedRow).at(row)).height;
+        expect(h, greaterThan(thumbHeight)); // 썸네일 높이에 위아래 여백이 더해져 더 크다
+      }
+    });
+
+    testWidgets('완료조건4: 줄 하나는 link 1개 + tap 동작, 라벨은 제목·상태·가격·학교·시각 순, 안쪽 항목 없음', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpApp(
+        tester,
+        location: '/market',
+        adapter: marketAdapter([FakeReply(200, [marketItemJson(id: 7, coverPhoto: coverJson())])]),
+      );
+      final node = tester.getSemantics(find.byType(FeedRow));
+      final data = node.getSemanticsData();
+      expect(data.flagsCollection.isLink, isTrue);
+      expect(data.hasAction(SemanticsAction.tap), isTrue);
+      expect(data.label, '전공 서적 팝니다, 판매중, 15,000원, 서울대, ${formatDate('2020-11-08T06:19:00Z')}');
+      // 안쪽에 따로 읽히는 항목(뱃지·제목·썸네일 사진)이 없다
+      var children = 0;
+      node.visitChildren((_) {
+        children++;
+        return true;
+      });
+      expect(children, 0);
+      handle.dispose();
+    });
+
+    testWidgets('완료조건4: 나눔 글의 라벨 가격 자리는 "나눔"', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpApp(
+        tester,
+        location: '/market',
+        adapter: marketAdapter([
+          FakeReply(200, [marketItemJson(title: '의자', tradeCode: 'FREE', tradeName: '나눔', price: 0, statusCode: 'RESERVED', statusName: '예약중')]),
+        ]),
+      );
+      final label = tester.getSemantics(find.byType(FeedRow)).label;
+      expect(label, '의자, 예약중, 나눔, 서울대, ${formatDate('2020-11-08T06:19:00Z')}');
+      handle.dispose();
+    });
+
+    for (final w in [375.0, 320.0]) {
+      testWidgets('완료조건6: ${w.toInt()}px에서 긴 제목·긴 학교·가격 10,000,000원이 넘치지 않는다', (tester) async {
+        size(tester, w);
+        final longSchool = {'id': 1, 'name': '아주아주아주 긴 이름을 가진 국제 대학교 서울 제2 캠퍼스 대학원'};
+        await pumpApp(
+          tester,
+          location: '/market',
+          adapter: marketAdapter([
+            FakeReply(200, [
+              marketItemJson(id: 1, title: '가' * 160), // 공백 없는 160자
+              marketItemJson(id: 2, title: '긴 제목 ' * 20, school: longSchool, coverPhoto: coverJson()),
+              marketItemJson(id: 3, price: 10000000, school: longSchool, createdAt: '2020-12-31T14:59:00Z'),
+            ]),
+          ]),
+        );
+        expect(tester.takeException(), isNull);
+        expect(find.byType(FeedRow), findsNWidgets(3));
+        expect(find.text('10,000,000원'), findsOneWidget);
+      });
+    }
+
+    // 아랫줄 모양: 학교는 한 줄 말줄임, 올해 글의 시각은 한 줄 (Ahem 글꼴에서 다른 해 시각은 칸보다 넓어 쓰지 않는다)
+    testWidgets('375px: 긴 학교 이름은 한 줄, 올해 글의 시각도 한 줄이고 넘치지 않는다', (tester) async {
+      size(tester, 375);
+      const schoolName = '아주아주아주 긴 이름을 가진 국제 대학교 서울 제2 캠퍼스 대학원';
+      final now = DateTime.now().toUtc().toIso8601String();
+      await pumpApp(
+        tester,
+        location: '/market',
+        adapter: marketAdapter([
+          FakeReply(200, [marketItemJson(id: 1, school: {'id': 1, 'name': schoolName}, createdAt: now)]),
+        ]),
+      );
+      expect(tester.takeException(), isNull);
+      final school = find.text(schoolName);
+      expect(tester.getSize(school).height, closeTo(metaLine(tester, school), 0.5));
+      final created = find.text(formatDate(now));
+      expect(tester.getSize(created).height, closeTo(metaLine(tester, created), 0.5));
+    });
+
+    testWidgets('완료조건7: 비로그인이면 판 아래 여백 16', (tester) async {
+      await pumpApp(tester, location: '/market', adapter: marketAdapter([FakeReply(200, [marketItemJson()])]));
+      expect(panelBottomGap(tester), 16);
+    });
+
+    testWidgets('완료조건7: 학교 미인증 회원이면 판 아래 여백 16', (tester) async {
+      await pumpApp(
+        tester,
+        location: '/market',
+        user: userJson(),
+        adapter: marketAdapter([FakeReply(200, [marketItemJson()])]),
+      );
+      expect(find.byType(FloatingActionButton), findsNothing);
+      expect(panelBottomGap(tester), 16);
+    });
+
+    testWidgets('완료조건7: 인증 회원이면 판 아래 여백 88', (tester) async {
+      await pumpApp(
+        tester,
+        location: '/market',
+        user: userJson(school: marketSeoul),
+        adapter: marketAdapter([FakeReply(200, [marketItemJson()])]),
+      );
+      expect(panelBottomGap(tester), 88);
     });
   });
 }

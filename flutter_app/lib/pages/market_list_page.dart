@@ -14,11 +14,11 @@ import '../market/market_write_gate.dart';
 import '../market/models.dart';
 import '../posts/models.dart' show School;
 import '../theme/app_colors.dart';
+import '../widgets/feed_row.dart';
 import '../widgets/loading.dart';
 import '../widgets/notice.dart';
 import '../widgets/page_frame.dart';
 import '../widgets/panel.dart';
-import '../widgets/row_link.dart';
 import '../widgets/select_field.dart';
 import '../widgets/write_fab.dart';
 
@@ -307,10 +307,10 @@ class _MarketListPageState extends State<MarketListPage> {
           if (!canWrite) MarketWriteGate(user: user),
           if (_schoolsFailed)
             const Notice(kind: NoticeKind.error, message: ErrorMessages.reviewOptionsLoadFailed),
-          // 인증 회원이면 연필 버튼에 마지막 줄이 가리지 않게 아래를 비운다
+          // 아래 여백: 인증 회원이면 연필 버튼에 마지막 줄이 가리지 않게 비우고, 아니면 판 아래 기본 여백(FeedPanel엔 바깥 여백이 없다)
           Padding(
-            padding: EdgeInsets.only(bottom: canWrite ? writeFabSpace : 0),
-            child: FlushPanel(
+            padding: EdgeInsets.only(bottom: canWrite ? writeFabSpace : AppSizes.space4),
+            child: FeedPanel(
             children: [
               if (loading) const Loading(),
               if (error != null) PanelState(child: Notice(kind: NoticeKind.error, message: error)),
@@ -333,7 +333,8 @@ class _MarketListPageState extends State<MarketListPage> {
   }
 }
 
-// 글 한 줄: 왼쪽 72px 썸네일 + 오른쪽 (상태 뱃지, 제목 링크 / 가격·학교·작성일). 작성자는 목록에 없다
+// 글 한 줄 (피드형): 왼쪽 72px 썸네일 + 오른쪽 (상태 뱃지 / 제목 / 가격 … 시각 / 학교).
+// 줄 전체가 FeedRow 하나라 썸네일을 포함해 어디를 눌러도 상세로 간다. 작성자는 목록에 없다
 class _MarketRow extends StatelessWidget {
   const _MarketRow({super.key, required this.item, required this.first});
 
@@ -343,11 +344,13 @@ class _MarketRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const metaStyle = TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.muted, height: 1.65);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSizes.space4, vertical: AppSizes.space3),
-      decoration: BoxDecoration(
-        border: first ? null : const Border(top: BorderSide(color: AppColors.line)),
-      ),
+    final price = formatPrice(item.tradeType.code, item.price);
+    final created = formatDate(item.createdAt);
+    return FeedRow(
+      // 줄 하나를 링크 하나로 읽게 읽을 말을 정해 준다 (제목, 상태, 가격, 학교, 시각 순서. 썸네일은 장식이라 뺀다)
+      label: [item.title, item.status.name, price, item.school.name, created].join(', '),
+      onTap: () => context.go('/market/${item.id}'),
+      first: first,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -358,25 +361,33 @@ class _MarketRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // 상태 뱃지 (왼쪽 정렬로 둬서 줄 폭만큼 늘어나지 않게 한다. 뱃지와 글자 사이에 Container를 끼우지 않는다)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: MarketStatusBadge(code: item.status.code, name: item.status.name),
+                ),
+                // 제목: 게시판·비자 후기와 같은 16·700. 길면 줄바꿈한다(말줄임 안 함)
+                Text(
+                  item.title,
+                  style: const TextStyle(
+                    fontSize: AppSizes.fsFeedTitle,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: AppSizes.space1), // 제목과 메타 사이 (게시판·비자 후기 줄과 같은 간격)
+                // 메타 첫 줄: 가격 … 시각. 한 줄에 들어가면 시각이 오른쪽 끝, 안 들어가면 시각이 통째로 다음 줄로 간다(글자 안에서 안 쪼개짐)
                 Wrap(
+                  alignment: WrapAlignment.spaceBetween,
                   spacing: AppSizes.space2,
-                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    MarketStatusBadge(code: item.status.code, name: item.status.name),
-                    RowLink(title: item.title, onTap: () => context.go('/market/${item.id}')),
+                    Text(price, style: metaStyle.copyWith(fontWeight: FontWeight.w700)), // React의 .market-price: 굵게
+                    Text(created, style: metaStyle),
                   ],
                 ),
-                Wrap(
-                  spacing: AppSizes.space3,
-                  children: [
-                    Text(
-                      formatPrice(item.tradeType.code, item.price),
-                      style: metaStyle.copyWith(fontWeight: FontWeight.w700), // React의 .market-price: 굵게
-                    ),
-                    Text(item.school.name, style: metaStyle),
-                    Text(formatDate(item.createdAt), style: metaStyle),
-                  ],
-                ),
+                // 메타 둘째 줄: 학교 이름은 한 줄만, 길면 말줄임
+                Text(item.school.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: metaStyle),
               ],
             ),
           ),

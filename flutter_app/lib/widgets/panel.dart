@@ -47,7 +47,7 @@ class FlushPanel extends StatelessWidget {
 
 // 피드형 목록 판: FlushPanel처럼 줄이 테두리까지 닿지만, Container가 아니라 Material이다.
 // 줄을 눌렀을 때 hover 색이 보이게 하려는 것 (불투명한 Container가 위에 있으면 눌림 표시가 가려진다).
-// 게시판·비자 후기·중고 목록에서 쓴다. 바깥 여백은 없다(아래 여백은 쓰는 쪽에서 준다).
+// 게시판·비자 후기·중고 목록·쪽지함에서 쓴다. 바깥 여백은 없다(아래 여백은 쓰는 쪽에서 준다).
 class FeedPanel extends StatelessWidget {
   const FeedPanel({super.key, required this.children});
 

@@ -7,8 +7,13 @@ import 'dart:async';
 import 'package:board_web/common/format_date.dart';
 import 'package:board_web/messages/models.dart';
 import 'package:board_web/messages/seller_message_box.dart';
+import 'package:board_web/theme/app_colors.dart';
+import 'package:board_web/widgets/feed_row.dart';
+import 'package:board_web/widgets/initial_avatar.dart';
 import 'package:board_web/widgets/notice.dart';
+import 'package:board_web/widgets/panel.dart';
 import 'package:board_web/widgets/relogin_notice.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -431,6 +436,221 @@ void main() {
       expect(find.byKey(const ValueKey('conv-row-3')), findsOneWidget);
       expect(tester.takeException(), isNull);
       expect(tester.getSize(find.byKey(const ValueKey('conv-row-3'))).width, lessThanOrEqualTo(375));
+    });
+  });
+
+  // ---------------------------------------------------------------- S26-i2 쪽지함 피드형 줄
+
+  group('피드형 줄 (S26-i2)', () {
+    Future<TestApp> openList(WidgetTester tester, List<Map<String, dynamic>> rows) => pumpApp(
+      tester,
+      location: '/messages',
+      user: _verified(),
+      adapter: FakeAdapter()
+        ..on('GET', '/conversations', FakeReply(200, rows))
+        ..on('GET', '/conversations/3', FakeReply(200, conversationJson())),
+    );
+
+    void size(WidgetTester tester, double w, [double h = 1200]) {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = Size(w, h);
+      addTearDown(tester.view.reset);
+    }
+
+    Finder row(int id) => find.byKey(ValueKey('conv-row-$id'));
+    Finder inRow(int id, Finder f) => find.descendant(of: row(id), matching: f);
+    int childCount(SemanticsNode node) {
+      var n = 0;
+      node.visitChildren((_) {
+        n++;
+        return true;
+      });
+      return n;
+    }
+
+    // 판 아래 여백 = FeedPanel을 감싼 Padding 아래 끝과 FeedPanel 아래 끝의 화면상 거리
+    double panelBottomGap(WidgetTester tester) {
+      final pad = find.ancestor(of: find.byType(FeedPanel), matching: find.byType(Padding)).first;
+      return tester.getRect(pad).bottom - tester.getRect(find.byType(FeedPanel)).bottom;
+    }
+
+    testWidgets('완료조건1: 판은 FeedPanel, 줄마다 FeedRow 1개, conv-row·conv-unread 키로 찾아진다', (tester) async {
+      useTallScreen(tester);
+      await openList(tester, [
+        summaryJson(id: 3, unreadCount: 2),
+        summaryJson(id: 2, unreadCount: 0),
+        summaryJson(id: 1, unreadCount: 5),
+      ]);
+      expect(find.byType(FeedPanel), findsOneWidget);
+      expect(find.byType(FeedRow), findsNWidgets(3));
+      for (final id in [1, 2, 3]) {
+        expect(inRow(id, find.byType(FeedRow)), findsNothing); // 키가 FeedRow 자체에 붙어 있다
+        expect(tester.widget(row(id)), isA<FeedRow>());
+      }
+      expect(find.byKey(const ValueKey('conv-unread-3')), findsOneWidget);
+      expect(find.byKey(const ValueKey('conv-unread-1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('conv-unread-2')), findsNothing); // 안 읽은 수 0이면 뱃지 없음
+    });
+
+    testWidgets('완료조건2: 줄의 빈 곳(오른쪽 아래 가장자리)을 눌러도 /messages/3으로 간다', (tester) async {
+      useTallScreen(tester);
+      final app = await openList(tester, [summaryJson(id: 3)]);
+      await tester.tapAt(tester.getRect(row(3)).bottomRight - const Offset(4, 4));
+      await tester.pumpAndSettle();
+      expect(_uri(app), '/messages/3');
+    });
+
+    // 줄 높이 = 안쪽 내용(아바타와 글 칸 중 큰 쪽) + 위아래 여백 12씩 24. 내용이 바뀌면 줄 높이도 따라가는지 본다
+    testWidgets('완료조건2: 줄 높이는 안쪽 내용 높이에 위아래 여백 24를 더한 값이다', (tester) async {
+      useTallScreen(tester);
+      await openList(tester, [summaryJson(id: 3, content: '짧', item: itemRefJson(title: '짧'))]);
+      final h = tester.getSize(row(3)).height;
+      final avatarH = tester.getSize(inRow(3, find.byType(InitialAvatar))).height;
+      // 글 칸 = 닉네임 Text를 감싼 가장 가까운 Column
+      final column = find.ancestor(of: inRow(3, find.text('판매자닉')), matching: find.byType(Column)).first;
+      final contentH = tester.getSize(column).height;
+      expect(h, closeTo((contentH > avatarH ? contentH : avatarH) + 24, 0.01));
+    });
+
+    testWidgets('완료조건3: 줄 하나 = link 1개 + tap, 라벨 전체가 정해진 순서 그대로, 안쪽 항목 0', (tester) async {
+      useTallScreen(tester);
+      final handle = tester.ensureSemantics();
+      await openList(tester, [summaryJson(id: 3, unreadCount: 3, content: '내일 봐요', mine: true)]);
+      final node = tester.getSemantics(row(3));
+      final data = node.getSemanticsData();
+      expect(data.flagsCollection.isLink, isTrue);
+      expect(data.hasAction(SemanticsAction.tap), isTrue);
+      expect(data.label, '판매자닉, 안 읽은 쪽지 3개, 가짜 자전거, 나: 내일 봐요, ${formatDate('2026-01-02T03:05:00Z')}');
+      expect(childCount(node), 0);
+      handle.dispose();
+    });
+
+    testWidgets('완료조건3: 삭제된 글 + 안 읽은 쪽지가 같이 있으면 라벨 순서는 닉네임, 안 읽은 쪽지, 삭제된 글, 제목, 마지막 쪽지, 시각', (tester) async {
+      useTallScreen(tester);
+      final handle = tester.ensureSemantics();
+      await openList(tester, [
+        summaryJson(id: 3, unreadCount: 2, content: '아직 있어요', item: itemRefJson(id: null, title: '지워진 책상', deleted: true)),
+      ]);
+      expect(
+        tester.getSemantics(row(3)).label,
+        '판매자닉, 안 읽은 쪽지 2개, 삭제된 글, 지워진 책상, 아직 있어요, ${formatDate('2026-01-02T03:05:00Z')}',
+      );
+      handle.dispose();
+    });
+
+    testWidgets('완료조건3: 닉네임은 16 · 굵게(w700)', (tester) async {
+      useTallScreen(tester);
+      await openList(tester, [summaryJson(id: 3)]);
+      final style = tester.widget<Text>(inRow(3, find.text('판매자닉'))).style!;
+      expect(style.fontSize, AppSizes.fsFeedTitle);
+      expect(style.fontSize, 16);
+      expect(style.fontWeight, FontWeight.w700);
+    });
+
+    for (final c in [(0, false, ''), (3, true, '안 읽은 쪽지 3개'), (100, true, '안 읽은 쪽지 100개')]) {
+      testWidgets('완료조건3: 안 읽은 수 ${c.$1}일 때 라벨 ${c.$2 ? '"${c.$3}"' : '에 안 읽은 쪽지 문장 없음'}', (tester) async {
+        useTallScreen(tester);
+        final handle = tester.ensureSemantics();
+        await openList(tester, [summaryJson(id: 3, unreadCount: c.$1)]);
+        final label = tester.getSemantics(row(3)).label;
+        // 라벨 전체 일치 (안 읽은 쪽지 문장은 있을 때만 닉네임 뒤에 들어간다)
+        expect(label, '판매자닉, ${c.$2 ? '${c.$3}, ' : ''}가짜 자전거, 아직 있어요, ${formatDate('2026-01-02T03:05:00Z')}');
+        expect(label, isNot(contains('99+'))); // 눈에만 99+, 읽는 말은 실제 개수
+        handle.dispose();
+      });
+    }
+
+    testWidgets('완료조건3: 안 읽은 100이면 눈에는 99+ 뱃지가 보인다', (tester) async {
+      useTallScreen(tester);
+      await openList(tester, [summaryJson(id: 3, unreadCount: 100)]);
+      expect(find.descendant(of: find.byKey(const ValueKey('conv-unread-3')), matching: find.text('99+')), findsOneWidget);
+    });
+
+    testWidgets('완료조건4: 탈퇴한 상대는 "탈퇴한 회원"과 글자 없는 회색 동그라미', (tester) async {
+      useTallScreen(tester);
+      final handle = tester.ensureSemantics();
+      await openList(tester, [summaryJson(id: 3, partner: null)]);
+      expect(inRow(3, find.text('탈퇴한 회원')), findsOneWidget);
+      expect(tester.widget<InitialAvatar>(inRow(3, find.byType(InitialAvatar))).initial, '');
+      // 아바타 안에 글자가 없다 (빈 문자열 Text만)
+      expect(find.descendant(of: inRow(3, find.byType(InitialAvatar)), matching: find.text('')), findsOneWidget);
+      expect(tester.getSemantics(row(3)).label.startsWith('탈퇴한 회원'), isTrue);
+      handle.dispose();
+    });
+
+    testWidgets('완료조건4: 지워진 글은 "삭제된 글" 뱃지가 보이고 라벨에도 있다 (살아 있는 글에는 없다)', (tester) async {
+      useTallScreen(tester);
+      final handle = tester.ensureSemantics();
+      await openList(tester, [
+        summaryJson(id: 3, item: itemRefJson(id: null, title: '지워진 책상', deleted: true)),
+        summaryJson(id: 2),
+      ]);
+      expect(inRow(3, find.text('삭제된 글')), findsOneWidget);
+      expect(inRow(2, find.text('삭제된 글')), findsNothing);
+      expect(tester.getSemantics(row(3)).label, contains('삭제된 글'));
+      expect(tester.getSemantics(row(2)).label, isNot(contains('삭제된 글')));
+      handle.dispose();
+    });
+
+    testWidgets('완료조건5: 줄마다 InitialAvatar 1개, 닉네임 첫 글자가 보인다', (tester) async {
+      useTallScreen(tester);
+      await openList(tester, [
+        summaryJson(id: 3),
+        summaryJson(id: 2, partner: {'id': 9, 'nickname': '가나다'}),
+      ]);
+      expect(find.byType(InitialAvatar), findsNWidgets(2));
+      expect(inRow(3, find.byType(InitialAvatar)), findsOneWidget);
+      expect(inRow(2, find.byType(InitialAvatar)), findsOneWidget);
+      expect(find.descendant(of: inRow(3, find.byType(InitialAvatar)), matching: find.text('판')), findsOneWidget);
+      expect(find.descendant(of: inRow(2, find.byType(InitialAvatar)), matching: find.text('가')), findsOneWidget);
+      expect(tester.getSize(inRow(3, find.byType(InitialAvatar))), const Size(36, 36));
+    });
+
+    // 시각은 3단(마지막 쪽지 줄) 오른쪽 끝이라 닉네임·뱃지와 폭을 다투지 않는다. 테스트 글꼴(Ahem)은 글자가 넓어 실제보다 빡빡한 조건이다.
+    // (실제 글꼴 화면 확인은 e2e에 쪽지함 테스트가 없어서 사람이 직접 본다)
+    final lastYear = '2025-03-04T05:06:00Z'; // 작년 시각(긴 모양 "2025년 3월 4일 …")
+    for (final (w, scale) in [(375.0, 1.0), (320.0, 1.0), (320.0, 1.3)]) {
+      testWidgets('완료조건6: ${w.toInt()}px 글씨 ×$scale에서 20자 닉네임·뱃지("99+")·작년 시각·긴 제목·긴 쪽지가 넘치지 않고 시각은 한 줄', (tester) async {
+        size(tester, w);
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearAllTestValues);
+        await openList(tester, [
+          summaryJson(
+            id: 3,
+            unreadCount: 100,
+            createdAt: lastYear,
+            content: '아주 긴 쪽지 ' * 60,
+            item: itemRefJson(title: '아주 긴 글 제목 ' * 20),
+            partner: {'id': 7, 'nickname': '가' * 20},
+          ),
+        ]);
+        expect(tester.takeException(), isNull);
+        final badge = find.byKey(const ValueKey('conv-unread-3'));
+        expect(find.descendant(of: badge, matching: find.text('99+')), findsOneWidget);
+        // 뱃지 오른쪽 끝이 글 칸(아바타 오른쪽의 닉네임 줄) 오른쪽 끝 안
+        final column = find.ancestor(of: inRow(3, find.text('가' * 20)), matching: find.byType(Column)).first;
+        expect(tester.getRect(badge).right, lessThanOrEqualTo(tester.getRect(column).right + 0.01));
+        // 닉네임이 "…"만 남지 않고 글자 두 개 폭 이상 보인다 (기본 글씨 크기 기준 16 x 2)
+        final nickFinder = inRow(3, find.text('가' * 20));
+        expect(tester.getSize(nickFinder).width, greaterThanOrEqualTo(AppSizes.fsFeedTitle * 2));
+        // 닉네임은 말줄임이라 한 줄
+        final nick = tester.widget<Text>(nickFinder);
+        expect(nick.maxLines, 1);
+        expect(nick.overflow, TextOverflow.ellipsis);
+        // 시각은 한 줄: 두 줄로 꺾이면 높이가 글자 크기의 2배 안팎이 된다
+        final timeFinder = find.text(formatDate(lastYear));
+        expect(timeFinder, findsOneWidget);
+        final style = tester.widget<Text>(timeFinder).style!;
+        expect(tester.getSize(timeFinder).height, lessThan(style.fontSize! * scale * 1.8));
+        // 시각은 줄 아래쪽(마지막 쪽지 줄)에 있다: 닉네임보다 아래
+        expect(tester.getTopLeft(timeFinder).dy, greaterThan(tester.getTopLeft(nickFinder).dy));
+      });
+    }
+
+    testWidgets('완료조건7: 판 아래 여백은 화면에서 16', (tester) async {
+      useTallScreen(tester);
+      await openList(tester, [summaryJson(id: 3)]);
+      expect(panelBottomGap(tester), 16);
     });
   });
 

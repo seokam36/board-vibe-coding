@@ -9,6 +9,8 @@ import '../market/market_status_badge.dart';
 import '../messages/message_text.dart';
 import '../messages/models.dart';
 import '../theme/app_colors.dart';
+import '../widgets/feed_row.dart';
+import '../widgets/initial_avatar.dart';
 import '../widgets/loading.dart';
 import '../widgets/notice.dart';
 import '../widgets/page_frame.dart';
@@ -72,11 +74,15 @@ class _MessageListPageState extends State<MessageListPage> {
           if (_needLogin) const ReloginNotice(),
           if (list == null && _error == null && !_needLogin) const Loading(prefix: '쪽지함'),
           if (list != null)
-            FlushPanel(
-              children: [
-                if (list.isEmpty) const PanelState(child: Text('아직 쪽지가 없습니다')),
-                for (var i = 0; i < list.length; i++) _ConversationRow(c: list[i], first: i == 0),
-              ],
+            // FeedPanel엔 바깥 여백이 없어서 판 아래 여백 16을 직접 준다
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSizes.space4),
+              child: FeedPanel(
+                children: [
+                  if (list.isEmpty) const PanelState(child: Text('아직 쪽지가 없습니다')),
+                  for (var i = 0; i < list.length; i++) _ConversationRow(c: list[i], first: i == 0),
+                ],
+              ),
             ),
         ],
       ),
@@ -84,7 +90,7 @@ class _MessageListPageState extends State<MessageListPage> {
   }
 }
 
-// 쪽지함 한 줄: 줄 전체가 링크. 상대 닉네임 · 안 읽은 수 배지 · 시각 / 글 제목 / 마지막 쪽지
+// 쪽지함 한 줄: 줄 전체가 링크. 상대 닉네임 · 안 읽은 수 배지 / 글 제목 / 마지막 쪽지 + 시각(오른쪽 끝)
 class _ConversationRow extends StatelessWidget {
   const _ConversationRow({required this.c, required this.first});
 
@@ -94,68 +100,75 @@ class _ConversationRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const metaStyle = TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.muted);
-    return Container(
+    final nickname = c.partner?.nickname; // null이면 탈퇴한 상대
+    final nickText = nickname ?? withdrawnPartner;
+    // 길면 한 줄에서 줄임표(…)로 자른다(줄바꿈은 공백으로, 웹의 nowrap처럼). 내가 보낸 쪽지에는 "나: "를 붙인다
+    final lastText =
+        '${c.lastMessage.mine ? '나: ' : ''}${c.lastMessage.content.replaceAll(RegExp(r'\s*[\r\n]+\s*'), ' ')}';
+    final time = formatDate(c.lastMessage.createdAt);
+    // 줄 하나를 링크 하나로 읽게 읽을 말을 직접 정한다 (순서: 닉네임, 안 읽은 쪽지, 삭제된 글, 글 제목, 마지막 쪽지, 시각).
+    // 안 읽은 수는 눈에는 99+지만 스크린리더에는 실제 개수.
+    return FeedRow(
       key: ValueKey('conv-row-${c.id}'),
-      decoration: BoxDecoration(
-        border: first ? null : const Border(top: BorderSide(color: AppColors.line)),
-      ),
-      child: Semantics(
-        link: true,
-        child: InkWell(
-          onTap: () => context.go('/messages/${c.id}'),
-          hoverColor: AppColors.hover,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSizes.space4, vertical: AppSizes.space3),
+      label: [
+        nickText,
+        if (c.unreadCount > 0) '안 읽은 쪽지 ${c.unreadCount}개',
+        if (c.item.deleted) '삭제된 글',
+        c.item.title,
+        lastText,
+        time,
+      ].join(', '),
+      onTap: () => context.go('/messages/${c.id}'),
+      first: first,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InitialAvatar(nickname: nickname), // 탈퇴한 상대는 회색 빈 동그라미
+          const SizedBox(width: AppSizes.space3),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // 1단: 닉네임 + 안 읽은 수 배지. 닉네임은 줄어들 수 있고(말줄임), 배지는 줄어들지 않는다
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
                   children: [
-                    Expanded(
-                      // 닉네임은 줄어들 수 있고(말줄임), 배지는 줄어들지 않는다: 긴 닉네임이어도 배지가 줄 밖으로 안 밀린다
-                      child: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              c.partner?.nickname ?? withdrawnPartner,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: AppSizes.fsRow, fontWeight: FontWeight.w500, color: AppColors.ink),
-                            ),
-                          ),
-                          // 안 읽은 쪽지가 있을 때만 배지. 눈에는 짧은 숫자(99+), 스크린리더에는 실제 개수 문장
-                          if (c.unreadCount > 0) ...[
-                            const SizedBox(width: AppSizes.space2),
-                            Semantics(
-                              label: '안 읽은 쪽지 ${c.unreadCount}개',
-                              excludeSemantics: true,
-                              child: Container(
-                                key: ValueKey('conv-unread-${c.id}'),
-                                padding: const EdgeInsets.symmetric(horizontal: 6),
-                                decoration: BoxDecoration(
-                                  color: AppColors.accentSoft,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  formatUnreadBadge(c.unreadCount),
-                                  maxLines: 1,
-                                  style: const TextStyle(
-                                    fontSize: AppSizes.fsSmall,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.accentInk,
-                                    height: 1.6,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+                    Flexible(
+                      child: Text(
+                        nickText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: AppSizes.fsFeedTitle,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.ink,
+                          height: 1.5,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: AppSizes.space3),
-                    Text(formatDate(c.lastMessage.createdAt), style: metaStyle),
+                    // 안 읽은 쪽지가 있을 때만 배지 (읽을 말은 줄 라벨에 들어 있다)
+                    if (c.unreadCount > 0) ...[
+                      const SizedBox(width: AppSizes.space2),
+                      Container(
+                        key: ValueKey('conv-unread-${c.id}'),
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.accentSoft,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          formatUnreadBadge(c.unreadCount),
+                          maxLines: 1,
+                          style: const TextStyle(
+                            fontSize: AppSizes.fsSmall,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.accentInk,
+                            height: 1.6,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: AppSizes.space1),
@@ -168,17 +181,31 @@ class _ConversationRow extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: AppSizes.space1),
-                // 길면 한 줄에서 줄임표(…)로 자른다(줄바꿈은 공백으로, 웹의 nowrap처럼). 내가 보낸 쪽지에는 "나: "를 붙인다
-                Text(
-                  '${c.lastMessage.mine ? '나: ' : ''}${c.lastMessage.content.replaceAll(RegExp(r'\s*[\r\n]+\s*'), ' ')}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AppColors.ink),
+                // 3단: 마지막 쪽지(줄임표로 양보) + 시각(오른쪽 끝, 항상 한 줄).
+                // 시각을 먼저 자리 잡고 남는 폭을 쪽지가 쓴다. 시각의 최대 폭은 줄 폭 − 간격으로 막아, 아주 좁아도 넘침 예외 없이 줄임표로 끝난다
+                LayoutBuilder(
+                  builder: (context, box) => Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          lastText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: AppColors.ink),
+                        ),
+                      ),
+                      const SizedBox(width: AppSizes.space2),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: box.maxWidth > AppSizes.space2 ? box.maxWidth - AppSizes.space2 : 0),
+                        child: Text(time, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: metaStyle),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
