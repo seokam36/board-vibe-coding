@@ -1,8 +1,12 @@
 // S16-e1 글 목록 화면 테스트: React PostListPage와 같은 동작(주소 쿼리가 진짜 값, 머리말, 드롭다운, 행, 문구 4종)을 본다.
 import 'dart:async';
+import 'dart:ui' show Tristate;
 
 import 'package:board_web/theme/app_colors.dart';
+import 'package:board_web/widgets/initial_avatar.dart';
 import 'package:board_web/widgets/notice.dart';
+import 'package:board_web/widgets/page_frame.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -60,13 +64,27 @@ String _title(WidgetTester tester) => tester
     .data!;
 
 final _schoolSelect = find.byKey(const ValueKey('filter-school'));
-final _categorySelect = find.byKey(const ValueKey('filter-category'));
 
-// 드롭다운을 열어 항목을 고른다 (선택된 항목은 버튼과 메뉴에 두 번 보이므로 마지막 것을 누른다)
+// 말머리 칩 (코드로 찾는다, "전체"는 'all')
+Finder _chip(String code) => find.byKey(ValueKey('category-chip-$code'));
+
+// 칩이 스크린리더에 "선택됨"으로 읽히는지
+bool _selected(WidgetTester tester, Finder chip) {
+  final node = tester.getSemantics(find.ancestor(of: chip, matching: find.byType(Semantics)).first);
+  return node.getSemanticsData().flagsCollection.isSelected == Tristate.isTrue;
+}
+
+// 학교 드롭다운을 열어 항목을 고른다 (선택된 항목은 버튼과 메뉴에 두 번 보이므로 마지막 것을 누른다)
 Future<void> _pick(WidgetTester tester, Finder select, String text) async {
   await tester.tap(select);
   await tester.pumpAndSettle();
   await tester.tap(find.text(text).last);
+  await tester.pumpAndSettle();
+}
+
+// 말머리 칩을 누른다
+Future<void> _tapChip(WidgetTester tester, String code) async {
+  await tester.tap(_chip(code));
   await tester.pumpAndSettle();
 }
 
@@ -141,21 +159,20 @@ void main() {
     });
   });
 
-  group('드롭다운 → 주소 → 재요청', () {
-    testWidgets('학교·말머리를 고르면 주소가 바뀌고 그 조건으로 다시 요청한다', (tester) async {
+  group('드롭다운·칩 → 주소 → 재요청', () {
+    testWidgets('학교를 고르고 말머리 칩을 누르면 주소가 바뀌고 그 조건으로 다시 요청한다', (tester) async {
       final adapter = _adapter(
         posts: [FakeReply(200, []), FakeReply(200, []), FakeReply(200, [])],
       );
       final app = await pumpApp(tester, adapter: adapter);
       expect(find.text('전체 학교'), findsOneWidget);
-      expect(find.text('전체 말머리'), findsOneWidget);
 
       await _pick(tester, _schoolSelect, '서울대');
       expect(_uri(app), '/?schoolId=1');
       expect(adapter.callsTo('GET', '/posts').last.query, {'schoolId': '1'});
       expect(_title(tester), '서울대');
 
-      await _pick(tester, _categorySelect, '질문');
+      await _tapChip(tester, 'QUESTION');
       expect(_uri(app), '/?schoolId=1&category=QUESTION');
       expect(adapter.callsTo('GET', '/posts').last.query, {'schoolId': '1', 'category': 'QUESTION'});
       expect(adapter.count('GET', '/posts'), 3);
@@ -164,13 +181,13 @@ void main() {
       expect(adapter.count('GET', '/categories'), 1);
     });
 
-    testWidgets('"전체"를 고르면 그 파라미터가 주소에서 빠진다', (tester) async {
+    testWidgets('"전체"를 고르면 그 파라미터가 주소에서 빠진다 (말머리는 전체 칩)', (tester) async {
       final adapter = _adapter(
         posts: [FakeReply(200, []), FakeReply(200, []), FakeReply(200, [])],
       );
       final app = await pumpApp(tester, location: '/?schoolId=1&category=CHAT', adapter: adapter);
 
-      await _pick(tester, _categorySelect, '전체 말머리');
+      await _tapChip(tester, 'all');
       expect(_uri(app), '/?schoolId=1');
       expect(adapter.callsTo('GET', '/posts').last.query, {'schoolId': '1'});
 
@@ -180,13 +197,16 @@ void main() {
       expect(_title(tester), '전체 게시판');
     });
 
-    testWidgets('주소가 직접 바뀌어도(뒤로 가기 등) 다시 요청하고 드롭다운이 따라간다', (tester) async {
+    testWidgets('주소가 직접 바뀌어도(뒤로 가기 등) 다시 요청하고 칩이 따라간다', (tester) async {
       final adapter = _adapter(posts: [FakeReply(200, []), FakeReply(200, [])]);
       final app = await pumpApp(tester, adapter: adapter);
       app.router.go('/?category=QUESTION');
       await tester.pumpAndSettle();
       expect(adapter.callsTo('GET', '/posts').last.query, {'category': 'QUESTION'});
-      expect(find.text('질문'), findsOneWidget); // 말머리 드롭다운이 주소 값을 보여 준다
+      expect(find.text('질문'), findsOneWidget); // 말머리 칩이 주소 값을 보여 준다
+      final handle = tester.ensureSemantics();
+      expect(_selected(tester, _chip('QUESTION')), isTrue);
+      handle.dispose();
     });
   });
 
@@ -293,10 +313,10 @@ void main() {
       expect(find.text('(작성자 없음)'), findsOneWidget);
       // 날짜는 한국 시간 (2020년이라 연도가 붙는다)
       expect(find.text('2020년 11월 8일 15:19'), findsNWidgets(3));
-      // 댓글·공감 수
-      expect(find.text('댓글 3'), findsOneWidget);
-      expect(find.text('공감 4'), findsOneWidget);
-      expect(find.text('댓글 0'), findsNWidgets(2));
+      // 댓글·공감 수: 눈에는 아이콘 + 숫자 (스크린리더 라벨은 아래 별도 테스트)
+      expect(find.text('3'), findsOneWidget);
+      expect(find.text('4'), findsOneWidget);
+      expect(find.text('0'), findsNWidgets(4)); // 글 둘 x (댓글, 공감)
       // 학교 뱃지 (학교 필터가 없을 때): 값 없으면 "학교 미지정"
       expect(find.text('서울대'), findsOneWidget);
       expect(find.text('부산대'), findsOneWidget);
@@ -311,11 +331,12 @@ void main() {
       ];
       await pumpApp(tester, adapter: _adapter(posts: [FakeReply(200, posts)]));
 
-      // 같은 글자가 여러 줄에 있을 수 있어(학교 뱃지) 첫 것을 본다
-      Color? ink(String t) => tester.widget<Text>(find.text(t).first).style?.color;
+      // 같은 글자가 칩 줄에도 있어 줄 안의 뱃지는 마지막 것을 본다
+      // 같은 글자가 칩 줄에도 있어(칩이 먼저) 줄 안의 뱃지는 마지막 것을 본다
+      Color? ink(String t) => tester.widget<Text>(find.text(t).last).style?.color;
       Color? bg(String t) {
         final box = tester.widget<Container>(
-          find.ancestor(of: find.text(t).first, matching: find.byType(Container)).first,
+          find.ancestor(of: find.text(t).last, matching: find.byType(Container)).first,
         );
         return (box.decoration as BoxDecoration).color;
       }
@@ -331,7 +352,7 @@ void main() {
       expect(ink('서울대'), AppColors.muted);
       expect(bg('서울대'), AppColors.paper);
       final schoolBox = tester.widget<Container>(
-        find.ancestor(of: find.text('서울대').first, matching: find.byType(Container)).first,
+        find.ancestor(of: find.text('서울대').last, matching: find.byType(Container)).first,
       );
       expect((schoolBox.decoration as BoxDecoration).border, isNotNull);
     });
@@ -351,7 +372,7 @@ void main() {
       expect(find.text('a'), findsOneWidget);
     });
 
-    testWidgets('제목만 링크: 누르면 /posts/{id} 로 간다', (tester) async {
+    testWidgets('제목을 누르면 /posts/{id} 로 간다', (tester) async {
       // S16-f1: 상세 화면이 진짜가 되어, 상세가 불러올 글(GET /posts/11)도 준비한다
       final adapter = _adapter(posts: [FakeReply(200, [_post(10, '첫 글'), _post(11, '둘째 글')])])
         ..on('GET', '/posts/11', FakeReply(200, postJson(id: 11, title: '상세에서 본 글')));
@@ -363,10 +384,17 @@ void main() {
     });
   });
 
-  group('글쓰기 버튼', () {
+  group('글쓰기 연필 버튼', () {
+    testWidgets('연필 버튼(tooltip 글쓰기)은 하나뿐이고 FilledButton 글쓰기는 없다', (tester) async {
+      await pumpApp(tester, adapter: _adapter(posts: [FakeReply(200, [])]));
+      expect(find.byTooltip('글쓰기'), findsOneWidget);
+      expect(find.byType(FloatingActionButton), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '글쓰기'), findsNothing);
+    });
+
     testWidgets('비로그인이면 /login', (tester) async {
       final app = await pumpApp(tester, adapter: _adapter(posts: [FakeReply(200, [])]));
-      await tester.tap(find.widgetWithText(FilledButton, '글쓰기'));
+      await tester.tap(find.byTooltip('글쓰기'));
       await tester.pumpAndSettle();
       expect(_uri(app), '/login');
     });
@@ -377,7 +405,7 @@ void main() {
         user: userJson(),
         adapter: _adapter(posts: [FakeReply(200, [])]),
       );
-      await tester.tap(find.widgetWithText(FilledButton, '글쓰기'));
+      await tester.tap(find.byTooltip('글쓰기'));
       await tester.pumpAndSettle();
       expect(_uri(app), '/posts/new');
     });
@@ -497,7 +525,7 @@ void main() {
     });
   });
 
-  testWidgets('375px 폭: 툴바가 줄바꿈되고 가로로 넘치지 않는다 (긴 이름·제목 포함)', (tester) async {
+  testWidgets('375px 폭: 긴 이름·긴 제목도 넘치지 않고, 칩 줄이 폭 안에 있다', (tester) async {
     tester.view.physicalSize = const Size(375, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -509,6 +537,7 @@ void main() {
         1,
         '아주 긴 제목이 좁은 화면에서도 가로로 넘치지 않고 줄바꿈되어야 한다 아주 긴 제목이 좁은 화면에서도 가로로 넘치지 않고',
         school: longSchool,
+        author: const {'id': 5, 'nickname': '아주아주아주아주아주아주아주아주 긴 닉네임'},
       ),
     ];
     await pumpApp(
@@ -518,33 +547,271 @@ void main() {
     );
     expect(tester.takeException(), isNull); // 넘침(overflow)은 테스트 중 예외로 잡힌다
 
-    // 오른쪽 끝(375)을 넘는 위젯이 없다
-    final write = tester.getRect(find.widgetWithText(FilledButton, '글쓰기'));
-    expect(write.right, lessThanOrEqualTo(375));
-    // 필터 두 개와 글쓰기가 한 줄에 못 들어가 글쓰기가 아래 줄로 내려갔다
-    final school = tester.getRect(_schoolSelect);
-    expect(write.top, greaterThan(school.top));
-    expect(tester.getRect(_categorySelect).right, lessThanOrEqualTo(375));
-    // 필터 묶음 아래와 글쓰기 위 간격은 줄 간격 8 (필터 묶음에 따로 아래 여백이 없다)
-    // 키는 테두리 안쪽 드롭다운에 달려 있어, 테두리까지 포함한 바깥 상자(Container)로 잰다
-    final box = find.ancestor(of: _categorySelect, matching: find.byType(Container)).first;
-    expect(write.top - tester.getRect(box).bottom, 8);
+    expect(tester.getRect(_schoolSelect).right, lessThanOrEqualTo(375));
+    // 칩 줄은 화면 폭 안에서 시작하고 가로 스크롤이라 폭을 넘겨 늘어나지 않는다
+    expect(tester.getRect(_chip('all')).left, 16);
     // 긴 제목·긴 학교 이름의 오른쪽 끝도 화면 오른쪽 여백(16)을 넘지 않는다
-    final title = find.textContaining('아주 긴 제목');
-    expect(tester.getRect(title).right, lessThanOrEqualTo(375 - 16));
-    expect(tester.getRect(find.textContaining('아주아주아주')).right, lessThanOrEqualTo(375 - 16));
+    expect(tester.getRect(find.textContaining('아주 긴 제목')).right, lessThanOrEqualTo(375 - 16));
+    expect(tester.getRect(find.textContaining('아주아주아주아주아주아주아주아주아주 긴 이름')).right, lessThanOrEqualTo(375 - 16));
   });
 
-  testWidgets('넓은 화면: 글쓰기 버튼과 드롭다운의 세로 중심이 맞는다', (tester) async {
+  testWidgets('375px 폭: 말머리 칩이 10개 넘어도 넘침 예외가 없고 가로로 밀린다', (tester) async {
+    tester.view.physicalSize = const Size(375, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final many = [
+      for (var i = 0; i < 12; i++) {'code': 'C$i', 'name': '말머리 번호 $i'},
+    ];
+    final adapter = FakeAdapter()
+      ..on('GET', '/schools', FakeReply(200, _schools))
+      ..on('GET', '/categories', FakeReply(200, many))
+      ..on('GET', '/posts', FakeReply(200, [_post(1, '글')]));
+    await pumpApp(tester, adapter: adapter);
+    expect(tester.takeException(), isNull);
+    // 끝쪽 칩은 화면 밖(오른쪽)에 있다가, 칩 줄을 밀면 보인다
+    expect(tester.getRect(_chip('C11')).left, greaterThan(375));
+    await tester.drag(_chip('all'), const Offset(-3000, 0));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_chip('C11')).right, lessThanOrEqualTo(375));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('375px 폭: 연필 버튼은 아래 탭 막대 바로 위·오른쪽 여백 16', (tester) async {
+    tester.view.physicalSize = const Size(375, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await pumpApp(tester, adapter: _adapter(posts: [FakeReply(200, [])]));
+    final fab = tester.getRect(find.byType(FloatingActionButton));
+    final tabTop = tester.getRect(find.byKey(const ValueKey('bottom-tab-0'))).top;
+    expect(fab.right, 375 - 16);
+    expect(fab.bottom, closeTo(tabTop - 16, 1.5)); // 탭 막대 위, 바깥 여백 16
+  });
+
+  testWidgets('넓은 화면(1200): 연필 버튼은 본문 기둥(720) 오른쪽 끝에 맞는다', (tester) async {
     tester.view.physicalSize = const Size(1200, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await pumpApp(tester, adapter: _adapter(posts: [FakeReply(200, [])]));
-    final write = tester.getRect(find.widgetWithText(FilledButton, '글쓰기'));
-    final school = tester.getRect(_schoolSelect);
-    expect(write.center.dy, closeTo(school.center.dy, 0.5));
+    final fab = tester.getRect(find.byType(FloatingActionButton));
+    expect(fab.right, 1200 / 2 + 720 / 2 - 16); // 기둥 오른쪽 끝(960) - 여백 16
+    // 제목 줄 오른쪽의 학교 드롭다운 오른쪽 끝과도 맞는다
+    // (키는 테두리 안쪽 드롭다운에 달려 있어 바깥 상자 Container로 잰다)
+    final box = find.ancestor(of: _schoolSelect, matching: find.byType(Container)).first;
+    expect(tester.getRect(box).right, closeTo(fab.right, 0.5));
+  });
+
+  group('피드형 줄', () {
+    testWidgets('375px: 모든 글의 제목 왼쪽 x가 같다 (닉네임·작성자 없음과 상관없이)', (tester) async {
+      tester.view.physicalSize = const Size(375, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final posts = [
+        _post(1, '첫 글'),
+        _post(2, '둘째 글', author: null),
+        _post(3, '셋째 글', author: const {'id': 7, 'nickname': '😀이모지'}, school: null),
+      ];
+      await pumpApp(tester, adapter: _adapter(posts: [FakeReply(200, posts)]));
+      final x = tester.getTopLeft(find.text('첫 글')).dx;
+      expect(tester.getTopLeft(find.text('둘째 글')).dx, x);
+      expect(tester.getTopLeft(find.text('셋째 글')).dx, x);
+    });
+
+    testWidgets('줄의 빈 곳(왼쪽 여백)을 눌러도 /posts/{id} 로 가고, 줄 높이는 48 이상', (tester) async {
+      final adapter = _adapter(posts: [FakeReply(200, [_post(10, '첫 글'), _post(11, '둘째 글')])])
+        ..on('GET', '/posts/11', FakeReply(200, postJson(id: 11, title: '상세에서 본 글')));
+      final app = await pumpApp(tester, adapter: adapter);
+      final row = find.ancestor(of: find.text('둘째 글'), matching: find.byType(InkWell)).first;
+      expect(tester.getSize(row).height, greaterThanOrEqualTo(48));
+      final rect = tester.getRect(row);
+      await tester.tapAt(Offset(rect.left + 4, rect.center.dy)); // 글자가 없는 왼쪽 가장자리
+      await tester.pumpAndSettle();
+      expect(_uri(app), '/posts/11');
+    });
+
+    testWidgets('내용이 아주 짧은 줄도 눌리는 높이가 48 이상', (tester) async {
+      await pumpApp(tester, adapter: _adapter(posts: [FakeReply(200, [_post(1, '짧')])]));
+      final row = find.ancestor(of: find.text('짧'), matching: find.byType(InkWell)).first;
+      expect(tester.getSize(row).height, greaterThanOrEqualTo(48));
+    });
+
+    testWidgets('줄 하나는 링크 하나로 읽힌다 (제목이 따로 또 링크로 읽히지 않는다)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpApp(
+        tester,
+        adapter: _adapter(posts: [FakeReply(200, [_post(1, '첫 글'), _post(2, '둘째 글')])]),
+      );
+      final row = find.ancestor(of: find.text('첫 글'), matching: find.byType(InkWell)).first;
+      final data = tester.getSemantics(row).getSemanticsData();
+      expect(data.flagsCollection.isLink, isTrue);
+      expect(data.label, contains('첫 글'));
+      expect(data.label, contains('철수'));
+      // "첫 글"이 들어간 링크 노드는 줄 하나뿐: 줄 하나 = 링크 하나
+      var links = 0;
+      void walk(SemanticsNode n) {
+        final d = n.getSemanticsData();
+        if (d.flagsCollection.isLink && d.label.contains('첫 글')) links++;
+        n.visitChildren((c) {
+          walk(c);
+          return true;
+        });
+      }
+
+      walk(tester.getSemantics(find.byType(PageFrame)));
+      expect(links, 1);
+      handle.dispose();
+    });
+
+    testWidgets('스크린리더 라벨은 "댓글 3"·"공감 4" 그대로', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpApp(
+        tester,
+        adapter: _adapter(posts: [FakeReply(200, [_post(1, '첫 글', commentCount: 3, likeCount: 4)])]),
+      );
+      final label = tester
+          .getSemantics(find.ancestor(of: find.text('첫 글'), matching: find.byType(InkWell)).first)
+          .getSemanticsData()
+          .label;
+      expect(label, contains('댓글 3'));
+      expect(label, contains('공감 4'));
+      // 읽는 순서: 제목, 닉네임, 말머리, 학교, 댓글, 공감, 시각
+      final order = ['첫 글', '철수', '잡담', '서울대', '댓글 3', '공감 4', '11월 8일'];
+      final at = [for (final t in order) label.indexOf(t)];
+      expect(at.every((i) => i >= 0), isTrue, reason: label);
+      expect(at, [...at]..sort(), reason: label);
+      handle.dispose();
+    });
+
+    testWidgets('숫자 색: 0은 muted, 1 이상은 ink', (tester) async {
+      await pumpApp(
+        tester,
+        adapter: _adapter(posts: [FakeReply(200, [_post(1, '첫 글', commentCount: 0, likeCount: 5)])]),
+      );
+      expect(tester.widget<Text>(find.text('0')).style?.color, AppColors.muted);
+      expect(tester.widget<Text>(find.text('5')).style?.color, AppColors.ink);
+    });
+
+    testWidgets('이니셜: 한글·영문·이모지는 첫 글자, 작성자 없음은 빈 칸', (tester) async {
+      final posts = [
+        _post(1, 'a', author: const {'id': 1, 'nickname': '철수'}),
+        _post(2, 'b', author: const {'id': 2, 'nickname': 'kim'}),
+        _post(3, 'c', author: const {'id': 3, 'nickname': '😀웃음'}),
+        _post(4, 'd', author: null),
+      ];
+      await pumpApp(tester, adapter: _adapter(posts: [FakeReply(200, posts)]));
+      Finder initial(String t) => find.descendant(of: find.byType(InitialAvatar), matching: find.text(t));
+      expect(initial('철'), findsOneWidget);
+      expect(initial('k'), findsOneWidget);
+      expect(initial('😀'), findsOneWidget);
+      expect(find.byType(InitialAvatar), findsNWidgets(4)); // 작성자 없음도 칸은 있다
+    });
+
+    testWidgets('마지막 줄이 연필 버튼에 가리지 않는다 (끝까지 내리면 줄 아래가 버튼 위)', (tester) async {
+      tester.view.physicalSize = const Size(375, 500);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final posts = [for (var i = 1; i <= 8; i++) _post(i, '글 번호 $i')];
+      await pumpApp(tester, adapter: _adapter(posts: [FakeReply(200, posts)]));
+      await tester.drag(find.text('글 번호 1'), const Offset(0, -3000));
+      await tester.pumpAndSettle();
+      final lastRow = tester.getRect(find.ancestor(of: find.text('글 번호 8'), matching: find.byType(InkWell)).first);
+      final fab = tester.getRect(find.byType(FloatingActionButton));
+      expect(lastRow.bottom, lessThanOrEqualTo(fab.top));
+    });
+  });
+
+  group('리뷰 수정 (S26-d)', () {
+    testWidgets('연필 버튼은 동그라미 모양이다', (tester) async {
+      await pumpApp(tester, adapter: _adapter(posts: [FakeReply(200, [])]));
+      expect(tester.widget<FloatingActionButton>(find.byType(FloatingActionButton)).shape, isA<CircleBorder>());
+    });
+
+    testWidgets('줄과 칩은 스크린리더로도 누를 수 있다 (tap 동작)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpApp(tester, adapter: _adapter(posts: [FakeReply(200, [_post(1, '첫 글')])]));
+      final row = find.ancestor(of: find.text('첫 글'), matching: find.byType(InkWell)).first;
+      expect(tester.getSemantics(row).getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+      expect(tester.getSemantics(_chip('QUESTION')).getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+      handle.dispose();
+    });
+
+    testWidgets('연필 버튼이 본문보다 먼저 읽히도록 순서표(sortKey)가 0, 본문이 1', (tester) async {
+      await pumpApp(tester, adapter: _adapter(posts: [FakeReply(200, [])]));
+      double keyOf(Finder f) {
+        final keyed = find.ancestor(of: f, matching: find.byWidgetPredicate((w) => w is Semantics && w.properties.sortKey != null));
+        final s = tester.widget<Semantics>(keyed.first);
+        return (s.properties.sortKey! as OrdinalSortKey).order;
+      }
+
+      expect(keyOf(find.byType(FloatingActionButton)), 0);
+      expect(keyOf(find.byType(PageFrame)), 1);
+    });
+
+    testWidgets('이미 고른 칩을 다시 눌러도 이동·재요청이 없고 탈퇴 안내(extra)가 남는다', (tester) async {
+      final adapter = _adapter(posts: [FakeReply(200, []), FakeReply(200, [])]);
+      final app = await pumpApp(tester, location: '/login', adapter: adapter);
+      app.router.go('/', extra: '회원 탈퇴가 완료되었습니다');
+      await tester.pumpAndSettle();
+      expect(adapter.count('GET', '/posts'), 1);
+      await _tapChip(tester, 'all'); // 이미 선택된 칩
+      expect(_uri(app), '/');
+      expect(adapter.count('GET', '/posts'), 1);
+      expect(find.text('회원 탈퇴가 완료되었습니다'), findsOneWidget);
+    });
+  });
+
+  group('말머리 칩', () {
+    testWidgets('칩을 누르면 /?category=코드, 전체 칩이면 category만 빠지고 학교는 유지', (tester) async {
+      final adapter = _adapter(posts: [FakeReply(200, []), FakeReply(200, []), FakeReply(200, [])]);
+      final app = await pumpApp(tester, location: '/?schoolId=2', adapter: adapter);
+      await _tapChip(tester, 'CAMPUS_LIFE');
+      expect(_uri(app), '/?schoolId=2&category=CAMPUS_LIFE');
+      await _tapChip(tester, 'all');
+      expect(_uri(app), '/?schoolId=2');
+      expect(adapter.callsTo('GET', '/posts').last.query, {'schoolId': '2'});
+    });
+
+    testWidgets('학교 없이 칩만 누르면 /?category=코드', (tester) async {
+      final app = await pumpApp(tester, adapter: _adapter(posts: [FakeReply(200, []), FakeReply(200, [])]));
+      await _tapChip(tester, 'CHAT');
+      expect(_uri(app), '/?category=CHAT');
+    });
+
+    testWidgets('고른 칩만 selected, 체크가 붙는다', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpApp(tester, location: '/?category=QUESTION', adapter: _adapter(posts: [FakeReply(200, [])]));
+      expect(_selected(tester, _chip('QUESTION')), isTrue);
+      expect(_selected(tester, _chip('all')), isFalse);
+      expect(_selected(tester, _chip('CHAT')), isFalse);
+      expect(find.descendant(of: _chip('QUESTION'), matching: find.byIcon(Icons.check)), findsOneWidget);
+      expect(find.descendant(of: _chip('CHAT'), matching: find.byIcon(Icons.check)), findsNothing);
+      handle.dispose();
+    });
+
+    testWidgets('주소가 없으면 "전체" 칩이 선택돼 있다', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpApp(tester, adapter: _adapter(posts: [FakeReply(200, [])]));
+      expect(_selected(tester, _chip('all')), isTrue);
+      handle.dispose();
+    });
+
+    testWidgets('말머리 목록이 실패하면 "전체" 칩만 남고 안내가 보인다', (tester) async {
+      final adapter = FakeAdapter()
+        ..on('GET', '/schools', FakeReply(200, _schools))
+        ..on('GET', '/categories', FakeReply(500))
+        ..on('GET', '/posts', FakeReply(200, []));
+      await pumpApp(tester, adapter: adapter);
+      expect(_chip('all'), findsOneWidget);
+      expect(_chip('CHAT'), findsNothing);
+      expect(find.text('학교·말머리 목록을 불러오지 못했습니다'), findsOneWidget);
+    });
   });
 
   group('목록 요청 횟수', () {

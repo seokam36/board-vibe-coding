@@ -328,7 +328,7 @@
   - [x] S26-a. 색 이름을 역할 이름으로(모양 변화 없음, celadon 등 → 역할 이름, 테스트 hex 비교 → AppColors 이름)
   - [x] S26-b. 밝은 팔레트 적용(app_colors 값·app_theme 밝은 테마·manifest·대비 계산 테스트)
   - [x] S26-c. 아래 탭 막대(게시판·비자·중고·쪽지·내 정보, 위 막대 얇게, 내 정보 바로가기 줄)
-  - [ ] S26-d. 글 목록 피드형(이니셜 칸, 말머리 칩, 줄 전체 누르기, 연필 FAB)
+  - [x] S26-d. 글 목록 피드형(이니셜 칸, 말머리 칩, 줄 전체 누르기, 연필 FAB)
   - [ ] S26-e. 글 보기·댓글(이니셜 + 닉네임 굵게, 제목 22, 본문 1.65)
   - [ ] S26-f. 글쓰기·수정(줄 간격 1.65, 간격 통일, 탭 막대에 안 가림)
   - [ ] S26-g. design.md 새로·스크린샷·에뮬레이터 확인·배포 1회
@@ -547,3 +547,4 @@
 | 2026-11-21 | S26-a | 색 이름을 역할 이름으로(모양 변화 0): AppColors celadon·celadonSoft·celadonInk → accent·accentSoft·accentInk, lib 22·test 15개 파일 참조와 주석의 "청자" 묘사 정리, 테스트의 색 직접 비교 7곳(hex 6 + 확인 창 막 1)을 AppColors 이름으로, design.md 토큰 이름. hex 값 변화 0, analyze 0·flutter test 1641·e2e 16 통과. 다음 S26-b에서 값만 남색+노랑으로 | (이 커밋) |
 | 2026-11-21 | S26-b | 밝은 "여권 남색 + 노랑" 팔레트(배치·문구 변화 0): canvas #F4F6FA·paper 흰색·ink #1C2B4F(주요 버튼 바탕+흰 글자)·accent 파랑 #2450B8(링크·선택·포커스)·highlight 노랑 #F2B705(바탕 전용), 새 토큰 fieldBorder·highlightSoft/Ink(학교생활 뱃지)·successInk/Soft(성공 안내 분리). ColorScheme.light, 툴팁 남색, 비활성 버튼 글자 흰색 그대로, 안드로이드 상태·내비게이션 바 밝은 바탕+어두운 아이콘(실기기 확인은 S26-g), values-night 시작 화면 밝게, 웹 theme-color 통일. 대비 계산 테스트(color_contrast_test, 글자 4.5:1·테두리/비활성 3:1, 토큰 값 전부 다름, 주요 버튼 색). 리뷰 필수 1(내비게이션 바)·권장 6 반영. analyze 0·flutter test 1672·e2e 16, 375/1200 스크린샷 22장 확인 | (이 커밋) |
 | 2026-11-21 | S26-c | 아래 탭 막대: 새 bottom_tabs.dart(게시판·비자·중고·쪽지·내 정보, Row 직접, 주소 첫 마디로 선택 표시=accent+굵게+채운 아이콘+스크린리더 selected·tap, 쪽지 노랑 배지 99+, 막대 바탕 화면 끝·5칸 720 가운데, 위쪽 line 선, 글자 배율 1.3 상한), AppShell bottomNavigationBar(키보드 열리면 숨김), router가 location 전달. 위 막대는 사이트 이름 + 로그인·회원가입 또는 챗봇·닉네임 님·인증·로그아웃(375px 한 줄). 비자 일정·신고 관리·인증 심사는 내 정보 제목 아래 바로가기. unread-count 요청 횟수 그대로, 앱 뒤로 가기·문지기 테스트 수정 없이 통과. 리뷰 필수 3(스크린리더 누르기, 선 안 보임, 쪽지 테스트 약해짐)·권장 5 반영, 탭 글자 비자·중고로. analyze 0·flutter test 1721·e2e 16 | (이 커밋) |
+| 2026-11-21 | S26-d | 글 목록 피드형: 새 initial_avatar.dart(닉네임 첫 글자 characters.first, highlightSoft/Ink 한 색, 작성자 없으면 hover 빈 칸, 스크린리더 제외), 줄 = 이니셜 + 닉네임 굵게 + 말머리·학교 뱃지 / 제목 fsFeedTitle 16·700 / 댓글·공감 아이콘+숫자(0 muted·1 이상 ink) + 시각 오른쪽(formatDate 그대로), 가운뎃점 없음. 줄 전체가 링크 하나(Semantics label 제목 먼저 + onTap, 48 이상), 판은 Material(hover 보임). 말머리 드롭다운 → 가로 칩(고른 칩 ink+체크·selected, 같은 칩 다시 누르면 무시), 학교 드롭다운 유지. 글쓰기 → 노랑 동그라미 연필 FAB(tooltip 글쓰기, Stack, 720 기둥 오른쪽, 스크린리더는 목록보다 먼저). 리뷰 필수 1(FAB 둥근 네모)·권장 6 반영. analyze 0·flutter test 1748·e2e 16, 다양한 데이터 스크린샷 확인 | (이 커밋) |

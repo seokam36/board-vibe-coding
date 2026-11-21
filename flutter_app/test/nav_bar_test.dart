@@ -74,7 +74,8 @@ void main() {
       // 스크린리더는 "인증 (서울대 인증 회원)"으로 읽는다
       expect(find.bySemanticsLabel('인증 (서울대 인증 회원)'), findsOneWidget);
       // 툴팁에는 학교 이름
-      final tooltip = tester.widget<Tooltip>(find.byType(Tooltip));
+      // 글 목록의 연필 버튼(S26-d)에도 Tooltip이 있어, 상단바 안의 것만 본다
+      final tooltip = tester.widget<Tooltip>(find.descendant(of: find.byType(NavBar), matching: find.byType(Tooltip)));
       expect(tooltip.message, '서울대');
       expect(_inNavBar('비자 일정'), findsNothing);
       semantics.dispose();

@@ -42,6 +42,7 @@ abstract final class AppSizes {
   static const fsSmall = 13.0;
   static const fsSmall2 = 14.0; // 메뉴·버튼·라벨·안내
   static const fsBody = 15.0;
+  static const fsFeedTitle = 16.0; // 글 목록(피드형) 제목
   static const fsRow = 17.0;
   static const fsTitle = 22.0;
   static const fsBoard = 30.0; // 목록 머리말(가장 크고 굵은 글자)
