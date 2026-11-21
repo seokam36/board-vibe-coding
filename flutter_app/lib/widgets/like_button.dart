@@ -138,13 +138,13 @@ class _LikeButtonState extends State<LikeButton> {
     final user = context.watch<AuthState>().user;
     final liked = _isLiked(user);
     final enabled = !(_busy || (!widget.canLike && !liked));
-    // 눌린 상태: 청자 배경·선·글자 (React의 .btn[aria-pressed='true'], hover해도 같은 색)
+    // 눌린 상태: 포인트 배경·선·글자 (React의 .btn[aria-pressed='true'], hover해도 같은 색)
     final style = liked
         ? smallButtonStyle.merge(
             OutlinedButton.styleFrom(
-              backgroundColor: AppColors.celadonSoft,
-              foregroundColor: AppColors.celadonInk,
-              side: const BorderSide(color: AppColors.celadon),
+              backgroundColor: AppColors.accentSoft,
+              foregroundColor: AppColors.accentInk,
+              side: const BorderSide(color: AppColors.accent),
             ),
           )
         : smallButtonStyle;
@@ -165,7 +165,7 @@ class _LikeButtonState extends State<LikeButton> {
             onPressed: enabled ? _click : null,
             // 하트는 이모지(🤍/❤️) 대신 앱에 번들된 Material 아이콘으로 그린다.
             // 이모지는 번들 글꼴에 없어서 상세를 열 때마다 구글에서 Noto 이모지 글꼴 조각을 받아 왔는데,
-            // 아이콘은 이미 앱 안에 있어 그 외부 요청이 사라진다. 색은 버튼 글자색(눌림이면 청자 글자색)을 따른다.
+            // 아이콘은 이미 앱 안에 있어 그 외부 요청이 사라진다. 색은 버튼 글자색(눌림이면 포인트 글자색)을 따른다.
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

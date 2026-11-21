@@ -71,11 +71,11 @@ void main() {
       expect(_title(tester), '서울대 비자 후기');
     });
 
-    testWidgets('면책 문구와 탭(후기·통계)이 보이고, 현재 탭 "후기"가 청자색이다', (tester) async {
+    testWidgets('면책 문구와 탭(후기·통계)이 보이고, 현재 탭 "후기"가 포인트색이다', (tester) async {
       await pumpApp(tester, location: '/visa-reviews', adapter: _adapter([FakeReply(200, [])]));
       expect(find.text('하이코리아'), findsOneWidget);
       Color? color(String t) => tester.widget<Text>(find.text(t)).style?.color;
-      expect(color('후기'), AppColors.celadon);
+      expect(color('후기'), AppColors.accent);
       expect(color('통계'), AppColors.muted);
     });
 
@@ -301,7 +301,7 @@ void main() {
       expect(find.text('서류는 빨리 냈어요'), findsNothing);
     });
 
-    testWidgets('결과 뱃지 색: 승인은 청자, 불허는 회색', (tester) async {
+    testWidgets('결과 뱃지 색: 승인은 포인트, 불허는 회색', (tester) async {
       final reviews = [
         reviewJson(id: 10),
         reviewJson(id: 11, result: const {'code': 'DENIED', 'name': '불허'}),
@@ -313,8 +313,8 @@ void main() {
         return (box.decoration as BoxDecoration).color;
       }
 
-      expect(ink('승인'), AppColors.celadonInk);
-      expect(bg('승인'), AppColors.celadonSoft);
+      expect(ink('승인'), AppColors.accentInk);
+      expect(bg('승인'), AppColors.accentSoft);
       expect(ink('불허'), AppColors.muted);
       expect(bg('불허'), AppColors.badgeChatBg);
     });

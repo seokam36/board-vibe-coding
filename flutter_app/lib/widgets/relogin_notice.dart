@@ -23,7 +23,7 @@ class ReloginNotice extends StatelessWidget {
         spacing: AppSizes.space1,
         children: [
           const Text(reloginMessage),
-          // 안내 문구 색(danger)과 구분되게 링크는 청자색 그대로 둔다
+          // 안내 문구 색(danger)과 구분되게 링크는 포인트색 그대로 둔다
           AppLink(label: '로그인', onTap: () => context.go('/login')),
         ],
       ),

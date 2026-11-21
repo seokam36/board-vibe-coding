@@ -237,7 +237,7 @@ class _ConversationPageState extends State<ConversationPage> {
     );
   }
 
-  // 말풍선 목록: 내 쪽지는 오른쪽(청자 배경), 상대 쪽지는 왼쪽(hover 배경), 폭은 최대 85%
+  // 말풍선 목록: 내 쪽지는 오른쪽(포인트 배경), 상대 쪽지는 왼쪽(hover 배경), 폭은 최대 85%
   Widget _buildMessages(ConversationDetail conv) {
     return Semantics(
       container: true,
@@ -335,14 +335,14 @@ class _MessageBubble extends StatelessWidget {
                   vertical: AppSizes.space2,
                 ),
                 decoration: BoxDecoration(
-                  color: m.mine ? AppColors.celadonSoft : AppColors.hover,
+                  color: m.mine ? AppColors.accentSoft : AppColors.hover,
                   borderRadius: BorderRadius.circular(AppSizes.radiusPanel),
                 ),
                 // 글자로만 그린다(HTML이 실행되지 않음). Text는 내용의 줄바꿈을 그대로 보여 준다
                 child: Text(
                   m.content,
                   style: TextStyle(
-                    color: m.mine ? AppColors.celadonInk : AppColors.ink,
+                    color: m.mine ? AppColors.accentInk : AppColors.ink,
                     height: 1.5,
                   ),
                 ),

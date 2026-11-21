@@ -4,7 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import '../theme/app_colors.dart';
 
 // "후기 / 통계" 탭 (React의 VisaReviewTabs). 현재 주소의 쿼리(필터)를 그대로 들고 가서 탭을 오가도 조건이 유지된다.
-// 현재 탭은 청자색 글자 + 밑줄, 나머지는 muted
+// 현재 탭은 포인트색 글자 + 밑줄, 나머지는 muted
 class VisaReviewTabs extends StatelessWidget {
   const VisaReviewTabs({super.key, required this.current});
 
@@ -43,7 +43,7 @@ class _TabLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppColors.celadon : AppColors.muted;
+    final color = selected ? AppColors.accent : AppColors.muted;
     return Semantics(
       link: true,
       selected: selected,
@@ -53,7 +53,7 @@ class _TabLink extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 40),
           padding: const EdgeInsets.symmetric(horizontal: AppSizes.space1),
           decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: selected ? AppColors.celadon : Colors.transparent, width: 2)),
+            border: Border(bottom: BorderSide(color: selected ? AppColors.accent : Colors.transparent, width: 2)),
           ),
           // widthFactor 1: 글자 폭만 차지한다. (Container의 alignment를 쓰면 줄 폭을 다 먹어 탭이 위아래로 쌓였다)
           child: Center(

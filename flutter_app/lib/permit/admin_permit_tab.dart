@@ -19,7 +19,7 @@ class AdminPermitTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppColors.celadon : AppColors.muted;
+    final color = selected ? AppColors.accent : AppColors.muted;
     return Semantics(
       button: true,
       selected: selected,
@@ -29,7 +29,7 @@ class AdminPermitTab extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 40),
           padding: const EdgeInsets.symmetric(horizontal: AppSizes.space1),
           decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: selected ? AppColors.celadon : Colors.transparent, width: 2)),
+            border: Border(bottom: BorderSide(color: selected ? AppColors.accent : Colors.transparent, width: 2)),
           ),
           child: Center(
             widthFactor: 1,

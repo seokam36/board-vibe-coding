@@ -22,9 +22,9 @@
 | `--ink` | `#E4EBE8` | 본문 글자 |
 | `--muted` | `#9AA7A1` | 작성자·날짜·보조 글자 |
 | `--line` | `#2F3A36` | 목록 행 사이 선, 입력칸 테두리 |
-| `--celadon` | `#63BBA8` | 포인트: 링크, 선택된 탭, 포커스 윤곽, 주요 버튼 바탕(글자는 `--canvas`) |
-| `--celadon-soft` | `#1E3A33` | 포인트의 어두운 배경 (눌린 공감, 학교생활 뱃지, 성공 안내) |
-| `--celadon-ink` | `#8FD5C4` | 청자 배경 위의 글자 (뱃지·성공 안내·눌린 공감) |
+| `--accent` | `#63BBA8` | 포인트: 링크, 선택된 탭, 포커스 윤곽, 주요 버튼 바탕(글자는 `--canvas`) |
+| `--accent-soft` | `#1E3A33` | 포인트의 어두운 배경 (눌린 공감, 학교생활 뱃지, 성공 안내) |
+| `--accent-ink` | `#8FD5C4` | accent-soft 배경 위의 글자 (뱃지·성공 안내·눌린 공감) |
 | `--danger` | `#F0907A` | 삭제·탈퇴 같은 되돌릴 수 없는 동작에만 |
 
 보조 토큰: `--danger-strong` `#A13A27`(위험 버튼을 누르고 있을 때, 글자 `--ink`), `--danger-soft` `#3A2521`(에러 안내 배경), `--info-soft` `#222D2A`(정보 안내 배경), `--backdrop` `rgb(0 0 0 / 60%)`(확인 창 뒤를 덮는 막), `--badge-*`(뱃지 색 묶음). `:root`에 `color-scheme: dark`(폼 컨트롤·스크롤바도 어둡게). `theme-color`(index.html)는 `--canvas` 값.
@@ -32,26 +32,26 @@
 날짜는 초를 빼고 "11월 8일 15:19"로 짧게(올해가 아니면 연도를 붙인다).
 날짜만 있는 값(접수일·결과일)은 연도를 붙여 "2026년 9월 1일"로(`formatDay`, 시간대 영향이 없게 문자열을 직접 쪼갠다).
 
-쪽지함 안 읽은 수 배지(`.badge-unread`): 상대 닉네임 옆, 인증 뱃지와 같은 청자 색(`--celadon-ink` / `--celadon-soft`). 100 이상은 "99+"로 줄이고, 화면 읽기 프로그램에는 "안 읽은 쪽지 N개"로 읽힌다(`.sr-only`). 새 색 없음.
-인증 뱃지(`.badge-verified`): 학교 인증을 마친 회원 표시(상단바 "인증", 내 정보 "유학생 인증 완료 · 학교명"). 학교생활 뱃지와 같은 청자 색(`--celadon-ink` / `--celadon-soft`).
+쪽지함 안 읽은 수 배지(`.badge-unread`): 상대 닉네임 옆, 인증 뱃지와 같은 청자 색(`--accent-ink` / `--accent-soft`). 100 이상은 "99+"로 줄이고, 화면 읽기 프로그램에는 "안 읽은 쪽지 N개"로 읽힌다(`.sr-only`). 새 색 없음.
+인증 뱃지(`.badge-verified`): 학교 인증을 마친 회원 표시(상단바 "인증", 내 정보 "유학생 인증 완료 · 학교명"). 학교생활 뱃지와 같은 청자 색(`--accent-ink` / `--accent-soft`).
 
-결과 뱃지(`.badge-result-APPROVED` / `.badge-result-DENIED`): 승인은 인증 뱃지와 같은 청자(`--celadon-ink` / `--celadon-soft`), 불허는 잡담 뱃지와 같은 회색(`--muted` / `--badge-chat-bg`). 빨강은 쓰지 않는다(위험색은 되돌릴 수 없는 동작에만).
+결과 뱃지(`.badge-result-APPROVED` / `.badge-result-DENIED`): 승인은 인증 뱃지와 같은 청자(`--accent-ink` / `--accent-soft`), 불허는 잡담 뱃지와 같은 회색(`--muted` / `--badge-chat-bg`). 빨강은 쓰지 않는다(위험색은 되돌릴 수 없는 동작에만).
 
 표(`.stats-table`, 비자 후기 통계): 판 안, 머리글 `--muted` 13px, 행 사이 `--line`, 숫자 열은 오른쪽 정렬, 소수는 항상 1자리("19.0일"). 표 wrapper만 가로 스크롤. 링크 탭(`.tabs a`)의 현재 탭은 `aria-current="page"`(청자색 밑줄).
 
-비자 일정 D-n(`.visa-dday`, /visa-plan): 머리말과 같은 30px·700. 이 화면의 핵심 숫자라 키운 예외다. 색은 평소 `--ink`, CHECK·URGENT(30일 이내)는 청자색 `--celadon`, EXPIRED(지남)는 `--muted`. 빨강은 쓰지 않는다. 할 일 목록(`.visa-todo`)의 날짜는 마감이 아니라 "확인을 시작할 시점"이라, 줄에는 D-n 대신 굵은 칸 "만료 120일 전부터"와 날짜 "2026년 7월 29일"(부터 없음)을 쓴다(위 큰 D-n과 기준이 다른 D 숫자를 섞지 않는다. 굵은 칸 min-width 8.5em으로 날짜 시작 위치를 맞춘다). 상태는 날짜 옆 글자 네 가지로도 알린다(색만으로 알리지 않는다): 지금 단계(stage와 같은 줄)는 "지금 확인할 때" + 굵은 칸과 상태 글자를 `--celadon`(상태 글자는 굵기 500)으로 강조, 아직 안 온 줄은 "n일 뒤 시작"(보통 색), "오늘 시작"(서버 규칙상 도달 불가, 모르는 stage 대비), 이미 지난 단계는 "지난 단계" + 흐리게(`--muted`).
+비자 일정 D-n(`.visa-dday`, /visa-plan): 머리말과 같은 30px·700. 이 화면의 핵심 숫자라 키운 예외다. 색은 평소 `--ink`, CHECK·URGENT(30일 이내)는 청자색 `--accent`, EXPIRED(지남)는 `--muted`. 빨강은 쓰지 않는다. 할 일 목록(`.visa-todo`)의 날짜는 마감이 아니라 "확인을 시작할 시점"이라, 줄에는 D-n 대신 굵은 칸 "만료 120일 전부터"와 날짜 "2026년 7월 29일"(부터 없음)을 쓴다(위 큰 D-n과 기준이 다른 D 숫자를 섞지 않는다. 굵은 칸 min-width 8.5em으로 날짜 시작 위치를 맞춘다). 상태는 날짜 옆 글자 네 가지로도 알린다(색만으로 알리지 않는다): 지금 단계(stage와 같은 줄)는 "지금 확인할 때" + 굵은 칸과 상태 글자를 `--accent`(상태 글자는 굵기 500)으로 강조, 아직 안 온 줄은 "n일 뒤 시작"(보통 색), "오늘 시작"(서버 규칙상 도달 불가, 모르는 stage 대비), 이미 지난 단계는 "지난 단계" + 흐리게(`--muted`).
 
 상단 비자 일정 띠(`.visa-banner`): 상단바 바로 아래 한 줄, 로그인한 인증 회원 화면에서만 뜨고 /visa-plan에서는 숨긴다. `--info-soft` 배경 + `--ink` 글자 14px, 빨강은 쓰지 않는다. 닫기 버튼(×)은 눌리는 영역 40px, 글리프는 17px(글꼴 단계표 값). 375px에서는 문구·링크가 줄바꿈된다.
 
-물건 글 상태 뱃지(`.badge-ON_SALE` / `.badge-RESERVED` / `.badge-DONE`): 판매중은 청자(`--celadon-ink` / `--celadon-soft`), 예약중은 질문 말머리와 같은 파랑(`--badge-question-ink` / `--badge-question-bg`), 거래완료는 잡담 뱃지와 같은 회색(`--badge-chat-ink` / `--badge-chat-bg`). 빨강은 쓰지 않는다.
+물건 글 상태 뱃지(`.badge-ON_SALE` / `.badge-RESERVED` / `.badge-DONE`): 판매중은 청자(`--accent-ink` / `--accent-soft`), 예약중은 질문 말머리와 같은 파랑(`--badge-question-ink` / `--badge-question-bg`), 거래완료는 잡담 뱃지와 같은 회색(`--badge-chat-ink` / `--badge-chat-bg`). 빨강은 쓰지 않는다.
 신고 대상 뱃지(`.badge-POST` / `.badge-COMMENT` / `.badge-MARKET_ITEM` / `.badge-CONVERSATION`): 글은 청자, 댓글은 잡담 뱃지와 같은 회색, 중고 글("중고")은 질문 말머리와 같은 파랑(`--badge-question-ink` / `--badge-question-bg`), 대화("쪽지")는 청자 글자 + `--hover` 배경(새 색 없음). 빨강은 쓰지 않는다.
 
-사진(중고 글): 목록 썸네일(`.market-thumb`)은 72px 정사각·`object-fit: cover`, 모서리 `--radius-btn`. 상세 큰 사진은 폭 100%·4:3 고정 틀(`.market-photo-frame`)에 `object-fit: contain`(비율이 달라도 아래 썸네일 줄이 움직이지 않는다), 틀 배경 `--canvas`. 상세 썸네일 버튼(`.market-photo-thumb`)은 56px 정사각·cover, 고른 것은 `--celadon` 테두리. 사진이 없거나 못 불러온 썸네일 빈칸은 `--hover` 회색, 큰 사진 실패 문구("사진을 불러오지 못했습니다")는 틀 안 가운데 `--muted` 14px.
+사진(중고 글): 목록 썸네일(`.market-thumb`)은 72px 정사각·`object-fit: cover`, 모서리 `--radius-btn`. 상세 큰 사진은 폭 100%·4:3 고정 틀(`.market-photo-frame`)에 `object-fit: contain`(비율이 달라도 아래 썸네일 줄이 움직이지 않는다), 틀 배경 `--canvas`. 상세 썸네일 버튼(`.market-photo-thumb`)은 56px 정사각·cover, 고른 것은 `--accent` 테두리. 사진이 없거나 못 불러온 썸네일 빈칸은 `--hover` 회색, 큰 사진 실패 문구("사진을 불러오지 못했습니다")는 틀 안 가운데 `--muted` 14px.
 글쓰기·수정의 사진 올리기 영역(`.market-photo-picker`): `.panel` 안에 "사진 (n/10)" 제목, 72px 정사각 미리보기(`.market-photo-preview`, cover, `--radius-btn`, 빈칸 `--hover`)와 그 아래 `btn btn-sm`(수정 "삭제"·글쓰기 "빼기")를 `--space-3` 간격으로 줄바꿈하며 나열한다(375px에서 가로 스크롤 없음). [사진 추가]는 `btn` 버튼이 숨긴 `input[type=file]`을 대신 열고, 진행("사진 올리는 중 n/전체")은 info 안내(role=status), 사전 검사·서버 에러는 error 안내(role=alert). 10장이면 추가 버튼을 비활성하고 옆에 `meta` 안내를 둔다.
 
-쪽지(`/messages`, `/messages/:id`, S14-d): 쪽지함은 판 하나 안의 행들(`.conv-row`). 한 줄 = 상대 닉네임(17px·500) + 시각(오른쪽, `meta`) / 글 제목(`meta`, 지워진 글은 회색 "삭제된 글" 뱃지) / 마지막 쪽지 한 줄(길면 줄임표, 내가 보낸 것은 "나: "). 줄 전체가 링크이고 마우스를 올리면 `--hover` 배경. 대화 화면의 말풍선(`.msg-bubble`)은 내가 보낸 것이 오른쪽 `--celadon-soft` 배경 + `--celadon-ink` 글자, 상대가 보낸 것이 왼쪽 `--hover` 배경 + `--ink` 글자(폭 최대 85%, 모서리 `--radius-panel`), 시각은 말풍선 아래 `--muted` 13px. 쪽지함 줄에는 닉네임 옆에 안 읽은 수 배지(`.badge-unread`, 청자 색)가 붙고, 대화 화면은 hasMore면 목록 위에 회색 안내 한 줄(`--muted`, 작은 글씨)을 둔다. 쪽지 쓰는 칸(`.message-form`)은 textarea 아래에 글자 수("0 / 1000", `--muted`)와 `btn-primary`. 새 색 없음.
+쪽지(`/messages`, `/messages/:id`, S14-d): 쪽지함은 판 하나 안의 행들(`.conv-row`). 한 줄 = 상대 닉네임(17px·500) + 시각(오른쪽, `meta`) / 글 제목(`meta`, 지워진 글은 회색 "삭제된 글" 뱃지) / 마지막 쪽지 한 줄(길면 줄임표, 내가 보낸 것은 "나: "). 줄 전체가 링크이고 마우스를 올리면 `--hover` 배경. 대화 화면의 말풍선(`.msg-bubble`)은 내가 보낸 것이 오른쪽 `--accent-soft` 배경 + `--accent-ink` 글자, 상대가 보낸 것이 왼쪽 `--hover` 배경 + `--ink` 글자(폭 최대 85%, 모서리 `--radius-panel`), 시각은 말풍선 아래 `--muted` 13px. 쪽지함 줄에는 닉네임 옆에 안 읽은 수 배지(`.badge-unread`, 청자 색)가 붙고, 대화 화면은 hasMore면 목록 위에 회색 안내 한 줄(`--muted`, 작은 글씨)을 둔다. 쪽지 쓰는 칸(`.message-form`)은 textarea 아래에 글자 수("0 / 1000", `--muted`)와 `btn-primary`. 새 색 없음.
 
-말머리 뱃지(글자색 / 배경): 잡담 `--muted` / `#262F2C`, 질문 `#A9C2F0` / `#1F2B42`, 학교생활 `--celadon-ink` / `--celadon-soft`.
+말머리 뱃지(글자색 / 배경): 잡담 `--muted` / `#262F2C`, 질문 `#A9C2F0` / `#1F2B42`, 학교생활 `--accent-ink` / `--accent-soft`.
 
 ## 글꼴
 - **IBM Plex Sans KR** (Google Fonts, 400·500·700) 하나만 쓴다. 한글과 영문의 폭이 고르게 맞아서, 한국어·영어가 섞이는 유학생 글에 맞다. 불러오지 못하면 시스템 글꼴.

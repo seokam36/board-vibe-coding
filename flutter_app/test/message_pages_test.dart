@@ -485,7 +485,7 @@ void main() {
       expect(find.descendant(of: bubbleTheirs, matching: find.text('아직 있어요')), findsOneWidget);
       // 내 말풍선이 상대 말풍선보다 오른쪽에 있다
       expect(tester.getTopLeft(bubbleMine).dx, greaterThan(tester.getTopLeft(bubbleTheirs).dx));
-      // 배경: 내 것 청자색, 상대 것 hover 색(서로 다르다)
+      // 배경: 내 것 포인트색, 상대 것 hover 색(서로 다르다)
       Color bg(Finder f) => (tester.widget<Container>(f).decoration! as BoxDecoration).color!;
       expect(bg(bubbleMine), isNot(bg(bubbleTheirs)));
       // 시각(서울 시간)과 시맨틱 문구

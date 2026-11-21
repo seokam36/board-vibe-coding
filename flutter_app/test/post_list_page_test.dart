@@ -321,11 +321,11 @@ void main() {
       }
 
       expect(ink('잡담'), AppColors.muted);
-      expect(bg('잡담'), const Color(0xFF262F2C));
-      expect(ink('질문'), const Color(0xFFA9C2F0));
-      expect(bg('질문'), const Color(0xFF1F2B42));
-      expect(ink('캠퍼스 생활'), AppColors.celadonInk);
-      expect(bg('캠퍼스 생활'), AppColors.celadonSoft);
+      expect(bg('잡담'), AppColors.badgeChatBg);
+      expect(ink('질문'), AppColors.badgeQuestionInk);
+      expect(bg('질문'), AppColors.badgeQuestionBg);
+      expect(ink('캠퍼스 생활'), AppColors.accentInk);
+      expect(bg('캠퍼스 생활'), AppColors.accentSoft);
 
       // 학교 뱃지: 글자 muted, 배경 paper, 테두리 line
       expect(ink('서울대'), AppColors.muted);

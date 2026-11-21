@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-// 색 토큰 (docs/design.md, React의 index.css :root 와 같은 값). 색 숫자는 여기서만 적고 다른 곳은 이름으로 쓴다.
+// 색 토큰 (docs/design.md, 역할 이름으로 쓰는 색 모음). 색 숫자는 여기서만 적고 다른 곳은 이름으로 쓴다.
 abstract final class AppColors {
   static const paper = Color(0xFF1C2421); // 목록·글·폼이 놓이는 판
   static const canvas = Color(0xFF141A18); // 판 바깥 바탕
@@ -8,9 +8,9 @@ abstract final class AppColors {
   static const ink = Color(0xFFE4EBE8); // 본문 글자
   static const muted = Color(0xFF9AA7A1); // 보조 글자
   static const line = Color(0xFF2F3A36); // 선, 입력칸 테두리
-  static const celadon = Color(0xFF63BBA8); // 포인트: 링크, 주요 버튼 바탕, 포커스
-  static const celadonSoft = Color(0xFF1E3A33); // 포인트의 어두운 배경
-  static const celadonInk = Color(0xFF8FD5C4); // 청자 배경 위에 올리는 글자
+  static const accent = Color(0xFF63BBA8); // 포인트: 링크, 주요 버튼 바탕, 포커스
+  static const accentSoft = Color(0xFF1E3A33); // 포인트의 어두운 배경
+  static const accentInk = Color(0xFF8FD5C4); // accentSoft 배경 위에 올리는 글자(뱃지·성공 안내·눌린 공감)
   static const badgeChatBg = Color(0xFF262F2C); // 말머리 뱃지: 잡담 배경(글자는 muted)
   static const badgeQuestionInk = Color(0xFFA9C2F0); // 말머리 뱃지: 질문 글자
   static const badgeQuestionBg = Color(0xFF1F2B42); // 말머리 뱃지: 질문 배경

@@ -387,18 +387,18 @@ void main() {
     test('만료 당일이면 큰 글씨가 D-Day이고 지난 단계 2줄은 흐리게, 현재 단계(URGENT) 줄은 "지금 확인할 때"다', (tester) async {
       await pumpWithPlan(tester, dDayPlanJson());
       expect(ddayText(tester), 'D-Day');
-      expect(ddayColor(tester), AppColors.celadon); // URGENT
+      expect(ddayColor(tester), AppColors.accent); // URGENT
       for (var i = 0; i < 3; i++) {
         expect(todoDday(tester, i), todoDdays[i]);
       }
       expect(todoStatus(tester, 0), '지난 단계');
       expect(todoStatus(tester, 1), '지난 단계');
       expect(todoStatus(tester, 2), '지금 확인할 때');
-      // 지난 줄은 흐림(muted), 현재 줄은 청자색
+      // 지난 줄은 흐림(muted), 현재 줄은 포인트색
       expect(todoDdayColor(tester, 0), AppColors.muted);
       expect(todoDdayColor(tester, 1), AppColors.muted);
-      expect(todoDdayColor(tester, 2), AppColors.celadon);
-      expect(todoStatusColor(tester, 2), AppColors.celadon);
+      expect(todoDdayColor(tester, 2), AppColors.accent);
+      expect(todoStatusColor(tester, 2), AppColors.accent);
       expect(find.text('지남'), findsNothing);
       // 아직 지나지 않았으니(0일) 만료 안내는 없다
       expect(find.text(_expiredNotice), findsNothing);
@@ -431,7 +431,7 @@ void main() {
     test('만료 D-15(CHECK)면 CHECK 줄이 "지금 확인할 때"(흐리지 않음), PREPARE 줄은 "지난 단계"(흐림), URGENT 줄은 "8일 뒤 시작"이다', (tester) async {
       await pumpWithPlan(tester, d15PlanJson());
       expect(ddayText(tester), 'D-15');
-      expect(ddayColor(tester), AppColors.celadon); // CHECK
+      expect(ddayColor(tester), AppColors.accent); // CHECK
       for (var i = 0; i < 3; i++) {
         expect(todoDday(tester, i), todoDdays[i]);
       }
@@ -442,8 +442,8 @@ void main() {
       // CHECK: 지금 들어와 있는 단계. 날짜는 지났어도(-15) 흐리지 않고 "지금 확인할 때"
       expect(todoDate(tester, 1), '2026년 10월 26일');
       expect(todoStatus(tester, 1), '지금 확인할 때');
-      expect(todoStatusColor(tester, 1), AppColors.celadon);
-      expect(todoDdayColor(tester, 1), AppColors.celadon);
+      expect(todoStatusColor(tester, 1), AppColors.accent);
+      expect(todoDdayColor(tester, 1), AppColors.accent);
       expect(find.text('지난 단계'), findsOneWidget); // 흐린 줄은 PREPARE 하나뿐
       // URGENT: 아직 안 온 단계
       expect(todoDate(tester, 2), '2026년 11월 18일');

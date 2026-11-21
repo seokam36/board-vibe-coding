@@ -2,7 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../theme/app_colors.dart';
 
-// 글자 링크 (React의 <a>): 청자색 밑줄 글자. 누르면 onTap(보통 context.go)
+// 글자 링크 (React의 <a>): 포인트색 밑줄 글자. 누르면 onTap(보통 context.go)
 class AppLink extends StatelessWidget {
   const AppLink({super.key, required this.label, required this.onTap, this.style});
 
@@ -23,9 +23,9 @@ class AppLink extends StatelessWidget {
             label,
             style: const TextStyle(
               fontSize: AppSizes.fsSmall2,
-              color: AppColors.celadon,
+              color: AppColors.accent,
               decoration: TextDecoration.underline,
-              decorationColor: AppColors.celadon,
+              decorationColor: AppColors.accent,
             ).merge(style),
           ),
         ),

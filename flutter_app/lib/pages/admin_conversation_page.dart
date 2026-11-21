@@ -199,7 +199,7 @@ class _AdminConversationPageState extends State<AdminConversationPage> {
             style: TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.muted),
           ),
         ),
-      // 판매자는 오른쪽(청자 배경), 구매자·누구인지 모르는(탈퇴) 사람은 왼쪽. 폭은 최대 85%
+      // 판매자는 오른쪽(포인트 배경), 구매자·누구인지 모르는(탈퇴) 사람은 왼쪽. 폭은 최대 85%
       Semantics(
         container: true,
         label: '쪽지 목록',
@@ -264,13 +264,13 @@ class _AdminBubble extends StatelessWidget {
                 key: ValueKey('msg-bubble-${m.id}'),
                 padding: const EdgeInsets.symmetric(horizontal: AppSizes.space3, vertical: AppSizes.space2),
                 decoration: BoxDecoration(
-                  color: right ? AppColors.celadonSoft : AppColors.hover,
+                  color: right ? AppColors.accentSoft : AppColors.hover,
                   borderRadius: BorderRadius.circular(AppSizes.radiusPanel),
                 ),
                 // 글자로만 그린다(HTML이 실행되지 않음). Text는 내용의 줄바꿈을 그대로 보여 준다
                 child: Text(
                   m.content,
-                  style: TextStyle(color: right ? AppColors.celadonInk : AppColors.ink, height: 1.5),
+                  style: TextStyle(color: right ? AppColors.accentInk : AppColors.ink, height: 1.5),
                 ),
               ),
               const SizedBox(height: AppSizes.space1),

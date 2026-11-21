@@ -219,7 +219,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const PageTitle('신고 관리'),
-          // 탭: 선택된 탭은 청자색 글자 + 밑줄. 처리 중에는 눌리지 않는다
+          // 탭: 선택된 탭은 포인트색 글자 + 밑줄. 처리 중에는 눌리지 않는다
           Container(
             margin: const EdgeInsets.only(bottom: AppSizes.space4),
             decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.line))),
@@ -273,7 +273,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
   }
 }
 
-// 탭 하나 (React의 .tabs button): 선택됨은 청자 글자+밑줄(굵기는 그대로), 처리 중엔 반투명하고 안 눌린다
+// 탭 하나 (React의 .tabs button): 선택됨은 포인트 글자+밑줄(굵기는 그대로), 처리 중엔 반투명하고 안 눌린다
 class _StatusTab extends StatelessWidget {
   const _StatusTab({required this.label, required this.selected, required this.enabled, required this.onTap});
 
@@ -284,7 +284,7 @@ class _StatusTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppColors.celadon : AppColors.muted;
+    final color = selected ? AppColors.accent : AppColors.muted;
     return Semantics(
       button: true,
       selected: selected,
@@ -297,7 +297,7 @@ class _StatusTab extends StatelessWidget {
             constraints: const BoxConstraints(minHeight: 40),
             padding: const EdgeInsets.symmetric(horizontal: AppSizes.space1),
             decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: selected ? AppColors.celadon : Colors.transparent, width: 2)),
+              border: Border(bottom: BorderSide(color: selected ? AppColors.accent : Colors.transparent, width: 2)),
             ),
             child: Center(
               widthFactor: 1,
@@ -338,10 +338,10 @@ class _ReportRow extends StatelessWidget {
 
   // 종류별 배지 색 (글자, 배경). React의 .badge-POST 등과 같은 조합
   (Color, Color) get _badgeColors => switch (report.target.type) {
-    'POST' => (AppColors.celadonInk, AppColors.celadonSoft),
+    'POST' => (AppColors.accentInk, AppColors.accentSoft),
     'COMMENT' => (AppColors.muted, AppColors.badgeChatBg),
     'MARKET_ITEM' => (AppColors.badgeQuestionInk, AppColors.badgeQuestionBg),
-    'CONVERSATION' => (AppColors.celadonInk, AppColors.hover),
+    'CONVERSATION' => (AppColors.accentInk, AppColors.hover),
     _ => (AppColors.ink, Colors.transparent),
   };
 

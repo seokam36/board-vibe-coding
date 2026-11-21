@@ -64,7 +64,7 @@ void main() {
     expect(style.fontWeight, FontWeight.w700);
     // 뒤 막: 검정 60%
     final barrier = tester.widget<ModalBarrier>(find.byType(ModalBarrier).last);
-    expect(barrier.color, const Color.fromRGBO(0, 0, 0, 0.6));
+    expect(barrier.color, AppColors.backdrop);
   });
 
   testWidgets('열릴 때 [취소]가 첫 포커스', (tester) async {
@@ -117,7 +117,7 @@ void main() {
     expect(answer.value, isNull);
   });
 
-  testWidgets('danger면 확인 버튼이 danger 색, 아니면 primary(채운 청자)', (tester) async {
+  testWidgets('danger면 확인 버튼이 danger 색, 아니면 primary(채운 포인트)', (tester) async {
     await pumpApp(tester);
     await _open(tester, danger: true);
     final dangerButton = tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, '삭제'));

@@ -308,8 +308,8 @@ class _PermitVerificationSectionState extends State<PermitVerificationSection> {
             // 이미 인증했으면 뱃지와 안내만
             AppBadge(
               text: '유학생 인증 완료 · ${school.name}',
-              ink: AppColors.celadonInk,
-              bg: AppColors.celadonSoft,
+              ink: AppColors.accentInk,
+              bg: AppColors.accentSoft,
             ),
             const FieldHint('졸업 후에도 유지돼요'),
             ...permitRemoveNotice(_removeError),

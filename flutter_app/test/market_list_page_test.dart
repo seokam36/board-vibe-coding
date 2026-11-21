@@ -453,7 +453,7 @@ void main() {
       return (ink, (box.decoration as BoxDecoration).color);
     }
 
-    testWidgets('ON_SALE 청자, RESERVED 파랑, DONE 회색, 모르는 코드는 색 없음 (글자는 서버 name)', (tester) async {
+    testWidgets('ON_SALE 포인트, RESERVED 파랑, DONE 회색, 모르는 코드는 색 없음 (글자는 서버 name)', (tester) async {
       final adapter = marketAdapter([
         FakeReply(200, [
           marketItemJson(id: 1, title: 'a', statusCode: 'ON_SALE', statusName: '판매중'),
@@ -463,8 +463,8 @@ void main() {
         ]),
       ]);
       await pumpApp(tester, location: '/market', adapter: adapter);
-      expect(colors(tester, '판매중'), (AppColors.celadonInk, AppColors.celadonSoft));
-      expect(colors(tester, '예약중'), (const Color(0xFFA9C2F0), const Color(0xFF1F2B42)));
+      expect(colors(tester, '판매중'), (AppColors.accentInk, AppColors.accentSoft));
+      expect(colors(tester, '예약중'), (AppColors.badgeQuestionInk, AppColors.badgeQuestionBg));
       expect(colors(tester, '거래완료'), (AppColors.muted, AppColors.badgeChatBg));
       expect(colors(tester, '새 상태'), (AppColors.ink, Colors.transparent));
     });

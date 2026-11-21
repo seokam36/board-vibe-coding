@@ -32,7 +32,7 @@ class Notice extends StatelessWidget {
     // 종류별 (배경, 글자) 색
     final (bg, fg) = switch (kind) {
       NoticeKind.error => (AppColors.dangerSoft, AppColors.danger),
-      NoticeKind.success => (AppColors.celadonSoft, AppColors.celadonInk),
+      NoticeKind.success => (AppColors.accentSoft, AppColors.accentInk),
       NoticeKind.info => (AppColors.infoSoft, AppColors.ink),
     };
     final isError = kind == NoticeKind.error;

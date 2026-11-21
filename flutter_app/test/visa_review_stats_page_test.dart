@@ -186,7 +186,7 @@ void main() {
       expect(_title(tester), '부산대 비자 후기');
       expect(find.text('하이코리아'), findsOneWidget);
       Color? color(String t) => tester.widget<Text>(find.text(t)).style?.color;
-      expect(color('통계'), AppColors.celadon);
+      expect(color('통계'), AppColors.accent);
       expect(color('후기'), AppColors.muted);
     });
 

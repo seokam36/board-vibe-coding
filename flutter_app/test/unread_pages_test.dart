@@ -280,7 +280,7 @@ void main() {
       semantics.dispose();
     });
 
-    _test('배지는 청자색이고 닉네임 바로 옆(같은 줄)에 있다', (tester) async {
+    _test('배지는 포인트색이고 닉네임 바로 옆(같은 줄)에 있다', (tester) async {
       await openList(tester, [summaryJson(id: 1, unreadCount: 2)]);
       final deco = tester.widget<Container>(badge(1)).decoration! as BoxDecoration;
       expect(deco.color, isNotNull);

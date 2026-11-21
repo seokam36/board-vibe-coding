@@ -5,6 +5,7 @@ import 'dart:ui' show Tristate;
 
 import 'package:board_web/auth/auth_user.dart';
 import 'package:board_web/errors/error_messages.dart';
+import 'package:board_web/theme/app_colors.dart';
 import 'package:board_web/widgets/notice.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -79,11 +80,11 @@ void main() {
       _expectLike(tester, liked: false, count: 3);
     });
 
-    testWidgets('liked:true면 ❤️ + 눌린 모양(청자 배경)', (tester) async {
+    testWidgets('liked:true면 ❤️ + 눌린 모양(포인트 배경)', (tester) async {
       await _open(tester, _adapter(liked: true), user: _user());
       _expectLike(tester, liked: true, count: 3);
       final style = tester.widget<OutlinedButton>(_button).style!;
-      expect(style.backgroundColor!.resolve({}), const Color(0xFF1E3A33)); // celadonSoft
+      expect(style.backgroundColor!.resolve({}), AppColors.accentSoft);
     });
 
     testWidgets('안 눌린 상태는 눌린 배경색이 없다', (tester) async {

@@ -153,7 +153,7 @@ void main() {
       await _open(tester, a);
       expect(a.count('GET', _list), 1);
       expect(_lastStatus(a), 'PENDING');
-      expect(_tabColor(tester, '대기'), AppColors.celadon);
+      expect(_tabColor(tester, '대기'), AppColors.accent);
       expect(_tabColor(tester, '승인'), AppColors.muted);
       expect(_tabColor(tester, '반려'), AppColors.muted);
     });
@@ -169,7 +169,7 @@ void main() {
       expect(_lastStatus(a), 'APPROVED');
       expect(_row(2), findsOneWidget);
       expect(_row(1), findsNothing);
-      expect(_tabColor(tester, '승인'), AppColors.celadon);
+      expect(_tabColor(tester, '승인'), AppColors.accent);
       await tester.tap(find.text('반려'));
       await tester.pumpAndSettle();
       expect(_lastStatus(a), 'REJECTED');

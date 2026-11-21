@@ -118,7 +118,7 @@ class _NavBarState extends State<NavBar> {
                         child: const Text(
                           siteName,
                           style: TextStyle(
-                            color: AppColors.celadon,
+                            color: AppColors.accent,
                             fontWeight: FontWeight.w700,
                             fontSize: AppSizes.fsRow,
                           ),
@@ -164,14 +164,14 @@ class _VerifiedBadge extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
-            color: AppColors.celadonSoft,
+            color: AppColors.accentSoft,
             borderRadius: BorderRadius.circular(4),
           ),
           child: const Text(
             '인증',
             style: TextStyle(
               fontSize: AppSizes.fsSmall,
-              color: AppColors.celadonInk,
+              color: AppColors.accentInk,
               height: 1.6,
             ),
           ),

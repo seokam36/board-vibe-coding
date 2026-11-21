@@ -97,7 +97,7 @@ class MarketMainPhoto extends StatelessWidget {
   }
 }
 
-// 56px 정사각 썸네일 버튼. 고른 것은 청자색 테두리 + selected. 이름은 "사진 n 보기"(그림은 장식).
+// 56px 정사각 썸네일 버튼. 고른 것은 포인트색 테두리 + selected. 이름은 "사진 n 보기"(그림은 장식).
 // Tab으로 오고 Enter·Space로 누를 수 있다(InkWell 기본 동작).
 class _PhotoThumbButton extends StatelessWidget {
   const _PhotoThumbButton({
@@ -132,7 +132,7 @@ class _PhotoThumbButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.hover,
             borderRadius: BorderRadius.circular(AppSizes.radiusBtn),
-            border: Border.all(color: selected ? AppColors.celadon : Colors.transparent, width: 2),
+            border: Border.all(color: selected ? AppColors.accent : Colors.transparent, width: 2),
           ),
           child: Image.network(
             url,

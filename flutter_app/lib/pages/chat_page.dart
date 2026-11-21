@@ -223,7 +223,7 @@ class _QuestionBubble extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: AppSizes.space3),
         padding: const EdgeInsets.symmetric(horizontal: AppSizes.space3, vertical: AppSizes.space2),
         decoration: BoxDecoration(
-          color: AppColors.celadonSoft,
+          color: AppColors.accentSoft,
           borderRadius: BorderRadius.circular(AppSizes.radiusPanel),
         ),
         child: Text(text, style: const TextStyle(color: AppColors.ink, height: 1.5)),

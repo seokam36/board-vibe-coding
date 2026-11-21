@@ -53,7 +53,7 @@ Finder _retry() => find.widgetWithText(OutlinedButton, '다시 시도');
 
 bool _enabled(WidgetTester tester, Finder button) => tester.widget<OutlinedButton>(button).onPressed != null;
 
-// 탭 글자의 색(선택됨 = 청자)과 눌림 가능 여부
+// 탭 글자의 색(선택됨 = 포인트)과 눌림 가능 여부
 Color? _tabColor(WidgetTester tester, String label) => tester.widget<Text>(find.text(label)).style?.color;
 bool _tabEnabled(WidgetTester tester, String label) =>
     tester.widget<InkWell>(find.ancestor(of: find.text(label), matching: find.byType(InkWell))).onTap != null;
@@ -73,13 +73,13 @@ void main() {
   });
 
   group('탭', () {
-    _test('처음엔 미처리 탭: GET /admin/reports?status=PENDING, 미처리가 선택(청자)·기각은 muted', (tester) async {
+    _test('처음엔 미처리 탭: GET /admin/reports?status=PENDING, 미처리가 선택(포인트)·기각은 muted', (tester) async {
       final adapter = _adapter();
       await _open(tester, adapter);
       expect(adapter.count('GET', _list), 1);
       expect(_lastStatus(adapter), 'PENDING');
       expect(find.text('신고 관리'), findsWidgets); // 화면 제목 (관리자 상단바의 같은 이름 링크도 있다)
-      expect(_tabColor(tester, '미처리'), AppColors.celadon);
+      expect(_tabColor(tester, '미처리'), AppColors.accent);
       expect(_tabColor(tester, '기각'), AppColors.muted);
     });
 
@@ -87,7 +87,7 @@ void main() {
       final adapter = _adapter(reports: [postReport(id: 4)]);
       await _open(tester, adapter, location: '$_list?status=DISMISSED');
       expect(_lastStatus(adapter), 'DISMISSED');
-      expect(_tabColor(tester, '기각'), AppColors.celadon);
+      expect(_tabColor(tester, '기각'), AppColors.accent);
       expect(_tabColor(tester, '미처리'), AppColors.muted);
       expect(_row(4), findsOneWidget);
       expect(find.widgetWithText(OutlinedButton, '삭제'), findsNothing);
@@ -98,7 +98,7 @@ void main() {
       final adapter = _adapter();
       await _open(tester, adapter, location: '$_list?status=abc');
       expect(_lastStatus(adapter), 'PENDING');
-      expect(_tabColor(tester, '미처리'), AppColors.celadon);
+      expect(_tabColor(tester, '미처리'), AppColors.accent);
     });
 
     _test('[기각] 탭을 누르면 주소가 ?status=DISMISSED 로 바뀌고(기록 교체) 기각 목록을 읽는다', (tester) async {
@@ -113,7 +113,7 @@ void main() {
       expect(adapter.count('GET', _list), 2);
       expect(_row(4), findsOneWidget);
       expect(_row(1), findsNothing);
-      expect(_tabColor(tester, '기각'), AppColors.celadon);
+      expect(_tabColor(tester, '기각'), AppColors.accent);
     });
 
     _test('다시 [미처리]를 누르면 PENDING 으로 다시 읽는다', (tester) async {
@@ -269,7 +269,7 @@ void main() {
       }
     });
 
-    _test('배지 색: 글=청자, 댓글=회색, 중고=파랑, 쪽지=청자 글자+hover 배경', (tester) async {
+    _test('배지 색: 글=포인트, 댓글=회색, 중고=파랑, 쪽지=포인트 글자+hover 배경', (tester) async {
       await _open(tester, _adapter(reports: [postReport(), commentReport(), marketReport(), conversationReport()]));
       (Color?, Color?) colors(int id, String text) {
         final label = find.descendant(of: _row(id), matching: find.text(text));
@@ -278,10 +278,10 @@ void main() {
         return (ink, (box.decoration as BoxDecoration?)?.color);
       }
 
-      expect(colors(1, '글'), (AppColors.celadonInk, AppColors.celadonSoft));
+      expect(colors(1, '글'), (AppColors.accentInk, AppColors.accentSoft));
       expect(colors(2, '댓글'), (AppColors.muted, AppColors.badgeChatBg));
       expect(colors(3, '중고'), (AppColors.badgeQuestionInk, AppColors.badgeQuestionBg));
-      expect(colors(7, '쪽지'), (AppColors.celadonInk, AppColors.hover));
+      expect(colors(7, '쪽지'), (AppColors.accentInk, AppColors.hover));
     });
 
     for (final (name, report, label, to) in <(String, Map<String, dynamic>, String, String)>[

@@ -29,7 +29,7 @@ class SchoolGateNotice extends StatelessWidget {
             AppLink(
               label: '유학생 인증하기',
               onTap: () => context.go('/me'),
-              style: const TextStyle(color: AppColors.celadon),
+              style: const TextStyle(color: AppColors.accent),
             ),
           ],
         ),

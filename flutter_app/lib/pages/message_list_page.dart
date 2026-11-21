@@ -135,7 +135,7 @@ class _ConversationRow extends StatelessWidget {
                                 key: ValueKey('conv-unread-${c.id}'),
                                 padding: const EdgeInsets.symmetric(horizontal: 6),
                                 decoration: BoxDecoration(
-                                  color: AppColors.celadonSoft,
+                                  color: AppColors.accentSoft,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -144,7 +144,7 @@ class _ConversationRow extends StatelessWidget {
                                   style: const TextStyle(
                                     fontSize: AppSizes.fsSmall,
                                     fontWeight: FontWeight.w500,
-                                    color: AppColors.celadonInk,
+                                    color: AppColors.accentInk,
                                     height: 1.6,
                                   ),
                                 ),

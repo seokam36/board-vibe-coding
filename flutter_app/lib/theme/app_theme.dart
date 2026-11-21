@@ -16,15 +16,15 @@ class _NoTransitionBuilder extends PageTransitionsBuilder {
   ) => child;
 }
 
-// 앱 전체 테마: 항상 어두운 청자 계열 (Material 3 기본 모양에 색·폭·크기만 React 디자인에 맞춘다)
+// 앱 전체 테마: 항상 어두운 테마 (Material 3 기본 모양에 색·폭·크기만 React 디자인에 맞춘다)
 ThemeData buildAppTheme() {
   // 색 토큰을 Material 색 역할에 하나씩 꽂는다
   const scheme = ColorScheme.dark(
-    primary: AppColors.celadon,
-    onPrimary: AppColors.canvas, // 밝은 청자 바탕 위엔 어두운 글자
-    primaryContainer: AppColors.celadonSoft,
-    onPrimaryContainer: AppColors.celadonInk,
-    secondary: AppColors.celadon,
+    primary: AppColors.accent,
+    onPrimary: AppColors.canvas, // 밝은 포인트 바탕 위엔 어두운 글자
+    primaryContainer: AppColors.accentSoft,
+    onPrimaryContainer: AppColors.accentInk,
+    secondary: AppColors.accent,
     onSecondary: AppColors.canvas,
     surface: AppColors.paper,
     onSurface: AppColors.ink,
@@ -81,12 +81,12 @@ ThemeData buildAppTheme() {
         TargetPlatform.fuchsia: _NoTransitionBuilder(),
       },
     ),
-    // 주요 버튼: 청자 바탕 + 어두운 글자, 높이 40, 모서리 6
+    // 주요 버튼: 포인트 바탕 + 어두운 글자, 높이 40, 모서리 6
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: AppColors.celadon,
+        backgroundColor: AppColors.accent,
         foregroundColor: AppColors.canvas,
-        disabledBackgroundColor: AppColors.celadon.withValues(alpha: 0.5),
+        disabledBackgroundColor: AppColors.accent.withValues(alpha: 0.5),
         disabledForegroundColor: AppColors.canvas.withValues(alpha: 0.7),
         minimumSize: const Size(0, 40),
         padding: btnPadding,
@@ -107,14 +107,14 @@ ThemeData buildAppTheme() {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: AppColors.celadon,
+        foregroundColor: AppColors.accent,
         minimumSize: const Size(0, 40),
         padding: btnPadding,
         shape: btnShape,
         textStyle: btnText,
       ),
     ),
-    // 입력칸: 높이 40 이상, 모서리 8, 테두리 line, 포커스는 청자
+    // 입력칸: 높이 40 이상, 모서리 8, 테두리 line, 포커스는 포인트
     inputDecorationTheme: InputDecorationThemeData(
       filled: true,
       fillColor: AppColors.paper,
@@ -126,9 +126,9 @@ ThemeData buildAppTheme() {
       constraints: const BoxConstraints(minHeight: 40),
       border: inputBorder(AppColors.line),
       enabledBorder: inputBorder(AppColors.line),
-      focusedBorder: inputBorder(AppColors.celadon),
+      focusedBorder: inputBorder(AppColors.accent),
       labelStyle: const TextStyle(fontSize: AppSizes.fsSmall2, color: AppColors.muted),
-      floatingLabelStyle: const TextStyle(fontSize: AppSizes.fsSmall2, color: AppColors.celadonInk),
+      floatingLabelStyle: const TextStyle(fontSize: AppSizes.fsSmall2, color: AppColors.accentInk),
     ),
     tooltipTheme: const TooltipThemeData(
       textStyle: TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.ink),

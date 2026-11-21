@@ -347,7 +347,7 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('썸네일은 56px 정사각, ?size=thumb 주소, 선택된 것만 청자색 테두리', (tester) async {
+    testWidgets('썸네일은 56px 정사각, ?size=thumb 주소, 선택된 것만 포인트색 테두리', (tester) async {
       await pumpGallery(tester, [7, 8], 1);
       expect(tester.getSize(_thumb(7)), const Size(56, 56));
       expect(urlOf(tester, _thumb(8)), '/api/market-items/7/photos/8?size=thumb');
@@ -358,7 +358,7 @@ void main() {
         return (box.border! as Border).top.color;
       }
 
-      expect(border(8), AppColors.celadon);
+      expect(border(8), AppColors.accent);
       expect(border(7), Colors.transparent);
     });
 

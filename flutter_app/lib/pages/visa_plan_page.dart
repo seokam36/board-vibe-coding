@@ -322,9 +322,9 @@ class _PlanSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final stage = plan.stage;
-    // 큰 D-n: 단계(stage)는 색 강조에만 쓴다. 평소엔 본문색, CHECK·URGENT는 청자, 지났으면 흐리게 (빨강은 쓰지 않는다)
+    // 큰 D-n: 단계(stage)는 색 강조에만 쓴다. 평소엔 본문색, CHECK·URGENT는 포인트, 지났으면 흐리게 (빨강은 쓰지 않는다)
     final ddayColor = switch (stage) {
-      'CHECK' || 'URGENT' => AppColors.celadon,
+      'CHECK' || 'URGENT' => AppColors.accent,
       'EXPIRED' => AppColors.muted,
       _ => AppColors.ink,
     };
@@ -393,7 +393,7 @@ class _TodoRow extends StatelessWidget {
         ? '오늘 시작' // 서버 규칙상 도달 불가(0인 날은 stage가 그 code). 모르는 stage 대비
         : '지난 단계';
     final baseColor = isPast ? AppColors.muted : AppColors.ink;
-    final accent = isCurrent ? AppColors.celadon : baseColor; // 현재 줄은 만료 N일 전·상태 글자만 청자색
+    final accent = isCurrent ? AppColors.accent : baseColor; // 현재 줄은 만료 N일 전·상태 글자만 포인트색
     return Container(
       key: ValueKey('visa-todo-$index'),
       padding: const EdgeInsets.symmetric(vertical: AppSizes.space3),
@@ -425,7 +425,7 @@ class _TodoRow extends StatelessWidget {
               key: ValueKey('visa-todo-status-$index'),
               style: TextStyle(
                 fontSize: AppSizes.fsSmall,
-                color: isCurrent ? AppColors.celadon : AppColors.muted,
+                color: isCurrent ? AppColors.accent : AppColors.muted,
                 fontWeight: isCurrent ? FontWeight.w500 : FontWeight.w400,
               ),
             ),

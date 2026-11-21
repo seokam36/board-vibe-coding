@@ -82,10 +82,10 @@ void main() {
       expect(find.text('판매자 · 판매자'), findsOneWidget);
     });
 
-    _test('말풍선 방향: 판매자는 오른쪽(청자 배경), 구매자는 왼쪽(hover 배경)', (tester) async {
+    _test('말풍선 방향: 판매자는 오른쪽(포인트 배경), 구매자는 왼쪽(hover 배경)', (tester) async {
       await _open(tester, _adapter());
       expect(_align(tester, 31), Alignment.centerRight);
-      expect(_bubbleColor(tester, 31), AppColors.celadonSoft);
+      expect(_bubbleColor(tester, 31), AppColors.accentSoft);
       expect(_align(tester, 30), Alignment.centerLeft);
       expect(_bubbleColor(tester, 30), AppColors.hover);
     });

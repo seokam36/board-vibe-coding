@@ -165,7 +165,7 @@ class _BoardAppState extends State<BoardApp> {
       ],
       child: MaterialApp.router(
         title: siteName,
-        // 어두운 청자 테마 (색·글자 크기·버튼·입력칸은 lib/theme 참고)
+        // 어두운 테마 (색·글자 크기·버튼·입력칸은 lib/theme 참고)
         theme: buildAppTheme(),
         routerConfig: _router,
         // 한국어 전용 앱: 달력(showDatePicker)의 요일·월·툴팁 같은 기본 글자를 한국어로
