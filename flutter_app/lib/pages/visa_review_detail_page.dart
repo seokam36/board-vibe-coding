@@ -11,6 +11,7 @@ import '../visa/models.dart';
 import '../visa/result_badge.dart';
 import '../visa/visa_disclaimer.dart';
 import '../widgets/app_badge.dart';
+import '../widgets/author_head.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/loading.dart';
 import '../widgets/notice.dart';
@@ -128,6 +129,7 @@ class _VisaReviewDetailPageState extends State<VisaReviewDetailPage> {
             Padding(
               padding: const EdgeInsets.only(bottom: AppSizes.space4),
               child: Wrap(
+                alignment: WrapAlignment.end, // 중고 글 보기처럼 오른쪽 끝 한 줄
                 crossAxisAlignment: WrapCrossAlignment.center,
                 spacing: AppSizes.space2,
                 runSpacing: AppSizes.space2,
@@ -163,24 +165,23 @@ class _VisaReviewDetailPageState extends State<VisaReviewDetailPage> {
 
   // 후기 본문 판. 드래그로 글자를 고를 수 있게 SelectionArea로 감싼다
   Widget _buildArticle(VisaReview r) {
-    const metaStyle = TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.muted, height: 1.65);
     return Panel(
       child: SelectionArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 결과·학교만 (비자·신청 종류는 아래 제목에 있다)
-            Wrap(
-              spacing: AppSizes.space2,
-              runSpacing: AppSizes.space2,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
+            // 머리: 이니셜 + 작성자 닉네임 + 결과·학교 뱃지, 아래에 시각 (게시판·중고 글 보기와 같은 부품).
+            // 비자·신청 종류는 아래 제목에 있다
+            AuthorHead(
+              nickname: r.author?.nickname,
+              time: formatDate(r.createdAt),
+              badges: [
                 ResultBadge(result: r.result),
                 AppBadge(text: r.school.name, school: true),
               ],
             ),
             Padding(
-              padding: const EdgeInsets.only(top: AppSizes.space2, bottom: AppSizes.space2),
+              padding: const EdgeInsets.only(top: AppSizes.space3, bottom: AppSizes.space1),
               child: Semantics(
                 header: true,
                 headingLevel: 1,
@@ -195,16 +196,9 @@ class _VisaReviewDetailPageState extends State<VisaReviewDetailPage> {
                 ),
               ),
             ),
-            Wrap(
-              spacing: AppSizes.space3,
-              children: [
-                Text(r.author?.nickname ?? '(작성자 없음)', style: metaStyle),
-                Text(formatDate(r.createdAt), style: metaStyle),
-              ],
-            ),
             // 접수일 → 결과일 (처리 일수)
             Padding(
-              padding: const EdgeInsets.only(top: AppSizes.space3),
+              padding: const EdgeInsets.only(top: AppSizes.space2),
               child: Text(
                 '접수 ${formatDay(r.receivedDate)} → 결과 ${formatDay(r.resultDate)} (${r.processingDays}일)',
                 style: const TextStyle(fontWeight: FontWeight.w500),

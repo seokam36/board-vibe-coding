@@ -3,7 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../theme/app_colors.dart';
 import 'initial_avatar.dart';
 
-// 글 보기의 작성자 머리 (게시판 글·중고 글이 같이 쓴다):
+// 글 보기의 작성자 머리 (게시판 글·중고 글·비자 후기가 같이 쓴다):
 // 왼쪽 이니셜 동그라미(36) + 오른쪽 위 "닉네임(15·굵게) + 뱃지들", 그 아래 시각(회색 13).
 // 닉네임이 null이면(작성자 없음) 빈 동그라미와 emptyName 글자를 보여 준다. 뱃지 줄은 좁으면 줄바꿈한다.
 // 글 본문을 드래그해서 복사할 때 이니셜이 섞이지 않게 동그라미만 선택에서 뺀다.

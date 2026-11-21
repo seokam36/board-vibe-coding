@@ -5,8 +5,8 @@ import '../common/format_date.dart';
 import '../common/utf16_length_formatter.dart';
 import '../errors/error_messages.dart';
 import '../theme/app_colors.dart';
-import '../widgets/activate_on_key.dart';
 import '../widgets/app_badge.dart';
+import '../widgets/date_field.dart';
 import '../widgets/notice.dart';
 import '../widgets/panel.dart';
 import '../widgets/relogin_notice.dart';
@@ -20,21 +20,7 @@ const _fillAllMessage = '비자 종류·신청 종류·결과·날짜를 모두 
 const _optionsFailedWithCurrentMessage = '선택지 목록을 불러오지 못했습니다. 지금 값으로만 저장할 수 있습니다';
 
 // 날짜 칸이 고를 수 있는 가장 이른 날. React는 max만 두었지만 달력에는 시작이 필요해서 넉넉히 잡는다
-final _firstDate = DateTime(2000, 1, 1);
-
-// "yyyy-MM-dd" 글자 → 그 날의 DateTime. 모양이 다르면 null. toIso8601String·시간대를 거치지 않고 글자를 직접 쪼갠다
-DateTime? _parseDay(String day) {
-  final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(day);
-  if (m == null) return null;
-  return DateTime(int.parse(m[1]!), int.parse(m[2]!), int.parse(m[3]!));
-}
-
-// 달력에서 고른 날 → "yyyy-MM-dd". 피커가 돌려준 DateTime의 연·월·일 칸을 그대로 이어 붙인다 (toIso8601String 금지: 시간대로 하루가 밀릴 수 있다)
-String _formatDay(DateTime d) {
-  final mm = d.month.toString().padLeft(2, '0');
-  final dd = d.day.toString().padLeft(2, '0');
-  return '${d.year.toString().padLeft(4, '0')}-$mm-$dd';
-}
+const _firstDay = '2000-01-01';
 
 // 받은 선택지 + (목록에 없거나 못 받았으면) 후기가 원래 가진 값 (React의 withCurrent, 글 수정의 말머리와 같은 패턴)
 List<VisaOption> _withCurrent(List<VisaOption>? list, VisaOption? current) {
@@ -194,15 +180,22 @@ class _VisaReviewFormState extends State<VisaReviewForm> {
           // 접수일·결과일: 나란히(좁으면 세로). 둘 다 오늘(서울)까지만 고를 수 있다
           LayoutBuilder(
             builder: (context, constraints) {
-              final received = _DateField(
+              // 고를 수 있는 마지막 날 = 서울 오늘. 그릴 때가 아니라 칸을 누르는 순간 읽는다(자정을 넘겨도 맞게)
+              final received = DateField(
                 fieldKey: const ValueKey('received-date-field'),
                 label: '접수일',
                 controller: _receivedDate,
+                firstDay: _firstDay,
+                lastDay: seoulToday,
+                today: seoulToday,
               );
-              final resultDay = _DateField(
+              final resultDay = DateField(
                 fieldKey: const ValueKey('result-date-field'),
                 label: '결과일',
                 controller: _resultDate,
+                firstDay: _firstDay,
+                lastDay: seoulToday,
+                today: seoulToday,
               );
               // 한 칸 최소 160 + 사이 12가 두 칸 들어갈 만큼 넓으면 가로, 아니면 세로 (React의 flex-wrap)
               final wide = constraints.maxWidth >= 160 * 2 + AppSizes.space3;
@@ -263,77 +256,6 @@ class _VisaReviewFormState extends State<VisaReviewForm> {
                 child: Text(widget.cancelLabel),
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// 날짜 칸 하나 (React의 <input type="date" max={today}>). 직접 타이핑하지 않는 읽기 전용 칸이고,
-// 누르면 달력이 열려 고른 날이 "yyyy-MM-dd"로 칸에 들어간다. 서울 오늘 이후는 고를 수 없다.
-class _DateField extends StatelessWidget {
-  const _DateField({required this.fieldKey, required this.label, required this.controller});
-
-  final Key fieldKey;
-  final String label;
-  final TextEditingController controller;
-
-  Future<void> _pick(BuildContext context) async {
-    // 고를 수 있는 마지막 날 = 서울 기준 오늘 (UTC+9 고정 계산)
-    final lastDate = _parseDay(seoulToday())!;
-    // 처음 보여 줄 날: 이미 값이 있으면 그 날, 없으면 오늘. 범위 밖이면 범위 안으로 당긴다
-    var initial = _parseDay(controller.text) ?? lastDate;
-    if (initial.isAfter(lastDate)) initial = lastDate;
-    if (initial.isBefore(_firstDate)) initial = _firstDate;
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: _firstDate,
-      lastDate: lastDate,
-      currentDate: lastDate, // "오늘" 표시는 기기 시간대가 아니라 서울 오늘 기준 (lastDate가 곧 서울 오늘)
-      initialEntryMode: DatePickerEntryMode.calendar, // 입력 모드 전환 버튼이 있어 직접 쓸 수도 있다
-      helpText: label,
-      cancelText: '취소',
-      confirmText: '확인',
-      fieldLabelText: label,
-      fieldHintText: '2026. 12. 01.', // 직접 입력 모드 힌트: 한국어 로케일이 실제로 받는 모양(끝 점까지)
-    );
-    if (picked != null) controller.text = _formatDay(picked); // 고른 날을 칸에 그대로 적는다
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSizes.space4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ExcludeSemantics(
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: AppSizes.fsSmall2, fontWeight: FontWeight.w500, color: AppColors.ink),
-            ),
-          ),
-          const SizedBox(height: AppSizes.space1),
-          Semantics(
-            label: label,
-            // Tab으로 포커스한 뒤 Enter·Space로도 달력이 열린다 (키보드 사용자용)
-            child: ActivateOnKey(
-              onActivate: () => _pick(context),
-              child: TextField(
-                key: fieldKey,
-                controller: controller,
-                readOnly: true,
-                showCursor: false,
-                enableInteractiveSelection: false,
-                onTap: () => _pick(context),
-                decoration: const InputDecoration(
-                  hintText: '날짜를 선택하세요',
-                  hintStyle: TextStyle(color: AppColors.muted),
-                ),
-              ),
-            ),
           ),
         ],
       ),

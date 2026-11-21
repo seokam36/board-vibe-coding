@@ -15,9 +15,9 @@ import '../visa/visa_banner_text.dart';
 import '../visa/visa_disclaimer.dart' show hikoreaUrl;
 import '../visa/visa_plan.dart';
 import '../visa/visa_plan_store.dart';
-import '../widgets/activate_on_key.dart';
 import '../widgets/app_link.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/date_field.dart';
 import '../widgets/loading.dart';
 import '../widgets/notice.dart';
 import '../widgets/page_frame.dart';
@@ -263,7 +263,6 @@ class _VisaPlanViewState extends State<_VisaPlanView> {
         children: [
           const PageTitle('비자 일정'),
           const _PlanGuide(),
-          const PushPermissionPanel(), // 앱에서만 보이는 "휴대폰 알림" 칸 (웹이면 아무것도 안 그림)
           if (loading) const Loading(),
           if (loadError != null) Notice(kind: NoticeKind.error, message: loadError),
           // 불러오기에 실패하면 일정이 있는지 모르니 폼을 숨긴다 (모르고 덮어쓰지 않게)
@@ -277,11 +276,14 @@ class _VisaPlanViewState extends State<_VisaPlanView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _PlanDateField(
+                  DateField(
+                    fieldKey: const ValueKey('visa-expiry-field'),
+                    label: '체류 만료일',
                     controller: _date,
                     // 달력은 서울 오늘 ~ 오늘+5년만 고르게 한다. 최종 판단은 서버가 한다
                     firstDay: today,
-                    lastDay: addYears(today, 5),
+                    lastDay: () => addYears(today, 5),
+                    today: () => today,
                   ),
                   if (_saveError != null) Notice(kind: NoticeKind.error, message: _saveError),
                   Wrap(
@@ -304,9 +306,12 @@ class _VisaPlanViewState extends State<_VisaPlanView> {
                 ],
               ),
             ),
-          // 삭제 실패·로그인 풀림 안내는 폼 밖에 둔다
+          // 삭제 실패·로그인 풀림 안내는 폼 밖, 폼 바로 아래에 둔다
           if (_deleteError != null) Notice(kind: NoticeKind.error, message: _deleteError),
           if (needLogin) const ReloginNotice(),
+          // 앱에서만 보이는 "휴대폰 알림" 칸 (웹이면 아무것도 안 그림). 맨 끝에 둔다.
+          // 일정 상태를 안 뒤(일정 있음·없음 응답 뒤)에만 그려, 불러오는 중·실패일 때 혼자 떠 있다 밀리지 않게 한다
+          if (plan != null) const PushPermissionPanel(),
         ],
       ),
     );
@@ -435,86 +440,6 @@ class _TodoRow extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// 체류 만료일 날짜 칸 (React의 <input type="date" min max>). 직접 타이핑하지 않는 읽기 전용 칸이고,
-// 누르면 달력이 열려 고른 날이 "yyyy-MM-dd"로 칸에 들어간다. 서울 오늘 ~ 오늘+5년만 고를 수 있다.
-class _PlanDateField extends StatelessWidget {
-  const _PlanDateField({required this.controller, required this.firstDay, required this.lastDay});
-
-  final TextEditingController controller;
-  final String firstDay; // 고를 수 있는 첫 날 (서울 오늘)
-  final String lastDay; // 고를 수 있는 마지막 날 (오늘+5년)
-
-  static const _label = '체류 만료일';
-
-  Future<void> _pick(BuildContext context) async {
-    // 달력은 로컬 자정 DateTime을 쓰므로 연·월·일만 옮겨 담는다
-    DateTime local(String day) {
-      final d = parseYmd(day)!;
-      return DateTime(d.year, d.month, d.day);
-    }
-
-    final first = local(firstDay);
-    final last = local(lastDay);
-    // 처음 보여 줄 날: 이미 값이 있으면 그 날, 없으면 오늘. 범위 밖(이미 지난 만료일 등)이면 범위 안으로 당긴다
-    final existing = parseYmd(controller.text);
-    var initial = existing == null ? first : DateTime(existing.year, existing.month, existing.day);
-    if (initial.isAfter(last)) initial = last;
-    if (initial.isBefore(first)) initial = first;
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: first,
-      lastDate: last,
-      currentDate: first, // "오늘" 표시는 기기 시간대가 아니라 서울 오늘 기준 (first가 곧 서울 오늘)
-      initialEntryMode: DatePickerEntryMode.calendar,
-      helpText: _label,
-      cancelText: '취소',
-      confirmText: '확인',
-      fieldLabelText: _label,
-      fieldHintText: '2026. 12. 01.', // 직접 입력 모드 힌트: 한국어 로케일이 실제로 받는 모양(끝 점까지)
-    );
-    if (picked != null) controller.text = formatYmd(picked); // 고른 날을 칸에 그대로 적는다
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSizes.space4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ExcludeSemantics(
-            child: const Text(
-              _label,
-              style: TextStyle(fontSize: AppSizes.fsSmall2, fontWeight: FontWeight.w500, color: AppColors.ink),
-            ),
-          ),
-          const SizedBox(height: AppSizes.space1),
-          Semantics(
-            label: _label,
-            // Tab으로 포커스한 뒤 Enter·Space로도 달력이 열린다 (키보드 사용자용)
-            child: ActivateOnKey(
-              onActivate: () => _pick(context),
-              child: TextField(
-                key: const ValueKey('visa-expiry-field'),
-                controller: controller,
-                readOnly: true,
-                showCursor: false,
-                enableInteractiveSelection: false,
-                onTap: () => _pick(context),
-                decoration: const InputDecoration(
-                  hintText: '날짜를 선택하세요',
-                  hintStyle: TextStyle(color: AppColors.muted),
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
