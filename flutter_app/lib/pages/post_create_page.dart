@@ -199,6 +199,7 @@ class _PostCreatePageState extends State<PostCreatePage> {
                   hint: '내용',
                   controller: _content,
                   lines: 10,
+                  textStyle: postBodyInputStyle,
                 ),
                 if (_error != null) Notice(kind: NoticeKind.error, message: _error),
                 if (_needLogin) const ReloginNotice(),

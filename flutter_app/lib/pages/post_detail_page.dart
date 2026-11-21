@@ -260,7 +260,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
             // 글자로만 그린다(HTML이 실행되지 않음). Text는 내용의 줄바꿈을 그대로 보여 준다
             Padding(
               padding: const EdgeInsets.only(top: AppSizes.space2),
-              child: Text(post.content, style: const TextStyle(height: 1.65)),
+              child: Text(post.content, style: const TextStyle(height: AppSizes.bodyLineHeight)),
             ),
           ],
         ),

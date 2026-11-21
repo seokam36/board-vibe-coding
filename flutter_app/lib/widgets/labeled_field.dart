@@ -3,9 +3,12 @@ import 'package:material_ui/material_ui.dart';
 import '../common/utf16_length_formatter.dart';
 import '../theme/app_colors.dart';
 
+// 글 내용 입력칸 글자 모양: 글 보기 본문과 같은 15·줄 간격 1.65 (글쓰기·글 수정이 같이 쓴다)
+const postBodyInputStyle = TextStyle(fontSize: AppSizes.fsBody, height: AppSizes.bodyLineHeight);
+
 // 위에 라벨 글자가 있는 입력칸 (React의 <label>제목<input placeholder="제목"/></label> + .field 아래 여백 16).
 // maxLength가 있으면 그 글자 수를 넘겨 입력되지 않는다(글자 수 표시는 없다). lines가 1보다 크면 여러 줄 칸.
-// 글쓰기·글 수정 화면이 같이 쓴다.
+// 글쓰기·글 수정, 중고 글 폼, 인증 승인 폼이 같이 쓴다.
 class LabeledField extends StatelessWidget {
   const LabeledField({
     super.key,
@@ -16,6 +19,7 @@ class LabeledField extends StatelessWidget {
     this.maxLength,
     this.lines = 1,
     this.onSubmitted,
+    this.textStyle,
   });
 
   final Key fieldKey;
@@ -25,6 +29,7 @@ class LabeledField extends StatelessWidget {
   final int? maxLength;
   final int lines;
   final VoidCallback? onSubmitted; // 한 줄 칸에서 Enter를 눌렀을 때
+  final TextStyle? textStyle; // 입력 글자 모양(없으면 기본). 글 내용칸이 글 보기 본문과 같은 줄 간격을 쓰려고 넘긴다
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +55,7 @@ class LabeledField extends StatelessWidget {
             child: TextField(
               key: fieldKey,
               controller: controller,
+              style: textStyle,
               decoration: InputDecoration(
                 hintText: hint,
                 hintStyle: const TextStyle(color: AppColors.muted),

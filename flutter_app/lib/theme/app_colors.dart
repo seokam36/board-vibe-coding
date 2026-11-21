@@ -28,7 +28,7 @@ abstract final class AppColors {
   static const backdrop = Color.fromRGBO(0, 0, 0, 0.45); // 확인 창 뒤를 덮는 막 (검정 45%)
 }
 
-// 간격·모서리·글자 크기 (index.css의 --space-*, --radius-*, --fs-*)
+// 간격·모서리·글자 크기·줄 간격(배수) (index.css의 --space-*, --radius-*, --fs-*)
 abstract final class AppSizes {
   static const space1 = 4.0;
   static const space2 = 8.0;
@@ -46,6 +46,8 @@ abstract final class AppSizes {
   static const fsRow = 17.0;
   static const fsTitle = 22.0;
   static const fsBoard = 30.0; // 목록 머리말(가장 크고 굵은 글자)
+
+  static const bodyLineHeight = 1.65; // 글 본문 줄 간격 (글 보기 본문과 글 내용 입력칸이 같이 쓴다)
 
   static const pageMaxWidth = 720.0; // 본문 폭
 }
