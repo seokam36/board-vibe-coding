@@ -79,7 +79,6 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
         if (notice != null) Notice(kind: NoticeKind.info, message: notice),
-        const Notice(kind: NoticeKind.info, message: 'HTTP라서 실제로 쓰는 비밀번호는 쓰지 마세요'),
         // 휴대폰이 첫 글자를 대문자로 바꾸면 로그인이 실패하므로 자동 대문자·맞춤법 검사를 끈다
         TextField(
           controller: _username,

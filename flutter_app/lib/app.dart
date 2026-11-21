@@ -179,21 +179,36 @@ class _BoardAppState extends State<BoardApp> {
         // React처럼 상단바도 아직 안 보인다.
         builder: (context, child) {
           // 폰(앱)에서는 상태 표시줄·아래 제스처 막대 밑으로 화면이 들어가지 않게 안전 영역 안에 그린다.
-          // 안전 영역 바깥 띠는 Scaffold 배경과 같은 색으로 칠해서 검은 띠가 안 보이게 한다.
-          // 웹은 그대로(여백이 0이라 어차피 달라지지 않지만, 확실히 건드리지 않는다).
-          Widget safe(Widget w) => kIsWeb
-              ? w
-              : ColoredBox(
-                  color: Theme.of(context).scaffoldBackgroundColor,
-                  child: SafeArea(child: w),
-                );
-          // 밝은 화면이라 상태 표시줄·내비게이션 바를 canvas 바탕 + 어두운 아이콘으로 정한다
+          // 위 띠(상태 표시줄 자리)는 본문 바탕(canvas), 아래 띠(제스처 막대 자리)는 흰 아래 탭 막대와 이어지게 paper로 칠한다.
+          Widget safe(Widget w) {
+            if (kIsWeb) return w;
+            final bottomInset = MediaQuery.paddingOf(context).bottom;
+            return Column(
+              children: [
+                Expanded(
+                  child: ColoredBox(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    // 아래 여백은 아래 띠가 맡으니 위 안전 영역에서는 뺀다
+                    child: SafeArea(
+                      bottom: false,
+                      // 안쪽 context로 지워야 SafeArea가 이미 지운 위 여백이 되살아나지 않는다
+                      child: Builder(
+                        builder: (inner) => MediaQuery.removePadding(context: inner, removeBottom: true, child: w),
+                      ),
+                    ),
+                  ),
+                ),
+                ColoredBox(color: AppColors.paper, child: SizedBox(height: bottomInset, width: double.infinity)),
+              ],
+            );
+          }
+          // 밝은 화면이라 상태 표시줄은 canvas, 내비게이션 바는 paper 바탕 + 어두운 아이콘으로 정한다
           // (SystemUiOverlayStyle.dark 그대로는 내비게이션 바가 검정+흰 아이콘이라 직접 지정)
-          // 상태 표시줄 바탕도 canvas로 해 화면 바탕과 이어지게 한다
+          // 상태 표시줄은 canvas: 위 막대가 본문과 같이 스크롤되어 올라가면 canvas 본문 바탕이 비치기 때문
           Widget darkSystemIcons(Widget w) => AnnotatedRegion<SystemUiOverlayStyle>(
             value: SystemUiOverlayStyle.dark.copyWith(
               statusBarColor: AppColors.canvas,
-              systemNavigationBarColor: AppColors.canvas,
+              systemNavigationBarColor: AppColors.paper, // 흰 아래 탭 막대와 이어지게
               systemNavigationBarIconBrightness: Brightness.dark,
             ),
             child: w,

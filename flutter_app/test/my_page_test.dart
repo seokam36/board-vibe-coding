@@ -13,7 +13,6 @@ import 'support/fake_adapter.dart';
 import 'support/loaded_auth.dart';
 import 'support/screen.dart';
 
-const _httpWarning = 'HTTP라서 실제로 쓰는 비밀번호는 쓰지 마세요';
 const _nicknameHint = '한글(완성형)·영문·숫자·_ 2~20자, 공백·자음/모음만은 불가';
 const _csrf = '보안 토큰이 없습니다. 새로고침 후 다시 시도해 주세요';
 const _school = {'id': 1, 'name': '서울대'};
@@ -86,10 +85,10 @@ void main() {
       expect(find.text('회원 탈퇴'), findsNWidgets(2)); // 제목 + 버튼
     });
 
-    _test('폼 구성: 칸 이름·힌트·경고·자동완성·가려짐', (tester) async {
+    _test('폼 구성: 칸 이름·힌트·자동완성·가려짐', (tester) async {
       await pumpApp(tester, location: '/me', user: userJson());
       expect(find.text(_nicknameHint), findsOneWidget);
-      expect(find.text(_httpWarning), findsOneWidget);
+      expect(find.text('HTTP라서 실제로 쓰는 비밀번호는 쓰지 마세요'), findsNothing);
       expect(find.text('8~64자'), findsOneWidget);
       expect(tester.widget<TextField>(_nicknameField).autofillHints, [AutofillHints.nickname]);
       expect(tester.widget<TextField>(_nicknameField).obscureText, isFalse);

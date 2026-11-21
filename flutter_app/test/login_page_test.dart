@@ -8,8 +8,6 @@ import 'package:material_ui/material_ui.dart';
 import 'support/fake_adapter.dart';
 import 'support/loaded_auth.dart';
 
-const _httpWarning = 'HTTP라서 실제로 쓰는 비밀번호는 쓰지 마세요';
-
 // 입력칸·버튼 찾기 (라벨 글자로)
 final _usernameField = find.widgetWithText(TextField, '아이디');
 final _passwordField = find.widgetWithText(TextField, '비밀번호');
@@ -18,9 +16,9 @@ final _submitButton = find.widgetWithText(FilledButton, '로그인');
 String _path(TestApp app) => app.router.routerDelegate.currentConfiguration.uri.path;
 
 void main() {
-  testWidgets('화면 구성: 제목 · HTTP 경고(항상) · 아이디/비밀번호 · 로그인/목록으로 버튼', (tester) async {
+  testWidgets('화면 구성: 제목 · 아이디/비밀번호 · 로그인/목록으로 버튼', (tester) async {
     await pumpApp(tester, location: '/login');
-    expect(find.text(_httpWarning), findsOneWidget);
+    expect(find.text('HTTP라서 실제로 쓰는 비밀번호는 쓰지 마세요'), findsNothing);
     expect(_usernameField, findsOneWidget);
     expect(_passwordField, findsOneWidget);
     expect(_submitButton, findsOneWidget);
@@ -167,17 +165,15 @@ void main() {
     expect(find.text('로그인하지 못했습니다'), findsOneWidget);
   });
 
-  testWidgets('다른 화면이 extra로 넘긴 안내 문구가 있으면 HTTP 경고와 함께 보인다', (tester) async {
+  testWidgets('다른 화면이 extra로 넘긴 안내 문구가 있으면 보인다', (tester) async {
     final app = await pumpApp(tester);
     app.router.go('/login', extra: '가입이 완료되었습니다. 로그인해 주세요');
     await tester.pumpAndSettle();
     expect(find.text('가입이 완료되었습니다. 로그인해 주세요'), findsOneWidget);
-    expect(find.text(_httpWarning), findsOneWidget);
   });
 
-  testWidgets('안내 문구가 없으면 HTTP 경고만 있다', (tester) async {
+  testWidgets('안내 문구가 없으면 안내가 안 보인다', (tester) async {
     await pumpApp(tester, location: '/login');
-    expect(find.text(_httpWarning), findsOneWidget);
     expect(find.text('가입이 완료되었습니다. 로그인해 주세요'), findsNothing);
   });
 

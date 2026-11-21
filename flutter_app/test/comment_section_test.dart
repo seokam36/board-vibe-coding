@@ -180,13 +180,12 @@ void main() {
   // 버튼 조건 표: (설명, 로그인 사용자, 학교, 행별 (수정, 삭제, 신고), 힌트 있음, 폼 있음, 로그인 링크 있음)
   group('버튼·입력칸 조건 표', () {
     const none = (false, false, false);
-    final cases = <(String, Map<String, dynamic>?, Map<String, dynamic>?, Map<int, (bool, bool, bool)>, bool, bool, bool)>[
+    final cases = <(String, Map<String, dynamic>?, Map<String, dynamic>?, Map<int, (bool, bool, bool)>, bool, bool)>[
       (
         '본인(같은 학교): 내 댓글은 수정·삭제, 남·탈퇴 작성자 댓글은 신고',
         _user(),
         _seoul,
         {1: (true, true, false), 2: (false, false, true), 3: (false, false, true)},
-        false,
         true,
         false,
       ),
@@ -195,34 +194,30 @@ void main() {
         _user(role: 'ADMIN', id: 9),
         _seoul,
         {1: (false, true, true), 2: (false, true, true), 3: (false, true, true)},
-        false,
         true,
         false,
       ),
       (
-        '관리자(학교 미인증): 삭제만, 신고·폼 없음 + 힌트',
+        '관리자(학교 미인증): 삭제만, 신고·폼 없음',
         userJson(id: 9, role: 'ADMIN'),
         _seoul,
         {1: (false, true, false), 2: (false, true, false), 3: (false, true, false)},
-        true,
         false,
         false,
       ),
       (
-        '다른 학교 회원: 내 댓글은 수정·삭제만, 남의 댓글은 아무 버튼 없음 + 힌트',
+        '다른 학교 회원: 내 댓글은 수정·삭제만, 남의 댓글은 아무 버튼 없음',
         _user(school: _busan),
         _seoul,
         {1: (true, true, false), 2: none, 3: none},
-        true,
         false,
         false,
       ),
       (
-        '학교 없는 글(회원): 신고·폼 없음 + 힌트',
+        '학교 없는 글(회원): 신고·폼 없음',
         _user(),
         null,
         {1: (true, true, false), 2: none, 3: none},
-        true,
         false,
         false,
       ),
@@ -232,11 +227,10 @@ void main() {
         _seoul,
         {1: none, 2: none, 3: none},
         false,
-        false,
         true,
       ),
     ];
-    for (final (name, user, school, rows, hint, form, link) in cases) {
+    for (final (name, user, school, rows, form, link) in cases) {
       _test(name, (tester) async {
         await _open(tester, _adapter(school: school), user: user);
         for (final MapEntry(key: id, value: (edit, delete, report)) in rows.entries) {
@@ -244,7 +238,7 @@ void main() {
           expect(_btn(id, '삭제'), delete ? findsOneWidget : findsNothing, reason: '댓글 $id 삭제');
           expect(_btn(id, '신고'), report ? findsOneWidget : findsNothing, reason: '댓글 $id 신고');
         }
-        expect(find.text('댓글은 인증한 학교의 글에만 쓸 수 있어요'), hint ? findsOneWidget : findsNothing);
+        expect(find.text('댓글은 인증한 학교의 글에만 쓸 수 있어요'), findsNothing); // 글 위 안내가 대신한다
         expect(_newField, form ? findsOneWidget : findsNothing);
         expect(_register, form ? findsOneWidget : findsNothing);
         expect(find.text('로그인하면 댓글을 쓸 수 있습니다 '), link ? findsOneWidget : findsNothing);

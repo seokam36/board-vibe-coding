@@ -16,7 +16,7 @@ import 'bottom_tabs.dart';
 // 확인 창(다이얼로그)은 이 화면 위에 따로 쌓여 있어서, 창이 떠 있으면 창만 먼저 닫힌다.
 //
 // 아래 탭 막대(BottomTabs, S26-c)는 Scaffold의 bottomNavigationBar로 붙인다 (본문은 그 위 남은 자리에만 그려져 가려지지 않는다).
-// 폰 아래 제스처 막대 여백은 app.dart의 builder가 SafeArea로 이미 비워 두므로 여기서 또 처리하지 않는다.
+// 폰 아래 제스처 막대 여백은 app.dart의 builder가 아래 paper 띠로 비워 두므로 여기서 또 처리하지 않는다.
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.child, required this.location});
 

@@ -330,7 +330,7 @@ class _PostListPageState extends State<PostListPage> {
                 alignment: Alignment.bottomRight,
                 child: Padding(
                   padding: const EdgeInsets.all(AppSizes.space4),
-                  // 스크린리더·키보드 순서: 연필 버튼을 목록(1)보다 먼저(0) 읽게 한다
+                  // 스크린리더 읽는 순서: 연필 버튼을 목록(1)보다 먼저(0) 읽게 한다 (OrdinalSortKey는 키보드 Tab 순서는 바꾸지 않는다)
                   child: Semantics(
                     container: true,
                     sortKey: const OrdinalSortKey(0),
@@ -390,7 +390,7 @@ class _CategoryChip extends StatelessWidget {
       child: Material(
         color: selected ? AppColors.ink : AppColors.paper,
         shape: StadiumBorder(
-          side: BorderSide(color: selected ? AppColors.ink : AppColors.line),
+          side: BorderSide(color: selected ? AppColors.ink : AppColors.fieldBorder),
         ),
         child: InkWell(
           key: chipKey,
@@ -530,13 +530,11 @@ class _PostRow extends StatelessWidget {
                         children: [
                           _Count(
                             icon: Icons.chat_bubble_outline,
-                            label: '댓글',
                             count: post.commentCount,
                           ),
                           const SizedBox(width: AppSizes.space3),
                           _Count(
                             icon: Icons.favorite_border,
-                            label: '공감',
                             count: post.likeCount,
                           ),
                           // 시각은 오른쪽 끝 (좁으면 줄바꿈)
@@ -560,37 +558,31 @@ class _PostRow extends StatelessWidget {
   }
 }
 
-// 댓글·공감 수: 눈에는 아이콘 + 숫자, 스크린리더에는 "댓글 3"·"공감 4".
+// 댓글·공감 수: 눈에는 아이콘 + 숫자. 스크린리더에는 줄 전체 라벨("댓글 3, 공감 4")이 대신 읽는다.
 // 0은 흐린 muted, 1 이상은 밝게(ink) 보여 반응이 있는 글이 눈에 띈다.
 class _Count extends StatelessWidget {
-  const _Count({required this.icon, required this.label, required this.count});
+  const _Count({required this.icon, required this.count});
 
   final IconData icon;
-  final String label;
   final int count;
 
   @override
   Widget build(BuildContext context) {
     final color = count > 0 ? AppColors.ink : AppColors.muted;
-    return Semantics(
-      label: '$label $count',
-      child: ExcludeSemantics(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: AppSizes.space1),
-            Text(
-              '$count',
-              style: TextStyle(
-                fontSize: AppSizes.fsSmall,
-                color: color,
-                height: 1.65,
-              ),
-            ),
-          ],
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: AppSizes.space1),
+        Text(
+          '$count',
+          style: TextStyle(
+            fontSize: AppSizes.fsSmall,
+            color: color,
+            height: AppSizes.bodyLineHeight,
+          ),
         ),
-      ),
+      ],
     );
   }
 }

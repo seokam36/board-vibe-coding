@@ -11,6 +11,7 @@ import '../theme/app_colors.dart';
 import 'app_link.dart';
 import 'confirm_dialog.dart';
 import 'initial_avatar.dart';
+import 'labeled_field.dart';
 import 'loading.dart';
 import 'notice.dart';
 import 'relogin_notice.dart';
@@ -242,22 +243,17 @@ class _CommentSectionState extends State<CommentSection> {
           // 실패 안내는 목록·입력칸 밖에 둔다(로그인이 풀려 버튼이 사라져도 안내가 남게)
           if (_actionError != null) Notice(kind: NoticeKind.error, message: _actionError!),
           if (_needLogin) const ReloginNotice(),
-          if (user != null && !widget.canComment)
-            // 미인증·다른 학교 글: 작성 폼 대신 짧은 안내 (자세한 안내는 글 위쪽에 있다)
-            const Padding(
-              padding: EdgeInsets.only(top: AppSizes.space1),
-              child: Text('댓글은 인증한 학교의 글에만 쓸 수 있어요'),
-            )
-          else if (user != null)
-            _buildForm()
-          else
+          // 미인증·다른 학교 글이면 작성 폼을 숨긴다 (안내는 글 위쪽 school_gate_notice가 한다)
+          if (user == null)
             Wrap(
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 const Text('로그인하면 댓글을 쓸 수 있습니다 '),
                 AppLink(label: '로그인', onTap: () => context.go('/login')),
               ],
-            ),
+            )
+          else if (widget.canComment)
+            _buildForm(),
         ],
       ),
     );
@@ -326,7 +322,7 @@ class _CommentSectionState extends State<CommentSection> {
                             fontSize: AppSizes.fsSmall,
                             fontWeight: FontWeight.w700,
                             color: AppColors.ink,
-                            height: 1.65,
+                            height: AppSizes.bodyLineHeight,
                           ),
                         ),
                         Text(formatDate(c.createdAt), style: metaStyle),
@@ -336,7 +332,7 @@ class _CommentSectionState extends State<CommentSection> {
                     if (!editing)
                       Padding(
                         padding: const EdgeInsets.only(top: AppSizes.space1),
-                        child: Text(c.content, style: const TextStyle(height: 1.65)),
+                        child: Text(c.content, style: const TextStyle(height: AppSizes.bodyLineHeight)),
                       ),
                   ],
                 ),
@@ -362,6 +358,7 @@ class _CommentSectionState extends State<CommentSection> {
             child: TextField(
               key: const ValueKey('comment-edit'),
               controller: _editText,
+              style: postBodyInputStyle, // 글 본문과 같은 글자 크기·줄 간격
               minLines: 3,
               maxLines: 3,
               keyboardType: TextInputType.multiline,
@@ -441,6 +438,7 @@ class _CommentSectionState extends State<CommentSection> {
             child: TextField(
               key: const ValueKey('comment-new'),
               controller: _newText,
+              style: postBodyInputStyle,
               decoration: const InputDecoration(
                 hintText: '댓글을 입력하세요',
                 hintStyle: TextStyle(color: AppColors.muted),

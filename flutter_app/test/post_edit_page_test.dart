@@ -94,8 +94,8 @@ void main() {
       expect(_text(tester, _contentField), '원래 내용\n둘째 줄');
       expect(find.text('서울대'), findsOneWidget); // 학교는 글자 뱃지
       expect(_dropdown(tester).value, 'CHAT');
-      expect(tester.widget<TextField>(_titleField).decoration!.hintText, '제목');
-      expect(tester.widget<TextField>(_contentField).decoration!.hintText, '내용');
+      expect(tester.widget<TextField>(_titleField).decoration!.hintText, isNull);
+      expect(tester.widget<TextField>(_contentField).decoration!.hintText, isNull);
       expect(tester.widget<TextField>(_contentField).minLines, 10);
       expect(_saveButton, findsOneWidget);
       expect(find.widgetWithText(OutlinedButton, '취소'), findsOneWidget);

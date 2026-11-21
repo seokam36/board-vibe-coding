@@ -7,7 +7,6 @@ import 'package:material_ui/material_ui.dart';
 import 'support/fake_adapter.dart';
 import 'support/loaded_auth.dart';
 
-const _httpWarning = 'HTTP라서 실제로 쓰는 비밀번호는 쓰지 마세요';
 const _nicknameHint = '한글(완성형)·영문·숫자·_ 2~20자, 공백·자음/모음만은 불가';
 
 final _usernameField = find.widgetWithText(TextField, '아이디');
@@ -18,11 +17,11 @@ final _submitButton = find.widgetWithText(FilledButton, '가입');
 String _path(TestApp app) => app.router.routerDelegate.currentConfiguration.uri.path;
 
 void main() {
-  testWidgets('화면 구성: 제목 · HTTP 경고 · 칸 3개 · 닉네임 힌트 · 가입/목록으로', (tester) async {
+  testWidgets('화면 구성: 제목 · 칸 3개 · 닉네임 힌트 · 가입/목록으로', (tester) async {
     await pumpApp(tester, location: '/signup');
     // 상단바 링크에도 같은 글자가 있어서 카드 안에서만 찾는다
     expect(find.descendant(of: find.byType(AutofillGroup), matching: find.text('회원가입')), findsOneWidget);
-    expect(find.text(_httpWarning), findsOneWidget);
+    expect(find.text('HTTP라서 실제로 쓰는 비밀번호는 쓰지 마세요'), findsNothing);
     expect(_usernameField, findsOneWidget);
     expect(_nicknameField, findsOneWidget);
     expect(_passwordField, findsOneWidget);
@@ -58,7 +57,7 @@ void main() {
     expect(adapter.count('POST', '/auth/signup'), 1);
     expect(_path(app), '/login');
     expect(find.text('가입 완료! 로그인해 주세요'), findsOneWidget);
-    expect(find.text(_httpWarning), findsOneWidget); // 로그인 화면의 경고도 같이
+    expect(find.widgetWithText(FilledButton, '로그인'), findsOneWidget); // 로그인 화면에 도착했다
   });
 
   testWidgets('요청 본문은 username·nickname·password 세 키뿐이다', (tester) async {

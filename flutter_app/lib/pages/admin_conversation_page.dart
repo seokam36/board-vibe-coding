@@ -19,7 +19,6 @@ import '../widgets/small_button_style.dart';
 
 // 없는 신고(404)와 대화 신고가 아닌 신고(404), 숫자가 아닌 주소(400)가 모두 이 문구다
 const _reportNotConversation = '없는 신고이거나 대화 신고가 아닙니다';
-const _viewingInfo = '관리자가 신고된 대화를 열람 중입니다. 읽기만 할 수 있어요';
 // 서버가 최근 200통만 줬을 때(hasMore) 목록 위에 보여 주는 안내
 const _truncatedInfo = '최근 200통만 보여요. 이전 쪽지는 표시되지 않아요';
 
@@ -130,8 +129,6 @@ class _AdminConversationPageState extends State<AdminConversationPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const PageTitle('신고된 대화'),
-          // 대화가 실제로 보일 때만 안내한다 (로딩·오류 중에는 열람 중이 아니다)
-          if (view != null) const Notice(kind: NoticeKind.info, message: _viewingInfo),
           if (_loading) const Loading(),
           if (error != null)
             Notice(

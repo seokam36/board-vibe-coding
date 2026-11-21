@@ -192,7 +192,6 @@ class _PostEditPageState extends State<PostEditPage> {
                   LabeledField(
                     fieldKey: const ValueKey('title-field'),
                     label: '제목',
-                    hint: '제목',
                     controller: _title,
                     maxLength: 100,
                     onSubmitted: _submit,
@@ -200,7 +199,6 @@ class _PostEditPageState extends State<PostEditPage> {
                   LabeledField(
                     fieldKey: const ValueKey('content-field'),
                     label: '내용',
-                    hint: '내용',
                     controller: _content,
                     lines: 10,
                     textStyle: postBodyInputStyle,

@@ -58,12 +58,11 @@ void main() {
   });
 
   group('표시', () {
-    _test('안내(info)·제목·구매자·판매자·쪽지 내용·시각이 보이고, GET 한 번만 나간다', (tester) async {
+    _test('제목·구매자·판매자·쪽지 내용·시각이 보이고, GET 한 번만 나간다', (tester) async {
       final adapter = _adapter();
       await _open(tester, adapter);
       expect(find.text('신고된 대화'), findsOneWidget);
-      expect(_notice(_info), findsOneWidget);
-      expect(tester.widget<Notice>(_notice(_info)).kind, NoticeKind.info);
+      expect(_notice(_info), findsNothing); // 열람 안내는 지웠다 (이 화면에서 한 번만 확인)
       expect(find.text('중고 자전거 팝니다'), findsOneWidget);
       expect(find.text('구매자'), findsOneWidget);
       expect(find.text('판매자'), findsNWidgets(2)); // 메타 라벨 + 판매자 닉네임(이 테스트 데이터는 닉네임도 "판매자")
@@ -156,17 +155,16 @@ void main() {
       expect(find.text('없는 신고이거나 대화 신고가 아닙니다'), findsOneWidget);
     });
 
-    _test('불러오는 동안 "불러오는 중..."이 보이고 안내(열람 중)는 아직 없다. [신고 목록으로]는 항상 있다', (tester) async {
+    _test('불러오는 동안 "불러오는 중..."이 보이고 열람 안내는 없다. [신고 목록으로]는 항상 있다', (tester) async {
       final gate = Completer<void>();
       final adapter = _adapter(reply: FakeReply(200, adminConversationJson(), gate));
       await _open(tester, adapter);
       expect(find.text('불러오는 중...'), findsOneWidget);
-      expect(_notice(_info), findsNothing);
       expect(find.widgetWithText(OutlinedButton, '신고 목록으로'), findsOneWidget);
       gate.complete();
       await tester.pumpAndSettle();
       expect(find.text('불러오는 중...'), findsNothing);
-      expect(_notice(_info), findsOneWidget);
+      expect(find.text('아직 있나요?'), findsOneWidget); // 다 불러왔다
     });
   });
 
@@ -182,7 +180,6 @@ void main() {
         expect(find.text(message), findsOneWidget);
         expect(tester.widget<Notice>(find.ancestor(of: find.text(message), matching: find.byType(Notice))).kind, NoticeKind.error);
         expect(_retry(), findsNothing);
-        expect(_notice(_info), findsNothing);
         expect(find.widgetWithText(OutlinedButton, '신고 목록으로'), findsOneWidget);
       });
     }

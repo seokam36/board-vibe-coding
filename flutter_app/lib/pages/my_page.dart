@@ -18,7 +18,6 @@ import '../widgets/section_parts.dart';
 import '../widgets/small_button_style.dart';
 
 // 이 화면만 쓰는 문구는 여기에 둔다 (React의 MyPage와 같은 글자)
-const _httpWarning = 'HTTP라서 실제로 쓰는 비밀번호는 쓰지 마세요';
 const _nicknameHint = '한글(완성형)·영문·숫자·_ 2~20자, 공백·자음/모음만은 불가';
 
 // 내 정보 화면 "/me" (React의 MyPage): 아이디·닉네임 표시 + 학교 인증 자리 + 닉네임 변경 / 비밀번호 변경 / 회원 탈퇴.
@@ -259,7 +258,6 @@ class _PasswordFormState extends State<_PasswordForm> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const _Heading('비밀번호 변경'),
-          const Notice(kind: NoticeKind.info, message: _httpWarning),
           // 두 비밀번호 칸을 한 묶음으로: 브라우저가 "저장된 비밀번호 업데이트"를 제안할 수 있다
           AutofillGroup(
             child: Column(

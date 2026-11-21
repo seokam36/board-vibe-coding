@@ -59,7 +59,7 @@ void main() {
       final app = await _open(tester, FakeAdapter());
       expect(_uri(app), '/chat');
       expect(find.text('중고 글 챗봇'), findsOneWidget);
-      expect(find.text('판매중·예약중 중고 글을 찾아 AI가 답해요'), findsOneWidget);
+      expect(find.text('판매중·예약중 중고 글을 찾아 AI가 답해요'), findsNothing); // 중복 부제는 지웠다
       expect(_notice("AI 답은 틀릴 수 있어요. 아래 '참고한 글'에서 직접 확인해 주세요"), findsOneWidget);
       expect(find.text('0 / 500'), findsOneWidget);
       expect(find.text('참고한 글'), findsNothing);

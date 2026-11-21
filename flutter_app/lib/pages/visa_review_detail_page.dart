@@ -214,7 +214,7 @@ class _VisaReviewDetailPageState extends State<VisaReviewDetailPage> {
             Padding(
               padding: const EdgeInsets.only(top: AppSizes.space4),
               child: r.content.isNotEmpty
-                  ? Text(r.content, style: const TextStyle(height: 1.65))
+                  ? Text(r.content, style: const TextStyle(height: AppSizes.bodyLineHeight))
                   : const Text('남긴 메모가 없어요', style: TextStyle(height: 1.65, color: AppColors.muted)),
             ),
           ],

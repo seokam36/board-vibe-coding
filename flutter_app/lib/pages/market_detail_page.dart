@@ -352,7 +352,7 @@ class _MarketDetailPageState extends State<MarketDetailPage> {
             // 글자로만 그린다(HTML이 실행되지 않음). Text는 내용의 줄바꿈을 그대로 보여 준다
             Padding(
               padding: const EdgeInsets.only(top: AppSizes.space4),
-              child: Text(item.content, style: const TextStyle(height: 1.65)),
+              child: Text(item.content, style: const TextStyle(height: AppSizes.bodyLineHeight)),
             ),
           ],
         ),

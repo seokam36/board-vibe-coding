@@ -47,7 +47,7 @@ abstract final class AppSizes {
   static const fsTitle = 22.0;
   static const fsBoard = 30.0; // 목록 머리말(가장 크고 굵은 글자)
 
-  static const bodyLineHeight = 1.65; // 글 본문 줄 간격 (글 보기 본문과 글 내용 입력칸이 같이 쓴다)
+  static const bodyLineHeight = 1.65; // 본문 줄 간격 (글 보기·댓글 본문, 글·댓글 입력칸, 중고·비자 후기 본문이 같이 쓴다)
 
   static const pageMaxWidth = 720.0; // 본문 폭
 }

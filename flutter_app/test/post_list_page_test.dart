@@ -67,6 +67,8 @@ final _schoolSelect = find.byKey(const ValueKey('filter-school'));
 
 // 말머리 칩 (코드로 찾는다, "전체"는 'all')
 Finder _chip(String code) => find.byKey(ValueKey('category-chip-$code'));
+// 글 한 줄(InkWell) 전체: 맨 숫자 찾기를 그 줄 안으로 좁힐 때 쓴다
+Finder _rowOf(String title) => find.ancestor(of: find.text(title), matching: find.byType(InkWell)).first;
 
 // 칩이 스크린리더에 "선택됨"으로 읽히는지
 bool _selected(WidgetTester tester, Finder chip) {
@@ -314,9 +316,11 @@ void main() {
       // 날짜는 한국 시간 (2020년이라 연도가 붙는다)
       expect(find.text('2020년 11월 8일 15:19'), findsNWidgets(3));
       // 댓글·공감 수: 눈에는 아이콘 + 숫자 (스크린리더 라벨은 아래 별도 테스트)
-      expect(find.text('3'), findsOneWidget);
-      expect(find.text('4'), findsOneWidget);
-      expect(find.text('0'), findsNWidgets(4)); // 글 둘 x (댓글, 공감)
+      expect(find.descendant(of: _rowOf('첫 글'), matching: find.text('3')), findsOneWidget);
+      expect(find.descendant(of: _rowOf('첫 글'), matching: find.text('4')), findsOneWidget);
+      for (final title in ['둘째 글', '셋째 글']) {
+        expect(find.descendant(of: _rowOf(title), matching: find.text('0')), findsNWidgets(2)); // 댓글, 공감
+      }
       // 학교 뱃지 (학교 필터가 없을 때): 값 없으면 "학교 미지정"
       expect(find.text('서울대'), findsOneWidget);
       expect(find.text('부산대'), findsOneWidget);
@@ -693,8 +697,8 @@ void main() {
         tester,
         adapter: _adapter(posts: [FakeReply(200, [_post(1, '첫 글', commentCount: 0, likeCount: 5)])]),
       );
-      expect(tester.widget<Text>(find.text('0')).style?.color, AppColors.muted);
-      expect(tester.widget<Text>(find.text('5')).style?.color, AppColors.ink);
+      expect(tester.widget<Text>(find.descendant(of: _rowOf('첫 글'), matching: find.text('0'))).style?.color, AppColors.muted);
+      expect(tester.widget<Text>(find.descendant(of: _rowOf('첫 글'), matching: find.text('5'))).style?.color, AppColors.ink);
     });
 
     testWidgets('이니셜: 한글·영문·이모지는 첫 글자, 작성자 없음은 빈 칸', (tester) async {

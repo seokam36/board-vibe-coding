@@ -135,10 +135,6 @@ class _ChatPageState extends State<ChatPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const PageTitle('중고 글 챗봇'),
-          const Padding(
-            padding: EdgeInsets.only(bottom: AppSizes.space3),
-            child: Text('판매중·예약중 중고 글을 찾아 AI가 답해요', style: TextStyle(color: AppColors.muted)),
-          ),
           // 늘 보이는 안내: AI 답은 틀릴 수 있으니 출처로 확인하게 한다
           const Notice(kind: NoticeKind.info, message: "AI 답은 틀릴 수 있어요. 아래 '참고한 글'에서 직접 확인해 주세요"),
           // 늘 보이는 사용 안내(S18-d2): 이 챗봇은 중고·나눔 글 찾기만 한다고 미리 알려 준다. 답이 나온 뒤에도 그대로 둔다.

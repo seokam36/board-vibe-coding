@@ -89,11 +89,11 @@ void main() {
       // 학교 뱃지: 눈에는 이름만, 스크린리더에는 "학교: 이름"
       expect(find.text('서울대'), findsOneWidget);
       expect(find.bySemanticsLabel('학교: 서울대'), findsOneWidget);
-      // 제목·내용 칸: 라벨과 placeholder
+      // 제목·내용 칸: 라벨(placeholder는 없다)
       expect(find.text('제목'), findsWidgets);
       expect(find.text('내용'), findsWidgets);
-      expect(tester.widget<TextField>(_titleField).decoration!.hintText, '제목');
-      expect(tester.widget<TextField>(_contentField).decoration!.hintText, '내용');
+      expect(tester.widget<TextField>(_titleField).decoration!.hintText, isNull);
+      expect(tester.widget<TextField>(_contentField).decoration!.hintText, isNull);
       expect(tester.widget<TextField>(_contentField).minLines, 10); // 10줄
       expect(tester.widget<TextField>(_contentField).maxLines, 10);
       expect(_saveButton, findsOneWidget);
