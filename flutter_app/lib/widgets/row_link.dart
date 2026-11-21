@@ -3,7 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../theme/app_colors.dart';
 
 // 목록 행의 제목 링크 (React의 .row-link): 평소엔 밑줄 없이 ink 색, 마우스를 올리면 밑줄.
-// 비자 후기 목록·중고 목록·챗봇의 참고한 글이 같이 쓴다 (글 목록은 S26-d부터 줄 전체가 링크라 안 쓴다).
+// 중고 목록·챗봇의 참고한 글이 같이 쓴다 (글 목록·비자 후기 목록은 줄 전체가 링크라 안 쓴다).
 class RowLink extends StatefulWidget {
   const RowLink({super.key, required this.title, required this.onTap});
 

@@ -8,6 +8,7 @@ import 'package:board_web/market/market_thumb.dart';
 import 'package:board_web/market/models.dart';
 import 'package:board_web/theme/app_colors.dart';
 import 'package:board_web/widgets/notice.dart';
+import 'package:board_web/widgets/row_link.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -549,10 +550,10 @@ void main() {
         user: userJson(school: marketSeoul),
         adapter: adapter,
       );
-      expect(find.text('글쓰기'), findsOneWidget);
+      expect(find.byTooltip('글쓰기'), findsOneWidget);
       expect(find.textContaining('로그인이 필요해요'), findsNothing);
       expect(find.textContaining('유학생 인증 후에'), findsNothing);
-      await tester.tap(find.text('글쓰기'));
+      await tester.tap(find.byTooltip('글쓰기'));
       await tester.pump(); // 글쓰기 화면은 아직 자리표시라 요청이 없다
       await tester.pumpAndSettle();
       expect(_uri(app), '/market/new');
@@ -560,7 +561,7 @@ void main() {
 
     testWidgets('비로그인이면 [글쓰기] 대신 "글을 올리려면 로그인이 필요해요"와 로그인 링크', (tester) async {
       final app = await pumpApp(tester, location: '/market', adapter: marketAdapter([FakeReply(200, [])]));
-      expect(find.text('글쓰기'), findsNothing);
+      expect(find.byType(FloatingActionButton), findsNothing);
       expect(find.text('글을 올리려면 로그인이 필요해요'), findsOneWidget);
       await tester.tap(find.descendant(of: find.byType(Notice), matching: find.text('로그인')));
       await tester.pumpAndSettle();
@@ -570,7 +571,7 @@ void main() {
     testWidgets('로그인했지만 학교 미인증이면 인증 안내와 "내 정보에서 유학생 인증하기" 링크 → /me', (tester) async {
       final adapter = marketAdapter([FakeReply(200, [])]);
       final app = await pumpApp(tester, location: '/market', user: userJson(), adapter: adapter);
-      expect(find.text('글쓰기'), findsNothing);
+      expect(find.byType(FloatingActionButton), findsNothing);
       expect(find.text('중고·나눔 글은 유학생 인증 후에 올릴 수 있어요'), findsOneWidget);
       await tester.tap(find.text('내 정보에서 유학생 인증하기'));
       await tester.pumpAndSettle();
@@ -601,7 +602,7 @@ void main() {
         );
       await pumpApp(tester, location: '/market', user: userJson(school: marketSeoul), adapter: adapter);
       expect(tester.takeException(), isNull);
-      expect(find.text('글쓰기'), findsOneWidget);
+      expect(find.byTooltip('글쓰기'), findsOneWidget);
       expect(find.widgetWithText(OutlinedButton, '검색'), findsOneWidget);
     });
 
@@ -643,6 +644,73 @@ void main() {
       gate.complete();
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  // S26-h2: 글쓰기 버튼이 연필 버튼(FAB)으로 옮겨감
+  group('연필 버튼 (S26-h2)', () {
+    void small(WidgetTester tester, [double h = 900]) {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = Size(375, h);
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('인증 회원: 연필 버튼 1개 → /market/new, 툴바 [글쓰기] 버튼은 없다', (tester) async {
+      final app = await pumpApp(
+        tester,
+        location: '/market',
+        user: userJson(school: marketSeoul),
+        adapter: marketAdapter([FakeReply(200, [])]),
+      );
+      expect(find.byType(FloatingActionButton), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '글쓰기'), findsNothing);
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+      expect(_uri(app), '/market/new');
+    });
+
+    testWidgets('비로그인·미인증: 연필 버튼 없고 게이트 안내 그대로', (tester) async {
+      await pumpApp(tester, location: '/market', adapter: marketAdapter([FakeReply(200, [])]));
+      expect(find.byType(FloatingActionButton), findsNothing);
+      expect(find.text('글을 올리려면 로그인이 필요해요'), findsOneWidget);
+    });
+
+    testWidgets('중고 줄은 그대로 RowLink', (tester) async {
+      await pumpApp(
+        tester,
+        location: '/market',
+        user: userJson(school: marketSeoul),
+        adapter: marketAdapter([FakeReply(200, [marketItemJson()])]),
+      );
+      expect(find.byType(RowLink), findsOneWidget);
+    });
+
+    testWidgets('375px: 넘치지 않고 연필 버튼 오른쪽 끝은 375-16', (tester) async {
+      small(tester);
+      await pumpApp(
+        tester,
+        location: '/market',
+        user: userJson(school: marketSeoul),
+        adapter: marketAdapter([FakeReply(200, [marketItemJson()])]),
+      );
+      expect(tester.takeException(), isNull);
+      expect(tester.getRect(find.byType(FloatingActionButton)).right, 375 - 16);
+    });
+
+    testWidgets('높이 500에서 끝까지 내리면 마지막 줄 아래가 연필 버튼 위쪽보다 위', (tester) async {
+      small(tester, 500);
+      final items = [for (var i = 1; i <= 8; i++) marketItemJson(id: i, title: '물건 번호 $i')];
+      await pumpApp(
+        tester,
+        location: '/market',
+        user: userJson(school: marketSeoul),
+        adapter: marketAdapter([FakeReply(200, items)]),
+      );
+      await tester.drag(find.text('물건 번호 1'), const Offset(0, -3000));
+      await tester.pumpAndSettle();
+      // 줄 전체(_MarketRow, 썸네일 포함)의 아래로 비교한다 (제목 링크만 재면 여백을 0으로 해도 통과한다)
+      final last = tester.getRect(find.byKey(const ValueKey(8)));
+      expect(last.bottom, lessThanOrEqualTo(tester.getRect(find.byType(FloatingActionButton)).top));
     });
   });
 }

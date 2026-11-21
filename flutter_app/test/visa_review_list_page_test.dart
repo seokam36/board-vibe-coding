@@ -1,9 +1,13 @@
 // S16-h1 비자 후기 목록 화면 테스트: 주소 쿼리가 진짜 값(필터 3개↔주소↔요청), 탭의 쿼리 유지, 행·뱃지·조건,
-// 빈 목록·에러 3종, 선택지 실패 안내 1개, 후기 쓰기 버튼 2경우, 늦게 온 옛 응답 무시를 본다.
+// 빈 목록·에러 3종, 선택지 실패 안내 1개, 연필 버튼(후기 쓰기), 늦게 온 옛 응답 무시를 본다.
 import 'dart:async';
 
 import 'package:board_web/theme/app_colors.dart';
+import 'package:board_web/widgets/initial_avatar.dart';
 import 'package:board_web/widgets/notice.dart';
+import 'package:board_web/widgets/page_frame.dart';
+import 'package:board_web/widgets/row_link.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -330,7 +334,7 @@ void main() {
       expect(find.text('유학(D-2) · 연장 · 처리 19일'), findsOneWidget);
     });
 
-    testWidgets('제목만 링크: 누르면 /visa-reviews/{id} 상세로 간다', (tester) async {
+    testWidgets('줄 전체 링크: 누르면 /visa-reviews/{id} 상세로 간다', (tester) async {
       final adapter = _adapter([FakeReply(200, [reviewJson(id: 10), reviewJson(id: 11, visaType: const {'code': 'D4', 'name': '어학연수(D-4)'})])])
         ..on('GET', '/visa-reviews/11', FakeReply(200, reviewJson(id: 11, content: '상세에서 본 후기')));
       final app = await pumpApp(tester, location: '/visa-reviews', adapter: adapter);
@@ -344,7 +348,7 @@ void main() {
   group('후기 쓰기 버튼', () {
     testWidgets('비로그인이어도 보이고, 누르면 /login', (tester) async {
       final app = await pumpApp(tester, location: '/visa-reviews', adapter: _adapter([FakeReply(200, [])]));
-      await tester.tap(find.widgetWithText(FilledButton, '후기 쓰기'));
+      await tester.tap(find.byTooltip('후기 쓰기'));
       await tester.pumpAndSettle();
       expect(_uri(app), '/login');
     });
@@ -356,7 +360,7 @@ void main() {
         user: userJson(),
         adapter: _adapter([FakeReply(200, [])]),
       );
-      await tester.tap(find.widgetWithText(FilledButton, '후기 쓰기'));
+      await tester.tap(find.byTooltip('후기 쓰기'));
       await tester.pumpAndSettle();
       expect(_uri(app), '/visa-reviews/new');
     });
@@ -423,6 +427,129 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('새 결과 · 연장 · 처리 19일'), findsOneWidget);
       expect(find.text('옛 결과 · 연장 · 처리 19일'), findsNothing);
+    });
+  });
+
+  // S26-h2: 피드형 줄 + 연필 버튼
+  group('피드형 줄·연필 버튼 (S26-h2)', () {
+    Finder rowOf(String text) => find.ancestor(of: find.text(text), matching: find.byType(InkWell)).first;
+
+    void small(WidgetTester tester, [double h = 900]) {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = Size(375, h);
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('줄의 빈 곳(왼쪽 가장자리)을 눌러도 상세로 가고, 줄 높이는 48 이상', (tester) async {
+      final adapter = _adapter([FakeReply(200, [reviewJson(id: 10), reviewJson(id: 11, visaType: const {'code': 'D4', 'name': '어학연수(D-4)'})])])
+        ..on('GET', '/visa-reviews/11', FakeReply(200, reviewJson(id: 11)));
+      final app = await pumpApp(tester, location: '/visa-reviews', adapter: adapter);
+      final row = rowOf('어학연수(D-4) · 연장 · 처리 19일');
+      expect(tester.getSize(row).height, greaterThanOrEqualTo(48));
+      final rect = tester.getRect(row);
+      await tester.tapAt(Offset(rect.left + 4, rect.center.dy));
+      await tester.pumpAndSettle();
+      expect(_uri(app), '/visa-reviews/11');
+    });
+
+    testWidgets('내용이 짧은 줄도 눌리는 높이가 48 이상', (tester) async {
+      await pumpApp(
+        tester,
+        location: '/visa-reviews',
+        adapter: _adapter([FakeReply(200, [reviewJson(visaType: const {'code': 'X', 'name': 'V'}, applicationType: const {'code': 'Y', 'name': 'A'})])]),
+      );
+      expect(tester.getSize(rowOf('V · A · 처리 19일')).height, greaterThanOrEqualTo(48));
+    });
+
+    testWidgets('줄 하나 = 링크 하나, tap 동작, 라벨은 제목으로 시작하고 결과·학교·작성자·시각을 담는다', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpApp(tester, location: '/visa-reviews', adapter: _adapter([FakeReply(200, [reviewJson(id: 1), reviewJson(id: 2, visaType: const {'code': 'D4', 'name': '어학연수(D-4)'})])]));
+      final data = tester.getSemantics(rowOf('유학(D-2) · 연장 · 처리 19일')).getSemanticsData();
+      expect(data.flagsCollection.isLink, isTrue);
+      expect(data.hasAction(SemanticsAction.tap), isTrue);
+      expect(data.label, startsWith('유학(D-2) · 연장 · 처리 19일'));
+      for (final t in ['승인', '서울대', '홍길동', '접수 2026년 9월 1일', '결과 2026년 9월 20일', '작성 2020년 11월 8일']) {
+        expect(data.label, contains(t), reason: data.label);
+      }
+      // 첫 후기 제목으로 시작하는 링크 노드는 줄 하나뿐
+      var links = 0;
+      void walk(SemanticsNode n) {
+        final d = n.getSemanticsData();
+        if (d.flagsCollection.isLink && d.label.startsWith('유학(D-2)')) links++;
+        n.visitChildren((c) {
+          walk(c);
+          return true;
+        });
+      }
+
+      walk(tester.getSemantics(find.byType(PageFrame)));
+      expect(links, 1);
+      handle.dispose();
+    });
+
+    testWidgets('학교로 거른 화면은 라벨에 학교가 없다', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpApp(tester, location: '/visa-reviews?schoolId=1', adapter: _adapter([FakeReply(200, [reviewJson()])]));
+      final label = tester.getSemantics(rowOf('유학(D-2) · 연장 · 처리 19일')).getSemanticsData().label;
+      expect(label, isNot(contains('서울대')), reason: label);
+      expect(label, contains('홍길동'));
+      handle.dispose();
+    });
+
+    testWidgets('20자 닉네임도 375·320px에서 넘치지 않고 작성 시각이 한 줄로 남는다', (tester) async {
+      for (final w in [375.0, 320.0]) {
+        small(tester);
+        tester.view.physicalSize = Size(w, 900);
+        await pumpApp(
+          tester,
+          location: '/visa-reviews',
+          adapter: _adapter([FakeReply(200, [reviewJson(author: const {'id': 1, 'nickname': '가나다라마바사아자차카타파하가나다라마바'})])]),
+        );
+        expect(tester.takeException(), isNull, reason: 'width $w');
+        final t = tester.getRect(find.text('2020년 11월 8일 15:19'));
+        expect(t.height, lessThan(24), reason: '시각이 쪼개지지 않음 (width $w)');
+        expect(t.right, lessThanOrEqualTo(w - 16));
+      }
+    });
+
+    testWidgets('줄 안에 RowLink·이니셜 동그라미는 없다', (tester) async {
+      await pumpApp(tester, location: '/visa-reviews', adapter: _adapter([FakeReply(200, [reviewJson()])]));
+      expect(find.byType(RowLink), findsNothing);
+      expect(find.byType(InitialAvatar), findsNothing);
+    });
+
+    testWidgets('툴바에 [후기 쓰기] 버튼은 없고 연필 버튼 1개(동그라미, 순서표 0)', (tester) async {
+      await pumpApp(tester, location: '/visa-reviews', adapter: _adapter([FakeReply(200, [])]));
+      expect(find.widgetWithText(FilledButton, '후기 쓰기'), findsNothing);
+      expect(find.byType(FloatingActionButton), findsOneWidget);
+      expect(tester.widget<FloatingActionButton>(find.byType(FloatingActionButton)).shape, isA<CircleBorder>());
+      final keyed = find.ancestor(
+        of: find.byType(FloatingActionButton),
+        matching: find.byWidgetPredicate((w) => w is Semantics && w.properties.sortKey != null),
+      );
+      expect((tester.widget<Semantics>(keyed.first).properties.sortKey! as OrdinalSortKey).order, 0);
+    });
+
+    testWidgets('375px: 넘치지 않고, 연필 버튼 오른쪽 끝은 375-16', (tester) async {
+      small(tester);
+      await pumpApp(
+        tester,
+        location: '/visa-reviews',
+        user: userJson(),
+        adapter: _adapter([FakeReply(200, [reviewJson(), reviewJson(id: 8, author: null)])]),
+      );
+      expect(tester.takeException(), isNull);
+      expect(tester.getRect(find.byType(FloatingActionButton)).right, 375 - 16);
+    });
+
+    testWidgets('높이 500에서 끝까지 내리면 마지막 줄 아래가 연필 버튼 위쪽보다 위', (tester) async {
+      small(tester, 500);
+      final reviews = [for (var i = 1; i <= 8; i++) reviewJson(id: i, visaType: {'code': 'D$i', 'name': '비자$i'})];
+      await pumpApp(tester, location: '/visa-reviews', adapter: _adapter([FakeReply(200, reviews)]));
+      await tester.dragFrom(const Offset(187, 300), const Offset(0, -3000)); // 제목이 화면 밖이라 빈 지점에서 끌어 내린다
+      await tester.pumpAndSettle();
+      final last = tester.getRect(rowOf('비자8 · 연장 · 처리 19일'));
+      expect(last.bottom, lessThanOrEqualTo(tester.getRect(find.byType(FloatingActionButton)).top));
     });
   });
 }

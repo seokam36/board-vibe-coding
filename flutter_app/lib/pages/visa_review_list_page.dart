@@ -18,7 +18,8 @@ import '../widgets/loading.dart';
 import '../widgets/notice.dart';
 import '../widgets/page_frame.dart';
 import '../widgets/panel.dart';
-import '../widgets/row_link.dart';
+import '../widgets/write_fab.dart';
+import '../widgets/feed_row.dart';
 
 const _listFailedMessage = '후기 목록을 불러오지 못했습니다';
 
@@ -119,7 +120,11 @@ class _VisaReviewListPageState extends State<VisaReviewListPage> with VisaFilter
         : schools?.where((s) => '${s.id}' == schoolId).map((s) => s.name).firstOrNull;
     final title = schoolName != null ? '$schoolName 비자 후기' : '비자 후기';
 
-    return PageFrame(
+    // 후기 쓰기 연필 버튼은 WriteFabLayout이 본문 위에 겹쳐 준다. 비로그인이면 로그인 화면으로 보낸다
+    return WriteFabLayout(
+      tooltip: '후기 쓰기',
+      onPressed: () => context.go(user != null ? '/visa-reviews/new' : '/login'),
+      child: PageFrame(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -141,36 +146,26 @@ class _VisaReviewListPageState extends State<VisaReviewListPage> with VisaFilter
           ),
           const VisaDisclaimer(),
           const VisaReviewTabs(current: VisaTab.list),
-          // 툴바: 왼쪽 필터 셋, 오른쪽 후기 쓰기. 좁은 화면에선 줄바꿈된다
+          // 툴바: 필터 셋. 좁은 화면에선 줄바꿈된다 (후기 쓰기는 연필 버튼으로 옮겼다)
           Padding(
             padding: const EdgeInsets.only(bottom: AppSizes.space3),
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: AppSizes.space2,
-              runSpacing: AppSizes.space2,
-              children: [
-                VisaReviewFilters(
-                  path: '/visa-reviews',
-                  schoolId: schoolId,
-                  visaType: widget.visaType,
-                  applicationType: widget.applicationType,
-                  schools: schools,
-                  options: options,
-                  schoolsFailed: schoolsFailed,
-                  optionsFailed: optionsFailed,
-                ),
-                // 후기 쓰기 버튼은 항상 보이되, 비로그인이면 로그인 화면으로 보낸다 (글쓰기 버튼과 같은 규칙)
-                FilledButton(
-                  onPressed: () => context.go(user != null ? '/visa-reviews/new' : '/login'),
-                  child: const Text('후기 쓰기'),
-                ),
-              ],
+            child: VisaReviewFilters(
+              path: '/visa-reviews',
+              schoolId: schoolId,
+              visaType: widget.visaType,
+              applicationType: widget.applicationType,
+              schools: schools,
+              options: options,
+              schoolsFailed: schoolsFailed,
+              optionsFailed: optionsFailed,
             ),
           ),
           if (filterOptionsFailed)
             const Notice(kind: NoticeKind.error, message: ErrorMessages.reviewOptionsLoadFailed),
-          FlushPanel(
+          // 아래 여백은 연필 버튼에 마지막 줄이 가리지 않게 비워 둔다
+          Padding(
+            padding: const EdgeInsets.only(bottom: writeFabSpace),
+            child: FeedPanel(
             children: [
               if (loading) const Loading(),
               if (error != null) PanelState(child: Notice(kind: NoticeKind.error, message: error)),
@@ -184,13 +179,16 @@ class _VisaReviewListPageState extends State<VisaReviewListPage> with VisaFilter
                 ),
             ],
           ),
+          ),
         ],
+      ),
       ),
     );
   }
 }
 
-// 후기 한 줄: 결과 뱃지, (학교 뱃지), 제목 링크 / 작성자·접수일→결과일·작성일 (본문 미리보기는 없다)
+// 후기 한 줄 (피드형, 이니셜 없음: 결과 뱃지가 줄의 첫 요소라 따로 표시할 필요가 없다):
+// 결과·(학교) 뱃지 / 제목 / 접수일 → 결과일 / 작성자 + 작성 시각. 줄 어디를 눌러도 상세로 간다
 class _ReviewRow extends StatelessWidget {
   const _ReviewRow({required this.review, required this.first, required this.showSchool});
 
@@ -202,32 +200,52 @@ class _ReviewRow extends StatelessWidget {
   Widget build(BuildContext context) {
     const metaStyle = TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.muted, height: 1.65);
     final r = review;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSizes.space4, vertical: AppSizes.space3),
-      decoration: BoxDecoration(
-        border: first ? null : const Border(top: BorderSide(color: AppColors.line)),
-      ),
+    final title = '${r.visaType.name} · ${r.applicationType.name} · 처리 ${r.processingDays}일';
+    final days = '${formatDay(r.receivedDate)} → ${formatDay(r.resultDate)}';
+    final author = r.author?.nickname ?? '(작성자 없음)';
+    final created = formatDate(r.createdAt);
+    return FeedRow(
+      // 줄 하나를 링크 하나로 읽게 읽을 말을 정해 준다 (제목 먼저, 학교로 거른 화면은 학교 생략)
+      label: [
+        title,
+        r.result.name,
+        if (showSchool) r.school.name,
+        author,
+        '접수 ${formatDay(r.receivedDate)}', // 화살표 대신 말로 나눠 읽게 한다
+        '결과 ${formatDay(r.resultDate)}',
+        '작성 $created',
+      ].join(', '),
+      onTap: () => context.go('/visa-reviews/${r.id}'),
+      first: first,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Wrap(
             spacing: AppSizes.space2,
+            runSpacing: AppSizes.space1,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               ResultBadge(result: r.result),
               if (showSchool) AppBadge(text: r.school.name, school: true),
-              RowLink(
-                title: '${r.visaType.name} · ${r.applicationType.name} · 처리 ${r.processingDays}일',
-                onTap: () => context.go('/visa-reviews/${r.id}'),
-              ),
             ],
           ),
-          Wrap(
-            spacing: AppSizes.space3,
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: AppSizes.fsFeedTitle,
+              fontWeight: FontWeight.w700,
+              color: AppColors.ink,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: AppSizes.space1),
+          Text(days, style: metaStyle),
+          Row(
             children: [
-              Text(r.author?.nickname ?? '(작성자 없음)', style: metaStyle),
-              Text('${formatDay(r.receivedDate)} → ${formatDay(r.resultDate)}', style: metaStyle),
-              Text(formatDate(r.createdAt), style: metaStyle),
+              // 긴 닉네임은 말줄임으로 줄이고, 작성 시각은 줄바꿈 없이 오른쪽 끝에 둔다
+              Flexible(child: Text(author, maxLines: 1, overflow: TextOverflow.ellipsis, style: metaStyle)),
+              const Spacer(),
+              Text(created, maxLines: 1, softWrap: false, style: metaStyle),
             ],
           ),
         ],

@@ -20,6 +20,7 @@ import '../widgets/page_frame.dart';
 import '../widgets/panel.dart';
 import '../widgets/row_link.dart';
 import '../widgets/select_field.dart';
+import '../widgets/write_fab.dart';
 
 const _listFailedMessage = '글 목록을 불러오지 못했습니다';
 // 400 문구는 검색어가 있을 때만 "검색어는 50자 이하" 안내가 붙는다
@@ -200,7 +201,11 @@ class _MarketListPageState extends State<MarketListPage> {
     final error = loading ? null : _error;
     final schools = _schools;
 
-    return PageFrame(
+    // 글쓰기 연필 버튼은 학교 인증 회원(canWrite)일 때만 WriteFabLayout이 띄운다. 아니면 버튼 없이 본문만
+    return WriteFabLayout(
+      tooltip: '글쓰기',
+      onPressed: canWrite ? () => context.go('/market/new') : null,
+      child: PageFrame(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -220,7 +225,7 @@ class _MarketListPageState extends State<MarketListPage> {
               ),
             ),
           ),
-          // 툴바: 왼쪽 필터 셋 + 검색창, 오른쪽 글쓰기(학교 인증 회원만). 좁은 화면에선 줄바꿈된다
+          // 툴바: 필터 셋 + 검색창. 좁은 화면에선 줄바꿈된다 (글쓰기는 연필 버튼으로 옮겼다)
           Padding(
             padding: const EdgeInsets.only(bottom: AppSizes.space3),
             child: Wrap(
@@ -295,8 +300,6 @@ class _MarketListPageState extends State<MarketListPage> {
                     ),
                   ],
                 ),
-                if (canWrite)
-                  FilledButton(onPressed: () => context.go('/market/new'), child: const Text('글쓰기')),
               ],
             ),
           ),
@@ -304,7 +307,10 @@ class _MarketListPageState extends State<MarketListPage> {
           if (!canWrite) MarketWriteGate(user: user),
           if (_schoolsFailed)
             const Notice(kind: NoticeKind.error, message: ErrorMessages.reviewOptionsLoadFailed),
-          FlushPanel(
+          // 인증 회원이면 연필 버튼에 마지막 줄이 가리지 않게 아래를 비운다
+          Padding(
+            padding: EdgeInsets.only(bottom: canWrite ? writeFabSpace : 0),
+            child: FlushPanel(
             children: [
               if (loading) const Loading(),
               if (error != null) PanelState(child: Notice(kind: NoticeKind.error, message: error)),
@@ -319,7 +325,9 @@ class _MarketListPageState extends State<MarketListPage> {
               for (var i = 0; i < items.length; i++) _MarketRow(key: ValueKey(items[i].id), item: items[i], first: i == 0),
             ],
           ),
+          ),
         ],
+      ),
       ),
     );
   }
