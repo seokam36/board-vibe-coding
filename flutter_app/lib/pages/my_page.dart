@@ -32,7 +32,7 @@ class MyPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const PageTitle('내 정보'),
+          const BoardTitle('내 정보'),
           // 아래 탭에서 빠진 바로가기: 비자 일정(인증 회원), 신고 관리·인증 심사(관리자) (S26-c)
           const _Shortcuts(),
           // 아이디는 바꿀 수 없어 읽기 전용 글자. 로그인이 풀린 직후엔 user가 없을 수 있다
@@ -75,9 +75,10 @@ class _Shortcuts extends StatelessWidget {
     final user = context.watch<AuthState>().user;
     if (user == null) return const SizedBox.shrink();
     final links = <Widget>[
-      if (user.verifiedSchool != null) AppLink(label: '비자 일정', onTap: () => context.go('/visa-plan')),
-      if (user.isAdmin) AppLink(label: '신고 관리', onTap: () => context.go('/admin/reports')),
-      if (user.isAdmin) AppLink(label: '인증 심사', onTap: () => context.go('/admin/permits')),
+      // tall: 손가락으로 누르기 쉽게 눌림 높이를 48로
+      if (user.verifiedSchool != null) AppLink(label: '비자 일정', tall: true, onTap: () => context.go('/visa-plan')),
+      if (user.isAdmin) AppLink(label: '신고 관리', tall: true, onTap: () => context.go('/admin/reports')),
+      if (user.isAdmin) AppLink(label: '인증 심사', tall: true, onTap: () => context.go('/admin/permits')),
     ];
     if (links.isEmpty) return const SizedBox.shrink();
     return Padding(

@@ -69,7 +69,7 @@ class _MessageListPageState extends State<MessageListPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const PageTitle('쪽지함'),
+          const BoardTitle('쪽지함'),
           if (_error != null) Notice(kind: NoticeKind.error, message: _error!),
           if (_needLogin) const ReloginNotice(),
           if (list == null && _error == null && !_needLogin) const Loading(prefix: '쪽지함'),
@@ -123,7 +123,7 @@ class _ConversationRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InitialAvatar(nickname: nickname), // 탈퇴한 상대는 회색 빈 동그라미
+          InitialAvatar(nickname: nickname), // 탈퇴한 상대는 흰 바탕 + 연한 테두리 빈 동그라미
           const SizedBox(width: AppSizes.space3),
           Expanded(
             child: Column(
@@ -172,12 +172,17 @@ class _ConversationRow extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: AppSizes.space1),
-                Wrap(
-                  spacing: AppSizes.space2,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+                // 2단: 글 제목은 항상 한 줄 (길면 줄임표). "삭제된 글" 뱃지는 줄어들지 않고, 제목이 남는 폭을 쓴다
+                // 스크린리더는 줄 라벨(FeedRow)에서 제목 전체를 읽는다
+                Row(
                   children: [
-                    if (c.item.deleted) const MarketStatusBadge(code: 'DONE', name: '삭제된 글'),
-                    Text(c.item.title, style: metaStyle),
+                    if (c.item.deleted) ...[
+                      const MarketStatusBadge(code: 'DONE', name: '삭제된 글'),
+                      const SizedBox(width: AppSizes.space2),
+                    ],
+                    Flexible(
+                      child: Text(c.item.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: metaStyle),
+                    ),
                   ],
                 ),
                 const SizedBox(height: AppSizes.space1),

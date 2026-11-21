@@ -531,4 +531,36 @@ void main() {
       handle.dispose();
     });
   });
+
+  group('S26-j2', () {
+    _test('비어 있는 접수일·결과일 칸의 힌트는 "날짜를 선택하세요"이고 yyyy-MM-dd는 없다', (tester) async {
+      await pumpApp(tester, location: _path, user: _verified(), adapter: _adapter());
+      for (final f in [_receivedField, _resultDateField]) {
+        expect(tester.widget<TextField>(f).decoration!.hintText, '날짜를 선택하세요');
+      }
+      expect(find.text('yyyy-MM-dd'), findsNothing);
+    });
+
+    // 달력 창 직접 입력: 힌트에 적힌 모양대로 친 날짜를 받아 칸에 yyyy-MM-dd로 적는다
+    // (한국어 로케일은 "2020.03.05"·"2020. 3. 5"·"2020-03-05"는 거절하고 끝 점까지 있는 "2020. 03. 05."만 받는다)
+    for (final typed in ['2020. 03. 05.', '2020. 3. 5.']) {
+      _test('달력 입력 모드: 힌트 모양대로 "$typed"를 치면 받아서 칸에 2020-03-05가 적힌다', (tester) async {
+        await pumpApp(tester, location: _path, user: _verified(), adapter: _adapter());
+        await tester.tap(_receivedField);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('입력 모드로 전환'));
+        await tester.pumpAndSettle();
+        expect(find.text('yyyy-MM-dd'), findsNothing); // 입력 칸에 영어 형식 글자가 없다
+        expect(find.text('yyyy.mm.dd'), findsNothing); // 받지 않는 기본 힌트도 없다
+        expect(find.text('2026. 12. 01.'), findsOneWidget); // 실제로 받는 예시가 힌트로 보인다
+        final input = find.descendant(of: find.byType(DatePickerDialog), matching: find.byType(TextField));
+        await tester.enterText(input, typed);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('확인'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DatePickerDialog), findsNothing); // 거절됐다면 창이 안 닫힌다
+        expect(_text(tester, _receivedField), '2020-03-05');
+      });
+    }
+  });
 }

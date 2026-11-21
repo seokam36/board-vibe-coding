@@ -128,22 +128,7 @@ class _VisaReviewListPageState extends State<VisaReviewListPage> with VisaFilter
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSizes.space3),
-            child: Semantics(
-              header: true,
-              headingLevel: 1,
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: AppSizes.fsBoard,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.ink,
-                  height: 1.3,
-                ),
-              ),
-            ),
-          ),
+          BoardTitle(title),
           const VisaDisclaimer(),
           const VisaReviewTabs(current: VisaTab.list),
           // 툴바: 필터 셋. 좁은 화면에선 줄바꿈된다 (후기 쓰기는 연필 버튼으로 옮겼다)

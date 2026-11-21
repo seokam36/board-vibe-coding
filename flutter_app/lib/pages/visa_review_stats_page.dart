@@ -112,22 +112,7 @@ class _VisaReviewStatsPageState extends State<VisaReviewStatsPage> with VisaFilt
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSizes.space3),
-            child: Semantics(
-              header: true,
-              headingLevel: 1,
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: AppSizes.fsBoard,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.ink,
-                  height: 1.3,
-                ),
-              ),
-            ),
-          ),
+          BoardTitle(title),
           const VisaDisclaimer(),
           const VisaReviewTabs(current: VisaTab.stats),
           Padding(

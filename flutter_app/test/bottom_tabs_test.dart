@@ -58,8 +58,8 @@ void main() {
       ('/admin/reports', 4),
       ('/admin/permits', 4),
       ('/admin/reports/9/conversation', 4),
-      ('/login', 4),
-      ('/signup', 4),
+      ('/login', -1), // S26-j1: 로그인·회원가입은 선택 없음
+      ('/signup', -1),
       ('/ME', 4), // 라우터가 대소문자를 가리지 않으니 탭도 같다
       ('/Visa-Reviews', 1),
       ('/zzz', -1), // 404는 선택 없음
@@ -247,6 +247,72 @@ void main() {
       expect(find.text('비자 일정'), findsNothing);
       expect(find.text('신고 관리'), findsNothing);
       expect(find.text('인증 심사'), findsNothing);
+    });
+  });
+
+  // S26-j1: 로그인·회원가입은 탭 선택 없음, 탭 첫 화면 머리말 30, 내 정보 바로가기 눌림 48
+  group('S26-j1', () {
+    testWidgets('비로그인이 쪽지 탭을 누르면 주소는 /login 이고 선택된 탭은 하나도 없다', (tester) async {
+      final app = await pumpApp(tester);
+      await tester.tap(_cell(3));
+      await tester.pumpAndSettle();
+      expect(app.router.routerDelegate.currentConfiguration.uri.path, '/login');
+      for (var i = 0; i < 5; i++) {
+        // 선택 안 된 칸은 muted 색 + 보통 굵기 + 테두리 아이콘
+        final style = tester.widget<Text>(_label(i)).style!;
+        expect(style.color, AppColors.muted, reason: '${_labels[i]} 글자 색');
+        expect(style.fontWeight, FontWeight.w400, reason: '${_labels[i]} 굵기');
+      }
+    });
+
+    // 머리말 글자를 크기(30)로 찾는다: 아래 탭·위 막대의 같은 글자와 구별하려고
+    Finder boardTitle(String text) => find.byWidgetPredicate(
+      (w) => w is Text && w.data == text && w.style?.fontSize == AppSizes.fsBoard,
+    );
+
+    for (final (path, title) in [('/messages', '쪽지함'), ('/me', '내 정보')]) {
+      testWidgets('$path 머리말 "$title"은 30·굵게·heading 1 이다', (tester) async {
+        final semantics = tester.ensureSemantics();
+        await pumpApp(tester, location: path, user: userJson(), adapter: _listsAdapter());
+        final text = tester.widget<Text>(boardTitle(title));
+        expect(text.style?.fontWeight, FontWeight.w700);
+        final data = tester.getSemantics(boardTitle(title)).getSemanticsData();
+        expect(data.flagsCollection.isHeader, isTrue);
+        expect(data.headingLevel, 1);
+        semantics.dispose();
+      });
+    }
+
+    // 바꾸기 전과 같은 모양: 30 · 굵게(700) · 잉크색 · 줄높이 1.3 · 아래 여백 12 · heading 1
+    for (final (path, title) in [('/visa-reviews', '비자 후기'), ('/visa-reviews/stats', '비자 후기'), ('/market', '중고·나눔')]) {
+      testWidgets('$path 머리말 "$title" 모양은 바뀌기 전과 같다(30·700·여백 12)', (tester) async {
+        final semantics = tester.ensureSemantics();
+        await pumpApp(tester, location: path, user: userJson(), adapter: _listsAdapter());
+        final finder = boardTitle(title);
+        expect(finder, findsOneWidget);
+        final style = tester.widget<Text>(finder).style!;
+        expect(style.fontSize, 30);
+        expect(style.fontWeight, FontWeight.w700);
+        expect(style.color, AppColors.ink);
+        expect(style.height, 1.3);
+        final padding = tester.widget<Padding>(find.ancestor(of: finder, matching: find.byType(Padding)).first);
+        expect(padding.padding, const EdgeInsets.only(bottom: 12));
+        final data = tester.getSemantics(finder).getSemanticsData();
+        expect(data.headingLevel, 1);
+        semantics.dispose();
+      });
+    }
+
+    testWidgets('/me 바로가기(비자 일정·신고 관리·인증 심사) 눌림 높이는 각 48 이상이다', (tester) async {
+      await pumpApp(
+        tester,
+        location: '/me',
+        user: userJson(role: 'ADMIN', school: {'id': 3, 'name': '서울대'}),
+      );
+      for (final t in ['비자 일정', '신고 관리', '인증 심사']) {
+        final inkWell = find.ancestor(of: find.text(t), matching: find.byType(InkWell));
+        expect(tester.getSize(inkWell.first).height, greaterThanOrEqualTo(48), reason: t);
+      }
     });
   });
 }

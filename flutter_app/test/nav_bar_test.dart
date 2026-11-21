@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:board_web/widgets/app_link.dart';
 import 'package:board_web/widgets/nav_bar.dart';
 
 import 'support/fake_adapter.dart';
@@ -236,5 +237,68 @@ void main() {
       expect(_inNavBar(t), findsOneWidget);
       expect(tester.getTopRight(_inNavBar(t)).dx, lessThanOrEqualTo(375)); // 모든 메뉴가 화면 폭 안에 있다
     }
+  });
+
+  // S26-j1: 위 막대 링크 눌림 높이 48, tall을 안 켠 AppLink는 그대로 낮다
+  group('S26-j1', () {
+    // 글자를 감싼 눌림 영역(InkWell)의 높이
+    double pressHeight(WidgetTester tester, Finder text) =>
+        tester.getSize(find.ancestor(of: text, matching: find.byType(InkWell)).first).height;
+
+    void narrow(WidgetTester tester) {
+      tester.view.physicalSize = const Size(375, 812);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+    }
+
+    testWidgets('375px 비로그인: "로그인"·"회원가입" 눌림 높이가 각 48 이상이다', (tester) async {
+      narrow(tester);
+      await pumpApp(tester);
+      for (final t in ['로그인', '회원가입']) {
+        expect(pressHeight(tester, _inNavBar(t)), greaterThanOrEqualTo(48), reason: t);
+      }
+    });
+
+    testWidgets('375px 로그인 상태: "챗봇"·사이트 이름 눌림 높이가 각 48 이상이다', (tester) async {
+      narrow(tester);
+      await pumpApp(tester, user: userJson(nickname: '홍길동이', school: _school));
+      expect(pressHeight(tester, _inNavBar('챗봇')), greaterThanOrEqualTo(48));
+      expect(pressHeight(tester, _siteName), greaterThanOrEqualTo(48));
+    });
+
+    testWidgets('375px 인증 회원(닉네임 4글자): 챗봇과 로그아웃 버튼의 세로 중심이 같고 막대 높이는 한 줄이다', (tester) async {
+      narrow(tester);
+      await pumpApp(tester, user: userJson(nickname: '홍길동이', school: _school));
+      expect(tester.takeException(), isNull);
+      final chatY = tester.getCenter(_inNavBar('챗봇')).dy;
+      final logoutY = tester.getCenter(find.ancestor(of: _inNavBar('로그아웃'), matching: find.byType(OutlinedButton))).dy;
+      expect((chatY - logoutY).abs(), lessThan(2)); // 한 줄이면 가운데가 같다 (두 줄로 접히면 48 이상 벌어진다)
+      expect(tester.getSize(find.byType(NavBar)).height, lessThan(70)); // 48 + 위아래 6 + 선 1 근처 (두 줄이면 100 넘는다)
+    });
+
+    // 320px처럼 아주 좁으면 메뉴가 두 줄로 접혀도 오른쪽으로 넘치지 않는다
+    testWidgets('320px 인증 회원(닉네임 4글자): 두 줄이어도 넘치지 않는다', (tester) async {
+      tester.view.physicalSize = const Size(320, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await pumpApp(tester, user: userJson(nickname: '홍길동이', school: _school));
+      expect(tester.takeException(), isNull);
+      for (final t in ['게시판', '챗봇', '홍길동이 님', '로그아웃']) {
+        expect(tester.getTopRight(_inNavBar(t)).dx, lessThanOrEqualTo(320), reason: t);
+      }
+    });
+
+    testWidgets('tall을 안 준 AppLink(문장 속 링크용)는 눌림 높이가 48 미만이다', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(home: Scaffold(body: Center(child: AppLink(label: '문장 링크', onTap: () {})))),
+      );
+      expect(tester.getSize(find.byType(InkWell)).height, lessThan(48));
+      await tester.pumpWidget(
+        MaterialApp(home: Scaffold(body: Center(child: AppLink(label: '큰 링크', tall: true, onTap: () {})))),
+      );
+      expect(tester.getSize(find.byType(InkWell)).height, greaterThanOrEqualTo(48));
+    });
   });
 }

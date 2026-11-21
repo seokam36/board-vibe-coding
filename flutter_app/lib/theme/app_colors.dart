@@ -50,4 +50,6 @@ abstract final class AppSizes {
   static const bodyLineHeight = 1.65; // 본문 줄 간격 (글 보기·댓글 본문, 글·댓글 입력칸, 중고·비자 후기 본문이 같이 쓴다)
 
   static const pageMaxWidth = 720.0; // 본문 폭
+
+  static const tapMin = 48.0; // 눌림 영역 최소 높이
 }

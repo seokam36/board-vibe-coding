@@ -26,7 +26,7 @@ const _tabs = [
 ];
 const _messagesTab = 3;
 
-// 지금 주소가 어느 탭인지 (0~4). 어느 탭도 아니면 -1(404 같은 곳은 선택 없음).
+// 지금 주소가 어느 탭인지 (0~4). 어느 탭도 아니면 -1(404·로그인·회원가입은 선택 없음).
 // 주소의 "첫 마디"만 본다: /posts/3/edit 의 첫 마디는 posts. 라우터가 대소문자를 가리지 않으니 소문자로 맞춰 비교한다.
 int tabIndexFor(String path) {
   final segments = path.toLowerCase().split('/'); // '/a/b' -> ['', 'a', 'b']
@@ -45,9 +45,10 @@ int tabIndexFor(String path) {
       return 3;
     case 'me':
     case 'admin':
-    case 'login':
-    case 'signup':
       return 4;
+    case 'login': // 로그인·회원가입은 어느 탭도 아니다 (탭을 눌러 들어온 게 아니라 문지기가 보낸 곳)
+    case 'signup':
+      return -1;
     default:
       return -1;
   }

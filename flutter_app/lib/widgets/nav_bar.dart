@@ -55,7 +55,7 @@ class _NavBarState extends State<NavBar> {
     final menu = <Widget>[
       if (user != null) ...[
         // 중고 글 챗봇은 로그인한 회원 누구나 (학교 인증 불필요)
-        AppLink(label: '챗봇', onTap: () => context.go('/chat')),
+        AppLink(label: '챗봇', tall: true, onTap: () => context.go('/chat')),
         // 닉네임은 메뉴 맨 끝, 로그아웃 버튼 바로 왼쪽 ("누가 로그인했나"와 "나가기"를 한 자리에)
         Text('${user.nickname} 님', style: const TextStyle(fontSize: AppSizes.fsSmall2)),
         // 학교 인증을 마친 회원 표시. 학교 이름은 마우스를 올리거나 스크린리더로 알 수 있다
@@ -69,8 +69,8 @@ class _NavBarState extends State<NavBar> {
           child: Text(_loggingOut ? '로그아웃 중...' : '로그아웃'), // 진행 중에만 라벨이 바뀐다
         ),
       ] else ...[
-        AppLink(label: '로그인', onTap: () => context.go('/login')),
-        AppLink(label: '회원가입', onTap: () => context.go('/signup')),
+        AppLink(label: '로그인', tall: true, onTap: () => context.go('/login')),
+        AppLink(label: '회원가입', tall: true, onTap: () => context.go('/signup')),
       ],
     ];
 
@@ -90,7 +90,8 @@ class _NavBarState extends State<NavBar> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: pad, vertical: AppSizes.space3),
+                // 세로 여백 6: 눌림 높이 48짜리 링크가 들어가도 막대 전체 높이가 PC 웹 기준 약 52 → 60 정도로만 커진다
+                padding: EdgeInsets.symmetric(horizontal: pad, vertical: 6),
                 // Row: 이름은 왼쪽, 메뉴는 남은 자리의 오른쪽 끝. 375px에서도 한 줄에 들어오게 한다
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -100,12 +101,21 @@ class _NavBarState extends State<NavBar> {
                       link: true,
                       child: InkWell(
                         onTap: () => context.go('/'),
-                        child: const Text(
-                          siteName,
-                          style: TextStyle(
-                            color: AppColors.accent,
-                            fontWeight: FontWeight.w700,
-                            fontSize: AppSizes.fsRow,
+                        // 눌림 높이 최소 tapMin=48 (글자는 세로 가운데)
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: AppSizes.tapMin),
+                          child: const Align(
+                            alignment: Alignment.center,
+                            widthFactor: 1,
+                            heightFactor: 1,
+                            child: Text(
+                              siteName,
+                              style: TextStyle(
+                                color: AppColors.accent,
+                                fontWeight: FontWeight.w700,
+                                fontSize: AppSizes.fsRow,
+                              ),
+                            ),
                           ),
                         ),
                       ),

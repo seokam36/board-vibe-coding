@@ -5,7 +5,7 @@ import 'market_format.dart';
 import 'models.dart';
 
 // 목록 행 왼쪽의 72px 정사각 썸네일 (React의 MarketThumb).
-// 대표 사진이 없거나 불러오지 못하면 같은 크기의 회색 빈칸을 그린다(빈칸은 장식이라 스크린리더가 읽지 않는다).
+// 대표 사진이 없거나 불러오지 못하면 같은 크기의 빈칸(흰 바탕 + 연한 테두리 + 사진 아이콘)을 그린다(빈칸은 장식이라 스크린리더가 읽지 않는다).
 class MarketThumb extends StatefulWidget {
   const MarketThumb({super.key, required this.item});
 
@@ -28,11 +28,19 @@ class _MarketThumbState extends State<MarketThumb> {
     if (old.item.coverPhoto?.id != widget.item.coverPhoto?.id) _broken = false;
   }
 
+  // 빈칸: 흰 바탕 + 연한 테두리 + 가운데 회색 사진 아이콘 (hover 바탕과 같은 색이면 눌렀을 때 묻혀서 구분되게 한다)
   Widget get _empty => const ExcludeSemantics(
         child: SizedBox(
           width: MarketThumb.size,
           height: MarketThumb.size,
-          child: ColoredBox(color: AppColors.hover),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: AppColors.paper,
+              border: Border.fromBorderSide(BorderSide(color: AppColors.line)),
+              borderRadius: BorderRadius.all(Radius.circular(AppSizes.radiusBtn)),
+            ),
+            child: Center(child: Icon(Icons.image_outlined, size: 28, color: AppColors.muted)),
+          ),
         ),
       );
 

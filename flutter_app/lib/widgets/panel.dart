@@ -80,6 +80,34 @@ class PanelState extends StatelessWidget {
   Widget build(BuildContext context) => Padding(padding: const EdgeInsets.all(AppSizes.space4), child: child);
 }
 
+// 탭 첫 화면 머리말 (비자 후기·중고·쪽지함·내 정보): 30px 굵게, 아래 여백 12. 스크린리더는 가장 큰 제목으로 읽는다.
+// 안쪽 화면(글쓰기·수정 등)은 아래 PageTitle(22)을 그대로 쓴다 — 크기 차이로 "탭 첫 화면"을 구분한다.
+class BoardTitle extends StatelessWidget {
+  const BoardTitle(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSizes.space3),
+      child: Semantics(
+        header: true,
+        headingLevel: 1,
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontSize: AppSizes.fsBoard,
+            fontWeight: FontWeight.w700,
+            color: AppColors.ink,
+            height: 1.3,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // 화면 제목 (React의 h1): 22px 굵게, 아래 여백 16. 스크린리더는 가장 큰 제목으로 읽는다.
 class PageTitle extends StatelessWidget {
   const PageTitle(this.text, {super.key});

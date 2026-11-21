@@ -4,7 +4,7 @@ import '../theme/app_colors.dart';
 
 // 닉네임 첫 글자를 담은 동그라미 (글 목록·글 보기·댓글 줄 왼쪽).
 // 색은 한 가지(연노랑 바탕 + 진한 갈색 글자)라 색으로 사람을 구분하지 않는다.
-// 작성자가 없거나 닉네임이 비었으면 글자 없는 회색(hover) 동그라미.
+// 작성자가 없거나 닉네임이 비었으면 글자 없는 흰(paper) 동그라미 + 연한 테두리.
 // 글자는 장식이라 스크린리더가 읽지 않는다 (옆의 닉네임이 읽힌다).
 class InitialAvatar extends StatelessWidget {
   const InitialAvatar({super.key, required this.nickname, this.size = 36});
@@ -27,7 +27,9 @@ class InitialAvatar extends StatelessWidget {
         height: size,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: text.isEmpty ? AppColors.hover : AppColors.highlightSoft,
+          // 빈 동그라미는 흰 바탕 + 연한 테두리 (hover 바탕과 같은 색이면 묻힌다)
+          color: text.isEmpty ? AppColors.paper : AppColors.highlightSoft,
+          border: text.isEmpty ? Border.all(color: AppColors.line) : null,
           shape: BoxShape.circle,
         ),
         child: Text(

@@ -209,22 +209,7 @@ class _MarketListPageState extends State<MarketListPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSizes.space3),
-            child: Semantics(
-              header: true,
-              headingLevel: 1,
-              child: const Text(
-                '중고·나눔',
-                style: TextStyle(
-                  fontSize: AppSizes.fsBoard,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.ink,
-                  height: 1.3,
-                ),
-              ),
-            ),
-          ),
+          const BoardTitle('중고·나눔'),
           // 툴바: 필터 셋 + 검색창. 좁은 화면에선 줄바꿈된다 (글쓰기는 연필 버튼으로 옮겼다)
           Padding(
             padding: const EdgeInsets.only(bottom: AppSizes.space3),

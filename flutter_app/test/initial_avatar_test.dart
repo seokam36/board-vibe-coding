@@ -44,11 +44,11 @@ void main() {
     expect(tester.widget<Text>(find.byType(Text)).style?.color, AppColors.highlightInk);
   });
 
-  testWidgets('빈 닉네임·공백뿐인 닉네임·작성자 없음(null)은 글자 없는 hover 회색 칸', (tester) async {
+  testWidgets('빈 닉네임·공백뿐인 닉네임·작성자 없음(null)은 글자 없는 흰(paper) 칸', (tester) async {
     for (final name in <String?>['', '   ', null]) {
       await _pump(tester, name);
       expect(_letter(tester), '', reason: '닉네임 $name');
-      expect(_bg(tester), AppColors.hover, reason: '닉네임 $name');
+      expect(_bg(tester), AppColors.paper, reason: '닉네임 $name');
     }
   });
 
@@ -56,5 +56,17 @@ void main() {
     await _pump(tester, '철수');
     expect(tester.getSize(find.byType(InitialAvatar)), const Size(36, 36));
     expect(find.descendant(of: find.byType(InitialAvatar), matching: find.byType(ExcludeSemantics)), findsWidgets);
+  });
+
+  group('S26-j2', () {
+    testWidgets('빈 동그라미는 hover 색이 아니라 흰 바탕 + 연한 테두리라 hover 줄 위에서도 보인다', (tester) async {
+      await _pump(tester, null);
+      final box = tester.widget<Container>(find.descendant(of: find.byType(InitialAvatar), matching: find.byType(Container)));
+      final deco = box.decoration as BoxDecoration;
+      expect(deco.color, isNot(AppColors.hover));
+      expect(deco.color, AppColors.paper);
+      expect(deco.border, isNotNull);
+      expect(deco.shape, BoxShape.circle);
+    });
   });
 }

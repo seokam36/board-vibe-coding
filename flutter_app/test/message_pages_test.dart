@@ -993,4 +993,64 @@ void main() {
       expect(summary.unreadCount, 4);
     });
   });
+
+  group('S26-j2', () {
+    // 글 제목이 100자여도 2단은 한 줄이라 줄 높이가 10자일 때와 같다 (375·320, "삭제된 글" 뱃지 있는 줄 포함)
+    for (final w in [375.0, 320.0]) {
+      testWidgets('쪽지함 ${w.toInt()}px: 100자 제목 줄 높이 == 10자 제목 줄 높이, 라벨엔 제목 전체', (tester) async {
+        final handle = tester.ensureSemantics();
+        tester.view.devicePixelRatio = 1.0;
+        tester.view.physicalSize = Size(w, 1400);
+        addTearDown(tester.view.reset);
+        final short = '가' * 10;
+        final long = '나' * 100;
+        await pumpApp(
+          tester,
+          location: '/messages',
+          user: _verified(),
+          adapter: FakeAdapter()
+            ..on('GET', '/conversations', FakeReply(200, [
+              summaryJson(id: 9, unreadCount: 0), // 맨 위 줄은 윗줄 테두리가 없어 1px 낮아서 비교에서 뺀다
+              summaryJson(id: 1, unreadCount: 0, item: itemRefJson(title: short)),
+              summaryJson(id: 2, unreadCount: 0, item: itemRefJson(title: long)),
+              summaryJson(id: 3, unreadCount: 0, item: itemRefJson(id: null, title: short, deleted: true)),
+              summaryJson(id: 4, unreadCount: 0, item: itemRefJson(id: null, title: long, deleted: true)),
+            ])),
+        );
+        double h(int id) => tester.getSize(find.byKey(ValueKey('conv-row-$id'))).height;
+        expect(h(2), h(1));
+        expect(h(4), h(3));
+        expect(tester.takeException(), isNull);
+        // 긴 제목은 한 줄 줄임표
+        final t = tester.widget<Text>(find.descendant(of: find.byKey(const ValueKey('conv-row-2')), matching: find.text(long)));
+        expect(t.maxLines, 1);
+        expect(t.overflow, TextOverflow.ellipsis);
+        // 스크린리더 라벨에는 제목 전체
+        expect(tester.getSemantics(find.byKey(const ValueKey('conv-row-2'))).label, contains(long));
+        expect(tester.getSemantics(find.byKey(const ValueKey('conv-row-4'))).label, contains(long));
+        handle.dispose();
+      });
+    }
+
+    // 가장 좁은 화면(320)에 글씨를 2배로 키워도 "삭제된 글" 뱃지가 있는 긴 제목 줄이 넘치지 않는다
+    testWidgets('쪽지함 320px 글씨 ×2.0: "삭제된 글" 뱃지 + 100자 제목 줄이 넘치지 않는다', (tester) async {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = const Size(320, 1400);
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      await pumpApp(
+        tester,
+        location: '/messages',
+        user: _verified(),
+        adapter: FakeAdapter()
+          ..on('GET', '/conversations', FakeReply(200, [
+            summaryJson(id: 4, unreadCount: 0, item: itemRefJson(id: null, title: '나' * 100, deleted: true)),
+          ])),
+      );
+      expect(find.byKey(const ValueKey('conv-row-4')), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const ValueKey('conv-row-4')), matching: find.text('삭제된 글')), findsOneWidget);
+      expect(tester.takeException(), isNull); // 넘침(overflow) 오류가 없다
+    });
+  });
 }

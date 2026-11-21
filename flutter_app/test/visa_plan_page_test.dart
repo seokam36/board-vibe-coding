@@ -153,6 +153,13 @@ void main() {
       expect(app.router.routerDelegate.currentConfiguration.uri.path, '/me');
     });
 
+    // S26-j1: 문장 속 링크는 tall을 안 켰으니 눌림 높이가 바뀌기 전처럼 48 미만이다
+    test('문장 속 "하이코리아" 링크의 눌림 높이는 48 미만이다', (tester) async {
+      await pump(tester, user: userJson());
+      final inkWell = find.ancestor(of: find.text('하이코리아'), matching: find.byType(InkWell)).first;
+      expect(tester.getSize(inkWell).height, lessThan(48));
+    });
+
     test('미인증 화면에도 일반 안내와 하이코리아 링크가 있다', (tester) async {
       await pump(tester, user: userJson());
       expect(find.byType(Notice), findsOneWidget);
@@ -598,11 +605,11 @@ void main() {
   });
 
   group('날짜 달력', () {
-    test('날짜 칸은 직접 쓰지 않는 읽기 전용 칸이고 힌트는 yyyy-MM-dd', (tester) async {
+    test('날짜 칸은 직접 쓰지 않는 읽기 전용 칸이고 힌트는 "날짜를 선택하세요"', (tester) async {
       await pumpWithPlan(tester, emptyPlanJson);
       final field = tester.widget<TextField>(_field);
       expect(field.readOnly, isTrue);
-      expect(field.decoration!.hintText, 'yyyy-MM-dd');
+      expect(field.decoration!.hintText, '날짜를 선택하세요');
       expect(fieldText(tester), '');
     });
 
@@ -667,5 +674,50 @@ void main() {
     expect(find.bySemanticsLabel(RegExp('^내 비자 일정')), findsOneWidget);
     expect(find.bySemanticsLabel('체류 만료일'), findsOneWidget);
     handle.dispose();
+  });
+
+  group('S26-j2', () {
+    testWidgets('비어 있는 만료일 칸의 힌트는 "날짜를 선택하세요"이고 yyyy-MM-dd는 없다', (tester) async {
+      useTallScreen(tester);
+      await pumpWithPlan(tester, emptyPlanJson);
+      final field = tester.widget<TextField>(_field);
+      expect(field.decoration!.hintText, '날짜를 선택하세요');
+      expect(find.text('yyyy-MM-dd'), findsNothing);
+    });
+
+    testWidgets('달력에서 고르면 칸 글자가 2026-xx-xx 형식으로 적힌다 (고른 값은 그대로)', (tester) async {
+      useTallScreen(tester);
+      await pumpWithPlan(tester, emptyPlanJson);
+      await tester.tap(_field);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('15'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('확인'));
+      await tester.pumpAndSettle();
+      expect(fieldText(tester), '2026-11-15');
+    });
+
+    // 달력 창 직접 입력: 힌트에 적힌 모양대로 친 날짜를 받아 칸에 yyyy-MM-dd로 적는다
+    // (한국어 로케일은 "2026.12.01"·"2026. 12. 1"·"2026-12-01"은 거절하고 끝 점까지 있는 "2026. 12. 01."만 받는다)
+    for (final typed in ['2026. 12. 01.', '2026. 12. 1.']) {
+      testWidgets('달력 입력 모드: 힌트 모양대로 "$typed"를 치면 받아서 칸에 2026-12-01이 적힌다', (tester) async {
+        useTallScreen(tester);
+        await pumpWithPlan(tester, emptyPlanJson);
+        await tester.tap(_field);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('입력 모드로 전환'));
+        await tester.pumpAndSettle();
+        expect(find.text('yyyy-MM-dd'), findsNothing); // 입력 칸에 영어 형식 글자가 없다
+        expect(find.text('yyyy.mm.dd'), findsNothing); // 받지 않는 기본 힌트도 없다
+        expect(find.text('2026. 12. 01.'), findsOneWidget); // 실제로 받는 예시가 힌트로 보인다
+        final input = find.descendant(of: find.byType(DatePickerDialog), matching: find.byType(TextField));
+        await tester.enterText(input, typed);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('확인'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DatePickerDialog), findsNothing); // 거절됐다면 창이 안 닫힌다
+        expect(fieldText(tester), '2026-12-01');
+      });
+    }
   });
 }

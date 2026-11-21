@@ -476,7 +476,7 @@ class _PlanDateField extends StatelessWidget {
       cancelText: '취소',
       confirmText: '확인',
       fieldLabelText: _label,
-      fieldHintText: 'yyyy-MM-dd',
+      fieldHintText: '2026. 12. 01.', // 직접 입력 모드 힌트: 한국어 로케일이 실제로 받는 모양(끝 점까지)
     );
     if (picked != null) controller.text = formatYmd(picked); // 고른 날을 칸에 그대로 적는다
   }
@@ -508,7 +508,7 @@ class _PlanDateField extends StatelessWidget {
                 enableInteractiveSelection: false,
                 onTap: () => _pick(context),
                 decoration: const InputDecoration(
-                  hintText: 'yyyy-MM-dd',
+                  hintText: '날짜를 선택하세요',
                   hintStyle: TextStyle(color: AppColors.muted),
                 ),
               ),

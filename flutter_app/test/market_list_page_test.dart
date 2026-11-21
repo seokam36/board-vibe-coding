@@ -515,16 +515,15 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('대표 사진이 없으면 72x72 회색 빈칸이고 Image도 이름도 없다', (tester) async {
+    testWidgets('대표 사진이 없으면 72x72 빈칸(흰 바탕+테두리+아이콘)이고 Image도 이름도 없다', (tester) async {
       final handle = tester.ensureSemantics();
       final item = MarketListItem.fromJson(marketItemJson(title: '의자'));
       await tester.pumpWidget(MaterialApp(home: Scaffold(body: MarketThumb(item: item))));
       expect(find.byType(Image), findsNothing);
       expect(tester.getSize(find.byType(MarketThumb)), const Size(72, 72));
-      expect(
-        tester.widgetList<ColoredBox>(find.descendant(of: find.byType(MarketThumb), matching: find.byType(ColoredBox))).single.color,
-        AppColors.hover,
-      );
+      // S26-j2: 빈칸 바탕이 hover 회색에서 흰(paper) 바탕 + 테두리로 바뀌었다 (모양 단언만 수정)
+      final box = tester.widget<DecoratedBox>(find.descendant(of: find.byType(MarketThumb), matching: find.byType(DecoratedBox)));
+      expect((box.decoration as BoxDecoration).color, AppColors.paper);
       expect(find.bySemanticsLabel('의자 대표 사진'), findsNothing);
       handle.dispose();
     });
@@ -899,6 +898,29 @@ void main() {
         adapter: marketAdapter([FakeReply(200, [marketItemJson()])]),
       );
       expect(panelBottomGap(tester), 88);
+    });
+  });
+
+  group('S26-j2', () {
+    testWidgets('사진 없는 줄의 빈 썸네일: 72x72, 바탕 paper(hover 아님), 테두리, 아이콘 1개, 줄 라벨은 전과 같다', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpApp(
+        tester,
+        location: '/market',
+        adapter: marketAdapter([FakeReply(200, [marketItemJson(id: 7)])]),
+      );
+      final thumb = find.descendant(of: find.byType(FeedRow), matching: find.byType(MarketThumb));
+      expect(thumb, findsOneWidget);
+      expect(tester.getSize(thumb), const Size(72, 72));
+      final deco = tester.widget<DecoratedBox>(find.descendant(of: thumb, matching: find.byType(DecoratedBox))).decoration as BoxDecoration;
+      expect(deco.color, isNot(AppColors.hover));
+      expect(deco.color, AppColors.paper);
+      expect(deco.border, isNotNull);
+      expect(find.descendant(of: thumb, matching: find.byIcon(Icons.image_outlined)), findsOneWidget);
+      // 아이콘 때문에 줄 라벨이 달라지거나 빈칸이 따로 읽히지 않는다
+      expect(tester.getSemantics(find.byType(FeedRow)).label, '전공 서적 팝니다, 판매중, 15,000원, 서울대, ${formatDate('2020-11-08T06:19:00Z')}');
+      expect(find.bySemanticsLabel('전공 서적 팝니다 대표 사진'), findsNothing);
+      handle.dispose();
     });
   });
 }
