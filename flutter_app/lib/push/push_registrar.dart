@@ -24,6 +24,7 @@ class PushRegistrar {
   int? _lastUserId; // 직전에 본 로그인 회원 (로그인·회원 바뀜을 알아채려고)
   String? _registeredToken; // 이번 로그인 동안 서버에 등록해 둔 마지막 토큰 (같은 토큰 반복 PUT 방지)
   Future<void> _queue = Future.value(); // 확인 작업을 한 줄로 세워 겹치지 않게 한다
+  final Completer<bool> _initDone = Completer<bool>(); // 푸시 준비가 끝났는지(성공 여부) — 알림 칸이 기다린다
 
   // 앱 시작 때 한 번: 로그인 변화 구독 → 푸시 준비 → (이미 로그인돼 있으면) 바로 한 번 확인
   Future<void> start() async {
@@ -37,6 +38,7 @@ class PushRegistrar {
     } catch (_) {
       ready = false; // 준비가 실패해도 앱은 그대로, 푸시만 꺼진 채로 돈다
     }
+    if (!_initDone.isCompleted) _initDone.complete(ready && !_disposed);
     if (_disposed || !ready) return;
     _ready = true;
     // 토큰이 새로 바뀌면(로그인 상태+허용일 때) 다시 등록한다
@@ -48,6 +50,7 @@ class PushRegistrar {
 
   void dispose() {
     _disposed = true;
+    if (!_initDone.isCompleted) _initDone.complete(false);
     _refreshSub?.cancel();
     _auth.removeListener(_onAuthChanged);
     _auth.beforeLogout = null;
@@ -62,9 +65,37 @@ class PushRegistrar {
     if (id != null && _ready) _enqueueCheck();
   }
 
-  void _enqueueCheck() {
+  Future<void> _enqueueCheck() {
     _queue = _queue.then((_) => _checkAndRegister()).catchError((Object _) {});
+    return _queue;
   }
+
+  // ---- S24-e: 비자 일정 화면의 "휴대폰 알림" 칸이 쓰는 입구 ----
+
+  // 지금 알림 권한 상태 (팝업 없음). 푸시를 못 쓰는 기기(준비 실패)면 null
+  Future<PushPermission?> readPermission() async {
+    if (!await _initDone.future || _disposed) return null;
+    try {
+      return await _push.permission();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // [알림 켜기] 버튼: 권한 팝업을 한 번 띄운다. 허용이면 바로 서버 등록까지 하고, 결과 권한을 돌려준다
+  Future<PushPermission?> askPermission() async {
+    if (!await _initDone.future || _disposed) return null;
+    try {
+      final result = await _push.requestPermission();
+      if (result == PushPermission.granted) await registerNow();
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // 지금 바로 서버 등록을 확인한다. 기존 규칙 그대로(로그인 상태·허용일 때만, 같은 토큰은 한 번, 한 줄로 순서대로)
+  Future<void> registerNow() => _ready ? _enqueueCheck() : Future.value();
 
   Future<void> _checkAndRegister() async {
     if (_disposed || _auth.user == null) return;

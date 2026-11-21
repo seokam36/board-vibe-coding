@@ -8,6 +8,7 @@ import '../auth/auth_user.dart';
 import '../common/external_link.dart';
 import '../common/format_date.dart';
 import '../errors/error_messages.dart';
+import '../push/push_permission_panel.dart';
 import '../theme/app_colors.dart';
 import '../visa/dday.dart';
 import '../visa/visa_banner_text.dart';
@@ -262,6 +263,7 @@ class _VisaPlanViewState extends State<_VisaPlanView> {
         children: [
           const PageTitle('비자 일정'),
           const _PlanGuide(),
+          const PushPermissionPanel(), // 앱에서만 보이는 "휴대폰 알림" 칸 (웹이면 아무것도 안 그림)
           if (loading) const Loading(),
           if (loadError != null) Notice(kind: NoticeKind.error, message: loadError),
           // 불러오기에 실패하면 일정이 있는지 모르니 폼을 숨긴다 (모르고 덮어쓰지 않게)

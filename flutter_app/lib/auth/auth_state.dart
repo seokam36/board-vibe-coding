@@ -72,7 +72,14 @@ class AuthState extends ChangeNotifier {
     } catch (_) {
       // 일부러 무시
     }
-    await _api.dio.post<dynamic>('/auth/logout');
+    // 응답이 없으면 무한정 기다리지 않게 보내기·받기 각 10초 제한 (넘으면 실패로 처리돼 버튼이 풀린다)
+    await _api.dio.post<dynamic>(
+      '/auth/logout',
+      options: Options(
+        sendTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+      ),
+    );
     _user = null;
     _notify();
   }

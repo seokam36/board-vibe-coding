@@ -154,6 +154,8 @@ class _BoardAppState extends State<BoardApp> {
     return MultiProvider(
       providers: [
         Provider<ApiClient>.value(value: _api),
+        // 앱에서만 값이 있다(웹은 null). 비자 일정 화면의 "휴대폰 알림" 칸이 쓴다
+        Provider<PushRegistrar?>.value(value: _pushRegistrar),
         ChangeNotifierProvider<AuthState>.value(value: _auth),
         ChangeNotifierProvider<VisaPlanStore>.value(value: _visaPlan),
         ChangeNotifierProvider<UnreadStore>.value(value: _unread), // 상단바 "쪽지 (n)"

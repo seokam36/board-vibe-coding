@@ -26,15 +26,24 @@ class NavBar extends StatefulWidget {
 class _NavBarState extends State<NavBar> {
   String? _error; // 로그아웃 실패 안내
 
+  bool _loggingOut = false; // 로그아웃 진행 중이면 버튼을 막는다 (두 번 눌려 요청이 두 번 나가는 것 방지)
+
   Future<void> _logout() async {
+    if (_loggingOut) return;
     final auth = context.read<AuthState>();
-    setState(() => _error = null); // 다시 누르면 이전 안내는 지운다
+    setState(() {
+      _error = null; // 다시 누르면 이전 안내는 지운다
+      _loggingOut = true;
+    });
     try {
       // 성공하면 로그인 상태가 비워지고, 보호 화면이면 문지기가 /login 으로 보낸다
       await auth.logout();
     } catch (_) {
       // 서버 쿠키가 아직 살아 있으니 로그인 상태는 그대로 두고, 반응이 없어 보이지 않게 문구만 띄운다
       if (mounted) setState(() => _error = logoutFailedMessage);
+    } finally {
+      // 성공이든 실패든 끝나면 원래대로 (실패 뒤 다시 시도할 수 있게)
+      if (mounted) setState(() => _loggingOut = false);
     }
   }
 
@@ -64,12 +73,12 @@ class _NavBarState extends State<NavBar> {
         // 학교 인증을 마친 회원 표시. 학교 이름은 마우스를 올리거나 스크린리더로 알 수 있다
         if (school != null) _VerifiedBadge(schoolName: school.name),
         OutlinedButton(
-          onPressed: _logout,
+          onPressed: _loggingOut ? null : _logout,
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(0, 36),
             padding: const EdgeInsets.symmetric(horizontal: AppSizes.space3),
           ),
-          child: const Text('로그아웃'),
+          child: Text(_loggingOut ? '로그아웃 중...' : '로그아웃'), // 진행 중에만 라벨이 바뀐다
         ),
       ] else ...[
         AppLink(label: '로그인', onTap: () => context.go('/login')),
