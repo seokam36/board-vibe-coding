@@ -3,10 +3,10 @@
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 자세한 결정·기록은 docs/backlog.md(각 S번호 항목 + "끝난 일" 표), 배포는 docs/deploy.md, API는 docs/api.md.
 
-마지막 갱신: 2026-11-21 오후, 집 PC(영문 사용자 폴더 C:\Users\seoka) (**S24 비자 일정 푸시 알림 끝·운영 배포(이미지 eebac61)·운영 알림 도착 확인**)
+마지막 갱신: 2026-11-21 오후, 집 PC(영문 사용자 폴더 C:\Users\seoka) (**S24 비자 일정 푸시 알림 끝·운영 배포(이미지 a5d48fd, S24-g 정리 포함)·운영 알림 도착 확인**)
 
 ## 지금 어디까지
-- **S0~S14 + UI1~UI3 + S16~S18 + S20 + S21 + S22 + S23 + S24 완료·배포됨.** 운영 주소 **`https://kampus.<도메인>`**(Cloudflare에서 산 도메인, 실제 이름은 사용자가 앎 — 저장소·메모에 안 씀). 운영 vision·gemini·**push(fcm)** 켜짐. 마지막 운영 배포 2026-11-21 커밋 eebac61(직전 S23 fe3871c).
+- **S0~S14 + UI1~UI3 + S16~S18 + S20 + S21 + S22 + S23 + S24 완료·배포됨.** 운영 주소 **`https://kampus.<도메인>`**(Cloudflare에서 산 도메인, 실제 이름은 사용자가 앎 — 저장소·메모에 안 씀). 운영 vision·gemini·**push(fcm)** 켜짐. 마지막 운영 배포 2026-11-21 커밋 a5d48fd(S24-g 파트 리뷰 정리, Deploy 버튼만. S24 첫 배포 eebac61, 그 전 S23 fe3871c).
 - **방향(2026-11-16)**: "외국인 유학생 통합 에타", 유학생만 글쓰기(표준입학허가서 인증).
 - **S24(비자 일정 푸시 알림, FCM)** 끝(2026-11-21, 결정·한계는 backlog S24 항목과 그 아래 줄들):
   - 서버: V16 device_tokens(회원당 10, 비밀번호 변경 때 삭제, PUT/DELETE /users/me/device-tokens), FcmPushSender(google-auth-library로 출입증만, HTTP v1 직접, PUSH_MODE off/fcm, 결과 SENT/TOKEN_INVALID/REJECTED/FAILED), VisaPushJob(켜지고 5분 뒤 + 1시간마다, 서울 9~21시, 단계 들어갈 때 1회, V17 보낸 기록, 쓰기 잠금은 회원 행 먼저).

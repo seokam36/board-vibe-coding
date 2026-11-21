@@ -4,7 +4,7 @@
 화면과 API 주소가 같아서 CORS 허용 목록(`CORS_ALLOWED_ORIGINS`)은 EC2 `.env`에 넣지 않아도 됩니다. 단 https 전환(S22) 뒤에도 같은 출처로 인정받으려면 compose app의 `SERVER_FORWARD_HEADERS_STRATEGY: native`(nginx가 넘긴 `X-Forwarded-Proto`를 믿게 함)가 있어야 합니다. 없으면 쓰기 요청이 403(`Invalid CORS request`)입니다.
 
 > **주의 (S22 이후)**: web 이미지에는 443(https) 블록이 있어 서버에 인증서(`~/board/certbot/conf/live/board/`)가 있어야 nginx가 뜹니다. 운영 서버는 2026-11-19에 발급을 마쳐 Deploy 버튼을 평소처럼 써도 됩니다. **서버를 새로 만들거나 `~/board/certbot`을 지웠다면** Deploy 전에 아래 "S22 HTTPS 전환"의 인증서 첫 발급부터 다시 합니다(안 그러면 사이트 전체가 내려감).
-> 지금 운영(S24, 2026-11-21) 이미지는 `eebac61`. 직전(S23) app·web 이미지: `seokam36/demo:fe3871c95db20febb3eeb374e84d7e366909f318`, `seokam36/demo-web:fe3871c95db20febb3eeb374e84d7e366909f318` — 되돌리기는 아래 "S24 되돌리기"(푸시만 끄기가 먼저).
+> 지금 운영(S24-g, 2026-11-21) 이미지는 `a5d48fd`(S24 첫 배포 `eebac61` + 파트 리뷰 정리, Deploy 버튼만). S24 이전(S23) app·web 이미지: `seokam36/demo:fe3871c95db20febb3eeb374e84d7e366909f318`, `seokam36/demo-web:fe3871c95db20febb3eeb374e84d7e366909f318` — 되돌리기는 아래 "S24 되돌리기"(푸시만 끄기가 먼저). S24-g만 되돌리려면 이미지를 `eebac61`(전체 SHA는 git log)로 고정.
 
 ## 자동 배포 (GitHub Actions 버튼)
 이미지는 main에 push하면 CI가 Docker Hub에 올려 둡니다(`latest`). 배포는 아래처럼 버튼으로 합니다.
