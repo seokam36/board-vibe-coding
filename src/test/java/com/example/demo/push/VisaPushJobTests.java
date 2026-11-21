@@ -324,21 +324,20 @@ class VisaPushJobTests {
 	@Test
 	void 모든_토큰이_FAILED면_기록도_삭제도_없고_다음_회차에_다시_시도한다() {
 		User 회원 = 회원(30, "t1", "t2");
-		fake.results.put("t1", PushResult.FAILED);
-		fake.results.put("t2", PushResult.FAILED);
+		fake.results.put("t1", PushResult.FAILED); // 첫 토큰이 FAILED면 t2는 보내지 않는다
 
 		int 첫째 = job.runOnce(정오);
 
 		assertThat(첫째).isZero();
 		assertThat(기록수()).isZero();
 		assertThat(토큰수(회원)).isEqualTo(2);
-		assertThat(fake.calls).hasSize(2);
+		assertThat(fake.calls).hasSize(1); // 첫 토큰이 FAILED라 남은 토큰은 건너뛴다
 
 		fake.results.clear(); // 구글이 살아남
 		int 둘째 = job.runOnce(정오);
 
 		assertThat(둘째).isEqualTo(1);
-		assertThat(fake.calls).hasSize(4);
+		assertThat(fake.calls).hasSize(3); // 첫 회차 1번 + 둘째 회차 2번
 		assertThat(기록단계(회원)).containsExactly("CHECK");
 	}
 
@@ -461,9 +460,81 @@ class VisaPushJobTests {
 	}
 
 	@Test
-	void 토큰_셋_중_일부는_FAILED_나머지는_SENT면_기록은_한_줄이고_토큰은_그대로다() {
+	void 토큰_셋_중_첫_번째가_FAILED면_그_회원의_남은_토큰은_건너뛰고_기록도_삭제도_없다() {
 		User 회원 = 회원(30, "t1", "t2", "t3");
 		fake.results.put("t1", PushResult.FAILED);
+
+		int 보냄 = job.runOnce(정오);
+
+		assertThat(보냄).isZero();
+		assertThat(fake.calls).hasSize(1);
+		assertThat(기록수()).isZero();
+		assertThat(토큰수(회원)).isEqualTo(3);
+	}
+
+	@Test
+	void 첫_번째가_SENT_두_번째가_FAILED면_두_번만_보내고_기록은_한_줄이다() {
+		User 회원 = 회원(30, "t1", "t2", "t3");
+		fake.results.put("t2", PushResult.FAILED);
+
+		int 보냄 = job.runOnce(정오);
+
+		assertThat(보냄).isEqualTo(1);
+		assertThat(fake.calls).hasSize(2);
+		assertThat(기록단계(회원)).containsExactly("CHECK");
+		assertThat(토큰수(회원)).isEqualTo(3);
+	}
+
+	@Test
+	void 첫_토큰이_TOKEN_INVALID여도_다음_토큰으로_계속_보내고_죽은_토큰만_지우며_기록은_한_줄이다() {
+		User 회원 = 회원(30, "t-dead", "t-ok");
+		fake.results.put("t-dead", PushResult.TOKEN_INVALID);
+
+		int 보냄 = job.runOnce(정오);
+
+		assertThat(보냄).isEqualTo(1);
+		assertThat(fake.calls).hasSize(2);
+		assertThat(기록단계(회원)).containsExactly("CHECK");
+		assertThat(jdbc.queryForList("select token from device_tokens where user_id = ?", String.class, 회원.getId()))
+				.containsExactly("t-ok");
+	}
+
+	@Test
+	void 첫_토큰이_REJECTED여도_다음_토큰으로_계속_보내고_성공하면_기록이_남는다() {
+		User 회원 = 회원(30, "t-rej", "t-ok");
+		fake.results.put("t-rej", PushResult.REJECTED);
+
+		int 보냄 = job.runOnce(정오);
+
+		assertThat(보냄).isEqualTo(1);
+		assertThat(fake.calls).hasSize(2);
+		assertThat(기록단계(회원)).containsExactly("CHECK");
+		assertThat(토큰수(회원)).isEqualTo(2);
+	}
+
+	@Test
+	void 일정을_삭제하면_기록이_지워져_같은_날짜로_다시_등록해도_다음_회차에_다시_보낸다() {
+		User 회원 = 회원(30, "t1");
+		assertThat(job.runOnce(정오)).isEqualTo(1);
+		assertThat(기록수()).isEqualTo(1);
+
+		// 일정 삭제와 같은 효과: 서비스의 삭제가 부르는 저장소 메서드(같은 트랜잭션 안에서)
+		transactionTemplate.executeWithoutResult(s -> {
+			jdbc.update("delete from visa_plans where user_id = ?", 회원.getId());
+			notificationRepository.deleteByUserId(회원.getId());
+		});
+		assertThat(기록수()).isZero();
+		일정(회원, 오늘.plusDays(30)); // 같은 날짜로 재등록
+		fake.calls.clear();
+
+		assertThat(job.runOnce(정오)).isEqualTo(1);
+		assertThat(fake.calls).hasSize(1);
+		assertThat(기록단계(회원)).containsExactly("CHECK");
+	}
+
+	@Test
+	void 앞의_토큰이_SENT고_마지막만_FAILED면_기록은_한_줄이고_토큰은_그대로다() {
+		User 회원 = 회원(30, "t1", "t2", "t3");
 		fake.results.put("t3", PushResult.FAILED);
 
 		int 보냄 = job.runOnce(정오);
@@ -491,6 +562,18 @@ class VisaPushJobTests {
 		assertThat(기록단계(다음)).containsExactly("CHECK");
 		assertThat(output.getAll()).contains("건너뜀 1명").contains("오류 0명");
 		assertThat(output.getAll()).doesNotContain("처리 오류 1건");
+	}
+
+	@Test
+	void 보내는_도중_일정이_삭제되면_보냈지만_기록은_남기지_않는다() {
+		User 회원 = 회원(30, "t1");
+		fake.보내기전 = t -> jdbc.update("delete from visa_plans where user_id = ?", 회원.getId());
+
+		int 보냄 = job.runOnce(정오);
+
+		assertThat(fake.calls).hasSize(1); // 발송은 한 번 나갔다
+		assertThat(보냄).isEqualTo(1); // 보낸 건 사실이라 SENT로 센다
+		assertThat(기록수()).isZero(); // 일정이 없으니 만료일 기록은 남기지 않는다
 	}
 
 	@Test

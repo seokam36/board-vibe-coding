@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:board_web/app.dart';
+import 'package:board_web/auth/auth_user.dart';
 import 'package:board_web/push/app_push.dart';
 import 'package:board_web/push/app_push_io.dart';
 import 'package:board_web/push/push_registrar.dart';
@@ -22,6 +23,7 @@ class FakePush implements AppPush {
   final bool initOk;
   final bool initThrows;
   int requestPermissionCalls = 0;
+  Completer<void>? tokenGate; // 있으면 getToken이 이게 풀릴 때까지 기다린다 (로그아웃 정리가 늦어지는 상황 흉내)
   final refresh = StreamController<String>.broadcast();
 
   @override
@@ -40,7 +42,10 @@ class FakePush implements AppPush {
   }
 
   @override
-  Future<String?> getToken() async => token;
+  Future<String?> getToken() async {
+    await tokenGate?.future;
+    return token;
+  }
 
   @override
   Stream<String> get onTokenRefresh => refresh.stream;
@@ -225,6 +230,112 @@ void main() {
       await pumpEventQueue();
 
       expect(adapter.count('PUT', _tokensPath), 2);
+    });
+  });
+
+  group('시간 제한과 늦은 정리', () {
+    test('등록(PUT)·삭제(DELETE) 요청에는 보내기·받기 10초 제한이 걸린다', () async {
+      adapter.on('PUT', _tokensPath, FakeReply(204));
+      adapter.on('DELETE', _tokensPath, FakeReply(204));
+      adapter.on('POST', '/auth/logout', FakeReply(204));
+      await startRegistrar(FakePush());
+
+      await auth.logout();
+
+      expect(adapter.callsTo('PUT', _tokensPath).single.receiveTimeout, const Duration(seconds: 10));
+      expect(adapter.callsTo('DELETE', _tokensPath).single.receiveTimeout, const Duration(seconds: 10));
+      expect(adapter.callsTo('PUT', _tokensPath).single.sendTimeout, const Duration(seconds: 10));
+      expect(adapter.callsTo('DELETE', _tokensPath).single.sendTimeout, const Duration(seconds: 10));
+    });
+
+    test('PUT 응답이 영영 안 오면 시간 제한 뒤 큐가 풀려 다음 등록 확인이 진행된다', () async {
+      adapter.on('PUT', _tokensPath, FakeReply(204, null, Completer<void>())); // 끝나지 않는 응답
+      adapter.on('PUT', _tokensPath, FakeReply(204));
+      final registrar = PushRegistrar(
+        api: auth.api,
+        auth: auth,
+        push: FakePush(),
+        callLimit: const Duration(milliseconds: 100), // 운영은 10초, 시험은 짧게
+      );
+      addTearDown(registrar.dispose);
+      await registrar.start();
+      await pumpEventQueue();
+      expect(adapter.count('PUT', _tokensPath), 1); // 첫 PUT이 나가서 멈춰 있다
+
+      await registrar.registerNow(); // 큐에서 기다렸다가 시간 초과로 풀린 뒤 진행된다
+
+      expect(adapter.count('PUT', _tokensPath), 2);
+    });
+
+    test('로그아웃 정리가 5초를 넘겨 늦게 끝났고 그 사이 B가 로그인했으면 DELETE를 보내지 않는다', () async {
+      adapter.on('PUT', _tokensPath, FakeReply(204)); // A 등록
+      adapter.on('PUT', _tokensPath, FakeReply(204)); // B 등록
+      final push = FakePush();
+      await startRegistrar(push);
+
+      push.tokenGate = Completer<void>(); // 토큰 읽기가 늦어진다
+      final late = auth.beforeLogout!(); // A의 로그아웃 정리가 시작됐지만 끝나지 않는다
+      auth.updateUser(AuthUser.fromJson(userJson(id: 2, username: 'other'))); // 그 사이 B가 로그인
+      await pumpEventQueue();
+      push.tokenGate!.complete(); // 이제서야 정리가 이어진다
+      await late;
+      await pumpEventQueue();
+
+      expect(adapter.count('DELETE', _tokensPath), 0);
+    });
+
+    test('정리가 늦는 사이 이미 로그아웃(user null)됐으면 DELETE를 보내지 않는다', () async {
+      adapter.on('PUT', _tokensPath, FakeReply(204));
+      final push = FakePush();
+      await startRegistrar(push);
+
+      push.tokenGate = Completer<void>();
+      final late = auth.beforeLogout!();
+      auth.clearUser(); // 그 사이 로그아웃(또는 탈퇴)이 끝나 user가 비었다
+      await pumpEventQueue();
+      push.tokenGate!.complete();
+      await late;
+      await pumpEventQueue();
+
+      expect(auth.user, isNull);
+      expect(adapter.count('DELETE', _tokensPath), 0);
+    });
+
+    test('늦은 A 정리가 끝난 뒤에도 B는 같은 토큰을 다시 PUT하지 않는다', () async {
+      adapter.on('PUT', _tokensPath, FakeReply(204)); // A 등록
+      adapter.on('PUT', _tokensPath, FakeReply(204)); // B 등록
+      final push = FakePush();
+      await startRegistrar(push);
+
+      final gate = Completer<void>();
+      push.tokenGate = gate; // A의 정리만 토큰 읽기에서 늦어진다
+      final late = auth.beforeLogout!();
+      push.tokenGate = null; // 이후 호출(B 등록)은 바로 진행
+      auth.updateUser(AuthUser.fromJson(userJson(id: 2, username: 'other'))); // 그 사이 B가 로그인해 PUT
+      await pumpEventQueue();
+      expect(adapter.count('PUT', _tokensPath), 2);
+
+      gate.complete(); // 늦은 A 정리가 이제 끝난다 (B의 기억을 지우면 안 된다)
+      await late;
+      push.refresh.add('fake-token-1'); // 같은 토큰으로 다시 확인
+      await pumpEventQueue();
+
+      expect(adapter.count('PUT', _tokensPath), 2);
+      expect(adapter.count('DELETE', _tokensPath), 0);
+    });
+
+    test('정리가 늦었어도 같은 회원이 그대로 로그인 중이면 DELETE를 보낸다', () async {
+      adapter.on('PUT', _tokensPath, FakeReply(204));
+      adapter.on('DELETE', _tokensPath, FakeReply(204));
+      final push = FakePush();
+      await startRegistrar(push);
+
+      push.tokenGate = Completer<void>();
+      final late = auth.beforeLogout!();
+      push.tokenGate!.complete();
+      await late;
+
+      expect(adapter.count('DELETE', _tokensPath), 1);
     });
   });
 

@@ -38,7 +38,8 @@ class FakeReply {
 
 // 어댑터가 받은 요청 기록
 class FakeCall {
-  FakeCall(this.method, this.path, this.headers, [this.query = const {}, this.receiveTimeout]);
+  FakeCall(this.method, this.path, this.headers, [this.query = const {}, this.receiveTimeout, this.sendTimeout]);
+  final Duration? sendTimeout; // 이 요청에만 건 보내기 제한 시간 (안 걸었으면 null)
   final Duration? receiveTimeout; // 이 요청에만 건 받기 제한 시간 (안 걸었으면 null)
   final Map<String, String> query; // 주소의 쿼리(?schoolId=1 등)
   final String method;
@@ -73,7 +74,7 @@ class FakeAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     final path = options.uri.path;
-    calls.add(FakeCall(options.method, path, Map.of(options.headers), options.uri.queryParameters, options.receiveTimeout));
+    calls.add(FakeCall(options.method, path, Map.of(options.headers), options.uri.queryParameters, options.receiveTimeout, options.sendTimeout));
     onRequestBody?.call(options.data);
     final queue = _queues['${options.method} $path'];
     if (queue == null || queue.isEmpty) {

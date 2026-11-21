@@ -33,7 +33,7 @@ public class VisaPushService {
         SENT,     // 한 기기 이상 구글이 받아 줬다 -> 기록을 남겼다
         INVALID,  // 한 번도 못 받았지만 "못 쓰는 토큰"이라는 구글 답은 받았다(그 토큰은 지웠다) -> 기록 없음
         REJECTED, // 받은 건 없고, 구글이 4xx로 거절만 했다(토큰·요청 문제, 구글은 살아 있음) -> 기록 없음, 다음 회차에 다시
-        FAILED,   // 전부 구글이 답을 못 함(연결 문제·시간 초과·5xx·429) -> 기록 없음, 다음 회차에 다시
+        FAILED,   // 첫 FAILED에서 멈춘 회원(구글 무응답: 연결 문제·시간 초과·5xx·429) -> 기록 없음, 다음 회차에 다시
         SKIPPED   // 그 사이 대상이 아니게 됐다(토큰 없음·인증 취소·만료일 변경·탈퇴) -> 할 일 없음
     }
 
@@ -66,6 +66,10 @@ public class VisaPushService {
                 invalidTokens.add(token);
             } else if (result == PushResult.REJECTED) {
                 anyRejected = true;
+            } else if (result == PushResult.FAILED) {
+                // 구글이 답을 못 했다(연결·시간 초과·5xx). 같은 회원의 남은 토큰도 같을 가능성이 커서 건너뛴다
+                // (구글이 죽은 날 토큰마다 10초씩 기다리는 것을 막는다). 기록·삭제 규칙은 그대로다.
+                break;
             }
         }
         if (!anySent && invalidTokens.isEmpty()) {
@@ -83,7 +87,9 @@ public class VisaPushService {
             for (String token : invalidTokens) {
                 deviceTokenRepository.deleteByUserIdAndToken(userId, token);
             }
-            if (sent) {
+            // 발송 중 일정이 삭제·변경됐으면 만료일 기록을 남기지 않는다(삭제 때 지운 기록이 다시 생기는 것을 막음).
+            // 보낸 것은 사실이라 결과는 SENT 그대로 둔다. 이 확인과 INSERT 사이의 몇 밀리초 틈은 남아 있다(완전히 닫히진 않음).
+            if (sent && visaPlanRepository.countStillTarget(userId, expiryDate) > 0) {
                 // 이미 같은 기록이 있으면 조용히 넘어간다(ON CONFLICT DO NOTHING)
                 notificationRepository.insertIfAbsent(userId, expiryDate, stage.name());
             }

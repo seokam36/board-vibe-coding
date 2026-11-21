@@ -81,6 +81,7 @@ class VisaPlanApiTests {
 	@AfterEach
 	void 정리() {
 		// 일정이 회원보다 먼저(FK 순서)
+		jdbc.update("delete from visa_plan_notifications");
 		jdbc.update("delete from visa_plans");
 		jdbc.update("delete from visa_reviews");
 		postRepository.deleteAll();
@@ -119,6 +120,16 @@ class VisaPlanApiTests {
 
 	private JsonNode json(MockHttpServletResponse r) throws Exception {
 		return om.readTree(r.getContentAsString());
+	}
+
+	// 푸시로 보낸 기록 한 줄을 직접 넣는다 (S24-g 시험용)
+	private void 알림기록(User user, String expiry, String stage) {
+		jdbc.update("insert into visa_plan_notifications (user_id, expiry_date, stage, sent_at) values (?, ?::date, ?, now())",
+				user.getId(), expiry, stage);
+	}
+
+	private long 알림기록수(User user) {
+		return jdbc.queryForObject("select count(*) from visa_plan_notifications where user_id = ?", Long.class, user.getId());
 	}
 
 	private long 행수() {
@@ -280,6 +291,39 @@ class VisaPlanApiTests {
 	}
 
 	// ============ 추가 검증: 회원 간 분리 ============
+
+	@Test
+	void 일정을_삭제하면_그_회원의_알림_기록은_모두_지워지고_다른_회원_기록은_그대로다() throws Exception {
+		User 다른회원 = TestLogin.인증된_사용자(userRepository, jdbc, "planother2", "연세대학교");
+		assertThat(저장(본문("2026-12-31"), 쿠키).getStatus()).isEqualTo(200);
+		알림기록(회원, "2026-12-31", "CHECK");
+		알림기록(회원, "2026-12-31", "URGENT");
+		알림기록(다른회원, "2027-06-30", "CHECK");
+
+		assertThat(삭제(쿠키).getStatus()).isEqualTo(204);
+
+		assertThat(알림기록수(회원)).isZero();
+		assertThat(알림기록수(다른회원)).isEqualTo(1);
+	}
+
+	@Test
+	void 일정을_저장해_만료일을_바꿔도_알림_기록은_그대로_남는다() throws Exception {
+		assertThat(저장(본문("2026-12-31"), 쿠키).getStatus()).isEqualTo(200);
+		알림기록(회원, "2026-12-31", "CHECK");
+
+		assertThat(저장(본문("2027-03-01"), 쿠키).getStatus()).isEqualTo(200);
+
+		assertThat(알림기록수(회원)).isEqualTo(1);
+	}
+
+	@Test
+	void 일정이_없어_삭제가_404면_알림_기록은_건드리지_않는다() throws Exception {
+		알림기록(회원, "2026-12-31", "CHECK");
+
+		assertThat(삭제(쿠키).getStatus()).isEqualTo(404);
+
+		assertThat(알림기록수(회원)).isEqualTo(1);
+	}
 
 	@Test
 	void A가_DELETE해도_B의_일정은_남고_GET은_내_것만_준다() throws Exception {

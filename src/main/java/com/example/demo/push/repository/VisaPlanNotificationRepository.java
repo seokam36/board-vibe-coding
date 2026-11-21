@@ -27,4 +27,11 @@ public interface VisaPlanNotificationRepository extends JpaRepository<VisaPlanNo
             + "on conflict on constraint uk_visa_plan_notifications_user_expiry_stage do nothing", nativeQuery = true)
     int insertIfAbsent(@Param("userId") Long userId, @Param("expiryDate") LocalDate expiryDate,
             @Param("stage") String stage);
+
+    // 그 회원의 보낸 기록을 전부 지우고 지운 줄 수를 돌려준다 (비자 일정 삭제 때: 만료일이 탈퇴 전까지 남지 않게).
+    // 바깥 트랜잭션 없이 부르면 예외(MANDATORY).
+    @Modifying
+    @Transactional(propagation = Propagation.MANDATORY)
+    @Query(value = "delete from visa_plan_notifications where user_id = :userId", nativeQuery = true)
+    int deleteByUserId(@Param("userId") Long userId);
 }

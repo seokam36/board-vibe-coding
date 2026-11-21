@@ -1509,7 +1509,7 @@ Content-Type: multipart/form-data; boundary=...
 
 ### 26. 내 비자 일정 삭제 `DELETE /users/me/visa-plan`
 
-로그인 필요. 학교 인증은 필요 없다. 일정을 DB에서 지운다.
+로그인 필요. 학교 인증은 필요 없다. 일정을 DB에서 지운다. 같은 트랜잭션에서 이 회원에게 보낸 비자 푸시 알림 기록(`visa_plan_notifications`, S24)도 모두 지운다. 그래서 같은 날짜로 다시 등록하면 그 단계 알림이 한 번 더 갈 수 있다(일부러 다시 등록한 것으로 보고 허용).
 
 성공 응답 `204 No Content` (본문 없음)
 

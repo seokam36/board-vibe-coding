@@ -13,6 +13,7 @@ import com.example.demo.auth.dto.LoginUser;
 import com.example.demo.auth.service.AccessGuard;
 import com.example.demo.common.ApiErrors;
 import com.example.demo.common.ConstraintViolations;
+import com.example.demo.push.repository.VisaPlanNotificationRepository;
 import com.example.demo.user.domain.User;
 import com.example.demo.visa.domain.VisaPlan;
 import com.example.demo.visa.dto.VisaPlanRequest;
@@ -33,6 +34,7 @@ public class VisaPlanService {
     private static final int MAX_YEARS_AHEAD = 5;
 
     private final VisaPlanRepository visaPlanRepository;
+    private final VisaPlanNotificationRepository notificationRepository;
     private final AccessGuard accessGuard;
     private final Clock clock; // "오늘"(서울 기준). 테스트에서 고정 시계로 바꿔 끼울 수 있다.
 
@@ -75,6 +77,13 @@ public class VisaPlanService {
         if (visaPlanRepository.deleteByUserIdReturningCount(user.getId()) == 0) {
             throw ApiErrors.visaPlanNotFound();
         }
+        // 일정을 지우면 만료일이 담긴 보낸 기록도 같이 지운다(탈퇴 전까지 남지 않게). 같은 트랜잭션이라 둘 다 되거나 둘 다 안 된다.
+        // 잠금 순서: 일정 행 -> 기록 행. 푸시 쪽은 회원 행 -> 기록 행이라 서로 거꾸로 기다리는 일이 없다.
+        // 탈퇴와의 관계: 탈퇴는 회원 행 FOR UPDATE 뒤 CASCADE로 일정 -> 기록 순서로 지운다. 이 순서는 PostgreSQL이 FK 트리거를
+        // 실행하는 순서(제약 이름/생성 순)에 기대는 것이라 백업 복원 뒤엔 뒤집힐 수 있다. 그러면 같은 회원이 탈퇴와 일정 삭제를
+        // 동시에 할 때 아주 드물게 교착으로 500이 날 수 있다(데이터는 안 깨짐). 확률이 매우 낮아 회원 행 잠금은 일부러 넣지 않았다.
+        // 지운 뒤 같은 날짜로 다시 등록하면 그 단계 알림이 한 번 더 갈 수 있지만, 일부러 다시 등록한 것이라 허용한다.
+        notificationRepository.deleteByUserId(user.getId());
     }
 
     // 만료일은 서울 오늘 이상, 오늘+5년 이하. 어기면 400. 경계(오늘, 오늘+5년 정확히)는 통과.

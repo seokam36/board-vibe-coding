@@ -6,16 +6,31 @@
 //  - 토큰 값은 로그에 남기지 않는다.
 import 'dart:async';
 
+import 'package:dio/dio.dart';
+
 import '../api/api_client.dart';
 import '../auth/auth_state.dart';
 import 'app_push.dart';
 
 class PushRegistrar {
-  PushRegistrar({required this._api, required this._auth, required this._push});
+  PushRegistrar({
+    required this._api,
+    required this._auth,
+    required this._push,
+    this._callLimit = const Duration(seconds: 10), // 시험에서만 짧게 줄인다
+  });
 
   final ApiClient _api;
   final AuthState _auth;
   final AppPush _push;
+
+  // 응답이 없으면 무한정 기다리지 않게 보내기·받기 각 10초 제한 (AuthState의 /auth/logout과 같은 방식)
+  static final Options _limit = Options(
+    sendTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 10),
+  );
+  // 위 Options는 연결 단계(서버가 안 닿을 때)를 못 막아서, 호출 전체에도 10초 제한을 건다 (큐·[알림 켜기]가 안 멈추게)
+  final Duration _callLimit;
 
   StreamSubscription<String>? _refreshSub;
   bool _started = false;
@@ -107,7 +122,9 @@ class PushRegistrar {
     if (token == _registeredToken) return; // 이미 등록한 같은 토큰
     final userId = _auth.user?.id; // PUT 보내는 동안 회원이 바뀌었는지 보려고 잡아 둔다
     try {
-      await _api.dio.put<dynamic>('/users/me/device-tokens', data: {'token': token});
+      await _api.dio
+          .put<dynamic>('/users/me/device-tokens', data: {'token': token}, options: _limit)
+          .timeout(_callLimit); // 시간 초과 예외도 아래 catch에서 조용히 삼킨다
       // 그 사이 로그아웃·다른 회원이면 기억하지 않는다 (새 회원이 같은 토큰으로 PUT을 건너뛰지 않게)
       if (_auth.user?.id == userId) _registeredToken = token;
     } catch (_) {
@@ -118,13 +135,20 @@ class PushRegistrar {
   // 로그아웃 직전: 서버에서 이 기기 토큰을 지운다. 전체 시간 제한은 AuthState.logout이 건다. 실패해도 로그아웃은 계속되도록 모든 오류를 삼킨다
   Future<void> _unregisterBeforeLogout() async {
     if (!_ready) return; // 푸시가 꺼져 있으면 지울 토큰도 없다
+    final userId = _auth.user?.id; // 시작할 때 "누구의 로그아웃인지" 잡아 둔다
+    if (userId == null) return;
     try {
       await _queue; // 등록 작업이 진행 중이면 끝난 뒤에 (등록이 삭제 뒤에 나가는 일을 막는다)
       final token = await _push.getToken();
-      if (token != null && token.isNotEmpty) {
-        await _api.dio.delete<dynamic>('/users/me/device-tokens', data: {'token': token});
+      // 5초 제한을 넘겨 늦게 여기까지 왔을 때, 그 사이 로그아웃이 끝났거나 다른 회원이 로그인했으면
+      // 지금 쿠키는 그 회원 것이라 남의 토큰을 지울 수 있다 -> 같은 회원일 때만 보낸다
+      if (token != null && token.isNotEmpty && _auth.user?.id == userId) {
+        await _api.dio
+            .delete<dynamic>('/users/me/device-tokens', data: {'token': token}, options: _limit)
+            .timeout(_callLimit);
+        // 같은 회원일 때만 기억을 비운다 (늦은 A 정리가 새로 로그인한 B의 기억을 지우지 않게)
+        _registeredToken = null;
       }
-      _registeredToken = null;
     } catch (_) {
       // 일부러 무시: 토큰 정리가 안 돼도 로그아웃은 막지 않는다
     }
