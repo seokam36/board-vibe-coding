@@ -4,9 +4,12 @@ import '../theme/app_colors.dart';
 
 // 글자 링크 (React의 <a>): 포인트색 밑줄 글자. 누르면 onTap(보통 context.go)
 class AppLink extends StatelessWidget {
-  const AppLink({super.key, required this.label, required this.onTap, this.style, this.tall = false});
+  const AppLink({super.key, required this.label, required this.onTap, this.style, this.tall = false, this.oneLine = false});
 
   final String label;
+  // true면 글자를 한 줄로 두고 길면 끝을 줄임표로 줄인다(긴 제목이 칸 높이를 키우지 않게). 기본은 줄바꿈.
+  // 부모가 폭을 정해 줄 때(Expanded/Flexible 안)만 줄임표가 된다
+  final bool oneLine;
   final VoidCallback onTap;
   final TextStyle? style;
   // true면 눌림 높이를 최소 48로 키운다(글자는 세로 가운데). 단독으로 놓인 링크(위 막대·바로가기)용.
@@ -32,6 +35,8 @@ class AppLink extends StatelessWidget {
               heightFactor: 1,
               child: Text(
                 label,
+                maxLines: oneLine ? 1 : null,
+                overflow: oneLine ? TextOverflow.ellipsis : null,
                 style: const TextStyle(
                   fontSize: AppSizes.fsSmall2,
                   color: AppColors.accent,

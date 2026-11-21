@@ -32,8 +32,8 @@ class MessageComposer extends StatefulWidget {
   final Future<void> Function(String content) send;
   // 보내기를 누른 순간(요청 직전) 부모에게 알린다. 부모는 "로그인이 풀려도 이 칸을 없애지 않는다"고 기억한다
   final VoidCallback? onSubmitStart;
-  // 판(Panel) 안에서 제목 바로 아래에 놓일 때 true: 판이 위·아래 여백을 주므로 위 여백(제목 아래 12와 겹침)과 아래 여백을 뺀다.
-  // 기본(false)은 쪽지 대화 화면처럼 단독으로 쓸 때의 기존 모양 그대로
+  // 판(Panel) 안에 놓일 때 true: 판이 위·아래 여백을 주므로 이 칸의 위 여백과 아래 여백을 뺀다.
+  // 지금은 쪽지 대화 화면(답장)과 글 상세의 쪽지 칸이 모두 true로 쓴다. 기본(false)은 판 밖에 단독으로 놓일 때의 모양
   final bool insidePanel;
 
   @override

@@ -14,6 +14,7 @@ import '../messages/models.dart';
 import '../messages/unread_store.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_link.dart';
+import '../widgets/initial_avatar.dart';
 import '../widgets/loading.dart';
 import '../widgets/notice.dart';
 import '../widgets/page_frame.dart';
@@ -38,7 +39,7 @@ class _ConversationPageState extends State<ConversationPage> {
   bool _loading = true;
   String? _error;
   bool _needLogin = false; // 불러오다 401(재발급 실패)
-  final _endKey = GlobalKey(); // 쪽지 목록 끝(답장 칸 포함): 열 때·답장했을 때 여기까지 내린다
+  final _endKey = GlobalKey(); // 쪽지 판 전체(목록·답장 칸·판 아래 여백 포함): 열 때·답장했을 때 여기까지 내린다
 
   // id를 경로에 넣기 전에 인코딩한다: '?' 같은 글자가 섞여 다른 API로 바뀌는 것을 막는다
   String get _safeId => Uri.encodeComponent(widget.id);
@@ -158,20 +159,36 @@ class _ConversationPageState extends State<ConversationPage> {
                   ),
                 ),
               ),
-            if (conv.messages.isEmpty)
-              const PanelState(child: Text('아직 쪽지가 없습니다')),
-            // 서버가 최근 200통만 줬으면(hasMore) 목록 위에 안내
-            if (conv.hasMore)
-              const Padding(
-                padding: EdgeInsets.only(top: AppSizes.space4),
-                child: Text(
-                  messagesTruncated,
-                  key: ValueKey('msg-truncated'),
-                  style: TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.muted),
+            // 쪽지 목록(빈 문구·안내 포함)과 답장 칸은 흰 판 한 장 안에 둔다
+            // (판 밖이면 상대 말풍선 색이 바탕색과 거의 같아 묻힌다)
+            // 판 전체에 _endKey를 달아, 끝으로 내릴 때 판 아래 여백·테두리까지 화면에 들어오게 한다
+            KeyedSubtree(
+              key: _endKey,
+              child: Panel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (conv.messages.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: AppSizes.space4),
+                        child: Text('아직 쪽지가 없습니다'),
+                      ),
+                    // 서버가 최근 200통만 줬으면(hasMore) 목록 위에 안내
+                    if (conv.hasMore)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: AppSizes.space3),
+                        child: Text(
+                          messagesTruncated,
+                          key: ValueKey('msg-truncated'),
+                          style: TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.muted),
+                        ),
+                      ),
+                    _buildMessages(conv),
+                    _buildReply(conv, user),
+                  ],
                 ),
               ),
-            _buildMessages(conv),
-            Container(key: _endKey, child: _buildReply(conv, user)),
+            ),
           ],
           // 대화를 못 찾았을 때도 돌아갈 길이 있게 항상 보여 준다
           Padding(
@@ -189,61 +206,79 @@ class _ConversationPageState extends State<ConversationPage> {
     );
   }
 
-  // 머리: 상대 닉네임(제목)과 글 링크 (글이 지워졌으면 링크 없이 "삭제된 글" 표시와 제목)
+  // 머리: 왼쪽 이니셜 동그라미(36) + 오른쪽 상대 닉네임(제목)과 글 링크
+  // (글이 지워졌으면 링크 없이 "삭제된 글" 표시와 제목). 글 제목은 한 줄로 줄여 머리 높이가 제목 길이에 안 흔들린다
   Widget _buildHead(ConversationDetail conv) {
     final item = conv.item;
     return Panel(
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSizes.space1),
-            child: Semantics(
-              header: true,
-              headingLevel: 1,
-              child: Text(
-                conv.partner?.nickname ?? withdrawnPartner,
-                style: const TextStyle(
-                  fontSize: AppSizes.fsTitle,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.ink,
-                  height: 1.35,
-                ),
-              ),
-            ),
-          ),
-          if (item.id != null && !item.deleted)
-            AppLink(
-              label: item.title,
-              onTap: () => context.go('/market/${item.id}'),
-            )
-          else
-            Wrap(
-              spacing: AppSizes.space2,
-              crossAxisAlignment: WrapCrossAlignment.center,
+          // 탈퇴한 상대는 닉네임이 없어 빈 동그라미가 된다
+          SelectionContainer.disabled(child: InitialAvatar(nickname: conv.partner?.nickname)),
+          const SizedBox(width: AppSizes.space3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const MarketStatusBadge(code: 'DONE', name: '삭제된 글'),
-                Text(
-                  item.title,
-                  style: const TextStyle(
-                    fontSize: AppSizes.fsSmall,
-                    color: AppColors.muted,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSizes.space1),
+                  child: Semantics(
+                    header: true,
+                    headingLevel: 1,
+                    child: Text(
+                      conv.partner?.nickname ?? withdrawnPartner,
+                      style: const TextStyle(
+                        fontSize: AppSizes.fsTitle,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                        height: 1.35,
+                      ),
+                    ),
                   ),
                 ),
+                if (item.id != null && !item.deleted)
+                  AppLink(
+                    label: item.title,
+                    oneLine: true,
+                    onTap: () => context.go('/market/${item.id}'),
+                  )
+                else
+                  Row(
+                    children: [
+                      const MarketStatusBadge(code: 'DONE', name: '삭제된 글'),
+                      const SizedBox(width: AppSizes.space2),
+                      Flexible(
+                        child: Text(
+                          item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: AppSizes.fsSmall,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
+          ),
         ],
       ),
     );
   }
 
   // 말풍선 목록: 내 쪽지는 오른쪽(포인트 배경), 상대 쪽지는 왼쪽(hover 배경), 폭은 최대 85%
+  // 판 안쪽 폭 기준이라 LayoutBuilder의 폭이 곧 판 안쪽 폭이다. 쪽지가 없으면 아무것도 그리지 않는다
   Widget _buildMessages(ConversationDetail conv) {
+    if (conv.messages.isEmpty) return const SizedBox.shrink();
     return Semantics(
       container: true,
       label: '쪽지 목록',
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSizes.space4),
+        // 아래 16: 답장 칸과의 간격 (위는 판 안쪽 여백 16이 맡는다)
+        padding: const EdgeInsets.only(bottom: AppSizes.space4),
         child: LayoutBuilder(
           builder: (context, constraints) => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -270,25 +305,24 @@ class _ConversationPageState extends State<ConversationPage> {
       return const Notice(
         kind: NoticeKind.info,
         message: '상대가 탈퇴해 더 이상 쪽지를 보낼 수 없어요',
+        bottomMargin: 0, // 판 안쪽 여백이 아래를 맡는다
       );
     }
     if (u != null && u.verifiedSchool == null) {
       // 답장도 학교 인증 회원만 (서버 403). 로그인이 풀려 user가 null이 된 경우는 안내로 바꾸지 않는다
       // (쓰던 답장을 지우지 않으려고)
-      return Padding(
-        padding: const EdgeInsets.only(top: AppSizes.space1),
-        child: Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: AppSizes.space1,
-          children: [
-            const Text('유학생 인증 후 답장할 수 있어요'),
-            AppLink(label: '유학생 인증하기', onTap: () => context.go('/me')),
-          ],
-        ),
+      return Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: AppSizes.space1,
+        children: [
+          const Text('유학생 인증 후 답장할 수 있어요'),
+          AppLink(label: '유학생 인증하기', onTap: () => context.go('/me')),
+        ],
       );
     }
     return MessageComposer(
       key: ValueKey('reply-${conv.id}'),
+      insidePanel: true, // 판 안: 위 여백 없음, 아래는 판 안쪽 여백(16)과 맞춘다
       label: '답장 내용',
       placeholder: '답장을 입력하세요',
       submitLabel: '답장 보내기',
