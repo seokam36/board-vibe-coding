@@ -50,3 +50,7 @@ uploads/
 
 ### S18 bench run result (llm-bench-s18.mjs output) ###
 docs/bench-s18-run.json
+
+### S24: Firebase 서비스 계정 키(비밀 키가 들어 있는 JSON)가 실수로 커밋되지 않게 ###
+*firebase-adminsdk*.json
+fcm-service-account*.json

@@ -61,6 +61,8 @@ dependencies {
 	implementation 'software.amazon.awssdk:apache5-client'
 	// 로컬 Ollama를 부르는 Spring AI 모듈 (S17-b). 스타터 대신 자동 설정 없는 모듈만 써서, 타임아웃·재시도를 우리가 직접 정한다
 	implementation 'org.springframework.ai:spring-ai-ollama'
+	// FCM(푸시 알림) 발송용 (S24-b): 서비스 계정 키로 구글 액세스 토큰만 받는다. 발송은 RestClient로 HTTP v1을 직접 부르므로 firebase-admin은 쓰지 않는다.
+	implementation 'com.google.auth:google-auth-library-oauth2-http:1.58.0'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	// 테스트에서 csrf() 같은 보안 헬퍼를 쓰기 위한 Spring Security 테스트 지원
 	testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
