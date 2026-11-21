@@ -9,13 +9,15 @@ import '../errors/error_messages.dart';
 import '../market/models.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_link.dart';
+import '../widgets/panel.dart';
+import '../widgets/section_parts.dart';
 import 'message_composer.dart';
 
 // 거래완료 글 안내 (화면 안내와 서버 409 실패 문구가 같은 뜻이 되게 한 곳에 둔다)
 const _doneNotice = '거래가 완료된 글이라 새 대화를 시작할 수 없어요. 이미 나눈 대화는 쪽지함에서 이어 갈 수 있어요';
 
 // 중고 글 상세 아래의 "판매자에게 쪽지" 칸 (React의 SellerMessageBox).
-// 내 글이면 칸 자체를 그리지 않고, 보낼 수 없는 사람(비로그인·미인증·다른 학교·거래완료 글)에게는 입력칸 대신 이유 한 줄만 보여 준다.
+// 내 글이면 칸 자체를 그리지 않고, 보낼 수 없는 사람(비로그인·미인증·다른 학교·거래완료 글)에게는 입력칸 대신 판 안에 제목 + 이유 한 줄을 보여 준다.
 // 화면에서 막는 건 편의일 뿐, 진짜 보호는 서버의 403·409이다. 상세 화면이 key=글 id로 붙인다.
 class SellerMessageBox extends StatefulWidget {
   const SellerMessageBox({super.key, required this.item});
@@ -44,14 +46,20 @@ class _SellerMessageBoxState extends State<SellerMessageBox> {
 
   // 이유 한 줄: 글자 + (있으면) 링크
   Widget _hint(String text, {String? linkLabel, String? linkTo}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSizes.space4),
-      child: Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: AppSizes.space1,
+    // 판(Panel) 안에 제목 + 이유 한 줄. 판이 안쪽·아래 여백을 준다
+    return Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(text),
-          if (linkLabel != null) AppLink(label: linkLabel, onTap: () => context.go(linkTo!)),
+          const SectionHeading('판매자에게 쪽지'),
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: AppSizes.space1,
+            children: [
+              Text(text),
+              if (linkLabel != null) AppLink(label: linkLabel, onTap: () => context.go(linkTo!)),
+            ],
+          ),
         ],
       ),
     );
@@ -77,19 +85,12 @@ class _SellerMessageBoxState extends State<SellerMessageBox> {
     }
     if (hint != null && !_submitted) return hint;
 
-    return Padding(
-      padding: const EdgeInsets.only(top: AppSizes.space5, bottom: AppSizes.space4),
+    // 입력칸도 같은 판 안에 둔다 (제목은 SectionHeading)
+    return Panel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Semantics(
-            header: true,
-            headingLevel: 2,
-            child: const Text(
-              '판매자에게 쪽지',
-              style: TextStyle(fontSize: AppSizes.fsRow, fontWeight: FontWeight.w700, color: AppColors.ink),
-            ),
-          ),
+          const SectionHeading('판매자에게 쪽지'),
           MessageComposer(
             label: '쪽지 내용',
             placeholder: '${item.sellerNickname} 님에게 보낼 쪽지를 입력하세요',
@@ -103,6 +104,7 @@ class _SellerMessageBoxState extends State<SellerMessageBox> {
             fallbackError: ErrorMessages.messageSendFailed,
             send: _send,
             onSubmitStart: () => _submitted = true,
+            insidePanel: true, // 제목과 입력칸 사이 12, 판 아래 여백 16 (겹치는 여백 제거)
           ),
         ],
       ),

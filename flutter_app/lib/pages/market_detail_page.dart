@@ -14,6 +14,7 @@ import '../market/models.dart';
 import '../messages/seller_message_box.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_badge.dart';
+import '../widgets/author_head.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/loading.dart';
 import '../widgets/notice.dart';
@@ -224,10 +225,13 @@ class _MarketDetailPageState extends State<MarketDetailPage> {
           if (item != null) _buildArticle(item),
           // 버튼 표시 규칙(숨기는 건 편의일 뿐, 진짜 보호는 서버의 403):
           // 판매자 본인 = 상태 버튼(갈 수 있는 것만) + 수정(거래완료 아닐 때) + 삭제 / 관리자(남의 글) = 삭제만
-          if (item != null && user != null && (isMine || user.isAdmin))
+          // 신고는 로그인했고 내 글이 아니고 인증한 학교의 글일 때만 (글 상세와 같은 조건).
+          // 관리 버튼과 신고를 한 줄(Wrap) 하나로 둔다: 오른쪽 끝 정렬, 좁으면 줄바꿈
+          if (item != null && user != null && (isMine || user.isAdmin || canAct))
             Padding(
               padding: const EdgeInsets.only(bottom: AppSizes.space4),
               child: Wrap(
+                alignment: WrapAlignment.end,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 spacing: AppSizes.space2,
                 runSpacing: AppSizes.space2,
@@ -246,28 +250,21 @@ class _MarketDetailPageState extends State<MarketDetailPage> {
                       onPressed: locked ? null : () => context.go('/market/$_safeId/edit'),
                       child: const Text('수정'),
                     ),
-                  OutlinedButton(
-                    style: dangerSmallButtonStyle,
-                    onPressed: locked ? null : () => _delete(isMine: isMine),
-                    child: Text(_busy == _Busy.delete ? '삭제 중...' : '삭제'),
-                  ),
-                ],
-              ),
-            ),
-          // 신고는 로그인했고 내 글이 아니고 인증한 학교의 글일 때만 (글 상세와 같은 조건)
-          if (item != null && user != null && !isMine && canAct)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSizes.space4),
-              child: Wrap(
-                children: [
-                  ReportForm(
-                    url: '/market-items/$_safeId/reports',
-                    label: '중고 글',
-                    onNeedLogin: () => setState(() {
-                      _actionError = null;
-                      _needLogin = true; // 로그인 안내는 user 조건 밖에서 보여 준다
-                    }),
-                  ),
+                  if (isMine || user.isAdmin)
+                    OutlinedButton(
+                      style: dangerSmallButtonStyle,
+                      onPressed: locked ? null : () => _delete(isMine: isMine),
+                      child: Text(_busy == _Busy.delete ? '삭제 중...' : '삭제'),
+                    ),
+                  if (!isMine && canAct)
+                    ReportForm(
+                      url: '/market-items/$_safeId/reports',
+                      label: '중고 글',
+                      onNeedLogin: () => setState(() {
+                        _actionError = null;
+                        _needLogin = true; // 로그인 안내는 user 조건 밖에서 보여 준다
+                      }),
+                    ),
                 ],
               ),
             ),
@@ -276,7 +273,7 @@ class _MarketDetailPageState extends State<MarketDetailPage> {
           // 실패 안내는 버튼 영역 밖에 둔다(로그인이 풀려 버튼이 사라져도 안내가 남게)
           if (_actionError != null) Notice(kind: NoticeKind.error, message: _actionError!),
           if (_needLogin) const ReloginNotice(),
-          // 판매자에게 쪽지 칸 (내 글·보낼 수 없는 사람이면 이유 한 줄). key=글 id라 다른 글로 가면 새로 만들어진다
+          // 판매자에게 쪽지 칸 (내 글이면 칸 없음, 보낼 수 없는 사람이면 제목 + 이유 한 줄). key=글 id라 다른 글로 가면 새로 만들어진다
           if (item != null) SellerMessageBox(key: ValueKey(item.id), item: item),
           Align(
             alignment: Alignment.centerLeft,
@@ -292,7 +289,6 @@ class _MarketDetailPageState extends State<MarketDetailPage> {
 
   // 글 본문 판. 드래그로 글자를 고를 수 있게 SelectionArea로 감싼다
   Widget _buildArticle(MarketItem item) {
-    const metaStyle = TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.muted, height: 1.65);
     final photos = item.photos;
     // 고른 번호가 사진 수를 넘으면(상태 변경 응답에서 사진이 줄었을 때) 마지막 사진으로 맞춘다
     final photoIndex = photos.isEmpty ? 0 : _selectedPhoto.clamp(0, photos.length - 1);
@@ -301,18 +297,17 @@ class _MarketDetailPageState extends State<MarketDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 상태와 학교
-            Wrap(
-              spacing: AppSizes.space2,
-              runSpacing: AppSizes.space2,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
+            // 머리: 이니셜 + 판매자 닉네임 + 상태·학교 뱃지, 아래에 시각 (게시판 글 보기와 같은 부품)
+            AuthorHead(
+              nickname: item.sellerNickname,
+              time: formatDate(item.createdAt),
+              badges: [
                 MarketStatusBadge(code: item.status.code, name: item.status.name),
                 AppBadge(text: item.school.name, school: true),
               ],
             ),
             Padding(
-              padding: const EdgeInsets.only(top: AppSizes.space2, bottom: AppSizes.space2),
+              padding: const EdgeInsets.only(top: AppSizes.space3, bottom: AppSizes.space1),
               child: Semantics(
                 header: true,
                 headingLevel: 1,
@@ -327,18 +322,14 @@ class _MarketDetailPageState extends State<MarketDetailPage> {
                 ),
               ),
             ),
-            Wrap(
-              spacing: AppSizes.space3,
-              children: [
-                Text(item.sellerNickname, style: metaStyle),
-                Text(formatDate(item.createdAt), style: metaStyle),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: AppSizes.space3),
-              child: Text(
-                formatPrice(item.tradeType.code, item.price),
-                style: const TextStyle(fontWeight: FontWeight.w700, height: 1.65), // React의 .market-price: 굵게
+            // 가격: 제목 바로 아래, 17·굵게
+            Text(
+              formatPrice(item.tradeType.code, item.price),
+              style: const TextStyle(
+                fontSize: AppSizes.fsRow,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+                height: 1.5,
               ),
             ),
             // 사진: 1장 이상일 때만 영역을 그린다

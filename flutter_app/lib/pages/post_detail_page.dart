@@ -10,9 +10,9 @@ import '../errors/error_messages.dart';
 import '../posts/models.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_badge.dart';
+import '../widgets/author_head.dart';
 import '../widgets/comment_section.dart';
 import '../widgets/confirm_dialog.dart';
-import '../widgets/initial_avatar.dart';
 import '../widgets/like_button.dart';
 import '../widgets/loading.dart';
 import '../widgets/notice.dart';
@@ -200,45 +200,19 @@ class _PostDetailPageState extends State<PostDetailPage> {
 
   // 글 본문 판. 드래그로 글자를 고를 수 있게 SelectionArea로 감싼다(React 화면은 원래 선택된다)
   Widget _buildArticle(Post post) {
-    const metaStyle = TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.muted, height: 1.65);
     return Panel(
       child: SelectionArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // 글 머리: 이니셜 + (닉네임 굵게, 말머리·학교 뱃지) 아래에 시각. 글 목록 줄과 같은 말투
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 드래그 복사에 이니셜이 섞이지 않게 선택에서 뺀다
-                SelectionContainer.disabled(child: InitialAvatar(nickname: post.author?.nickname)),
-                const SizedBox(width: AppSizes.space2),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Wrap(
-                        spacing: AppSizes.space2,
-                        runSpacing: AppSizes.space1,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text(
-                            post.author?.nickname ?? '(작성자 없음)',
-                            style: const TextStyle(
-                              fontSize: AppSizes.fsBody,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.ink,
-                            ),
-                          ),
-                          // 말머리와 학교 (학교 없는 글은 "학교 미지정")
-                          CategoryBadge(code: post.category.code, name: post.category.name),
-                          AppBadge(text: post.school?.name ?? '학교 미지정', school: true),
-                        ],
-                      ),
-                      Text(formatDate(post.createdAt), style: metaStyle),
-                    ],
-                  ),
-                ),
+            AuthorHead(
+              nickname: post.author?.nickname,
+              time: formatDate(post.createdAt),
+              // 말머리와 학교 (학교 없는 글은 "학교 미지정")
+              badges: [
+                CategoryBadge(code: post.category.code, name: post.category.name),
+                AppBadge(text: post.school?.name ?? '학교 미지정', school: true),
               ],
             ),
             Padding(

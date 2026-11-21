@@ -21,6 +21,7 @@ class MessageComposer extends StatefulWidget {
     required this.fallbackError,
     required this.send,
     this.onSubmitStart,
+    this.insidePanel = false,
   });
 
   final String label; // 입력칸의 접근성 이름
@@ -31,6 +32,9 @@ class MessageComposer extends StatefulWidget {
   final Future<void> Function(String content) send;
   // 보내기를 누른 순간(요청 직전) 부모에게 알린다. 부모는 "로그인이 풀려도 이 칸을 없애지 않는다"고 기억한다
   final VoidCallback? onSubmitStart;
+  // 판(Panel) 안에서 제목 바로 아래에 놓일 때 true: 판이 위·아래 여백을 주므로 위 여백(제목 아래 12와 겹침)과 아래 여백을 뺀다.
+  // 기본(false)은 쪽지 대화 화면처럼 단독으로 쓸 때의 기존 모양 그대로
+  final bool insidePanel;
 
   @override
   State<MessageComposer> createState() => _MessageComposerState();
@@ -94,7 +98,7 @@ class _MessageComposerState extends State<MessageComposer> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: AppSizes.space3),
+      padding: EdgeInsets.only(top: widget.insidePanel ? 0 : AppSizes.space3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -117,7 +121,11 @@ class _MessageComposerState extends State<MessageComposer> {
           ),
           // 아래줄: 글자 수(왼쪽)와 보내기 버튼(오른쪽)
           Padding(
-            padding: const EdgeInsets.only(top: AppSizes.space2, bottom: AppSizes.space3),
+            // 판 안이면 아래 여백은 판(16)만 남겨 위쪽(16)과 맞춘다. 실패 안내가 아래에 붙을 때만 12를 둔다
+            padding: EdgeInsets.only(
+              top: AppSizes.space2,
+              bottom: (widget.insidePanel && _error == null && !_needLogin) ? 0 : AppSizes.space3,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
