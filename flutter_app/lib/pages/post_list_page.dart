@@ -1,4 +1,3 @@
-import 'package:flutter/semantics.dart' show OrdinalSortKey;
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
@@ -10,11 +9,14 @@ import '../errors/error_messages.dart';
 import '../posts/models.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_badge.dart';
+import '../widgets/feed_row.dart';
 import '../widgets/initial_avatar.dart';
 import '../widgets/loading.dart';
 import '../widgets/notice.dart';
 import '../widgets/page_frame.dart';
+import '../widgets/panel.dart';
 import '../widgets/select_field.dart';
+import '../widgets/write_fab.dart';
 
 // 글 목록 400(조건이 잘못됨) 문구. 다른 화면과 겹치지 않는 이 화면만의 글자라 여기에 둔다
 const _badFilterMessage = '잘못된 조건입니다. 학교와 말머리를 다시 골라 주세요';
@@ -192,14 +194,12 @@ class _PostListPageState extends State<PostListPage> {
         ),
     ];
 
-    // 글쓰기 연필 버튼은 스크롤과 상관없이 화면(탭 막대 바로 위) 오른쪽 아래에 떠 있어야 해서,
-    // 스크롤되는 본문(PageFrame) 위에 Stack으로 겹친다 (페이지 안에는 Scaffold를 만들 수 없다)
-    return Stack(
-      children: [
-        Semantics(
-          container: true,
-          sortKey: const OrdinalSortKey(1), // 연필 버튼(0) 다음에 본문
-          child: PageFrame(
+    // 글쓰기 연필 버튼은 스크롤과 상관없이 화면 오른쪽 아래에 떠 있어야 해서 WriteFabLayout이 본문 위에 겹쳐 준다.
+    // 비로그인이면 로그인 화면으로 보낸다
+    return WriteFabLayout(
+      tooltip: '글쓰기',
+      onPressed: () => context.go(user != null ? '/posts/new' : '/login'),
+      child: PageFrame(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -274,16 +274,8 @@ class _PostListPageState extends State<PostListPage> {
                 // (불투명한 Container가 위에 있으면 눌림 표시가 가려진다).
                 // 아래 여백은 연필 버튼에 마지막 줄이 가리지 않게 넉넉히 둔다
                 Padding(
-                  padding: const EdgeInsets.only(bottom: _fabSpace),
-                  child: Material(
-                    color: AppColors.paper,
-                    clipBehavior: Clip.hardEdge,
-                    shape: RoundedRectangleBorder(
-                      side: const BorderSide(color: AppColors.line),
-                      borderRadius: BorderRadius.circular(AppSizes.radiusPanel),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                  padding: const EdgeInsets.only(bottom: writeFabSpace),
+                  child: FeedPanel(
                       children: [
                         if (loading) const Loading(),
                         if (error != null)
@@ -311,57 +303,13 @@ class _PostListPageState extends State<PostListPage> {
                           ),
                       ],
                     ),
-                  ),
                 ),
               ],
             ),
           ),
-        ),
-        // 글쓰기 연필 버튼: 본문 기둥(720) 오른쪽 끝에 맞춰 오른쪽 아래에 띄운다.
-        // 비로그인이면 로그인 화면으로 보낸다
-        Positioned.fill(
-          child: Align(
-            alignment: Alignment.bottomCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: AppSizes.pageMaxWidth,
-              ),
-              child: Align(
-                alignment: Alignment.bottomRight,
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSizes.space4),
-                  // 스크린리더 읽는 순서: 연필 버튼을 목록(1)보다 먼저(0) 읽게 한다 (OrdinalSortKey는 키보드 Tab 순서는 바꾸지 않는다)
-                  child: Semantics(
-                    container: true,
-                    sortKey: const OrdinalSortKey(0),
-                    child: FloatingActionButton(
-                      heroTag: null,
-                      shape: const CircleBorder(), // 기본은 둥근 네모라 동그라미로 지정
-                      tooltip: '글쓰기',
-                      elevation: 0,
-                      focusElevation: 0,
-                      hoverElevation: 0,
-                      highlightElevation: 0,
-                      backgroundColor:
-                          AppColors.highlight, // 노랑은 바탕으로만, 위의 아이콘은 ink
-                      foregroundColor: AppColors.ink,
-                      onPressed: () =>
-                          context.go(user != null ? '/posts/new' : '/login'),
-                      child: const Icon(Icons.edit_outlined),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
-
-// 목록 아래에 비워 두는 자리: 연필 버튼(56) + 버튼 바깥 여백(16) + 여유(16)
-const _fabSpace = 88.0;
 
 // 말머리 칩 한 개. 고른 칩은 ink 바탕 + 흰 글자 + 체크, 안 고른 칩은 흰 바탕 + line 테두리 + ink 글자.
 // 색만으로 구분하지 않도록 고른 칩에는 체크 아이콘이 붙고, 스크린리더에는 selected로 알린다.
@@ -451,8 +399,7 @@ class _PostRow extends StatelessWidget {
     // 줄 하나를 링크 하나로 읽게, 읽을 말을 직접 정해 준다 (순서: 제목, 닉네임, 말머리, 학교, 댓글, 공감, 시각).
     // 안쪽 글자는 excludeSemantics로 빼고, 스크린리더로 누를 수 있게 onTap을 여기에 같이 준다.
     void goPost() => context.go('/posts/${post.id}');
-    return Semantics(
-        link: true,
+    return FeedRow(
         label: [
           post.title,
           nickname ?? '(작성자 없음)',
@@ -462,25 +409,9 @@ class _PostRow extends StatelessWidget {
           '공감 ${post.likeCount}',
           formatDate(post.createdAt),
         ].join(', '),
-        excludeSemantics: true,
         onTap: goPost,
-        child: InkWell(
-          onTap: goPost,
-          hoverColor: AppColors.hover, // 올리거나 누르면 조용히 hover 바탕
-          splashColor: AppColors.hover,
-          highlightColor: AppColors.hover,
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 48), // 눌리는 높이
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSizes.space4,
-              vertical: AppSizes.space3,
-            ),
-            decoration: BoxDecoration(
-              border: first
-                  ? null
-                  : const Border(top: BorderSide(color: AppColors.line)),
-            ),
-            child: Row(
+        first: first,
+        child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 InitialAvatar(nickname: nickname),
@@ -551,8 +482,6 @@ class _PostRow extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-          ),
         ),
     );
   }

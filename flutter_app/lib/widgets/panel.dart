@@ -45,6 +45,31 @@ class FlushPanel extends StatelessWidget {
   }
 }
 
+// 피드형 목록 판: FlushPanel처럼 줄이 테두리까지 닿지만, Container가 아니라 Material이다.
+// 줄을 눌렀을 때 hover 색이 보이게 하려는 것 (불투명한 Container가 위에 있으면 눌림 표시가 가려진다).
+// 게시판·비자 후기·중고 목록에서 쓴다. 바깥 여백은 없다(아래 여백은 쓰는 쪽에서 준다).
+class FeedPanel extends StatelessWidget {
+  const FeedPanel({super.key, required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.paper,
+      clipBehavior: Clip.hardEdge,
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: AppColors.line),
+        borderRadius: BorderRadius.circular(AppSizes.radiusPanel),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
+      ),
+    );
+  }
+}
+
 // 판 안의 상태 문구(빈 목록·에러 등) 자리 (React의 .panel-state): 안쪽 여백 16
 class PanelState extends StatelessWidget {
   const PanelState({super.key, required this.child});
