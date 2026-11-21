@@ -3,11 +3,15 @@
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 자세한 결정·기록은 docs/backlog.md(각 S번호 항목 + "끝난 일" 표), 배포는 docs/deploy.md, API는 docs/api.md.
 
-마지막 갱신: 2026-11-20 밤, 집 PC(영문 사용자 폴더 C:\Users\seoka) (**S23 안드로이드 앱 끝·운영 배포(이미지 fe3871c)**)
+마지막 갱신: 2026-11-21 오후, 집 PC(영문 사용자 폴더 C:\Users\seoka) (**S24 비자 일정 푸시 알림 끝·운영 배포(이미지 eebac61)·운영 알림 도착 확인**)
 
 ## 지금 어디까지
-- **S0~S14 + UI1~UI3 + S16~S18 + S20 + S21 + S22 + S23 완료·배포됨.** 운영 주소 **`https://kampus.<도메인>`**(Cloudflare에서 산 도메인, 실제 이름은 사용자가 앎 — 저장소·메모에 안 씀). 운영 vision·gemini 켜짐. 마지막 운영 배포 2026-11-20 커밋 fe3871c(직전 S22 bd6c70b).
+- **S0~S14 + UI1~UI3 + S16~S18 + S20 + S21 + S22 + S23 + S24 완료·배포됨.** 운영 주소 **`https://kampus.<도메인>`**(Cloudflare에서 산 도메인, 실제 이름은 사용자가 앎 — 저장소·메모에 안 씀). 운영 vision·gemini·**push(fcm)** 켜짐. 마지막 운영 배포 2026-11-21 커밋 eebac61(직전 S23 fe3871c).
 - **방향(2026-11-16)**: "외국인 유학생 통합 에타", 유학생만 글쓰기(표준입학허가서 인증).
+- **S24(비자 일정 푸시 알림, FCM)** 끝(2026-11-21, 결정·한계는 backlog S24 항목과 그 아래 줄들):
+  - 서버: V16 device_tokens(회원당 10, 비밀번호 변경 때 삭제, PUT/DELETE /users/me/device-tokens), FcmPushSender(google-auth-library로 출입증만, HTTP v1 직접, PUSH_MODE off/fcm, 결과 SENT/TOKEN_INVALID/REJECTED/FAILED), VisaPushJob(켜지고 5분 뒤 + 1시간마다, 서울 9~21시, 단계 들어갈 때 1회, V17 보낸 기록, 쓰기 잠금은 회원 행 먼저).
+  - 앱: lib/push/(app_push 3개 묶음, push_registrar, push_permission_panel). 팝업은 비자 일정 화면 [알림 켜기]에서만, 앱이 화면에 떠 있으면 알림 표시 안 함. google-services.json은 커밋 안 함(아래 주의).
+  - 운영 확인 끝: V16·V17 적용, "푸시 fcm 켜짐", 테스트 계정 wntjrdka로 알림 도착, 로그아웃하면 토큰 0(DELETE 본문이 nginx 통과). 사용자 폰에 새 릴리스 APK(운영용) 설치됨.
 - **S23(안드로이드 앱)** 끝(2026-11-20, 결정·나중 메모는 backlog S23 항목):
   - 같은 Flutter 코드로 앱. 앱 전용 부품은 전부 조건부 import 3개 묶음(입구·stub·io) + `main.dart` 앱(비웹) 갈래에서 바꿔 끼움: `lib/api/app_cookies*.dart`(PersistCookieJar + CookieManager + XSRF 옮기기, ApiClient `extraInterceptors`), `lib/common/app_external_link*.dart`(url_launcher), `lib/common/app_photo_picker*.dart`(image_picker, 최대 10장, 맨 앞 바이트로 종류, 임시 사본 finally 삭제), `lib/common/app_history.dart`(뒤로 가기 방문 기록, AppShell PopScope, BoardApp `enableAppBack`).
   - 404는 ShellRoute 안 catch-all `/:rest(.*)`(errorPageBuilder는 안전망). AndroidManifest: allowBackup=false + data_extraction_rules, enableOnBackInvokedCallback.
@@ -20,11 +24,11 @@
   - 저장소 Variables `SITE_DOMAIN` 등록 → Deploy가 https 헬스체크도 함(도메인 이름을 잊으면 여기서 확인).
   - Cloudflare: 도메인 자동 갱신(만료 2027-11-19), DNS A `kampus` 프록시 끔·TTL 1분, API 토큰 `kampus-ddns`(그 영역 DNS 편집만, 만료 없음). 인증서 만료 2027-02-17(자동 갱신, 이메일 등록 안 함).
 - **S21(유학생 인증 보강)** 끝: 관리자 인증 취소·취소 번호 자동 승인 막기·Vision 하루 상한 30. 알려진 한계: 탈퇴→재가입으로 취소 번호 우회, 허가서 번호 전국 유일 여부 미확인(backlog S21).
-- 테스트: 백엔드 2001개(건너뜀 13), Flutter 1584개, e2e 15개 통과. DB는 **V17까지**(S24-c).
-- Notion: S23 카드(📱 휴대폰 앱) + 페이지 5장(앱 설정 정리 a~c, d1, d2, e, f)·상위 페이지 진행 현황 S23 체크·아키텍처 표 S23 줄 끝. **notion-guide 규칙 바뀜(2026-11-20): 프론트 단계도 "프론트 단계 페이지 틀"로 가볍게 씀.** S21 🧭 파트 전체 정리는 아직.
+- 테스트: 백엔드 2001개(건너뜀 13), Flutter 1635개, e2e 16개 통과. DB는 **V17까지**(S24-c).
+- Notion: S24 카드(🔔 비자 일정 푸시 알림) + 단계 페이지 a~f + 도구 사전 "Firebase · FCM". S23 카드(📱 휴대폰 앱) + 페이지 5장(앱 설정 정리 a~c, d1, d2, e, f)·상위 페이지 진행 현황 S23 체크·아키텍처 표 S23 줄 끝. **notion-guide 규칙 바뀜(2026-11-20): 프론트 단계도 "프론트 단계 페이지 틀"로 가볍게 씀.** S21 🧭 파트 전체 정리는 아직.
 
 ## 다음에 할 일
-- **바로 다음: S24 비자 일정 푸시 알림(FCM)** — CLAUDE.md 흐름대로 backlog S24 항목 확인 → research(FCM·Firebase 프로젝트·서버 발송 방식) → planner. 알림 받을 앱(S23)이 이제 있음.
+- **바로 다음: 사용자가 정하기**(backlog의 보류·나중 항목: S25 로그인 평범한 코드(보류), S19 챗봇 일반 답변, 욕설·스팸 검사, 챗봇 뜻 검색 등). S24 "나중"(웹 푸시·iOS·끄기 스위치·포그라운드 표시·알림 눌러 /visa-plan 이동 등)은 backlog S24 줄에.
 - (선택) S23 🧭 파트 전체 정리·파트 전체 리뷰: 서버 코드가 안 바뀐 앱 파트라 할지 말지 사용자가 정하기로 함.
 - 미뤄 둔 정리(운영): 되돌릴 일 없으면 서버 `~/board/docker-compose.yml.bak-s21`·`.bak-s22` 정리. S18로 되돌릴 일 없으면 `~/board/.env.bak-s20` 삭제, `.env`의 MAIL_* 6줄 삭제, **Gmail 앱 비밀번호 폐기**, deploy.md 메일 절 삭제, backlog S20 체크·Notion 진행 현황 S20 체크.
 - 작은 일: **집 PC 로컬 `.env`의 `VISION_API_KEY` 줄 삭제**(키는 이미 폐기), 자동 승인 시험 계정 정리, Notion S21 🧭 파트 전체 정리, (선택) 구글 503 빈도, 운영 테스트 중고 글 정리. 사용자 폰 "자동 차단" 다시 켜기(2026-11-20 S23 끝에 안내함).
@@ -32,7 +36,7 @@
 ## 진행 중인 단계
 - 없음. 진행 중인 에이전트 없음.
 - 커밋 안 된 변경: `.claude/launch.json`(일부러 커밋 안 함). push 안 된 커밋 없음.
-- 운영 서버 메모: `~/board/.env`(권한 600)에 `PHOTO_S3_BUCKET`·`LLM_MODE=gemini`·`GEMINI_API_KEY`·MAIL_*(되돌리기용)·**`PERMIT_HASH_SECRET`(64자, 절대 바꾸지 않음, 사용자가 서버 밖에도 보관)**·`PERMIT_OCR_MODE=vision`·`VISION_API_KEY`·**`COOKIE_SECURE=true`·`CF_API_TOKEN`·`CF_ZONE_ID`·`CF_RECORD_NAME`**. 서버 파일: `~/board/cloudflare-ddns.sh`(700), `~/board/certbot/conf`(인증서, root 700)·`www`, 로그 `~/board/ddns.log`·`~/board/certbot/renew.log`. 백업: `docker-compose.yml.bak-s20`(S18)·`.bak-s21`(S20)·`.bak-s22`(S21), `.env.bak-s20`. IMDS 홉 제한 2·IMDSv2 필수·역할 `board-ec2-role`. vision 끄기 = `.env` `PERMIT_OCR_MODE=off` 후 `up -d app`. **되돌리기 = deploy.md "S23 되돌리기"(web만 bd6c70b로 고정)/"S22 되돌리기"/"S21 되돌리기"**.
+- 운영 서버 메모: `~/board/.env`(권한 600)에 `PHOTO_S3_BUCKET`·`LLM_MODE=gemini`·`GEMINI_API_KEY`·MAIL_*(되돌리기용)·**`PERMIT_HASH_SECRET`(64자, 절대 바꾸지 않음, 사용자가 서버 밖에도 보관)**·`PERMIT_OCR_MODE=vision`·`VISION_API_KEY`·**`COOKIE_SECURE=true`·`CF_API_TOKEN`·`CF_ZONE_ID`·`CF_RECORD_NAME`**. 서버 파일: `~/board/cloudflare-ddns.sh`(700), `~/board/certbot/conf`(인증서, root 700)·`www`, 로그 `~/board/ddns.log`·`~/board/certbot/renew.log`. **S24: `.env`에 `PUSH_MODE=fcm`, 서비스 계정 키 `~/board/fcm/service-account.json`(주인 100:101 = 컨테이너 app 사용자, 폴더 700·파일 400, sudo로만 보임), compose가 `./fcm`을 `/app/fcm`에 읽기 전용 마운트.** 푸시 끄기 = `.env` `PUSH_MODE=off` 후 `up -d app`. 백업: `docker-compose.yml.bak-s20`(S18)·`.bak-s21`(S20)·`.bak-s22`(S21)·`.bak-s24`(S23), `.env.bak-s20`. IMDS 홉 제한 2·IMDSv2 필수·역할 `board-ec2-role`. vision 끄기 = `.env` `PERMIT_OCR_MODE=off` 후 `up -d app`. **되돌리기 = deploy.md "S24 되돌리기"/"S23 되돌리기"(web만 bd6c70b로 고정)/"S22 되돌리기"/"S21 되돌리기"**.
 - 선택 정리: EC2 콘솔 옛 `demo-key` 삭제, IAM 옛 키 태그 삭제, 노트북 `~/.ssh/deploy-actions` 개인키 삭제.
 
 ## 주의할 점
@@ -46,7 +50,7 @@
 - **안드로이드 빌드에는 `flutter_app/android/app/google-services.json`이 필요하다**(S24-d, Firebase 콘솔 프로젝트 `kampus`의 안드로이드 앱 com.kampus.board에서 받은 명찰 파일). 비밀은 아니지만 안의 API 키가 커밋 전 비밀 검사에 걸려서 **커밋하지 않는다**(.gitignore). 사용자가 저장소 밖에 사본을 둠. 없으면 `flutter run`/`flutter build apk`가 "File google-services.json is missing"으로 실패한다(웹 빌드·flutter test·CI는 무관). 노트북에서 앱을 빌드하려면 사본을 복사하거나 콘솔에서 다시 받는다.
 - **로컬 푸시 실기기 시험(S24-e, 2026-11-21 성공)**: 서비스 계정 키는 집 PC `C:\Users\seoka\Documents\` 안의 `...-firebase-adminsdk-....json`(저장소 밖). 백엔드를 `PUSH_MODE=fcm`, `FCM_CREDENTIALS_FILE=<그 경로>`, 시험용 `APP_PUSH_VISA_INITIAL_DELAY=PT20S APP_PUSH_VISA_INTERVAL=PT1M APP_PUSH_VISA_WINDOW_START_HOUR=0 APP_PUSH_VISA_WINDOW_END_HOUR=24`(+ `APP_COOKIE_REFRESH_PATH=/auth`, 임시 `PERMIT_HASH_SECRET`)로 띄우고, 앱에서 [알림 켜기] 허용 뒤 **앱을 홈으로 보내야** 알림이 보인다(앱이 떠 있으면 표시 안 함). 다시 보내려면 로컬 DB `visa_plan_notifications`에서 그 회원 행을 지운다. 로컬 시험 계정 `seokam`(유학생 인증됨, 로컬 전용).
 - **로컬 DB 연결 20개 제한**: compose의 `max_connections=20`이라, 같은 board-postgres를 쓰는 다른 앱(사용자 IntelliJ의 login-practice가 `login_practice` DB로 10개)과 게시판 백엔드(기본 10개)가 같이 뜨면 꽉 차서 psql이 "too many clients"로 거절된다. 그럴 땐 게시판 백엔드를 `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=5`로 띄운다. 8080을 login-practice가 쓰고 있으면 게시판은 `SERVER_PORT=8081` + `adb reverse tcp:8081 tcp:8081` + 앱 `API_BASE_URL=http://localhost:8081`.
-- **사용자 폰의 "게시판" 앱은 지금 로컬(8081)용 디버그 앱이다**(2026-11-21 S24-e 시험 때 덮어씀). 운영용으로 쓰려면 S24-f에서 새 릴리스 APK를 다시 설치해야 한다. 앱 이름은 "게시판"(kampus는 Firebase 프로젝트 이름).
+- 사용자 폰의 "게시판" 앱은 S24-f 릴리스 APK(운영용, 2026-11-21)다. 로컬 시험용 디버그 앱을 깔면 덮어써지니 시험 뒤엔 릴리스를 다시 깐다. 앱 이름은 "게시판"(kampus는 Firebase 프로젝트 이름). ssh 키(`board-ec2`)에는 비밀번호가 있어서 메인 대화(Claude)가 ssh를 직접 돌리면 입력 대기로 멈춘다 → 서버 명령은 사용자가 친다.
 - **실기기(갤럭시) 개발**: 삼성 "자동 차단"(설정 → 보안 및 개인정보 보호)이 켜져 있으면 USB 디버깅 스위치가 회색으로 잠김 → 끄고 켜기(개발 끝나면 다시 켜기). 사용자 USB(어댑터)가 자주 끊기고, 끊기면 `adb reverse` 터널도 사라져 앱이 "서버에 연결할 수 없음" → 다시 꽂으면 터널 재설정(뒤에서 3초마다 `reverse --list` 확인해 다시 잇는 루프를 돌려 두면 편함, 끝나면 끄기). PC가 폰을 "모뎀"으로만 보면 USB 테더링 끄기·기본 USB 설정 "파일 전송". 설치 직후 첫 요청이 `Failed host lookup: 'localhost'`로 한 번 실패한 적 있음(일시적, 껐다 켜면 됨).
 - **로컬 앱 시험 백엔드**: `PERMIT_HASH_SECRET`이 이 PC `.env`에 없어 `export PERMIT_HASH_SECRET="$(openssl rand -base64 48)"`로 임시값, 앱 로그인 시험이면 `APP_COOKIE_REFRESH_PATH=/auth`도(CLAUDE.md). `flutter run`을 입력 없이 뒤에서 돌리면 설치·실행 뒤 분리돼 핫 리로드 없음(고치면 다시 `flutter run`). 로컬 DB 계정 `fjfjd`는 2026-11-20 SQL로 연세대 유학생 인증 처리됨(로컬 전용).
 - **세션을 폴더 없이 시작했다가 프로젝트로 옮겨 오면 서브에이전트 쓰기 훅(`scripts/allow-only.sh`)이 tester의 `src/test/` 쓰기를 막는다**(2026-11-18, 추정·미확인). 훅을 고쳐 우회하지 말 것.

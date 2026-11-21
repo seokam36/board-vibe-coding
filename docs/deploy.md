@@ -4,7 +4,7 @@
 화면과 API 주소가 같아서 CORS 허용 목록(`CORS_ALLOWED_ORIGINS`)은 EC2 `.env`에 넣지 않아도 됩니다. 단 https 전환(S22) 뒤에도 같은 출처로 인정받으려면 compose app의 `SERVER_FORWARD_HEADERS_STRATEGY: native`(nginx가 넘긴 `X-Forwarded-Proto`를 믿게 함)가 있어야 합니다. 없으면 쓰기 요청이 403(`Invalid CORS request`)입니다.
 
 > **주의 (S22 이후)**: web 이미지에는 443(https) 블록이 있어 서버에 인증서(`~/board/certbot/conf/live/board/`)가 있어야 nginx가 뜹니다. 운영 서버는 2026-11-19에 발급을 마쳐 Deploy 버튼을 평소처럼 써도 됩니다. **서버를 새로 만들거나 `~/board/certbot`을 지웠다면** Deploy 전에 아래 "S22 HTTPS 전환"의 인증서 첫 발급부터 다시 합니다(안 그러면 사이트 전체가 내려감).
-> 직전(S22) app·web 이미지: `seokam36/demo:bd6c70b5c3e15762a396403beab491f59811325c`, `seokam36/demo-web:bd6c70b5c3e15762a396403beab491f59811325c` — 되돌리기는 아래 "S23 운영 배포 (2026-11-20)"의 "S23 되돌리기".
+> 지금 운영(S24, 2026-11-21) 이미지는 `eebac61`. 직전(S23) app·web 이미지: `seokam36/demo:fe3871c95db20febb3eeb374e84d7e366909f318`, `seokam36/demo-web:fe3871c95db20febb3eeb374e84d7e366909f318` — 되돌리기는 아래 "S24 되돌리기"(푸시만 끄기가 먼저).
 
 ## 자동 배포 (GitHub Actions 버튼)
 이미지는 main에 push하면 CI가 Docker Hub에 올려 둡니다(`latest`). 배포는 아래처럼 버튼으로 합니다.
@@ -733,7 +733,7 @@ S24(비자 만료 전 휴대폰 알림)를 운영에 올립니다. 서버가 구
 
 ### 운영 알림 시험 (테스트 계정으로 1회)
 운영 테스트 계정(`wntjrdka`, 연세대 인증)으로 확인합니다. 계정의 [인증 해제]는 누르지 않습니다. **운영 DB에서 알림 기록(`visa_plan_notifications`)을 지우는 조작은 하지 않습니다**(로컬 시험과 달리 진짜 데이터라서). 알림은 계정당 한 번만 가므로 시험은 한 번만 하고, 안 와도 기록을 지우지 말고 원인을 먼저 찾습니다.
-1. **[브라우저/앱]** 시험 시간은 **서울 09~21시** 안이어야 합니다(밖이면 알림이 안 갑니다). 앱이 켜지고 5분 뒤 + 매 정시 주기에 돌아서, 최대 약 1시간(+5분) 안에 옵니다.
+1. **[브라우저/앱]** 시험 시간은 **서울 09~21시** 안이어야 합니다(밖이면 알림이 안 갑니다). 앱이 켜지고 5분 뒤 한 번, 그 뒤로는 앞 회차가 끝나고 1시간 뒤마다(정시가 아님) 돌아서, 최대 약 1시간(+5분) 안에 옵니다. 빨리 보려면 `docker compose --profile prod up -d --force-recreate app`으로 앱만 재시작하면 5분 뒤 회차가 새로 시작됩니다(재시작 20~30초 동안 사이트 안 열림).
 2. **[앱]** 운영용 릴리스 앱(아래 "앱 다시 설치")으로 테스트 계정 로그인 -> 비자 일정 화면에서 **만료일을 오늘부터 7일 뒤**로 저장합니다.
 3. **[앱]** 비자 일정 화면의 "휴대폰 알림" 칸에서 **[알림 켜기]** -> 폰의 알림 권한 팝업에서 허용. 확인(**[서버]**, 토큰 값은 출력하지 않고 개수만): `docker exec board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT count(*) FROM device_tokens;"'` 가 1 이상.
 4. **[앱]** 앱을 **홈 버튼으로 내려 둡니다**(앱이 화면에 떠 있으면 알림이 표시되지 않습니다. 앱을 완전히 닫아도 됩니다). 다음 정시 주기를 기다립니다.
@@ -757,7 +757,7 @@ S24(비자 만료 전 휴대폰 알림)를 운영에 올립니다. 서버가 구
   5. **[서버]** `docker compose --profile prod pull app web && docker compose --profile prod up -d app web` 후 `https://<사이트주소>/actuator/health` 가 UP이고 글 목록이 뜨는지 봅니다.
 - **DB(V16·V17)는 되돌리지 않습니다.** 표 `device_tokens`·`visa_plan_notifications`가 남아도 옛 앱은 문제없이 뜹니다. 옛 앱에는 그 표의 엔티티가 없어서 시작 때 표 구조 검사(validate) 대상이 아니기 때문입니다(Flyway 기록 17은 옛 앱이 몰라도 무시되는 새 항목일 뿐). 다시 올릴 때도 표가 이미 있어 그대로 이어집니다.
 - **주의**: 위 "(a) 이전 이미지로 되돌리기"의 주의 박스와 같습니다. 이미지를 SHA로 고정해 두면 **다음 Deploy도 옛 이미지를 받습니다.** 고친 새 `latest`가 올라온 뒤(Actions 초록) `cp docker-compose.yml.bak-s24-new docker-compose.yml` 로 되돌리고 `grep 'image: seokam36' docker-compose.yml` 로 두 줄이 `:latest`인지 확인한 다음 Deploy를 누릅니다.
-- **앱(APK)**: 서버와 따로입니다. 푸시를 끄면 앱은 알림만 안 올 뿐 그대로 씁니다. 앱의 [알림 켜기]는 서버가 되돌아가 있으면 실패 안내가 뜰 수 있습니다(옛 서버에는 그 API가 없음).
+- **앱(APK)**: 서버와 따로입니다. 푸시를 끄면 앱은 알림만 안 올 뿐 그대로 씁니다. 앱의 [알림 켜기]는 서버가 되돌아가 있어도 "알림이 켜져 있어요"로 보입니다(폰 권한 기준이고, 옛 서버에 없는 등록 API 실패는 조용히 넘어감). 알림만 안 옵니다.
 
 ## 웹 화면: Flutter로 교체 (S16-n2)
 운영 `web` 이미지가 React에서 **Flutter 웹**(`flutter_app/`)으로 바뀌었습니다. `/v2` 같은 별도 주소 없이 통째로 교체합니다.
