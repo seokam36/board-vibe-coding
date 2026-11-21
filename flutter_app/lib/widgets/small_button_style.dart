@@ -39,3 +39,22 @@ final ButtonStyle dangerButtonStyle = OutlinedButton.styleFrom().copyWith(
 
 // 작은 위험 버튼 (글 상세·댓글의 [삭제])
 final ButtonStyle dangerSmallButtonStyle = smallButtonStyle.merge(dangerButtonStyle);
+
+// 조용한 작은 버튼 (S26-e, 남의 댓글의 [신고]): 테두리 없이 muted 13px 글자(+작은 깃발 아이콘은 쓰는 쪽에서 child로).
+// 여전히 OutlinedButton이라 높이는 36 이상. 왼쪽 정렬이고 좌우 여백은 6이라 글자가 댓글 내용 왼쪽 선에서 약간 안쪽에 놓인다.
+// 마우스를 올리거나 키보드 포커스가 오면 hover 바탕이 깔리고(포커스는 accent 1px 테두리 추가), 누르면 조금 더 진해진다.
+final ButtonStyle quietSmallButtonStyle = smallButtonStyle.copyWith(
+  side: WidgetStateProperty.resolveWith(
+    (states) => states.contains(WidgetState.focused) ? const BorderSide(color: AppColors.accent) : BorderSide.none,
+  ),
+  minimumSize: const WidgetStatePropertyAll(Size(48, 36)),
+  padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 6)),
+  alignment: Alignment.centerLeft,
+  foregroundColor: const WidgetStatePropertyAll(AppColors.muted),
+  textStyle: const WidgetStatePropertyAll(TextStyle(fontSize: AppSizes.fsSmall)),
+  overlayColor: WidgetStateProperty.resolveWith((states) {
+    if (states.contains(WidgetState.pressed)) return AppColors.line;
+    if (states.contains(WidgetState.focused) || states.contains(WidgetState.hovered)) return AppColors.hover;
+    return null;
+  }),
+);

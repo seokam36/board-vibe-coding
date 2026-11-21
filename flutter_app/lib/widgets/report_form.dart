@@ -21,11 +21,19 @@ const _sendFailed = '신고하지 못했습니다';
 // onNeedLogin: 401(재발급까지 실패)이면 부모가 로그인 안내를 띄우게 알린다
 // (로그인이 풀리면 이 위젯이 사라지므로 안내를 여기서 띄우면 안 보인다)
 class ReportForm extends StatefulWidget {
-  const ReportForm({super.key, required this.url, required this.label, required this.onNeedLogin});
+  const ReportForm({
+    super.key,
+    required this.url,
+    required this.label,
+    required this.onNeedLogin,
+    this.quiet = false,
+  });
 
   final String url;
   final String label;
   final VoidCallback onNeedLogin;
+  // true면 조용한 모양(댓글 안용): [신고] 버튼이 테두리 없는 글자, 열린 양식은 바깥 테두리 없음. 기본은 지금 모양
+  final bool quiet;
 
   @override
   State<ReportForm> createState() => _ReportFormState();
@@ -143,7 +151,21 @@ class _ReportFormState extends State<ReportForm> {
             label: '$label 신고',
             onTap: _handleOpen,
             excludeSemantics: true,
-            child: OutlinedButton(style: smallButtonStyle, onPressed: _handleOpen, child: const Text('신고')),
+            child: OutlinedButton(
+              style: widget.quiet ? quietSmallButtonStyle : smallButtonStyle,
+              onPressed: _handleOpen,
+              // 조용한 모양은 작은 깃발 아이콘을 앞에 붙여 "눌리는 것"으로 보이게 한다 (OutlinedButton.icon은 쓰지 않는다)
+              child: widget.quiet
+                  ? const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.outlined_flag, size: 16, color: AppColors.muted),
+                        SizedBox(width: AppSizes.space1),
+                        Text('신고'),
+                      ],
+                    )
+                  : const Text('신고'),
+            ),
           ),
         if (_open) _buildBox(),
         // 양식이 닫혀 작업 줄의 한 칸일 때는 글자 폭만큼만, 열려 있으면 줄 전체
@@ -159,11 +181,14 @@ class _ReportFormState extends State<ReportForm> {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: AppSizes.space3),
-      padding: const EdgeInsets.all(AppSizes.space3),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.line),
-        borderRadius: BorderRadius.circular(AppSizes.radiusPanel),
-      ),
+      // 조용한 모양(댓글 안)은 테두리·안쪽 여백 없이: 판 > 줄 > 양식 상자의 테두리 3겹을 피한다
+      padding: widget.quiet ? EdgeInsets.zero : const EdgeInsets.all(AppSizes.space3),
+      decoration: widget.quiet
+          ? null
+          : BoxDecoration(
+              border: Border.all(color: AppColors.line),
+              borderRadius: BorderRadius.circular(AppSizes.radiusPanel),
+            ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -10,6 +10,7 @@ import '../posts/models.dart';
 import '../theme/app_colors.dart';
 import 'app_link.dart';
 import 'confirm_dialog.dart';
+import 'initial_avatar.dart';
 import 'loading.dart';
 import 'notice.dart';
 import 'relogin_notice.dart';
@@ -298,31 +299,53 @@ class _CommentSectionState extends State<CommentSection> {
     final isMine = userId != null && c.author?.id == userId;
     const metaStyle = TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.muted, height: 1.65);
     final editing = _editingId == c.id;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    // 왼쪽 작은 이니셜, 오른쪽에 닉네임(굵게)·시각·내용·버튼
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 작성자·날짜·내용: 드래그로 고를 수 있게 SelectionArea로 감싼다 (수정 칸·버튼은 밖)
-        SelectionArea(
-          child: Column(
+        InitialAvatar(nickname: c.author?.nickname, size: 28),
+        const SizedBox(width: AppSizes.space2),
+        // 위 여백 3: 닉네임 줄의 세로 가운데를 28 동그라미의 가운데에 맞춘다
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Wrap(
-                spacing: AppSizes.space3,
-                children: [
-                  Text(c.author?.nickname ?? '(작성자 없음)', style: metaStyle),
-                  Text(formatDate(c.createdAt), style: metaStyle),
-                ],
-              ),
-              // 글자로만 그린다(HTML이 실행되지 않음). Text는 내용의 줄바꿈을 그대로 보여 준다
-              if (!editing)
-                Padding(
-                  padding: const EdgeInsets.only(top: AppSizes.space2),
-                  child: Text(c.content, style: const TextStyle(height: 1.65)),
+              // 작성자·날짜·내용: 드래그로 고를 수 있게 SelectionArea로 감싼다 (수정 칸·버튼은 밖)
+              SelectionArea(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Wrap(
+                      spacing: AppSizes.space2,
+                      children: [
+                        Text(
+                          c.author?.nickname ?? '(작성자 없음)',
+                          style: const TextStyle(
+                            fontSize: AppSizes.fsSmall,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.ink,
+                            height: 1.65,
+                          ),
+                        ),
+                        Text(formatDate(c.createdAt), style: metaStyle),
+                      ],
+                    ),
+                    // 글자로만 그린다(HTML이 실행되지 않음). Text는 내용의 줄바꿈을 그대로 보여 준다
+                    if (!editing)
+                      Padding(
+                        padding: const EdgeInsets.only(top: AppSizes.space1),
+                        child: Text(c.content, style: const TextStyle(height: 1.65)),
+                      ),
+                  ],
                 ),
+              ),
+              if (editing) _buildEditBox(c) else _buildActions(c, isMine, isAdmin, userId != null),
             ],
           ),
+          ),
         ),
-        if (editing) _buildEditBox(c) else _buildActions(c, isMine, isAdmin, userId != null),
       ],
     );
   }
@@ -372,10 +395,11 @@ class _CommentSectionState extends State<CommentSection> {
     final report = loggedIn && widget.canComment && !isMine; // 내 댓글이 아니고 인증한 학교의 글일 때만
     if (!(isMine || isAdmin || report)) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(top: AppSizes.space2),
+      padding: const EdgeInsets.only(top: AppSizes.space1),
       child: Wrap(
         crossAxisAlignment: WrapCrossAlignment.start,
-        spacing: AppSizes.space2,
+        // 관리자가 남의 댓글을 볼 때 빨간 [삭제]에 조용한 [신고]가 붙어 보이지 않게 간격을 넓힌다
+        spacing: AppSizes.space3,
         runSpacing: AppSizes.space2,
         children: [
           // 수정은 내 댓글만, 삭제는 내 댓글 또는 관리자. 화면에서 숨기는 건 편의일 뿐, 진짜 보호는 서버의 403이다
@@ -395,6 +419,7 @@ class _CommentSectionState extends State<CommentSection> {
             ReportForm(
               url: '/comments/${c.id}/reports',
               label: '댓글',
+              quiet: true, // 남의 댓글의 [신고]는 테두리 없는 조용한 버튼
               onNeedLogin: () => setState(() {
                 _resetNotices();
                 _needLogin = true; // 로그인 안내는 목록 밖에서 보여 준다

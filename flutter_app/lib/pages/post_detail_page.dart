@@ -12,6 +12,7 @@ import '../theme/app_colors.dart';
 import '../widgets/app_badge.dart';
 import '../widgets/comment_section.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/initial_avatar.dart';
 import '../widgets/like_button.dart';
 import '../widgets/loading.dart';
 import '../widgets/notice.dart';
@@ -133,35 +134,47 @@ class _PostDetailPageState extends State<PostDetailPage> {
           if (post != null)
             Padding(
               padding: const EdgeInsets.only(bottom: AppSizes.space4),
-              // React .actions처럼 세로 가운데 정렬 (공감·신고 밑에 안내가 붙어 키가 달라도 버튼 줄이 어긋나 보이지 않게)
+              // 공감은 왼쪽 끝, 관리(수정·삭제 또는 신고)는 오른쪽 끝. 좁으면 관리가 아래 줄로 내려간다.
+              // 신고 양식이 열리면 관리 묶음이 한 줄 전체 폭이 되어 자기 줄을 차지한다
               child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 spacing: AppSizes.space2,
                 runSpacing: AppSizes.space2,
                 children: [
                   LikeButton(postId: widget.id, initialCount: post.likeCount, canLike: user == null || canAct),
-                  // 수정은 내 글만, 삭제는 내 글 또는 관리자. 화면에서 숨기는 건 편의일 뿐, 진짜 보호는 서버의 403이다
-                  if (user != null && isMine)
-                    OutlinedButton(
-                      style: smallButtonStyle,
-                      onPressed: () => context.go('/posts/$_safeId/edit'),
-                      child: const Text('수정'),
-                    ),
-                  if (user != null && (isMine || user.isAdmin))
-                    OutlinedButton(
-                      style: dangerSmallButtonStyle,
-                      onPressed: _deleting ? null : () => _delete(isMine: isMine),
-                      child: Text(_deleting ? '삭제 중...' : '삭제'),
-                    ),
-                  // 신고는 로그인했고 내 글이 아니고 인증한 학교의 글일 때만
-                  if (user != null && !isMine && canAct)
-                    ReportForm(
-                      url: '/posts/$_safeId/reports',
-                      label: '글',
-                      onNeedLogin: () => setState(() {
-                        _deleteError = null;
-                        _needLogin = true; // 로그인 안내는 user 조건 밖에서 보여 준다
-                      }),
+                  if (user != null && (isMine || user.isAdmin || canAct))
+                    Wrap(
+                      // end: 관리자가 신고 양식을 열어도 [삭제]가 왼쪽으로 튀지 않고 오른쪽 끝에 남는다
+                      alignment: WrapAlignment.end,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: AppSizes.space2,
+                      runSpacing: AppSizes.space2,
+                      children: [
+                        // 수정은 내 글만, 삭제는 내 글 또는 관리자. 화면에서 숨기는 건 편의일 뿐, 진짜 보호는 서버의 403이다
+                        if (isMine)
+                          OutlinedButton(
+                            style: smallButtonStyle,
+                            onPressed: () => context.go('/posts/$_safeId/edit'),
+                            child: const Text('수정'),
+                          ),
+                        if (isMine || user.isAdmin)
+                          OutlinedButton(
+                            style: dangerSmallButtonStyle,
+                            onPressed: _deleting ? null : () => _delete(isMine: isMine),
+                            child: Text(_deleting ? '삭제 중...' : '삭제'),
+                          ),
+                        // 신고는 로그인했고 내 글이 아니고 인증한 학교의 글일 때만
+                        if (!isMine && canAct)
+                          ReportForm(
+                            url: '/posts/$_safeId/reports',
+                            label: '글',
+                            onNeedLogin: () => setState(() {
+                              _deleteError = null;
+                              _needLogin = true; // 로그인 안내는 user 조건 밖에서 보여 준다
+                            }),
+                          ),
+                      ],
                     ),
                 ],
               ),
@@ -193,18 +206,43 @@ class _PostDetailPageState extends State<PostDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 말머리와 학교 (학교 없는 글은 "학교 미지정")
-            Wrap(
-              spacing: AppSizes.space2,
-              runSpacing: AppSizes.space2,
-              crossAxisAlignment: WrapCrossAlignment.center,
+            // 글 머리: 이니셜 + (닉네임 굵게, 말머리·학교 뱃지) 아래에 시각. 글 목록 줄과 같은 말투
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CategoryBadge(code: post.category.code, name: post.category.name),
-                AppBadge(text: post.school?.name ?? '학교 미지정', school: true),
+                // 드래그 복사에 이니셜이 섞이지 않게 선택에서 뺀다
+                SelectionContainer.disabled(child: InitialAvatar(nickname: post.author?.nickname)),
+                const SizedBox(width: AppSizes.space2),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: AppSizes.space2,
+                        runSpacing: AppSizes.space1,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            post.author?.nickname ?? '(작성자 없음)',
+                            style: const TextStyle(
+                              fontSize: AppSizes.fsBody,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                          // 말머리와 학교 (학교 없는 글은 "학교 미지정")
+                          CategoryBadge(code: post.category.code, name: post.category.name),
+                          AppBadge(text: post.school?.name ?? '학교 미지정', school: true),
+                        ],
+                      ),
+                      Text(formatDate(post.createdAt), style: metaStyle),
+                    ],
+                  ),
+                ),
               ],
             ),
             Padding(
-              padding: const EdgeInsets.only(top: AppSizes.space2, bottom: AppSizes.space2),
+              padding: const EdgeInsets.only(top: AppSizes.space3, bottom: AppSizes.space2),
               child: Semantics(
                 header: true,
                 headingLevel: 1,
@@ -219,16 +257,9 @@ class _PostDetailPageState extends State<PostDetailPage> {
                 ),
               ),
             ),
-            Wrap(
-              spacing: AppSizes.space3,
-              children: [
-                Text(post.author?.nickname ?? '(작성자 없음)', style: metaStyle),
-                Text(formatDate(post.createdAt), style: metaStyle),
-              ],
-            ),
             // 글자로만 그린다(HTML이 실행되지 않음). Text는 내용의 줄바꿈을 그대로 보여 준다
             Padding(
-              padding: const EdgeInsets.only(top: AppSizes.space4),
+              padding: const EdgeInsets.only(top: AppSizes.space2),
               child: Text(post.content, style: const TextStyle(height: 1.65)),
             ),
           ],
