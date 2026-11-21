@@ -54,3 +54,6 @@ docs/bench-s18-run.json
 ### S24: Firebase 서비스 계정 키(비밀 키가 들어 있는 JSON)가 실수로 커밋되지 않게 ###
 *firebase-adminsdk*.json
 fcm-service-account*.json
+
+### S24-d: 안드로이드 앱의 Firebase 명찰 파일. 비밀은 아니지만 안의 API 키가 커밋 전 비밀 검사에 걸려서 커밋하지 않는다(집 PC + 저장소 밖 사본) ###
+google-services.json

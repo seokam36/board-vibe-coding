@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- 서버(API)와 통신하려면 인터넷 권한이 필요하다 (릴리스 빌드에도 필요) -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 안드로이드 13+에서 알림을 보여 주려면 사용자 허용이 필요하다 (푸시 알림, S24) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- 앱 이름(label)은 lib/site_name.dart의 siteName과 같이 바꿀 것 -->
     <!-- 로그인 쿠키 파일(리프레시 토큰)이 새 폰으로 따라가지 않게 한다.
          allowBackup=false: Android 11 이하의 백업을 막는다. Android 12+에서는 클라우드 백업만 막고

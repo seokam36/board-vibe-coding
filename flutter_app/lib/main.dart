@@ -12,6 +12,7 @@ import 'common/app_external_link.dart';
 import 'common/app_photo_picker.dart';
 import 'common/file_picker.dart' show photoPicker;
 import 'common/external_link.dart';
+import 'push/app_push.dart';
 import 'widgets/config_error_app.dart';
 
 Future<void> main() async {
@@ -49,6 +50,8 @@ Future<void> main() async {
     BoardApp(
       apiClient: ApiClient(extraInterceptors: cookieInterceptors),
       enableAppBack: true,
+      // 푸시 알림(FCM): 앱에서만 끼운다. 설정이 없으면 init이 실패해도 앱은 그대로 뜬다
+      push: createAppPush(),
     ),
   );
 }

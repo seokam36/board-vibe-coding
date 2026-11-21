@@ -12,7 +12,7 @@
 ## 명령어
 - 빌드 `./gradlew build` / 테스트 `./gradlew test` / 실행 `./gradlew bootRun` / DB `docker compose up -d`
 - Flutter 웹(flutter_app 폴더, 화면): 검사 `flutter analyze` / 테스트 `flutter test` / 빌드 `flutter build web` / 개발 실행 `flutter run -d chrome`(web_dev_config.yaml이 /api를 8080으로 넘김) / 브라우저 e2e(flutter_app/e2e): 먼저 `flutter build web --web-content-hash`, 그다음 e2e 폴더에서 `npm test`(백엔드 불필요)
-- 안드로이드 앱(개발): 에뮬레이터 `flutter run -d <에뮬레이터> --dart-define=API_BASE_URL=http://10.0.2.2:8080` / USB 실기기는 `adb reverse tcp:8080 tcp:8080` 뒤 `--dart-define=API_BASE_URL=http://localhost:8080` (백엔드 직통이라 `/api`를 안 붙이고, 끝에 `/` 금지, 릴리스는 https만) / 앱 로그인 시험용 백엔드는 refresh 쿠키 경로를 직통에 맞춰 `$env:APP_COOKIE_REFRESH_PATH="/auth"; ./gradlew bootRun`(이 값은 .env에 넣지 않는다. 웹 개발 서버와 같이 쓰면 웹 재발급이 깨짐) / 릴리스 APK: `flutter build apk --release --dart-define=API_BASE_URL=https://<사이트주소>/api` (집 PC에서만, 설치는 docs/deploy.md)
+- 안드로이드 앱(개발): 에뮬레이터 `flutter run -d <에뮬레이터> --dart-define=API_BASE_URL=http://10.0.2.2:8080` / USB 실기기는 `adb reverse tcp:8080 tcp:8080` 뒤 `--dart-define=API_BASE_URL=http://localhost:8080` (백엔드 직통이라 `/api`를 안 붙이고, 끝에 `/` 금지, 릴리스는 https만) / 앱 로그인 시험용 백엔드는 refresh 쿠키 경로를 직통에 맞춰 `$env:APP_COOKIE_REFRESH_PATH="/auth"; ./gradlew bootRun`(이 값은 .env에 넣지 않는다. 웹 개발 서버와 같이 쓰면 웹 재발급이 깨짐) / 릴리스 APK: `flutter build apk --release --dart-define=API_BASE_URL=https://<사이트주소>/api` (집 PC에서만, 설치는 docs/deploy.md) / S24부터 안드로이드 빌드(디버그 포함)는 `flutter_app/android/app/google-services.json`이 있어야 한다(커밋 안 함, 저장소 밖 사본이나 Firebase 콘솔에서 받기. 웹 빌드·CI는 무관)
 
 ## 코드 규칙
 - 패키지: com.example.demo.{도메인}.{controller|service|repository|domain|dto}

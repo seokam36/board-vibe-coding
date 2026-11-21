@@ -7,6 +7,8 @@ import 'api/api_client.dart';
 import 'auth/auth_state.dart';
 import 'common/app_history.dart';
 import 'messages/unread_store.dart';
+import 'push/app_push.dart';
+import 'push/push_registrar.dart';
 import 'router.dart';
 import 'site_name.dart';
 import 'theme/app_theme.dart';
@@ -25,11 +27,16 @@ class BoardApp extends StatefulWidget {
     this.authState,
     this.now,
     this.enableAppBack = false,
+    this.push,
   });
 
   // 앱(안드로이드) 전용 스위치: 켜면 방문 기록을 적고 기기의 뒤로 가기를 받아 한 칸 앞 화면으로 보낸다.
   // 웹은 브라우저가 뒤로 가기를 맡으니 꺼 둔다(기본값).
   final bool enableAppBack;
+
+  // 앱(안드로이드) 전용: 푸시 알림 도구(S24-d). 있으면 로그인 뒤 기기 토큰을 서버에 등록한다.
+  // 웹·기존 테스트는 null(푸시 없음)이라 /users/me/device-tokens 요청이 한 번도 나가지 않는다.
+  final AppPush? push;
 
   // 테스트에서 "지금 시각"을 고정하려고 받는다(비자 일정의 서울 오늘 계산용). 없으면 진짜 지금.
   final DateTime Function()? now;
@@ -68,6 +75,7 @@ class _BoardAppState extends State<BoardApp> {
   late final VisaPlanStore _visaPlan;
   final VisaBannerState _visaBanner = VisaBannerState();
   late final UnreadStore _unread;
+  PushRegistrar? _pushRegistrar; // 푸시 도구가 끼워진 앱에서만 있다 (기기 토큰 등록·삭제 담당)
 
   @override
   void initState() {
@@ -83,6 +91,11 @@ class _BoardAppState extends State<BoardApp> {
     _router.routerDelegate.addListener(_onRouteChanged);
     _onRouteChanged(); // 지금 경로를 기억해 둔다 (첫 경로는 새로 받는 계기가 아니다)
     _auth.addListener(_onAuthChanged);
+    // 푸시 도구가 끼워진 앱에서만: 기기 토큰 등록·삭제 담당을 시작한다 (준비는 뒤에서 하므로 첫 화면을 막지 않는다)
+    final push = widget.push;
+    if (push != null) {
+      _pushRegistrar = PushRegistrar(api: _api, auth: _auth, push: push)..start();
+    }
   }
 
   // 앱 뒤로 가기용 방문 기록 (앱 모드가 꺼져 있으면 아무것도 안 한다)
@@ -126,6 +139,7 @@ class _BoardAppState extends State<BoardApp> {
     // 우리가 만든 것만 정리한다 (밖에서 넣어 준 건 넣은 쪽이 정리)
     _router.routerDelegate.removeListener(_onRouteChanged);
     _auth.removeListener(_onAuthChanged);
+    _pushRegistrar?.dispose(); // AuthState보다 먼저 (로그인 상태 구독을 끊는다)
     _history.dispose();
     _unread.dispose();
     _router.dispose(); // 로그인 상태 구독을 먼저 끊고

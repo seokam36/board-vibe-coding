@@ -20,6 +20,9 @@ class AuthState extends ChangeNotifier {
   // 이 로그인 상태가 쓰는 서버 통로. 앱이 화면들에 같은 통로를 나눠 줄 때 쓴다
   ApiClient get api => _api;
 
+  // 로그아웃 요청 직전에 불리는 일(앱의 푸시 토큰 서버 삭제). 웹·푸시 없음이면 null
+  Future<void> Function()? beforeLogout;
+
   AuthUser? _user;
   bool _loading = true;
   String? _expiredPath;
@@ -62,6 +65,13 @@ class AuthState extends ChangeNotifier {
 
   // 로그아웃: 서버에서 쿠키를 지운 "뒤에만" 화면의 로그인 상태를 비운다 (실패하면 상태 유지, 에러는 던짐)
   Future<void> logout() async {
+    // 앱의 푸시 등록 해제(S24-d): 로그아웃 요청보다 "먼저" 서버에서 이 기기 토큰을 지운다.
+    // 로그아웃 뒤에는 로그인 쿠키가 없어 지울 수 없기 때문. 실패·시간 초과(5초)여도 로그아웃은 그대로 진행한다
+    try {
+      await beforeLogout?.call().timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // 일부러 무시
+    }
     await _api.dio.post<dynamic>('/auth/logout');
     _user = null;
     _notify();
@@ -124,6 +134,7 @@ class AuthState extends ChangeNotifier {
     _disposed = true;
     _api.onRefreshed = null;
     _api.onExpired = null;
+    beforeLogout = null;
     super.dispose();
   }
 }

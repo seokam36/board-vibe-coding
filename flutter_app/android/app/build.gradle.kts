@@ -2,6 +2,8 @@ plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // google-services.json -> Firebase 설정으로 바꿔 넣는다 (S24-d). 파일이 없으면 앱 빌드가 실패한다(웹 빌드·CI는 상관없음)
+    id("com.google.gms.google-services")
 }
 
 android {
