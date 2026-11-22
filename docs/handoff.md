@@ -6,7 +6,7 @@
 마지막 갱신: 2026-11-22, 집 PC(영문 사용자 폴더 C:\Users\seoka) (**S26 화면 새 단장 운영 배포·확인·Notion 정리까지 끝**)
 
 ## 지금 어디까지
-- **S26(화면 새 단장, Flutter 웹·앱)** 끝·**운영 배포됨**(2026-11-22 Deploy 버튼, 커밋 a04b7ab, 서버·compose·nginx 변경 0). 운영 사이트에서 목록·글 보기·중고·비자·쪽지 탭→로그인·404 새 모습 확인. backlog S26·S26-g 체크 + "끝난 일" 배포 줄(f15aa1a). 결정·나중 메모는 backlog S26 항목, 디자인 기준 `docs/design.md`. **사용자 폰 앱은 아직 S26 전 모습**(릴리스 APK 다시 안 깔았음).
+- **S26(화면 새 단장, Flutter 웹·앱)** 끝·**운영 배포됨**(2026-11-22 Deploy 버튼, 커밋 a04b7ab, 서버·compose·nginx 변경 0). 운영 사이트에서 목록·글 보기·중고·비자·쪽지 탭→로그인·404 새 모습 확인. backlog S26·S26-g 체크 + "끝난 일" 배포 줄(f15aa1a). 결정·나중 메모는 backlog S26 항목, 디자인 기준 `docs/design.md`. 사용자 폰 앱도 S26 새 모습(2026-11-22 릴리스 APK, 커밋 772e40d 기준 — 비자 띠 × 접근성 수정 포함, `adb install -r`로 덮어 설치, 운영 목록 확인). 웹 운영에는 772e40d가 아직 안 올라감(다음 Deploy 때).
   - S26-i(중고 목록·쪽지함 피드형), S26-j(위 막대 링크 48 `AppLink tall`·`AppSizes.tapMin`, 탭 첫 화면 머리말 `BoardTitle` 30, 로그인·회원가입은 탭 선택 없음, 날짜 힌트, 빈 썸네일·빈 이니셜 흰 칸+테두리), S26-k1~k8(공용 머리 `lib/widgets/author_head.dart` AuthorHead — 게시판·중고·비자 후기 글 보기, 쪽지 대화·관리자 대화 말풍선 흰 판 안, 날짜 칸 3곳 공용 `lib/widgets/date_field.dart` DateField, 내 정보 이니셜·바로가기 FeedRow(프로필 아래), 쓰기 폼 본문 15·1.65 LabeledField `below`, 로그인·가입·404 Panel·PageTitle, 챗봇 참고한 글 FeedRow, row_link.dart·placeholder_page.dart 삭제).
   - 밝은 "여권 남색+노랑": 토큰 `lib/theme/app_colors.dart`(canvas·paper·ink #1C2B4F·accent 파랑 #2450B8(선택·링크)·highlight 노랑(바탕 전용, 위엔 ink)…), `ColorScheme.light`, 대비 계산 테스트 `test/color_contrast_test.dart`(글자 4.5·테두리/비활성 3, 토큰 값 전부 다름).
   - 아래 탭 막대 `lib/widgets/bottom_tabs.dart`(게시판·비자·중고·쪽지·내 정보, 주소 첫 마디로 선택, 쪽지 노랑 배지, 키보드 열리면 숨김), 위 막대는 사이트 이름 + 로그인·회원가입 또는 챗봇·닉네임·로그아웃. 비자 일정·관리 메뉴는 내 정보 바로가기.
@@ -35,7 +35,7 @@
 
 ## 다음에 할 일
 - **바로 다음: 사용자가 다음 기능 정하기.** 진행 중인 일 없음. (EC2는 쓰지 않으면 꺼 두기.)
-- (선택) 폰 앱 새 모습으로: 집 PC에서 릴리스 APK 다시 빌드·설치(deploy.md 안드로이드 절, 아래 "릴리스 APK 빌드 전에 도메인부터 확인").
+- 포트폴리오 이미지: 저장소 루트 `portfolio-shots/`(커밋 안 함, 표지 + 화면 7장 + 원본 + 사진 출처). 다시 찍는 법: e2e mockApi로 임시 spec(412x915, deviceScaleFactor 3) → 찍고 지우기. 찍다 발견: 390폭에서 비자 통계 표 오른쪽(평균 처리일) 잘림(나중 후보).
 - 후보(사용자 정하기): backlog S26 "나중"(320폭 20자 닉네임이면 위 막대 3줄, **웹 접근성 트리에서 FeedRow가 link 역할이 아니라 텍스트로 나옴 — 모든 피드형 목록 확인 필요**, 목록 페이지 나눔(서버 API 필요)). 그 밖 backlog 보류·나중(S25 로그인 평범한 코드, S19 챗봇 일반 답변, 욕설·스팸 검사, 챗봇 뜻 검색, S24 "나중").
 - (선택) S23 🧭 파트 전체 정리·파트 전체 리뷰: 서버 코드가 안 바뀐 앱 파트라 할지 말지 사용자가 정하기로 함.
 - 미뤄 둔 정리(운영): 되돌릴 일 없으면 서버 `~/board/docker-compose.yml.bak-s21`·`.bak-s22` 정리. S18로 되돌릴 일 없으면 `~/board/.env.bak-s20` 삭제, `.env`의 MAIL_* 6줄 삭제, **Gmail 앱 비밀번호 폐기**, deploy.md 메일 절 삭제, backlog S20 체크·Notion 진행 현황 S20 체크.
@@ -66,7 +66,7 @@
 - **안드로이드 빌드에는 `flutter_app/android/app/google-services.json`이 필요하다**(S24-d, Firebase 콘솔 프로젝트 `kampus`의 안드로이드 앱 com.kampus.board에서 받은 명찰 파일). 비밀은 아니지만 안의 API 키가 커밋 전 비밀 검사에 걸려서 **커밋하지 않는다**(.gitignore). 사용자가 저장소 밖에 사본을 둠. 없으면 `flutter run`/`flutter build apk`가 "File google-services.json is missing"으로 실패한다(웹 빌드·flutter test·CI는 무관). 노트북에서 앱을 빌드하려면 사본을 복사하거나 콘솔에서 다시 받는다.
 - **로컬 푸시 실기기 시험(S24-e, 2026-11-21 성공)**: 서비스 계정 키는 집 PC `C:\Users\seoka\Documents\` 안의 `...-firebase-adminsdk-....json`(저장소 밖). 백엔드를 `PUSH_MODE=fcm`, `FCM_CREDENTIALS_FILE=<그 경로>`, 시험용 `APP_PUSH_VISA_INITIAL_DELAY=PT20S APP_PUSH_VISA_INTERVAL=PT1M APP_PUSH_VISA_WINDOW_START_HOUR=0 APP_PUSH_VISA_WINDOW_END_HOUR=24`(+ `APP_COOKIE_REFRESH_PATH=/auth`, 임시 `PERMIT_HASH_SECRET`)로 띄우고, 앱에서 [알림 켜기] 허용 뒤 **앱을 홈으로 보내야** 알림이 보인다(앱이 떠 있으면 표시 안 함). 다시 보내려면 로컬 DB `visa_plan_notifications`에서 그 회원 행을 지운다. 로컬 시험 계정 `seokam`(유학생 인증됨, 로컬 전용).
 - **로컬 DB 연결 20개 제한**: compose의 `max_connections=20`이라, 같은 board-postgres를 쓰는 다른 앱(사용자 IntelliJ의 login-practice가 `login_practice` DB로 10개)과 게시판 백엔드(기본 10개)가 같이 뜨면 꽉 차서 psql이 "too many clients"로 거절된다. 그럴 땐 게시판 백엔드를 `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=5`로 띄운다. 8080을 login-practice가 쓰고 있으면 게시판은 `SERVER_PORT=8081` + `adb reverse tcp:8081 tcp:8081` + 앱 `API_BASE_URL=http://localhost:8081`.
-- 사용자 폰의 "게시판" 앱은 S24-f 릴리스 APK(운영용, 2026-11-21)다. 로컬 시험용 디버그 앱을 깔면 덮어써지니 시험 뒤엔 릴리스를 다시 깐다. 앱 이름은 "게시판"(kampus는 Firebase 프로젝트 이름). ssh 키(`board-ec2`)에는 비밀번호가 있어서 메인 대화(Claude)가 ssh를 직접 돌리면 입력 대기로 멈춘다 → 서버 명령은 사용자가 친다.
+- 사용자 폰의 "게시판" 앱은 2026-11-22 릴리스 APK(운영용, 772e40d 기준)다. 로컬 시험용 디버그 앱을 깔면 덮어써지니 시험 뒤엔 릴리스를 다시 깐다. 앱 이름은 "게시판"(kampus는 Firebase 프로젝트 이름). ssh 키(`board-ec2`)에는 비밀번호가 있어서 메인 대화(Claude)가 ssh를 직접 돌리면 입력 대기로 멈춘다 → 서버 명령은 사용자가 친다.
 - **실기기(갤럭시) 개발**: 삼성 "자동 차단"(설정 → 보안 및 개인정보 보호)이 켜져 있으면 USB 디버깅 스위치가 회색으로 잠김 → 끄고 켜기(개발 끝나면 다시 켜기). 사용자 USB(어댑터)가 자주 끊기고, 끊기면 `adb reverse` 터널도 사라져 앱이 "서버에 연결할 수 없음" → 다시 꽂으면 터널 재설정(뒤에서 3초마다 `reverse --list` 확인해 다시 잇는 루프를 돌려 두면 편함, 끝나면 끄기). PC가 폰을 "모뎀"으로만 보면 USB 테더링 끄기·기본 USB 설정 "파일 전송". 설치 직후 첫 요청이 `Failed host lookup: 'localhost'`로 한 번 실패한 적 있음(일시적, 껐다 켜면 됨).
 - **로컬 앱 시험 백엔드**: `PERMIT_HASH_SECRET`이 이 PC `.env`에 없어 `export PERMIT_HASH_SECRET="$(openssl rand -base64 48)"`로 임시값, 앱 로그인 시험이면 `APP_COOKIE_REFRESH_PATH=/auth`도(CLAUDE.md). `flutter run`을 입력 없이 뒤에서 돌리면 설치·실행 뒤 분리돼 핫 리로드 없음(고치면 다시 `flutter run`). 로컬 DB 계정 `fjfjd`는 2026-11-20 SQL로 연세대 유학생 인증 처리됨(로컬 전용).
 - **세션을 폴더 없이 시작했다가 프로젝트로 옮겨 오면 서브에이전트 쓰기 훅(`scripts/allow-only.sh`)이 tester의 `src/test/` 쓰기를 막는다**(2026-11-18, 추정·미확인). 훅을 고쳐 우회하지 말 것.
