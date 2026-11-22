@@ -262,6 +262,18 @@ void main() {
       expect(_banner, findsNothing);
     });
 
+    // 스크린리더 사용자도 ×를 누를 수 있어야 한다 (excludeSemantics가 안쪽 InkWell의 누르기까지 지우는 함정)
+    test('스크린리더로 "띠 닫기"를 눌러도 띠가 닫힌다', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpWith(tester, _checkPlan());
+      final closeData = tester.getSemantics(_closeButton).getSemanticsData();
+      expect(closeData.hasAction(SemanticsAction.tap), isTrue);
+      tester.semantics.tap(find.semantics.byLabel('띠 닫기'));
+      await tester.pumpAndSettle();
+      expect(_banner, findsNothing);
+      handle.dispose();
+    });
+
     test('닫은 뒤 단계가 바뀌면(30일 → 7일 이내) 다시 뜬다', (tester) async {
       await pumpWith(tester, _checkPlan());
       await closeBanner(tester);

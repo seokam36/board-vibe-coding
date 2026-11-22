@@ -572,3 +572,4 @@
 | 2026-11-22 | S26-k7 | 챗봇: 참고한 글을 FeedPanel/FeedRow 줄로(줄 전체 누르기, 스크린리더 "제목, 가격, 상태" 링크 하나, 가격 13·700), 안내·입력칸·글자 수·보내기를 Panel 한 장 안으로, 안 쓰게 된 row_link.dart 삭제. 리뷰 필수 1(e2e chat.spec이 제목 글자만 찾아 실패 → 줄 전체 이름으로)·권장 3 반영. 나중: 웹 접근성 트리에서 FeedRow가 link 역할이 아니라 텍스트 노드로 나옴(모든 피드형 목록 공통, 확인 필요) | (이 커밋) |
 | 2026-11-22 | S26-k8 | 관리자: 신고된 대화 말풍선·"최근 200통" 안내를 흰 판 안으로(리뷰 필수 1 — 안내가 판에 붙던 것), 신고 관리 "글로 가기"·"대화 보기" 눌림 48, 인증 심사 닉네임 w700. 권장 3 반영. k7과 동시 작업·한 커밋. analyze 0·flutter test 1961·e2e 16 | (이 커밋) |
 | 2026-11-22 | S26-g | 화면 새 단장 운영 배포(S26 끝): CI(backend·flutter·images) 초록 뒤 Deploy 초록(직전 배포 a5d48fd 이후 서버·compose·nginx·Dockerfile 변경 0이라 버튼만, http·https 헬스체크 통과). 배포 커밋 a04b7ab | (이 커밋) |
+| 2026-11-22 | (화면) 비자 띠 × 접근성 | 비자 일정 띠의 닫기(×) Semantics가 excludeSemantics로 안쪽 InkWell의 누르기까지 지워 스크린리더로 못 누르던 것 → Semantics에도 onTap(FeedRow·bottom_tabs와 같은 방식). 포트폴리오 스크린샷 찍다가 발견. 새 테스트 1(스크린리더 tap으로 닫힘, 고치기 전 실패 확인). analyze 0·flutter test 1962·e2e 16 | (이 커밋) |

@@ -74,10 +74,12 @@ class VisaPlanBanner extends StatelessWidget {
                     ),
                   ),
                   // 닫기: 글자는 ×, 스크린리더엔 '띠 닫기'. 터치하기 좋게 40px
+                  // excludeSemantics가 안쪽 InkWell의 누르기까지 지우므로 onTap을 Semantics에도 같이 준다(스크린리더로 누르기)
                   Semantics(
                     container: true, // 띠의 문구와 라벨이 한데 섞이지 않게 따로 둔다
                     button: true,
                     label: bannerCloseLabel,
+                    onTap: () => context.read<VisaBannerState>().close(user.id, value),
                     excludeSemantics: true,
                     child: InkWell(
                       key: const ValueKey('visa-banner-close'),
