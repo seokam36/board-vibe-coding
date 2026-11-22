@@ -3,7 +3,7 @@
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 자세한 결정·기록은 docs/backlog.md(각 S번호 항목 + "끝난 일" 표), 배포는 docs/deploy.md, API는 docs/api.md.
 
-마지막 갱신: 2026-11-22, 집 PC(영문 사용자 폴더 C:\Users\seoka) (**S26 화면 새 단장 운영 배포·확인·Notion 정리까지 끝**)
+마지막 갱신: 2026-11-22, 집 PC(영문 사용자 폴더 C:\Users\seoka) (**S27 운영 부하 테스트 시작 — S27-a 스크립트 만들고 리뷰 남음**)
 
 ## 지금 어디까지
 - **S26(화면 새 단장, Flutter 웹·앱)** 끝·**운영 배포됨**(2026-11-22 Deploy 버튼, 커밋 a04b7ab, 서버·compose·nginx 변경 0). 운영 사이트에서 목록·글 보기·중고·비자·쪽지 탭→로그인·404 새 모습 확인. backlog S26·S26-g 체크 + "끝난 일" 배포 줄(f15aa1a). 결정·나중 메모는 backlog S26 항목, 디자인 기준 `docs/design.md`. 사용자 폰 앱도 S26 새 모습(2026-11-22 릴리스 APK, 커밋 772e40d 기준 — 비자 띠 × 접근성 수정 포함, `adb install -r`로 덮어 설치, 운영 목록 확인). 웹 운영에는 772e40d가 아직 안 올라감(다음 Deploy 때).
@@ -34,7 +34,13 @@
 - Notion: **S26 카드(🎨 화면 새 단장) + 단계 페이지 a~k + 🧭 파트 전체 정리(단계 리뷰 요약 표, 필수 12·권장 76) 끝**, 메인 진행 현황 S26 체크(2026-11-22). 2026-11-22 메인 페이지(소개·기술 스택·아키텍처 그림·컨테이너 표·바뀐 것 S26·진행 현황 S26 미체크·학습 리뷰 설명)와 하위 "전체 흐름 한눈에 보기"(S26 기준으로 제목·내용) 갱신. S24 카드(🔔 비자 일정 푸시 알림) + 단계 페이지 a~f + 도구 사전 "Firebase · FCM". S23 카드(📱 휴대폰 앱) + 페이지 5장(앱 설정 정리 a~c, d1, d2, e, f)·상위 페이지 진행 현황 S23 체크·아키텍처 표 S23 줄 끝. **notion-guide 규칙 바뀜(2026-11-20): 프론트 단계도 "프론트 단계 페이지 틀"로 가볍게 씀.** S21 🧭 파트 전체 정리는 아직.
 
 ## 다음에 할 일
-- **바로 다음: 사용자가 다음 기능 정하기.** 진행 중인 일 없음. (EC2는 쓰지 않으면 꺼 두기.)
+- **바로 다음: S27(운영 부하 테스트 + AWS 모니터링으로 병목 찾기) 이어서.** 2026-11-22 시작, 계획 승인됨(사용자 "추천안대로 시작"). 백로그 S27 항목 참고.
+  - 단계: a 측정 준비(k6 스크립트·문서) → b 로컬 시험(tester) → c 운영 기준 측정(사용자 손, 1분 상세 모니터링 켜기) → d 원인 분석 → e 원인 하나만 고치기·배포 → f 같은 조건 재측정·전후 표, 상세 모니터링 끄기.
+  - 승인된 추천안: 목표 숫자는 기준 측정 뒤 정함(5→10→20→40명, 단계당 1분, 1초 쉼), 자동 멈춤 실패율 10%·p95 5초(스모크 1%·1초), CloudWatch 에이전트 안 깔고 `docker stats`·`free -m` 기록, 앱 내부 지표(actuator metrics)는 1차엔 안 열고 Hikari 타임아웃 로그·`pg_stat_activity`로, 부하 대상 주력 `GET /posts` + 보조 글 하나·댓글·중고 목록·비자 후기 통계(+`WEB_URL` 있을 때 `/`), 운영 DB에 가짜 글 안 넣음(데이터 많을 때는 로컬 재현), 기록은 `loadtest/README.md`(실행법)·`docs/loadtest.md`(전후 표).
+  - **S27-a 끝·커밋함**(2026-11-22): `loadtest/lib/common.js`(BASE_URL 검사·GET 목록·글 id·단계 꼬리표·요약 저장), `loadtest/read-smoke.js`, `loadtest/read-ramp.js`, `loadtest/README.md`, `docs/loadtest.md`, `.gitignore`에 `loadtest/results/`. 리뷰(메인이 직접, review 에이전트는 auto mode에 막힘) 필수 1 반영: 단계별 숫자가 안 나오던 것 → 요청에 `stage` 꼬리표(유지 구간만, 전환은 `ramp`) + 항상 통과하는 하위 지표 thresholds로 요약에 단계별 줄. 준비 요청은 `phase:setup`으로 기준·숫자에서 뺌. 진짜 k6 실행은 아직(S27-b). **다음: S27-b.**
+  - BASE_URL: 운영 `https://<사이트주소>/api`, 로컬 `http://localhost:8080`(bootRun은 /api 접두사 없음). 사이트 주소는 코드·문서에 쓰지 않음.
+  - S27-b 전에: k6가 이 PC에 없음 → `winget install k6 --source winget` 실행 전에 사용자 확인. 운영 측정 전에 콘솔에서 t3 크레딧 모드(무제한/표준) 확인, 현재 운영 이미지 SHA 적기(deploy.md 7줄은 S24 기준이라 낡음).
+  - planner가 찾은 병목 후보(측정 뒤 결정): ① Hikari 풀 3(`docker-compose.yml:80`) vs Tomcat 기본 200, ② 앱 512m·힙 60%·SerialGC, ③ t3 CPU 크레딧, ④ 목록 페이지 나눔 없음, ⑤ nginx gzip·keepalive 없음, ⑥ 인덱스, ⑦ 서버 전체 메모리. N+1·429는 후보에서 뺌.
 - 포트폴리오 이미지: 저장소 루트 `portfolio-shots/`(커밋 안 함, 표지 + 화면 7장 + 원본 + 사진 출처). 다시 찍는 법: e2e mockApi로 임시 spec(412x915, deviceScaleFactor 3) → 찍고 지우기. 찍다 발견: 390폭에서 비자 통계 표 오른쪽(평균 처리일) 잘림(나중 후보).
 - 후보(사용자 정하기): backlog S26 "나중"(320폭 20자 닉네임이면 위 막대 3줄, **웹 접근성 트리에서 FeedRow가 link 역할이 아니라 텍스트로 나옴 — 모든 피드형 목록 확인 필요**, 목록 페이지 나눔(서버 API 필요)). 그 밖 backlog 보류·나중(S25 로그인 평범한 코드, S19 챗봇 일반 답변, 욕설·스팸 검사, 챗봇 뜻 검색, S24 "나중").
 - (선택) S23 🧭 파트 전체 정리·파트 전체 리뷰: 서버 코드가 안 바뀐 앱 파트라 할지 말지 사용자가 정하기로 함.
@@ -42,8 +48,8 @@
 - 작은 일: **집 PC 로컬 `.env`의 `VISION_API_KEY` 줄 삭제**(키는 이미 폐기), 자동 승인 시험 계정 정리, Notion S21 🧭 파트 전체 정리, (선택) 구글 503 빈도, 운영 테스트 중고 글 정리. 사용자 폰 "자동 차단" 다시 켜기(2026-11-20 S23 끝에 안내함).
 
 ## 진행 중인 단계
-- 없음. 진행 중인 에이전트 없음.
-- 커밋 안 된 변경: `.claude/launch.json`(일부러 커밋 안 함). push 안 된 커밋 없음(이 handoff 커밋 제외).
+- **S27-b**(로컬 시험, k6 설치 전 사용자 확인). 진행 중인 에이전트 없음.
+- 커밋 안 된 변경: `.claude/launch.json`(일부러 커밋 안 함), `portfolio-shots/`(포트폴리오용, 커밋 안 함). push 안 함.
 - 운영 서버 메모: `~/board/.env`(권한 600)에 `PHOTO_S3_BUCKET`·`LLM_MODE=gemini`·`GEMINI_API_KEY`·MAIL_*(되돌리기용)·**`PERMIT_HASH_SECRET`(64자, 절대 바꾸지 않음, 사용자가 서버 밖에도 보관)**·`PERMIT_OCR_MODE=vision`·`VISION_API_KEY`·**`COOKIE_SECURE=true`·`CF_API_TOKEN`·`CF_ZONE_ID`·`CF_RECORD_NAME`**. 서버 파일: `~/board/cloudflare-ddns.sh`(700), `~/board/certbot/conf`(인증서, root 700)·`www`, 로그 `~/board/ddns.log`·`~/board/certbot/renew.log`. **S24: `.env`에 `PUSH_MODE=fcm`, 서비스 계정 키 `~/board/fcm/service-account.json`(주인 100:101 = 컨테이너 app 사용자, 폴더 700·파일 400, sudo로만 보임), compose가 `./fcm`을 `/app/fcm`에 읽기 전용 마운트.** 푸시 끄기 = `.env` `PUSH_MODE=off` 후 `up -d app`. 백업: `docker-compose.yml.bak-s20`(S18)·`.bak-s21`(S20)·`.bak-s22`(S21)·`.bak-s24`(S23), `.env.bak-s20`. IMDS 홉 제한 2·IMDSv2 필수·역할 `board-ec2-role`. vision 끄기 = `.env` `PERMIT_OCR_MODE=off` 후 `up -d app`. **되돌리기 = deploy.md "S24 되돌리기"/"S23 되돌리기"(web만 bd6c70b로 고정)/"S22 되돌리기"/"S21 되돌리기"**.
 - 선택 정리: EC2 콘솔 옛 `demo-key` 삭제, IAM 옛 키 태그 삭제, 노트북 `~/.ssh/deploy-actions` 개인키 삭제.
 

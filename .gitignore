@@ -57,3 +57,6 @@ fcm-service-account*.json
 
 ### S24-d: 안드로이드 앱의 Firebase 명찰 파일. 비밀은 아니지만 안의 API 키가 커밋 전 비밀 검사에 걸려서 커밋하지 않는다(집 PC + 저장소 밖 사본) ###
 google-services.json
+
+### S27: k6 부하 테스트 결과(주소가 들어갈 수 있어서 커밋하지 않는다) ###
+loadtest/results/
