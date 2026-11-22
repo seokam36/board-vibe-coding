@@ -3,16 +3,16 @@
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 자세한 결정·기록은 docs/backlog.md(각 S번호 항목 + "끝난 일" 표), 배포는 docs/deploy.md, API는 docs/api.md.
 
-마지막 갱신: 2026-11-22, 집 PC(영문 사용자 폴더 C:\Users\seoka) (**S26 화면 새 단장 a~k 프론트 전부 끝·push(a1e8b03), 운영 배포는 아직**)
+마지막 갱신: 2026-11-22, 집 PC(영문 사용자 폴더 C:\Users\seoka) (**S26 화면 새 단장 운영 배포·확인·Notion 정리까지 끝**)
 
 ## 지금 어디까지
-- **S26(화면 새 단장, Flutter 웹·앱)** 프론트 전부 끝·push됨(마지막 a1e8b03), **운영 배포 안 함**. 사용자 결정(2026-11-21): "프론트 완전히 끝나고 배포" → a~k 다 끝남. 결정·나중 메모는 backlog S26 항목(+ "S26-j·k 계획 승인" 줄), 디자인 기준 `docs/design.md`.
+- **S26(화면 새 단장, Flutter 웹·앱)** 끝·**운영 배포됨**(2026-11-22 Deploy 버튼, 커밋 a04b7ab, 서버·compose·nginx 변경 0). 운영 사이트에서 목록·글 보기·중고·비자·쪽지 탭→로그인·404 새 모습 확인. backlog S26·S26-g 체크 + "끝난 일" 배포 줄(f15aa1a). 결정·나중 메모는 backlog S26 항목, 디자인 기준 `docs/design.md`. **사용자 폰 앱은 아직 S26 전 모습**(릴리스 APK 다시 안 깔았음).
   - S26-i(중고 목록·쪽지함 피드형), S26-j(위 막대 링크 48 `AppLink tall`·`AppSizes.tapMin`, 탭 첫 화면 머리말 `BoardTitle` 30, 로그인·회원가입은 탭 선택 없음, 날짜 힌트, 빈 썸네일·빈 이니셜 흰 칸+테두리), S26-k1~k8(공용 머리 `lib/widgets/author_head.dart` AuthorHead — 게시판·중고·비자 후기 글 보기, 쪽지 대화·관리자 대화 말풍선 흰 판 안, 날짜 칸 3곳 공용 `lib/widgets/date_field.dart` DateField, 내 정보 이니셜·바로가기 FeedRow(프로필 아래), 쓰기 폼 본문 15·1.65 LabeledField `below`, 로그인·가입·404 Panel·PageTitle, 챗봇 참고한 글 FeedRow, row_link.dart·placeholder_page.dart 삭제).
   - 밝은 "여권 남색+노랑": 토큰 `lib/theme/app_colors.dart`(canvas·paper·ink #1C2B4F·accent 파랑 #2450B8(선택·링크)·highlight 노랑(바탕 전용, 위엔 ink)…), `ColorScheme.light`, 대비 계산 테스트 `test/color_contrast_test.dart`(글자 4.5·테두리/비활성 3, 토큰 값 전부 다름).
   - 아래 탭 막대 `lib/widgets/bottom_tabs.dart`(게시판·비자·중고·쪽지·내 정보, 주소 첫 마디로 선택, 쪽지 노랑 배지, 키보드 열리면 숨김), 위 막대는 사이트 이름 + 로그인·회원가입 또는 챗봇·닉네임·로그아웃. 비자 일정·관리 메뉴는 내 정보 바로가기.
   - 피드형: 게시판 목록(이니셜 `initial_avatar.dart`, 말머리 칩, 줄 전체 링크), 글 보기·댓글(조용한 신고), 글쓰기 줄 간격 1.65, **비자 후기 목록도 피드형**. 공용 부품 `feed_row.dart`(FeedRow)·`panel.dart` FeedPanel·`write_fab.dart`(WriteFabLayout 노랑 연필 — 게시판·비자 후기·중고(인증 회원만)).
   - 필요 없는 안내 문구 삭제(HTTP 비밀번호 경고 3곳 등), 웹 앱 이름 "게시판", 안드로이드 아래 띠 흰색.
-- **S0~S14 + UI1~UI3 + S16~S18 + S20 + S21 + S22 + S23 + S24 완료·배포됨.** 운영 주소 **`https://kampus.<도메인>`**(Cloudflare에서 산 도메인, 실제 이름은 사용자가 앎 — 저장소·메모에 안 씀). 운영 vision·gemini·**push(fcm)** 켜짐. 마지막 운영 배포 2026-11-21 커밋 a5d48fd(S24-g 파트 리뷰 정리, Deploy 버튼만. S24 첫 배포 eebac61, 그 전 S23 fe3871c).
+- **S0~S14 + UI1~UI3 + S16~S18 + S20 + S21 + S22 + S23 + S24 + S26 완료·배포됨.** 운영 주소 **`https://kampus.<도메인>`**(Cloudflare에서 산 도메인, 실제 이름은 사용자가 앎 — 저장소·메모에 안 씀). 운영 vision·gemini·**push(fcm)** 켜짐. 마지막 운영 배포 2026-11-22 커밋 a04b7ab(S26, Deploy 버튼만. 그 전 a5d48fd S24-g, eebac61 S24 첫 배포).
 - **방향(2026-11-16)**: "외국인 유학생 통합 에타", 유학생만 글쓰기(표준입학허가서 인증).
 - **S24(비자 일정 푸시 알림, FCM)** 끝(2026-11-21, 결정·한계는 backlog S24 항목과 그 아래 줄들):
   - 서버: V16 device_tokens(회원당 10, 비밀번호 변경 때 삭제, PUT/DELETE /users/me/device-tokens), FcmPushSender(google-auth-library로 출입증만, HTTP v1 직접, PUSH_MODE off/fcm, 결과 SENT/TOKEN_INVALID/REJECTED/FAILED), VisaPushJob(켜지고 5분 뒤 + 1시간마다, 서울 9~21시, 단계 들어갈 때 1회, V17 보낸 기록, 쓰기 잠금은 회원 행 먼저).
@@ -31,17 +31,18 @@
   - Cloudflare: 도메인 자동 갱신(만료 2027-11-19), DNS A `kampus` 프록시 끔·TTL 1분, API 토큰 `kampus-ddns`(그 영역 DNS 편집만, 만료 없음). 인증서 만료 2027-02-17(자동 갱신, 이메일 등록 안 함).
 - **S21(유학생 인증 보강)** 끝: 관리자 인증 취소·취소 번호 자동 승인 막기·Vision 하루 상한 30. 알려진 한계: 탈퇴→재가입으로 취소 번호 우회, 허가서 번호 전국 유일 여부 미확인(backlog S21).
 - 테스트: 백엔드 2001개(건너뜀 13), Flutter **1961개**, e2e 16개 통과. DB는 **V17까지**(S24-c).
-- Notion: **S26 카드(🎨 화면 새 단장) + 단계 페이지 a~i** (**j·k 단계 페이지는 아직 안 씀** — 사용자가 2026-11-22 "push만"으로 미룸), 🧭 파트 전체 정리는 배포 뒤에 쓰기로 함. 2026-11-22 메인 페이지(소개·기술 스택·아키텍처 그림·컨테이너 표·바뀐 것 S26·진행 현황 S26 미체크·학습 리뷰 설명)와 하위 "전체 흐름 한눈에 보기"(S26 기준으로 제목·내용) 갱신. S24 카드(🔔 비자 일정 푸시 알림) + 단계 페이지 a~f + 도구 사전 "Firebase · FCM". S23 카드(📱 휴대폰 앱) + 페이지 5장(앱 설정 정리 a~c, d1, d2, e, f)·상위 페이지 진행 현황 S23 체크·아키텍처 표 S23 줄 끝. **notion-guide 규칙 바뀜(2026-11-20): 프론트 단계도 "프론트 단계 페이지 틀"로 가볍게 씀.** S21 🧭 파트 전체 정리는 아직.
+- Notion: **S26 카드(🎨 화면 새 단장) + 단계 페이지 a~k + 🧭 파트 전체 정리(단계 리뷰 요약 표, 필수 12·권장 76) 끝**, 메인 진행 현황 S26 체크(2026-11-22). 2026-11-22 메인 페이지(소개·기술 스택·아키텍처 그림·컨테이너 표·바뀐 것 S26·진행 현황 S26 미체크·학습 리뷰 설명)와 하위 "전체 흐름 한눈에 보기"(S26 기준으로 제목·내용) 갱신. S24 카드(🔔 비자 일정 푸시 알림) + 단계 페이지 a~f + 도구 사전 "Firebase · FCM". S23 카드(📱 휴대폰 앱) + 페이지 5장(앱 설정 정리 a~c, d1, d2, e, f)·상위 페이지 진행 현황 S23 체크·아키텍처 표 S23 줄 끝. **notion-guide 규칙 바뀜(2026-11-20): 프론트 단계도 "프론트 단계 페이지 틀"로 가볍게 씀.** S21 🧭 파트 전체 정리는 아직.
 
 ## 다음에 할 일
-- **바로 다음: S26 운영 배포(S26-g).** 사용자가 EC2 켜기 → Actions에서 a1e8b03 CI(images 포함) 초록 확인 → Deploy 버튼(백엔드·compose·nginx 변경 0이라 버튼만 — 배포 전 `git diff --stat a5d48fd..HEAD -- src build.gradle* docker-compose.yml flutter_app/nginx.conf flutter_app/board-locations.conf flutter_app/Dockerfile Dockerfile`이 비었는지 다시 확인). 뒤에 운영 화면 확인, backlog S26·S26-g 체크 + "끝난 일" 배포 줄, Notion j·k 단계 페이지 + S26 🧭 파트 전체 정리(단계 리뷰 요약), 메인 페이지 진행 현황 S26 체크. (선택) 폰 앱 새 모습으로: 릴리스 APK 다시 빌드·설치(deploy.md 안드로이드 절, 도메인 확인 먼저).
-- 그다음 후보(사용자 정하기): backlog S26 "나중"(320폭 20자 닉네임이면 위 막대 3줄, **웹 접근성 트리에서 FeedRow가 link 역할이 아니라 텍스트로 나옴 — 모든 피드형 목록 확인 필요**, 목록 페이지 나눔(서버 API 필요)). 그 밖 backlog 보류·나중(S25 로그인 평범한 코드, S19 챗봇 일반 답변, 욕설·스팸 검사, 챗봇 뜻 검색, S24 "나중").
+- **바로 다음: 사용자가 다음 기능 정하기.** 진행 중인 일 없음. (EC2는 쓰지 않으면 꺼 두기.)
+- (선택) 폰 앱 새 모습으로: 집 PC에서 릴리스 APK 다시 빌드·설치(deploy.md 안드로이드 절, 아래 "릴리스 APK 빌드 전에 도메인부터 확인").
+- 후보(사용자 정하기): backlog S26 "나중"(320폭 20자 닉네임이면 위 막대 3줄, **웹 접근성 트리에서 FeedRow가 link 역할이 아니라 텍스트로 나옴 — 모든 피드형 목록 확인 필요**, 목록 페이지 나눔(서버 API 필요)). 그 밖 backlog 보류·나중(S25 로그인 평범한 코드, S19 챗봇 일반 답변, 욕설·스팸 검사, 챗봇 뜻 검색, S24 "나중").
 - (선택) S23 🧭 파트 전체 정리·파트 전체 리뷰: 서버 코드가 안 바뀐 앱 파트라 할지 말지 사용자가 정하기로 함.
 - 미뤄 둔 정리(운영): 되돌릴 일 없으면 서버 `~/board/docker-compose.yml.bak-s21`·`.bak-s22` 정리. S18로 되돌릴 일 없으면 `~/board/.env.bak-s20` 삭제, `.env`의 MAIL_* 6줄 삭제, **Gmail 앱 비밀번호 폐기**, deploy.md 메일 절 삭제, backlog S20 체크·Notion 진행 현황 S20 체크.
 - 작은 일: **집 PC 로컬 `.env`의 `VISION_API_KEY` 줄 삭제**(키는 이미 폐기), 자동 승인 시험 계정 정리, Notion S21 🧭 파트 전체 정리, (선택) 구글 503 빈도, 운영 테스트 중고 글 정리. 사용자 폰 "자동 차단" 다시 켜기(2026-11-20 S23 끝에 안내함).
 
 ## 진행 중인 단계
-- **S26 배포 대기**(코드·테스트·리뷰·커밋·push 끝, a~k). 진행 중인 에이전트 없음. S26 작업 중 사용자 허락: 단계마다 리뷰 끝나면 커밋(push는 따로 승인).
+- 없음. 진행 중인 에이전트 없음.
 - 커밋 안 된 변경: `.claude/launch.json`(일부러 커밋 안 함). push 안 된 커밋 없음(이 handoff 커밋 제외).
 - 운영 서버 메모: `~/board/.env`(권한 600)에 `PHOTO_S3_BUCKET`·`LLM_MODE=gemini`·`GEMINI_API_KEY`·MAIL_*(되돌리기용)·**`PERMIT_HASH_SECRET`(64자, 절대 바꾸지 않음, 사용자가 서버 밖에도 보관)**·`PERMIT_OCR_MODE=vision`·`VISION_API_KEY`·**`COOKIE_SECURE=true`·`CF_API_TOKEN`·`CF_ZONE_ID`·`CF_RECORD_NAME`**. 서버 파일: `~/board/cloudflare-ddns.sh`(700), `~/board/certbot/conf`(인증서, root 700)·`www`, 로그 `~/board/ddns.log`·`~/board/certbot/renew.log`. **S24: `.env`에 `PUSH_MODE=fcm`, 서비스 계정 키 `~/board/fcm/service-account.json`(주인 100:101 = 컨테이너 app 사용자, 폴더 700·파일 400, sudo로만 보임), compose가 `./fcm`을 `/app/fcm`에 읽기 전용 마운트.** 푸시 끄기 = `.env` `PUSH_MODE=off` 후 `up -d app`. 백업: `docker-compose.yml.bak-s20`(S18)·`.bak-s21`(S20)·`.bak-s22`(S21)·`.bak-s24`(S23), `.env.bak-s20`. IMDS 홉 제한 2·IMDSv2 필수·역할 `board-ec2-role`. vision 끄기 = `.env` `PERMIT_OCR_MODE=off` 후 `up -d app`. **되돌리기 = deploy.md "S24 되돌리기"/"S23 되돌리기"(web만 bd6c70b로 고정)/"S22 되돌리기"/"S21 되돌리기"**.
 - 선택 정리: EC2 콘솔 옛 `demo-key` 삭제, IAM 옛 키 태그 삭제, 노트북 `~/.ssh/deploy-actions` 개인키 삭제.
@@ -94,7 +95,7 @@
 - **로컬 LLM(S17)**: 실제 Ollama 테스트는 `OLLAMA_LIVE_TEST=true`. 백엔드 테스트는 Docker Desktop 필요. Spring AI 재시도 함정 주의.
 - **집 PC 스마트 앱 컨트롤은 2026-11-13에 끔.**
 - **이 PC엔 `gh` CLI가 없다.** CI 상태는 `curl https://api.github.com/repos/seokam36/board-vibe-coding/actions/runs?head_sha=<40자리 SHA>` → run id로 `/jobs`(JSON은 파일로 저장해 `node -e`로 읽으면 편함). Deploy 전에 images까지 초록 확인.
-- **docs 파일을 Git Bash `sed -i`로 고치지 말 것**(CRLF가 LF로 바뀜). Edit 도구로. backlog는 CRLF라 끝에 줄을 붙일 땐 `printf '%s\r\n'`.
+- **docs 파일을 Git Bash `sed -i`로 고치지 말 것**(CRLF가 LF로 바뀜). Edit 도구로. backlog는 작업 폴더에서 LF로 바뀌어 있음(2026-11-22 확인, git이 CRLF 경고만 냄) → 끝에 줄을 붙이기 전에 `grep -c $'\r' docs/backlog.md`로 확인하고 0이면 `printf '%s\n'`.
 - **표 바꾸는 기능은 새 V 파일**(다음은 `V18__...sql`). 커밋된 V 파일은 고치지 않는다. ddl-auto validate.
 - **FK·UNIQUE·CHECK 제약에는 반드시 이름.**
 - **잠금 순서**: 탈퇴는 회원 행 FOR UPDATE 먼저, 쪽지는 회원 행 FOR KEY SHARE 먼저, 허가서 승인·취소·반려·만료·철회·탈퇴는 신청자 회원 행 FOR UPDATE → 신청 행 → 상태 재확인(`lockPending`/`lockWithStatus`).
