@@ -49,6 +49,14 @@ k6 run loadtest/read-smoke.js            # 먼저 스모크
 k6 run loadtest/read-ramp.js             # 이상 없으면 단계 증가
 ```
 
+## 한계 찾기 (단계 키우기)
+기본 단계(5·10·20·40명)는 전후 비교용이라 파일에서 바꾸지 않는다. 더 센 부하가 필요할 때만 실행 때 넣는다(상한 500명).
+```powershell
+$env:STEPS = "80,160,320"
+k6 run loadtest/read-ramp.js
+Remove-Item Env:STEPS   # 끝나면 지워서 다음 실행이 기본값으로 돌아가게
+```
+
 ## 자동 멈춤 기준 (thresholds + abortOnFail)
 | 스크립트 | 기준 | 지켜보는 시간 |
 |----------|------|---------------|

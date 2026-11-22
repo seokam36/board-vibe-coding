@@ -3,7 +3,14 @@
 import { BASE_URL, MAIN, pickPostIds, readRound, makeSummary, toSeconds, stageThresholds } from './lib/common.js';
 
 // ===== 단계 값 (전후 비교 때 바꾸지 말 것) =====
-const STEPS = [5, 10, 20, 40]; // 동시 사용자 수
+// 한계를 찾을 때만 실행 때 STEPS 환경변수로 바꿔 넣는다(예: $env:STEPS="80,160,320"). 파일 기본값은 그대로 둔다.
+const STEPS = __ENV.STEPS
+  ? __ENV.STEPS.split(',').map((x) => {
+      const n = Number(x.trim());
+      if (!Number.isInteger(n) || n < 1 || n > 500) throw new Error(`STEPS는 1~500 사이 정수를 쉼표로: ${__ENV.STEPS}`);
+      return n;
+    })
+  : [5, 10, 20, 40]; // 동시 사용자 수
 const HOLD = '1m'; // 단계마다 유지 시간
 const RAMP = '10s'; // 단계 사이 전환 시간
 const WARM_UP = '15s'; // 처음 오르기
