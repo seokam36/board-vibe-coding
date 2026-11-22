@@ -7,7 +7,7 @@ import { BASE_URL, MAIN, pickPostIds, readRound, makeSummary, toSeconds, stageTh
 const STEPS = __ENV.STEPS
   ? __ENV.STEPS.split(',').map((x) => {
       const n = Number(x.trim());
-      if (!Number.isInteger(n) || n < 1 || n > 500) throw new Error(`STEPS는 1~500 사이 정수를 쉼표로: ${__ENV.STEPS}`);
+      if (!Number.isInteger(n) || n < 1 || n > 1000) throw new Error(`STEPS는 1~1000 사이 정수를 쉼표로: ${__ENV.STEPS}`);
       return n;
     })
   : [5, 10, 20, 40]; // 동시 사용자 수

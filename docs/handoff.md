@@ -12,7 +12,7 @@
   - 아래 탭 막대 `lib/widgets/bottom_tabs.dart`(게시판·비자·중고·쪽지·내 정보, 주소 첫 마디로 선택, 쪽지 노랑 배지, 키보드 열리면 숨김), 위 막대는 사이트 이름 + 로그인·회원가입 또는 챗봇·닉네임·로그아웃. 비자 일정·관리 메뉴는 내 정보 바로가기.
   - 피드형: 게시판 목록(이니셜 `initial_avatar.dart`, 말머리 칩, 줄 전체 링크), 글 보기·댓글(조용한 신고), 글쓰기 줄 간격 1.65, **비자 후기 목록도 피드형**. 공용 부품 `feed_row.dart`(FeedRow)·`panel.dart` FeedPanel·`write_fab.dart`(WriteFabLayout 노랑 연필 — 게시판·비자 후기·중고(인증 회원만)).
   - 필요 없는 안내 문구 삭제(HTTP 비밀번호 경고 3곳 등), 웹 앱 이름 "게시판", 안드로이드 아래 띠 흰색.
-- **S0~S14 + UI1~UI3 + S16~S18 + S20 + S21 + S22 + S23 + S24 + S26 완료·배포됨.** 운영 주소 **`https://kampus.<도메인>`**(Cloudflare에서 산 도메인, 실제 이름은 사용자가 앎 — 저장소·메모에 안 씀). 운영 vision·gemini·**push(fcm)** 켜짐. 마지막 운영 배포 2026-11-22 커밋 a04b7ab(S26, Deploy 버튼만. 그 전 a5d48fd S24-g, eebac61 S24 첫 배포).
+- **S0~S14 + UI1~UI3 + S16~S18 + S20 + S21 + S22 + S23 + S24 + S26 + S27 완료·배포됨.** 운영 주소 **`https://kampus.<도메인>`**(Cloudflare에서 산 도메인, 실제 이름은 사용자가 앎 — 저장소·메모에 안 씀). 운영 vision·gemini·**push(fcm)** 켜짐. 마지막 운영 배포 2026-11-22 커밋 3e72944(S27 nginx keepalive, Deploy 버튼만. 그 전 a04b7ab S26. 그 전 a5d48fd S24-g, eebac61 S24 첫 배포).
 - **방향(2026-11-16)**: "외국인 유학생 통합 에타", 유학생만 글쓰기(표준입학허가서 인증).
 - **S24(비자 일정 푸시 알림, FCM)** 끝(2026-11-21, 결정·한계는 backlog S24 항목과 그 아래 줄들):
   - 서버: V16 device_tokens(회원당 10, 비밀번호 변경 때 삭제, PUT/DELETE /users/me/device-tokens), FcmPushSender(google-auth-library로 출입증만, HTTP v1 직접, PUSH_MODE off/fcm, 결과 SENT/TOKEN_INVALID/REJECTED/FAILED), VisaPushJob(켜지고 5분 뒤 + 1시간마다, 서울 9~21시, 단계 들어갈 때 1회, V17 보낸 기록, 쓰기 잠금은 회원 행 먼저).
@@ -34,13 +34,13 @@
 - Notion: **S26 카드(🎨 화면 새 단장) + 단계 페이지 a~k + 🧭 파트 전체 정리(단계 리뷰 요약 표, 필수 12·권장 76) 끝**, 메인 진행 현황 S26 체크(2026-11-22). 2026-11-22 메인 페이지(소개·기술 스택·아키텍처 그림·컨테이너 표·바뀐 것 S26·진행 현황 S26 미체크·학습 리뷰 설명)와 하위 "전체 흐름 한눈에 보기"(S26 기준으로 제목·내용) 갱신. S24 카드(🔔 비자 일정 푸시 알림) + 단계 페이지 a~f + 도구 사전 "Firebase · FCM". S23 카드(📱 휴대폰 앱) + 페이지 5장(앱 설정 정리 a~c, d1, d2, e, f)·상위 페이지 진행 현황 S23 체크·아키텍처 표 S23 줄 끝. **notion-guide 규칙 바뀜(2026-11-20): 프론트 단계도 "프론트 단계 페이지 틀"로 가볍게 씀.** S21 🧭 파트 전체 정리는 아직.
 
 ## 다음에 할 일
-- **바로 다음: S27(운영 부하 테스트 + AWS 모니터링으로 병목 찾기) 이어서.** 2026-11-22 시작, 계획 승인됨(사용자 "추천안대로 시작"). 백로그 S27 항목 참고.
-  - 단계: a 측정 준비(k6 스크립트·문서) → b 로컬 시험(tester) → c 운영 기준 측정(사용자 손, 1분 상세 모니터링 켜기) → d 원인 분석 → e 원인 하나만 고치기·배포 → f 같은 조건 재측정·전후 표, 상세 모니터링 끄기.
-  - 승인된 추천안: 목표 숫자는 기준 측정 뒤 정함(5→10→20→40명, 단계당 1분, 1초 쉼), 자동 멈춤 실패율 10%·p95 5초(스모크 1%·1초), CloudWatch 에이전트 안 깔고 `docker stats`·`free -m` 기록, 앱 내부 지표(actuator metrics)는 1차엔 안 열고 Hikari 타임아웃 로그·`pg_stat_activity`로, 부하 대상 주력 `GET /posts` + 보조 글 하나·댓글·중고 목록·비자 후기 통계(+`WEB_URL` 있을 때 `/`), 운영 DB에 가짜 글 안 넣음(데이터 많을 때는 로컬 재현), 기록은 `loadtest/README.md`(실행법)·`docs/loadtest.md`(전후 표).
-  - **S27-a 끝·커밋함**(2026-11-22): `loadtest/lib/common.js`(BASE_URL 검사·GET 목록·글 id·단계 꼬리표·요약 저장), `loadtest/read-smoke.js`, `loadtest/read-ramp.js`, `loadtest/README.md`, `docs/loadtest.md`, `.gitignore`에 `loadtest/results/`. 리뷰(메인이 직접, review 에이전트는 auto mode에 막힘) 필수 1 반영: 단계별 숫자가 안 나오던 것 → 요청에 `stage` 꼬리표(유지 구간만, 전환은 `ramp`) + 항상 통과하는 하위 지표 thresholds로 요약에 단계별 줄. 준비 요청은 `phase:setup`으로 기준·숫자에서 뺌. 진짜 k6 실행은 아직(S27-b). **S27-b 끝(2026-11-22, 로컬, 커밋할 코드 변경 없음)**: k6 2.4.0 설치(`C:\Program Files\k6\k6.exe`, 새 셸 PATH). 로컬(풀 3) 스모크 30건 p95 27ms 실패 0%, 주소 없으면 요청 0건 에러, 꺼진 주소면 6초 만에 자동 멈춤(exit 99), ramp 5735건·단계별 5/10/20/40명 = 초당 5/10/20/40건·p95 13/11/9/10ms·실패 0%. 참고: 요청마다 1초 쉼이라 40명이 초당 약 40건 — 운영에서 안 무너지면 단계를 키울지 기준 측정 뒤 결정. **다음: S27-c 운영 기준 측정(사용자 손).**
-  - BASE_URL: 운영 `https://<사이트주소>/api`, 로컬 `http://localhost:8080`(bootRun은 /api 접두사 없음). 사이트 주소는 코드·문서에 쓰지 않음.
-  - S27-b 전에: k6가 이 PC에 없음 → `winget install k6 --source winget` 실행 전에 사용자 확인. 운영 측정 전에 콘솔에서 t3 크레딧 모드(무제한/표준) 확인, 현재 운영 이미지 SHA 적기(deploy.md 7줄은 S24 기준이라 낡음).
-  - planner가 찾은 병목 후보(측정 뒤 결정): ① Hikari 풀 3(`docker-compose.yml:80`) vs Tomcat 기본 200, ② 앱 512m·힙 60%·SerialGC, ③ t3 CPU 크레딧, ④ 목록 페이지 나눔 없음, ⑤ nginx gzip·keepalive 없음, ⑥ 인덱스, ⑦ 서버 전체 메모리. N+1·429는 후보에서 뺌.
+- **S27(운영 부하 테스트 + AWS 모니터링) 끝·배포됨(2026-11-22, 커밋 8ba176b·3e72944).** 기록 전부 `docs/loadtest.md`(측정 조건·전후 표·원인 찾은 과정·다음 병목·결론), 실행법 `loadtest/README.md`.
+  - 원인: 160명(초당 약 100건)에서 리눅스 연결 장부(conntrack, 1GB 서버 7,680칸)가 꽉 차 새 연결을 버림(`dmesg` table full). nginx가 /api 요청마다 앱 연결을 새로 만들고 끊었기 때문. 해결: `flutter_app/nginx.conf` upstream board_app(keepalive 16, `server app:8080 resolve`) + `board-locations.conf` /api/에 HTTP/1.1·Connection 비우기(챗봇·사진·허가서·헬스 길은 예전 `$backend` 그대로). Deploy 버튼만으로 배포(compose 변경 없음).
+  - 결과: 160명 p95 6,051ms → 16ms·실패 0, 초당 약 400건까지 p95 25ms 이하, 약 900건(1000명)까지 실패 0.01%. 다음 병목(1000명): nginx worker_connections 1024 모자람, 장부 98%, 앱 메모리 469/512MiB — 예상 사용량 10배 이상이라 안 고침.
+  - k6 2.4.0 설치됨(`C:Program Filesk6k6.exe`). 한계 찾기는 `$env:STEPS="80,160,320"`(상한 1000). 서버 기록 파일 `~/s27-before.txt`·`s27-stress.txt`·`s27-after.txt`·`s27-1000.txt`(지워도 됨).
+  - 측정 교훈: 서버 켜고 10분 뒤 certbot(@reboot sleep 600)이 돌아 측정과 겹침 → 다음엔 15분 뒤 시작. 자동 멈춤 기준은 누적이라 늦게 반응(160명에서 무너졌는데 안 멈춤).
+  - 남은 것: Notion S27 기록(운영 단계 — 구성 그림·절차·확인), (사용자) CloudWatch 세부 모니터링 끄기·EC2 중지 확인.
+- **바로 다음: 사용자가 다음 기능 정하기.**
 - 포트폴리오 이미지: 저장소 루트 `portfolio-shots/`(커밋 안 함, 표지 + 화면 7장 + 원본 + 사진 출처). 다시 찍는 법: e2e mockApi로 임시 spec(412x915, deviceScaleFactor 3) → 찍고 지우기. 찍다 발견: 390폭에서 비자 통계 표 오른쪽(평균 처리일) 잘림(나중 후보).
 - 후보(사용자 정하기): backlog S26 "나중"(320폭 20자 닉네임이면 위 막대 3줄, **웹 접근성 트리에서 FeedRow가 link 역할이 아니라 텍스트로 나옴 — 모든 피드형 목록 확인 필요**, 목록 페이지 나눔(서버 API 필요)). 그 밖 backlog 보류·나중(S25 로그인 평범한 코드, S19 챗봇 일반 답변, 욕설·스팸 검사, 챗봇 뜻 검색, S24 "나중").
 - (선택) S23 🧭 파트 전체 정리·파트 전체 리뷰: 서버 코드가 안 바뀐 앱 파트라 할지 말지 사용자가 정하기로 함.
@@ -48,7 +48,7 @@
 - 작은 일: **집 PC 로컬 `.env`의 `VISION_API_KEY` 줄 삭제**(키는 이미 폐기), 자동 승인 시험 계정 정리, Notion S21 🧭 파트 전체 정리, (선택) 구글 503 빈도, 운영 테스트 중고 글 정리. 사용자 폰 "자동 차단" 다시 켜기(2026-11-20 S23 끝에 안내함).
 
 ## 진행 중인 단계
-- **S27-b**(로컬 시험, k6 설치 전 사용자 확인). 진행 중인 에이전트 없음.
+- 없음. 진행 중인 에이전트 없음.
 - 커밋 안 된 변경: `.claude/launch.json`(일부러 커밋 안 함), `portfolio-shots/`(포트폴리오용, 커밋 안 함). push 안 함.
 - 운영 서버 메모: `~/board/.env`(권한 600)에 `PHOTO_S3_BUCKET`·`LLM_MODE=gemini`·`GEMINI_API_KEY`·MAIL_*(되돌리기용)·**`PERMIT_HASH_SECRET`(64자, 절대 바꾸지 않음, 사용자가 서버 밖에도 보관)**·`PERMIT_OCR_MODE=vision`·`VISION_API_KEY`·**`COOKIE_SECURE=true`·`CF_API_TOKEN`·`CF_ZONE_ID`·`CF_RECORD_NAME`**. 서버 파일: `~/board/cloudflare-ddns.sh`(700), `~/board/certbot/conf`(인증서, root 700)·`www`, 로그 `~/board/ddns.log`·`~/board/certbot/renew.log`. **S24: `.env`에 `PUSH_MODE=fcm`, 서비스 계정 키 `~/board/fcm/service-account.json`(주인 100:101 = 컨테이너 app 사용자, 폴더 700·파일 400, sudo로만 보임), compose가 `./fcm`을 `/app/fcm`에 읽기 전용 마운트.** 푸시 끄기 = `.env` `PUSH_MODE=off` 후 `up -d app`. 백업: `docker-compose.yml.bak-s20`(S18)·`.bak-s21`(S20)·`.bak-s22`(S21)·`.bak-s24`(S23), `.env.bak-s20`. IMDS 홉 제한 2·IMDSv2 필수·역할 `board-ec2-role`. vision 끄기 = `.env` `PERMIT_OCR_MODE=off` 후 `up -d app`. **되돌리기 = deploy.md "S24 되돌리기"/"S23 되돌리기"(web만 bd6c70b로 고정)/"S22 되돌리기"/"S21 되돌리기"**.
 - 선택 정리: EC2 콘솔 옛 `demo-key` 삭제, IAM 옛 키 태그 삭제, 노트북 `~/.ssh/deploy-actions` 개인키 삭제.
