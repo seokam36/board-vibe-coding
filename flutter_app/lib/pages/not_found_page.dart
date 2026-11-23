@@ -1,4 +1,3 @@
-import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../widgets/app_link.dart';
@@ -19,7 +18,7 @@ class NotFoundPage extends StatelessWidget {
           children: [
             const PageTitle('페이지를 찾을 수 없습니다'),
             // 누르면 글 목록(홈)으로 이동. 단독 링크라 눌림 높이를 48로 키운다(tall)
-            AppLink(label: '홈으로', tall: true, onTap: () => context.go('/')),
+            AppLink(label: '홈으로', tall: true, path: '/'),
           ],
         ),
       ),

@@ -1,4 +1,11 @@
+import type { Page } from '@playwright/test'
 import { expect, fakeMarketItem, fakePosts, test, verifiedUser, waitForApp } from './mockApi'
+
+// 링크(접근성 역할) 중 href가 pattern에 맞는 것의 수 (목록 줄 링크만 세려는 도우미)
+async function countRowLinks(page: Page, pattern: RegExp): Promise<number> {
+  const hrefs = await page.getByRole('link').evaluateAll((els) => els.map((e) => e.getAttribute('href') ?? ''))
+  return hrefs.filter((h) => pattern.test(h)).length
+}
 
 // S28-c 피드형 목록 줄의 접근성: 줄 하나가 스크린리더에 "링크" 하나로 잡히는지(진짜 <a href>),
 // 눌러도 문서가 다시 열리지 않고(앱 재부팅 없음) 앱 안에서 이동하는지, 뒤로 가기가 되는지 본다.
@@ -43,8 +50,8 @@ test('게시판: 줄이 링크 하나로 잡히고, 누르면 재로드 없이 �
   )
   // (c) 한 겹: 링크 안에 자식 접근성 노드가 없다 (줄 안쪽 글자가 따로 또 잡히면 두 겹으로 읽힌다)
   expect(await link.locator('flt-semantics').count()).toBe(0)
-  // (d) 화면 전체 링크 수 = 목록 글 수 (상단바 메뉴 AppLink는 아직 link가 아니다)
-  await expect(page.getByRole('link')).toHaveCount(fakePosts.length)
+  // (d) 목록 줄 링크 수 = 목록 글 수 (href가 /posts/숫자 인 링크만 센다. 위 막대·"글쓰기"(/posts/new) 링크는 세지 않아 바뀌어도 안 깨진다)
+  await expect.poll(() => countRowLinks(page, /^\/posts\/\d+$/)).toBe(fakePosts.length)
 
   // 눌러도 문서가 다시 열리지 않는다 (재로드되면 앱이 처음부터 다시 켜진다)
   let loads = 0
@@ -96,7 +103,7 @@ test('중고 목록: 줄이 링크 하나로 잡히고, 누르면 재로드 없�
   await expect(link).toHaveCount(1)
   await expect(link).toHaveAttribute('href', '/market/1') // 진짜 <a href> 주소
   expect(await link.locator('flt-semantics').count()).toBe(0) // 한 겹
-  await expect(page.getByRole('link')).toHaveCount(1) // 화면의 링크 = 목록 글 1개
+  await expect.poll(() => countRowLinks(page, /^\/market\/\d+$/)).toBe(1) // 목록 줄 링크 = 목록 글 1개 (위 막대·글쓰기·안내 링크는 세지 않는다)
 
   let loads = 0
   page.on('load', () => loads++)

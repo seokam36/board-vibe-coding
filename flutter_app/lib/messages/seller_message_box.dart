@@ -57,7 +57,7 @@ class _SellerMessageBoxState extends State<SellerMessageBox> {
             spacing: AppSizes.space1,
             children: [
               Text(text),
-              if (linkLabel != null) AppLink(label: linkLabel, onTap: () => context.go(linkTo!)),
+              if (linkLabel != null && linkTo != null) AppLink(label: linkLabel, path: linkTo),
             ],
           ),
         ],

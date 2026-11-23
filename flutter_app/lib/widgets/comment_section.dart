@@ -1,4 +1,3 @@
-import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
@@ -249,7 +248,7 @@ class _CommentSectionState extends State<CommentSection> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 const Text('로그인하면 댓글을 쓸 수 있습니다 '),
-                AppLink(label: '로그인', onTap: () => context.go('/login')),
+                AppLink(label: '로그인', path: '/login'),
               ],
             )
           else if (widget.canComment)

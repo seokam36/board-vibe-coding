@@ -1,9 +1,7 @@
-// 앱(안드로이드 등)에서 바깥 링크를 여는 도우미.
-// 웹은 window.open(external_link_web.dart)으로 열지만, 앱에는 window가 없어서 url_launcher로 연다.
-// (조건부 import: dart.library.io 가 있는 곳 = 앱·VM일 때만 app_external_link_io.dart 를 가져온다.
-//  덕분에 웹 번들에는 우리 쪽 url_launcher 호출 코드가 들어가지 않는다.
-//  url_launcher_web 플러그인 등록 코드는 Flutter가 자동으로 조금 넣을 수 있지만 동작은 그대로다.
-//  단 웹도 FeedRow의 Link(진짜 <a href>)에는 url_launcher를 쓴다 (S28). 여기서 말하는 건 "바깥 링크 열기"뿐이다.)
+// 앱(안드로이드 등)에서 바깥 링크를 여는 도우미. 앱에는 브라우저 window가 없어서 url_launcher로 연다.
+// 이 파일은 앱 전용 열기 도구다. 웹의 바깥 링크(하이코리아 등)는 AppLink.external의 Link(새 탭)가 열고,
+// 웹 구현 external_link_web.dart는 지금 안 쓰이지만 남겨 둔다.
+// (조건부 import: dart.library.io 가 있는 곳 = 앱·VM일 때만 app_external_link_io.dart 를 가져온다.)
 import 'external_link.dart';
 import 'app_external_link_stub.dart'
     if (dart.library.io) 'app_external_link_io.dart'

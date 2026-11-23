@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 
 import '../auth/auth_state.dart';
 import '../auth/auth_user.dart';
-import '../common/external_link.dart';
 import '../common/format_date.dart';
 import '../errors/error_messages.dart';
 import '../push/push_permission_panel.dart';
@@ -42,7 +41,7 @@ class _PlanGuide extends StatelessWidget {
             WidgetSpan(
               alignment: PlaceholderAlignment.baseline,
               baseline: TextBaseline.alphabetic,
-              child: AppLink(label: '하이코리아', onTap: () => externalLinkOpener.open(hikoreaUrl)),
+              child: AppLink.external(label: '하이코리아', url: hikoreaUrl),
             ),
             const TextSpan(text: '나 관할 출입국·외국인청에서 확인하세요'),
           ],

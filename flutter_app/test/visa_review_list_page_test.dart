@@ -1,6 +1,7 @@
 // S16-h1 비자 후기 목록 화면 테스트: 주소 쿼리가 진짜 값(필터 3개↔주소↔요청), 탭의 쿼리 유지, 행·뱃지·조건,
 // 빈 목록·에러 3종, 선택지 실패 안내 1개, 연필 버튼(후기 쓰기), 늦게 온 옛 응답 무시를 본다.
 import 'dart:async';
+import 'dart:ui' show Tristate;
 
 import 'package:board_web/theme/app_colors.dart';
 import 'package:board_web/widgets/initial_avatar.dart';
@@ -121,6 +122,34 @@ void main() {
       await tester.tap(find.text('통계'));
       await tester.pumpAndSettle();
       expect(_uri(app), '/visa-reviews/stats');
+    });
+
+    // S29-b: 탭은 tab 역할이 아니라 링크. 앱 경로의 의미(링크·현재 탭·주소·높이)를 본다
+    testWidgets('탭은 링크 노드: 현재 탭만 selected, linkUrl은 쿼리 포함, 눌림 높이 40', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpApp(tester, location: '/visa-reviews?schoolId=1', adapter: _adapter([FakeReply(200, [])]));
+      SemanticsNode node(String label) => tester.getSemantics(find.ancestor(of: find.text(label), matching: find.byType(InkWell)).first);
+      final list = node('후기');
+      final stats = node('통계');
+      expect(list.flagsCollection.isLink, isTrue);
+      expect(stats.flagsCollection.isLink, isTrue);
+      expect(list.flagsCollection.isSelected, Tristate.isTrue);
+      expect(stats.flagsCollection.isSelected, Tristate.isFalse);
+      expect(list.linkUrl, Uri.parse('/visa-reviews?schoolId=1'));
+      expect(stats.linkUrl, Uri.parse('/visa-reviews/stats?schoolId=1'));
+      expect(tester.getSize(find.ancestor(of: find.text('통계'), matching: find.byType(Container)).first).height, 40);
+      handle.dispose();
+    });
+
+    testWidgets('조건을 바꾸면 탭의 링크 주소도 바뀐 쿼리로 다시 만들어진다', (tester) async {
+      final handle = tester.ensureSemantics();
+      final adapter = _adapter([FakeReply(200, []), FakeReply(200, [])]);
+      await pumpApp(tester, location: '/visa-reviews', adapter: adapter);
+      Uri? statsUrl() => tester.getSemantics(find.ancestor(of: find.text('통계'), matching: find.byType(InkWell)).first).linkUrl;
+      expect(statsUrl(), Uri.parse('/visa-reviews/stats'));
+      await _pick(tester, _schoolSelect, '서울대');
+      expect(statsUrl(), Uri.parse('/visa-reviews/stats?schoolId=1'));
+      handle.dispose();
     });
   });
 

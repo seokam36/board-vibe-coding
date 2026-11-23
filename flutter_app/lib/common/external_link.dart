@@ -1,6 +1,6 @@
-// 바깥 사이트를 여는 도우미. 웹용은 window.open으로 직접 만든 아주 작은 버전이다.
-// 브라우저에서만 window.open을 쓸 수 있고 테스트(VM)에는 브라우저가 없다.
-// 그래서 cookie_reader처럼 조건부 import: 웹이면 진짜 구현, 아니면 아무것도 안 하는 구현을 쓴다.
+// 바깥 사이트를 여는 도우미의 자리. S29-b부터 웹의 바깥 링크는 AppLink.external의 Link(진짜 <a>)가 열어서,
+// 웹 구현(external_link_web.dart, window.open)은 화면에서 안 쓰인다. 비상용으로 남겨 둔다.
+// cookie_reader처럼 조건부 import: 웹이면 웹 구현, 아니면 아무것도 안 하는 구현이다(테스트 VM에는 브라우저가 없다).
 // 앱(안드로이드)은 main.dart가 app_external_link.dart(url_launcher)의 도구로 바꿔 끼운다 (S23-d1).
 import 'external_link_stub.dart'
     if (dart.library.js_interop) 'external_link_web.dart'
@@ -11,7 +11,7 @@ import 'external_link_stub.dart'
 const externalLinkWindowFeatures = 'noopener,noreferrer';
 
 abstract interface class ExternalLinkOpener {
-  // url을 바깥에서 연다. 웹은 새 탭(noopener·noreferrer로 이 사이트를 못 건드리게), 앱은 기기 브라우저
+  // url을 바깥에서 연다. 앱은 기기 브라우저. 웹 구현은 새 탭(noopener·noreferrer)이지만 지금 화면에서는 안 쓴다
   void open(String url);
 }
 

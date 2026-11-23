@@ -29,7 +29,7 @@ test('챗봇에 질문하면 답과 참고한 글이 보이고, 출처를 누르
 
   await page.goto('/')
   await waitForApp(page)
-  await page.getByText('챗봇', { exact: true }).click()
+  await page.getByRole('link', { name: '챗봇', exact: true }).click()
   await expect(page).toHaveURL('/chat')
   await expect(page.getByRole('textbox', { name: /질문/ })).toBeVisible({ timeout: FIRST_LOAD })
 

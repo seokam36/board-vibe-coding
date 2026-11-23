@@ -69,7 +69,7 @@ class VisaPlanBanner extends StatelessWidget {
                           key: const ValueKey('visa-banner-text'),
                           style: const TextStyle(fontSize: AppSizes.fsSmall2, color: AppColors.ink, height: 1.5),
                         ),
-                        AppLink(label: bannerLinkText, onTap: () => context.go('/visa-plan')),
+                        AppLink(label: bannerLinkText, path: '/visa-plan'),
                       ],
                     ),
                   ),

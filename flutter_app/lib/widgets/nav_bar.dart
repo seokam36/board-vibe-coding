@@ -8,6 +8,7 @@ import '../auth/auth_state.dart';
 import '../site_name.dart';
 import '../theme/app_colors.dart';
 import 'app_link.dart';
+import 'nav_link.dart';
 import 'notice.dart';
 
 // 로그아웃 실패 때 보여 주는 문구
@@ -45,6 +46,36 @@ class _NavBarState extends State<NavBar> {
     }
   }
 
+  // 사이트 이름(홈 링크). AppLink와 같은 방식(NavLink): 웹은 진짜 <a href="/">, 앱은 context.go('/') + 링크 의미.
+  // 모양(밑줄 없음·700·눌림 높이 48)이 AppLink와 달라 AppLink로 합치지 않고 모양만 여기서 따로 만든다.
+  Widget _siteNameLink(BuildContext context) {
+    return NavLink(
+      uri: Uri.parse('/'),
+      label: siteName,
+      onOpen: () => context.go('/'),
+      builder: (onTap, wrap) {
+        // 눌림 높이 최소 tapMin=48 (글자는 세로 가운데)
+        final content = ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: AppSizes.tapMin),
+          child: const Align(
+            alignment: Alignment.center,
+            widthFactor: 1,
+            heightFactor: 1,
+            child: Text(
+              siteName,
+              style: TextStyle(
+                color: AppColors.accent,
+                fontWeight: FontWeight.w700,
+                fontSize: AppSizes.fsRow,
+              ),
+            ),
+          ),
+        );
+        return InkWell(onTap: onTap, child: wrap(content));
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthState>().user;
@@ -55,7 +86,7 @@ class _NavBarState extends State<NavBar> {
     final menu = <Widget>[
       if (user != null) ...[
         // 중고 글 챗봇은 로그인한 회원 누구나 (학교 인증 불필요)
-        AppLink(label: '챗봇', tall: true, onTap: () => context.go('/chat')),
+        AppLink(label: '챗봇', tall: true, path: '/chat'),
         // 닉네임은 메뉴 맨 끝, 로그아웃 버튼 바로 왼쪽 ("누가 로그인했나"와 "나가기"를 한 자리에)
         Text('${user.nickname} 님', style: const TextStyle(fontSize: AppSizes.fsSmall2)),
         // 학교 인증을 마친 회원 표시. 학교 이름은 마우스를 올리거나 스크린리더로 알 수 있다
@@ -69,8 +100,8 @@ class _NavBarState extends State<NavBar> {
           child: Text(_loggingOut ? '로그아웃 중...' : '로그아웃'), // 진행 중에만 라벨이 바뀐다
         ),
       ] else ...[
-        AppLink(label: '로그인', tall: true, onTap: () => context.go('/login')),
-        AppLink(label: '회원가입', tall: true, onTap: () => context.go('/signup')),
+        AppLink(label: '로그인', tall: true, path: '/login'),
+        AppLink(label: '회원가입', tall: true, path: '/signup'),
       ],
     ];
 
@@ -97,29 +128,7 @@ class _NavBarState extends State<NavBar> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     // 사이트 이름은 홈 링크: 스크린리더가 "링크"로 읽게 한다
-                    Semantics(
-                      link: true,
-                      child: InkWell(
-                        onTap: () => context.go('/'),
-                        // 눌림 높이 최소 tapMin=48 (글자는 세로 가운데)
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(minHeight: AppSizes.tapMin),
-                          child: const Align(
-                            alignment: Alignment.center,
-                            widthFactor: 1,
-                            heightFactor: 1,
-                            child: Text(
-                              siteName,
-                              style: TextStyle(
-                                color: AppColors.accent,
-                                fontWeight: FontWeight.w700,
-                                fontSize: AppSizes.fsRow,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+                    _siteNameLink(context),
                     const SizedBox(width: AppSizes.space3),
                     Expanded(
                       // Wrap: 아주 좁거나 글자가 크면 넘치지 않고 줄바꿈된다

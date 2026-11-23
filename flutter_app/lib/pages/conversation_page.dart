@@ -241,7 +241,7 @@ class _ConversationPageState extends State<ConversationPage> {
                   AppLink(
                     label: item.title,
                     oneLine: true,
-                    onTap: () => context.go('/market/${item.id}'),
+                    path: '/market/${item.id}',
                   )
                 else
                   Row(
@@ -316,7 +316,7 @@ class _ConversationPageState extends State<ConversationPage> {
         spacing: AppSizes.space1,
         children: [
           const Text('유학생 인증 후 답장할 수 있어요'),
-          AppLink(label: '유학생 인증하기', onTap: () => context.go('/me')),
+          AppLink(label: '유학생 인증하기', path: '/me'),
         ],
       );
     }

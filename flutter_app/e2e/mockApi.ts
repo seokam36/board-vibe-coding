@@ -352,9 +352,9 @@ export async function typeInto(page: Page, name: string | RegExp, text: string) 
 }
 
 // 앱이 뜰 때까지 기다린다: 상단바가 그려지면(비로그인은 "회원가입", 로그인은 "로그아웃" 버튼) 첫 로딩이 끝난 것.
-// Flutter 웹의 접근성 트리에서 FeedRow 줄(목록 글 등)은 link 역할(S28)이지만, 상단바 메뉴(AppLink)는 아직 글자(text)라 getByText로 찾는다(S29 후보).
+// Flutter 웹의 접근성 트리에서 FeedRow 줄(목록 글 등)과 상단바 메뉴(AppLink, S29-a)는 link 역할이라 getByRole('link')로 찾는다.
 export async function waitForApp(page: Page) {
-  await expect(page.getByText('회원가입', { exact: true }).or(page.getByRole('button', { name: '로그아웃' }))).toBeVisible({
+  await expect(page.getByRole('link', { name: '회원가입', exact: true }).or(page.getByRole('button', { name: '로그아웃' }))).toBeVisible({
     timeout: FIRST_LOAD,
   })
 }

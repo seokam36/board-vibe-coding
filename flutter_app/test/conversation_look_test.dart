@@ -231,7 +231,7 @@ void main() {
             // 폭을 정해 주는 부모(Align + SizedBox 150)
             body: Align(
               alignment: Alignment.topLeft,
-              child: SizedBox(width: 150, child: AppLink(label: '가나다라마바사 ' * 20, oneLine: oneLine, onTap: () {})),
+              child: SizedBox(width: 150, child: AppLink(label: '가나다라마바사 ' * 20, oneLine: oneLine, path: '/')),
             ),
           ),
         ),

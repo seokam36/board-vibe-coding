@@ -1,4 +1,3 @@
-import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../errors/error_messages.dart';
@@ -24,7 +23,7 @@ class ReloginNotice extends StatelessWidget {
         children: [
           const Text(reloginMessage),
           // 안내 문구 색(danger)과 구분되게 링크는 포인트색 그대로 둔다
-          AppLink(label: '로그인', onTap: () => context.go('/login')),
+          AppLink(label: '로그인', path: '/login'),
         ],
       ),
     );

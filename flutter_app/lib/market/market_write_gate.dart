@@ -1,4 +1,3 @@
-import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../auth/auth_user.dart';
@@ -25,7 +24,7 @@ class MarketWriteGate extends StatelessWidget {
           Text(loggedIn ? '중고·나눔 글은 유학생 인증 후에 올릴 수 있어요' : '글을 올리려면 로그인이 필요해요'),
           AppLink(
             label: loggedIn ? '내 정보에서 유학생 인증하기' : '로그인',
-            onTap: () => context.go(loggedIn ? '/me' : '/login'),
+            path: loggedIn ? '/me' : '/login',
           ),
         ],
       ),

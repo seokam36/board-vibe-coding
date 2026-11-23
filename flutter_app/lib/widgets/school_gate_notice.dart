@@ -1,4 +1,3 @@
-import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../auth/auth_user.dart';
@@ -28,7 +27,7 @@ class SchoolGateNotice extends StatelessWidget {
             const Text('유학생 인증 후 같은 학교 글에만 댓글·공감·신고할 수 있어요'),
             AppLink(
               label: '유학생 인증하기',
-              onTap: () => context.go('/me'),
+              path: '/me',
               style: const TextStyle(color: AppColors.accent),
             ),
           ],

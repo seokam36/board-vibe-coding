@@ -1,6 +1,7 @@
 // S16-d2a 상단바 테스트: 메뉴 순서·조건(비로그인/일반/인증/관리자), 로그아웃 성공·실패, 좁은 화면 넘침을 본다.
 import 'dart:async';
 
+import 'package:flutter/semantics.dart' show SemanticsAction;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -109,9 +110,17 @@ void main() {
     testWidgets('사이트 이름은 홈 링크: 링크 시맨틱이 있고 누르면 "/"로 간다', (tester) async {
       final semantics = tester.ensureSemantics();
       final app = await pumpApp(tester, location: '/visa-reviews');
+      // 부분 일치로 세어 합쳐진 노드를 놓친 거짓 통과를 막는다: 사이트 이름 링크 노드는 정확히 1개
+      // (아래 탭의 "게시판" 버튼도 같은 글자라 링크인 것만 센다)
+      final siteLink = find.semantics.byPredicate((n) => n.label.contains('게시판') && n.flagsCollection.isLink);
+      expect(siteLink, findsOneWidget);
       final data = tester.getSemantics(_siteName).getSemanticsData();
+      expect(data.label, '게시판');
       expect(data.flagsCollection.isLink, isTrue);
-      await tester.tap(_siteName);
+      expect(data.linkUrl, Uri.parse('/'));
+      expect(data.hasAction(SemanticsAction.tap), isTrue); // 스크린리더용 누르기 동작
+      // 스크린리더의 누르기로 "/"로 간다
+      tester.semantics.tap(siteLink);
       await tester.pumpAndSettle();
       expect(app.router.routerDelegate.currentConfiguration.uri.path, '/');
       expect(find.text('전체 게시판'), findsOneWidget);
@@ -292,11 +301,11 @@ void main() {
 
     testWidgets('tall을 안 준 AppLink(문장 속 링크용)는 눌림 높이가 48 미만이다', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: Scaffold(body: Center(child: AppLink(label: '문장 링크', onTap: () {})))),
+        MaterialApp(home: Scaffold(body: Center(child: AppLink(label: '문장 링크', path: '/')))),
       );
       expect(tester.getSize(find.byType(InkWell)).height, lessThan(48));
       await tester.pumpWidget(
-        MaterialApp(home: Scaffold(body: Center(child: AppLink(label: '큰 링크', tall: true, onTap: () {})))),
+        MaterialApp(home: Scaffold(body: Center(child: AppLink(label: '큰 링크', tall: true, path: '/')))),
       );
       expect(tester.getSize(find.byType(InkWell)).height, greaterThanOrEqualTo(48));
     });

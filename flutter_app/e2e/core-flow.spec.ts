@@ -7,12 +7,12 @@ test('비로그인으로 목록을 열면 글 2개와 로그인 링크가 보인
   // 첫 로딩이 끝날 때까지 먼저 기다린다 (Flutter 웹은 첫 로딩이 느리다)
   await waitForApp(page)
 
-  // FeedRow 줄(목록 글)은 link(S28)지만 이 테스트는 글자로 찾는다. 상단바 메뉴(AppLink)는 아직 글자(S29 후보)
+  // FeedRow 줄(목록 글)은 이 테스트에서 글자로 찾는다. 상단바 메뉴(AppLink)는 link(S29-a)라 getByRole('link')로 찾는다
   for (const post of fakePosts) {
     await expect(page.getByText(post.title)).toBeVisible()
   }
-  await expect(page.getByText('로그인', { exact: true })).toBeVisible() // 비로그인 상단바: 로그인·회원가입 메뉴
-  await expect(page.getByText('회원가입', { exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: '로그인', exact: true })).toBeVisible() // 비로그인 상단바: 로그인·회원가입 메뉴
+  await expect(page.getByRole('link', { name: '회원가입', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: '로그아웃' })).toHaveCount(0)
 })
 

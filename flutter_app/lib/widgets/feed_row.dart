@@ -1,9 +1,8 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:url_launcher/link.dart';
 
 import '../theme/app_colors.dart';
+import 'nav_link.dart';
 
 // 피드형 목록의 줄 한 개 틀 (게시판·비자 후기·중고 목록·쪽지함·내 정보 바로가기·챗봇 참고한 글에서 같이 쓴다).
 // 줄 어디를 눌러도 이동하고, 스크린리더에는 줄 하나가 링크 하나로 읽힌다.
@@ -25,8 +24,8 @@ class FeedRow extends StatelessWidget {
   final Widget child;
 
   // 줄 안쪽 모양 (눌림 효과·높이·패딩·위 선). 웹과 앱이 같이 쓴다.
-  // wrap: 줄 모양(Container)을 InkWell 안에서 한 번 더 감쌀 때만 준다 (웹은 Semantics로 감싼다, 앱은 안 준다).
-  Widget _body({required VoidCallback? onTap, Widget Function(Widget)? wrap}) {
+  // wrap: NavLink가 주는 "Semantics로 한 번 더 감싸는 함수" (앱에서는 그대로 돌려준다).
+  Widget _body(VoidCallback onTap, Widget Function(Widget) wrap) {
     final row = Container(
       constraints: const BoxConstraints(minHeight: 48), // 눌리는 높이
       padding: const EdgeInsets.symmetric(
@@ -45,38 +44,18 @@ class FeedRow extends StatelessWidget {
       hoverColor: AppColors.hover, // 올리거나 누르면 조용히 hover 바탕
       splashColor: AppColors.hover,
       highlightColor: AppColors.hover,
-      child: wrap == null ? row : wrap(row),
+      child: wrap(row),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final uri = Uri.parse(path);
-    if (kIsWeb) {
-      // 웹: url_launcher의 Link로 감싸 진짜 링크(<a href>)로 만든다. 스크린리더가 "링크"로 읽는다.
-      // 주소만 주는 Semantics(linkUrl)는 누르면 문서가 통째로 다시 열려서 쓰지 않는다.
-      // Link가 link 의미를 이미 주므로 안쪽에서 link: true를 또 주지 않는다.
-      // onTap에 followLink를 꼭 연결해야 재로드 없이 라우터로 이동한다.
-      return Link(
-        uri: uri,
-        target: LinkTarget.self,
-        // uri를 항상 주므로 followLink는 늘 있다 (그대로 onTap에 연결)
-        builder: (context, followLink) => _body(
-          onTap: followLink,
-          wrap: (inner) => Semantics(label: label, excludeSemantics: true, child: inner),
-        ),
-      );
-    }
-    // 앱(안드로이드 등): Link는 상대 주소를 라우터 채널로 보내지만, 앱에서는 기존 context.go가 확실하고
-    // 뒤로 가기 방문 기록(AppHistory)도 그대로 남는다. 그래서 이동은 context.go, 의미만 링크로 맞춘다.
-    void open() => context.go(path); // 눌러도, 스크린리더로 눌러도 같은 이동
-    return Semantics(
-      link: true,
-      linkUrl: uri,
+    // 웹은 진짜 <a href> 링크(재로드 없이 라우터로 이동), 앱은 기존 context.go(뒤로 가기 방문 기록 AppHistory도 그대로)
+    return NavLink(
+      uri: Uri.parse(path),
       label: label,
-      excludeSemantics: true,
-      onTap: open, // 스크린리더로 누를 수 있게 같이 준다
-      child: _body(onTap: open),
+      onOpen: () => context.go(path),
+      builder: _body,
     );
   }
 }

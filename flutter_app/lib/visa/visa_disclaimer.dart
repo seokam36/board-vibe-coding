@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../common/external_link.dart';
 import '../widgets/app_link.dart';
 import '../widgets/notice.dart';
 
@@ -27,7 +26,7 @@ class VisaDisclaimer extends StatelessWidget {
             WidgetSpan(
               alignment: PlaceholderAlignment.baseline,
               baseline: TextBaseline.alphabetic,
-              child: AppLink(label: '하이코리아', onTap: () => externalLinkOpener.open(hikoreaUrl)),
+              child: AppLink.external(label: '하이코리아', url: hikoreaUrl),
             ),
             const TextSpan(text: '에서 확인하세요'),
           ],
