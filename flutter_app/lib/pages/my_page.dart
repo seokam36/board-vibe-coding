@@ -101,7 +101,7 @@ class _Shortcuts extends StatelessWidget {
           for (var i = 0; i < links.length; i++)
             FeedRow(
               label: links[i].label,
-              onTap: () => context.go(links[i].path),
+              path: links[i].path, // 링크 주소 (웹에서 진짜 링크가 된다)
               first: i == 0,
               child: Row(
                 children: [

@@ -107,6 +107,7 @@ void main() {
       final node = tester.getSemantics(row);
       expect(node.label, '비자 일정'); // 글자·chevron이 섞이지 않고 라벨 하나
       expect(node.flagsCollection.isLink, isTrue);
+      expect(node.linkUrl, Uri.parse('/visa-plan')); // 링크 주소 = 눌러서 가는 곳
       expect(find.bySemanticsLabel('비자 일정'), findsOneWidget);
       // chevron 아이콘은 읽을 말이 따로 없다
       expect(

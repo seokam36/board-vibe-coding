@@ -334,7 +334,7 @@ class _MarketRow extends StatelessWidget {
     return FeedRow(
       // 줄 하나를 링크 하나로 읽게 읽을 말을 정해 준다 (제목, 상태, 가격, 학교, 시각 순서. 썸네일은 장식이라 뺀다)
       label: [item.title, item.status.name, price, item.school.name, created].join(', '),
-      onTap: () => context.go('/market/${item.id}'),
+      path: '/market/${item.id}', // 링크 주소 (웹에서 진짜 링크가 된다)
       first: first,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -654,6 +654,7 @@ void main() {
       final row = find.ancestor(of: find.text('첫 글'), matching: find.byType(InkWell)).first;
       final data = tester.getSemantics(row).getSemanticsData();
       expect(data.flagsCollection.isLink, isTrue);
+      expect(data.linkUrl, Uri.parse('/posts/1')); // 링크 주소 = 눌러서 가는 곳
       expect(data.label, contains('첫 글'));
       expect(data.label, contains('철수'));
       // "첫 글"이 들어간 링크 노드는 줄 하나뿐: 줄 하나 = 링크 하나

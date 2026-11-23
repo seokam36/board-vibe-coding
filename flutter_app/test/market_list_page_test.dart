@@ -805,6 +805,7 @@ void main() {
       final node = tester.getSemantics(find.byType(FeedRow));
       final data = node.getSemanticsData();
       expect(data.flagsCollection.isLink, isTrue);
+      expect(data.linkUrl, Uri.parse('/market/7')); // 링크 주소 = 눌러서 가는 곳
       expect(data.hasAction(SemanticsAction.tap), isTrue);
       expect(data.label, '전공 서적 팝니다, 판매중, 15,000원, 서울대, ${formatDate('2020-11-08T06:19:00Z')}');
       // 안쪽에 따로 읽히는 항목(뱃지·제목·썸네일 사진)이 없다

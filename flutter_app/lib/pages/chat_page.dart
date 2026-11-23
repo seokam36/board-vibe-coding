@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart' show Options;
 import 'package:flutter/semantics.dart';
-import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
@@ -316,7 +315,7 @@ class _SourceRow extends StatelessWidget {
     return FeedRow(
       // 줄 하나를 링크 하나로 읽게 읽을 말을 정해 준다 (제목, 가격, 상태 순서)
       label: [source.title, price, source.status.name].join(', '),
-      onTap: () => context.go('/market/${source.id}'),
+      path: '/market/${source.id}', // 링크 주소 (웹에서 진짜 링크가 된다)
       first: first,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

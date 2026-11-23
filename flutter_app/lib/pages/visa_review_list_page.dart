@@ -200,7 +200,7 @@ class _ReviewRow extends StatelessWidget {
         '결과 ${formatDay(r.resultDate)}',
         '작성 $created',
       ].join(', '),
-      onTap: () => context.go('/visa-reviews/${r.id}'),
+      path: '/visa-reviews/${r.id}', // 링크 주소 (웹에서 진짜 링크가 된다)
       first: first,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

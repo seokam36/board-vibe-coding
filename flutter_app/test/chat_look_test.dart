@@ -86,6 +86,7 @@ void main() {
       final node = tester.getSemantics(find.byKey(const ValueKey('chat-source-0-12')));
       final data = node.getSemanticsData();
       expect(data.flagsCollection.isLink, isTrue);
+      expect(data.linkUrl, Uri.parse('/market/12')); // 링크 주소 = 눌러서 가는 곳
       expect(data.hasAction(SemanticsAction.tap), isTrue);
       expect(data.label, '자전거 팝니다, 30,000원, 판매중');
       // 안쪽에 따로 읽히는 항목이 없다

@@ -397,8 +397,7 @@ class _PostRow extends StatelessWidget {
     );
     final nickname = post.author?.nickname;
     // 줄 하나를 링크 하나로 읽게, 읽을 말을 직접 정해 준다 (순서: 제목, 닉네임, 말머리, 학교, 댓글, 공감, 시각).
-    // 안쪽 글자는 excludeSemantics로 빼고, 스크린리더로 누를 수 있게 onTap을 여기에 같이 준다.
-    void goPost() => context.go('/posts/${post.id}');
+    // 안쪽 글자는 excludeSemantics로 빼고, 이동 주소(path)를 넘기면 FeedRow가 링크로 만든다.
     return FeedRow(
         label: [
           post.title,
@@ -409,7 +408,7 @@ class _PostRow extends StatelessWidget {
           '공감 ${post.likeCount}',
           formatDate(post.createdAt),
         ].join(', '),
-        onTap: goPost,
+        path: '/posts/${post.id}', // 링크 주소 (웹에서 진짜 링크가 된다)
         first: first,
         child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,

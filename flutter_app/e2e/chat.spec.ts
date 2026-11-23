@@ -42,12 +42,13 @@ test('챗봇에 질문하면 답과 참고한 글이 보이고, 출처를 누르
   // 참고한 글
   await expect(page.getByText('참고한 글', { exact: true })).toBeVisible()
   // 줄 하나가 "제목, 가격, 상태" 한 덩어리로 읽힌다
-  await expect(page.getByText(/^출처 자전거, 30,000원, 판매중/)).toBeVisible()
+  // (S28: 줄은 진짜 링크라 link 역할로 찾는다)
+  await expect(page.getByRole('link', { name: /^출처 자전거, 30,000원, 판매중/ })).toBeVisible()
   const sent = api.sent('POST', '/chat')
   expect(sent).toHaveLength(1)
   expect(JSON.parse(sent[0].body!)).toEqual({ question: '3만 원 이하 자전거 있어?' })
 
   // 출처 줄을 누르면 글 상세
-  await page.getByText(/^출처 자전거, 30,000원, 판매중/).click()
+  await page.getByRole('link', { name: /^출처 자전거, 30,000원, 판매중/ }).click()
   await expect(page).toHaveURL('/market/12')
 })

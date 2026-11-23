@@ -1,4 +1,3 @@
-import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
@@ -118,7 +117,7 @@ class _ConversationRow extends StatelessWidget {
         lastText,
         time,
       ].join(', '),
-      onTap: () => context.go('/messages/${c.id}'),
+      path: '/messages/${c.id}', // 링크 주소 (웹에서 진짜 링크가 된다)
       first: first,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -58,6 +58,7 @@ dependencies:
   path_provider: ^2.1.6
 
   # 앱(안드로이드)에서 하이코리아 같은 바깥 링크를 기기 브라우저로 열려고 필요 (웹은 window.open을 그대로 씀)
+  # 단 웹은 FeedRow의 Link(진짜 <a href>)에 쓴다 (S28)
   url_launcher: ^6.3.3
   # 앱(안드로이드)에서 갤러리 사진을 고르려고 필요 (웹은 직접 만든 file_picker_web을 그대로 씀)
   image_picker: ^1.2.4

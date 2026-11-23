@@ -465,6 +465,7 @@ void main() {
       await pumpApp(tester, location: '/visa-reviews', adapter: _adapter([FakeReply(200, [reviewJson(id: 1), reviewJson(id: 2, visaType: const {'code': 'D4', 'name': '어학연수(D-4)'})])]));
       final data = tester.getSemantics(rowOf('유학(D-2) · 연장 · 처리 19일')).getSemanticsData();
       expect(data.flagsCollection.isLink, isTrue);
+      expect(data.linkUrl, Uri.parse('/visa-reviews/1')); // 링크 주소 = 눌러서 가는 곳
       expect(data.hasAction(SemanticsAction.tap), isTrue);
       expect(data.label, startsWith('유학(D-2) · 연장 · 처리 19일'));
       for (final t in ['승인', '서울대', '홍길동', '접수 2026년 9월 1일', '결과 2026년 9월 20일', '작성 2020년 11월 8일']) {

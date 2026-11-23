@@ -74,6 +74,27 @@ export const fakeMarketItem = {
   photos: [] as unknown[],
 }
 
+// 비자 후기 (docs/api.md 19·20번 응답 한 건). 목록·선택지 mock에 쓴다
+export const fakeVisaReview = {
+  id: 4,
+  author: { id: 2, nickname: '후기쓴이' },
+  school: postSchool,
+  visaType: { code: 'D_2', name: '유학(D-2)' },
+  applicationType: { code: 'EXTENSION', name: '연장' },
+  receivedDate: '2026-01-05',
+  resultDate: '2026-01-20',
+  result: { code: 'APPROVED', name: '승인' },
+  processingDays: 15,
+  content: '무난하게 승인됐어요.',
+  createdAt: '2026-01-21T00:00:00Z',
+}
+// 비자 후기 선택지 (GET /visa-review-options)
+const fakeVisaOptions = {
+  visaTypes: [{ code: 'D_2', name: '유학(D-2)' }],
+  applicationTypes: [{ code: 'EXTENSION', name: '연장' }],
+  results: [{ code: 'APPROVED', name: '승인' }],
+}
+
 // 쪽지 (docs/api.md 36~39번). 대화 3번: 상대 "판매자닉", 글 1번 "가짜 자전거"
 export const fakeConversationDetail = {
   id: 3,
@@ -164,6 +185,9 @@ function defaultHandlers(state: { user: FakeUser | null }): MockHandlers {
     'GET /users/me/visa-plan': { status: 200, body: { expiryDate: null, daysLeft: null, stage: null, todos: [] } },
     // 내 정보(/me)의 "유학생 인증" 칸: 미인증 회원이 열면 인증 상태를 1번 묻는다 (기본은 신청한 적 없음)
     'GET /users/me/permit-verification': { status: 200, body: { status: 'NONE' } },
+    // 비자 후기 목록 (기본은 한 건)과 목록 화면 선택지
+    'GET /visa-reviews': { status: 200, body: [fakeVisaReview] },
+    'GET /visa-review-options': { status: 200, body: fakeVisaOptions },
     // 중고
     'GET /market-items': { status: 200, body: [] },
     'GET /market-items/1': { status: 200, body: fakeMarketItem },
@@ -328,7 +352,7 @@ export async function typeInto(page: Page, name: string | RegExp, text: string) 
 }
 
 // 앱이 뜰 때까지 기다린다: 상단바가 그려지면(비로그인은 "회원가입", 로그인은 "로그아웃" 버튼) 첫 로딩이 끝난 것.
-// Flutter 웹의 접근성 트리에서는 상단바 메뉴·목록 글이 link 역할이 아니라 글자(text)로 잡혀서 getByText로 찾는다.
+// Flutter 웹의 접근성 트리에서 FeedRow 줄(목록 글 등)은 link 역할(S28)이지만, 상단바 메뉴(AppLink)는 아직 글자(text)라 getByText로 찾는다(S29 후보).
 export async function waitForApp(page: Page) {
   await expect(page.getByText('회원가입', { exact: true }).or(page.getByRole('button', { name: '로그아웃' }))).toBeVisible({
     timeout: FIRST_LOAD,

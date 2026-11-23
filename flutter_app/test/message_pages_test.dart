@@ -519,6 +519,7 @@ void main() {
       final node = tester.getSemantics(row(3));
       final data = node.getSemanticsData();
       expect(data.flagsCollection.isLink, isTrue);
+      expect(data.linkUrl, Uri.parse('/messages/3')); // 링크 주소 = 눌러서 가는 곳
       expect(data.hasAction(SemanticsAction.tap), isTrue);
       expect(data.label, '판매자닉, 안 읽은 쪽지 3개, 가짜 자전거, 나: 내일 봐요, ${formatDate('2026-01-02T03:05:00Z')}');
       expect(childCount(node), 0);

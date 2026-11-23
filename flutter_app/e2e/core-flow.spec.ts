@@ -7,7 +7,7 @@ test('비로그인으로 목록을 열면 글 2개와 로그인 링크가 보인
   // 첫 로딩이 끝날 때까지 먼저 기다린다 (Flutter 웹은 첫 로딩이 느리다)
   await waitForApp(page)
 
-  // Flutter 웹은 목록 글·상단바 메뉴가 link 역할이 아닌 글자로 잡혀서 getByText로 찾는다
+  // FeedRow 줄(목록 글)은 link(S28)지만 이 테스트는 글자로 찾는다. 상단바 메뉴(AppLink)는 아직 글자(S29 후보)
   for (const post of fakePosts) {
     await expect(page.getByText(post.title)).toBeVisible()
   }
