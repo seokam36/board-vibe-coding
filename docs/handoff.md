@@ -3,22 +3,22 @@
 컴퓨터를 바꿔도 이어서 작업하기 위한 메모. 작업을 끝낼 때 /handoff 로 갱신한다.
 자세한 결정·기록은 docs/backlog.md(각 S번호 항목 + "끝난 일" 표), 배포는 docs/deploy.md, API는 docs/api.md.
 
-마지막 갱신: 2026-11-23, 노트북(한글 사용자 폴더 C:\Users\주석암) (**S28·S29 링크 접근성 끝·push·CI 초록, 운영 배포는 안 함**)
+마지막 갱신: 2026-11-24, 노트북(한글 사용자 폴더 C:\Users\주석암) (**S28·S29 운영 배포·손 확인·Notion 정리 끝. 다음 기능은 사용자가 정할 차례**)
 
 ## 지금 어디까지
-- **S28·S29(웹 스크린리더가 링크를 "링크"로 읽게) 끝·push됨, 운영 배포 안 함**(사용자: "배포는 나중에 한번에"). 커밋 7dde7e3(S28)·580177c(S29), CI run 45139924179 backend·flutter·images 초록. 프론트만 바뀜(서버·DB·compose·nginx 0).
+- **S28·S29(웹 스크린리더가 링크를 "링크"로 읽게) 끝·운영 배포됨**(2026-11-24 Deploy 버튼, run 45303403709, 배포 커밋 bdf93c7 — DB 백업·http·https 헬스체크 초록. 772e40d 비자 띠 × 수정도 같이 나감). 사용자가 운영에서 위 막대·목록(Ctrl+클릭·가운데 클릭 새 탭)·비자 후기·비자 일정·하이코리아·비자 탭 손 확인. backlog "끝난 일" 배포 줄, Notion S28·S29 카드 🧭 파트 전체 정리(단계 리뷰 요약으로 대신)·메인 진행 현황 S28·S29 체크 끝. 커밋 7dde7e3(S28)·580177c(S29). 프론트만 바뀜(서버·DB·compose·nginx 0).
   - 원인: Flutter 웹에서 `Semantics(link: true)`만 있으면 href 없는 `<a>`라 link 역할이 안 됨. `Semantics(linkUrl)`만 주면 클릭 때 문서 통째 재로드. 해결: 웹은 url_launcher `Link` + builder의 `followLink`를 InkWell.onTap에 + 안쪽 `Semantics(label, excludeSemantics)`, 앱은 `Semantics(link, linkUrl, label, excludeSemantics, onTap)` + 기존 이동.
   - 이 분기는 공용 `lib/widgets/nav_link.dart` NavLink 하나에 있고 FeedRow·AppLink·위 막대 사이트 이름·비자 탭(`lib/visa/visa_tabs.dart`)이 씀. **AppLink는 onTap이 없다**: `AppLink(path:)`(앱 안)·`AppLink.external(url:)`(바깥, 웹은 Link blank·앱은 externalLinkOpener). 주소 없는 동작이 필요하면 버튼을 쓴다.
   - 하이코리아: 숨은 플랫폼 뷰 `<a>`에 rel noopener noreferrer, 새 탭 1개·opener null(e2e visa-link). 비자 탭은 tab이 아니라 링크(href에 현재 쿼리, 웹 aria-current true/false). `lib/common/external_link_web.dart`는 이제 안 쓰임(지우지 않음, 나중 정리).
   - e2e: `waitForApp`이 `getByRole('link', {name:'회원가입'})`로 앱 뜸을 봄. 목록 링크 수는 목록 줄 href(`/posts/숫자` 등)만 셈. 새 스펙 feed-a11y 7·link-a11y 7·visa-link 5.
-  - Notion: S28 카드(번호 25, 단계 1장)·S29 카드(번호 26, S29-a·b 2장), 메인 진행 현황에 S28·S29 미체크 줄. 🧭 파트 전체 정리는 배포 뒤.
+  - Notion: S28 카드(번호 25, 단계 1장)·S29 카드(번호 26, S29-a·b 2장), 둘 다 🧭 파트 전체 정리 있음, 메인 진행 현황 S28·S29 체크(2026-11-24).
 - **S26(화면 새 단장, Flutter 웹·앱)** 끝·**운영 배포됨**(2026-11-22 Deploy 버튼, 커밋 a04b7ab, 서버·compose·nginx 변경 0). 운영 사이트에서 목록·글 보기·중고·비자·쪽지 탭→로그인·404 새 모습 확인. backlog S26·S26-g 체크 + "끝난 일" 배포 줄(f15aa1a). 결정·나중 메모는 backlog S26 항목, 디자인 기준 `docs/design.md`. 사용자 폰 앱도 S26 새 모습(2026-11-22 릴리스 APK, 커밋 772e40d 기준 — 비자 띠 × 접근성 수정 포함, `adb install -r`로 덮어 설치, 운영 목록 확인). 웹 운영에는 772e40d가 아직 안 올라감(다음 Deploy 때).
   - S26-i(중고 목록·쪽지함 피드형), S26-j(위 막대 링크 48 `AppLink tall`·`AppSizes.tapMin`, 탭 첫 화면 머리말 `BoardTitle` 30, 로그인·회원가입은 탭 선택 없음, 날짜 힌트, 빈 썸네일·빈 이니셜 흰 칸+테두리), S26-k1~k8(공용 머리 `lib/widgets/author_head.dart` AuthorHead — 게시판·중고·비자 후기 글 보기, 쪽지 대화·관리자 대화 말풍선 흰 판 안, 날짜 칸 3곳 공용 `lib/widgets/date_field.dart` DateField, 내 정보 이니셜·바로가기 FeedRow(프로필 아래), 쓰기 폼 본문 15·1.65 LabeledField `below`, 로그인·가입·404 Panel·PageTitle, 챗봇 참고한 글 FeedRow, row_link.dart·placeholder_page.dart 삭제).
   - 밝은 "여권 남색+노랑": 토큰 `lib/theme/app_colors.dart`(canvas·paper·ink #1C2B4F·accent 파랑 #2450B8(선택·링크)·highlight 노랑(바탕 전용, 위엔 ink)…), `ColorScheme.light`, 대비 계산 테스트 `test/color_contrast_test.dart`(글자 4.5·테두리/비활성 3, 토큰 값 전부 다름).
   - 아래 탭 막대 `lib/widgets/bottom_tabs.dart`(게시판·비자·중고·쪽지·내 정보, 주소 첫 마디로 선택, 쪽지 노랑 배지, 키보드 열리면 숨김), 위 막대는 사이트 이름 + 로그인·회원가입 또는 챗봇·닉네임·로그아웃. 비자 일정·관리 메뉴는 내 정보 바로가기.
   - 피드형: 게시판 목록(이니셜 `initial_avatar.dart`, 말머리 칩, 줄 전체 링크), 글 보기·댓글(조용한 신고), 글쓰기 줄 간격 1.65, **비자 후기 목록도 피드형**. 공용 부품 `feed_row.dart`(FeedRow)·`panel.dart` FeedPanel·`write_fab.dart`(WriteFabLayout 노랑 연필 — 게시판·비자 후기·중고(인증 회원만)).
   - 필요 없는 안내 문구 삭제(HTTP 비밀번호 경고 3곳 등), 웹 앱 이름 "게시판", 안드로이드 아래 띠 흰색.
-- **S0~S14 + UI1~UI3 + S16~S18 + S20 + S21 + S22 + S23 + S24 + S26 + S27 완료·배포됨.** 운영 주소 **`https://kampus.<도메인>`**(Cloudflare에서 산 도메인, 실제 이름은 사용자가 앎 — 저장소·메모에 안 씀). 운영 vision·gemini·**push(fcm)** 켜짐. 마지막 운영 배포 2026-11-22 커밋 3e72944(S27 nginx keepalive, Deploy 버튼만. 그 전 a04b7ab S26. 그 전 a5d48fd S24-g, eebac61 S24 첫 배포).
+- **S0~S14 + UI1~UI3 + S16~S18 + S20 + S21 + S22 + S23 + S24 + S26 + S27 완료·배포됨.** 운영 주소 **`https://kampus.<도메인>`**(Cloudflare에서 산 도메인, 실제 이름은 사용자가 앎 — 저장소·메모에 안 씀). 운영 vision·gemini·**push(fcm)** 켜짐. 마지막 운영 배포 2026-11-24 커밋 bdf93c7(S28·S29 링크 접근성, Deploy 버튼만. 그 전 2026-11-22 3e72944 S27 nginx keepalive. 그 전 a04b7ab S26. 그 전 a5d48fd S24-g, eebac61 S24 첫 배포).
 - **방향(2026-11-16)**: "외국인 유학생 통합 에타", 유학생만 글쓰기(표준입학허가서 인증).
 - **S24(비자 일정 푸시 알림, FCM)** 끝(2026-11-21, 결정·한계는 backlog S24 항목과 그 아래 줄들):
   - 서버: V16 device_tokens(회원당 10, 비밀번호 변경 때 삭제, PUT/DELETE /users/me/device-tokens), FcmPushSender(google-auth-library로 출입증만, HTTP v1 직접, PUSH_MODE off/fcm, 결과 SENT/TOKEN_INVALID/REJECTED/FAILED), VisaPushJob(켜지고 5분 뒤 + 1시간마다, 서울 9~21시, 단계 들어갈 때 1회, V17 보낸 기록, 쓰기 잠금은 회원 행 먼저).
@@ -46,7 +46,7 @@
   - k6 2.4.0 설치됨(`C:Program Filesk6k6.exe`). 한계 찾기는 `$env:STEPS="80,160,320"`(상한 1000). 서버 기록 파일 `~/s27-before.txt`·`s27-stress.txt`·`s27-after.txt`·`s27-1000.txt`(지워도 됨).
   - 측정 교훈: 서버 켜고 10분 뒤 certbot(@reboot sleep 600)이 돌아 측정과 겹침 → 다음엔 15분 뒤 시작. 자동 멈춤 기준은 누적이라 늦게 반응(160명에서 무너졌는데 안 멈춤).
   - Notion 끝(2026-11-22): 학습 리뷰 카드 "운영 부하 테스트"(번호 24, 🧭 파트 전체 정리 포함) + 단계 페이지 2장(S27-a·b, S27-c~f) + 도구 사전 k6·CloudWatch + 메인 진행 현황·바뀐 것 표 S27. CloudWatch 세부 모니터링 끔·EC2 중지함(사용자 확인 2026-11-22). 후보: AI 챗봇 API 동시 테스트(가짜 AI 모드, 로컬).
-- **바로 다음: 사용자가 정할 때 Deploy 버튼(S28+S29+772e40d 비자 띠 × 수정이 한 번에, compose 변경 없음 → 버튼만).** 배포 뒤: 운영에서 위 막대·목록·하이코리아(비자 후기·**비자 일정 화면**은 자동 테스트 없음) 손 확인, Ctrl+클릭·가운데 클릭 새 탭, Notion S28·S29 🧭 파트 전체 정리 + 진행 현황 체크. 그다음 사용자가 다음 기능 정하기.
+- **바로 다음: 사용자가 다음 기능 정하기**(아래 후보). 운영 마지막 배포는 2026-11-24 bdf93c7(S28·S29). EC2를 계속 켜 둘 필요 없으면 사용자가 콘솔에서 중지.
 - 운영 테스트 계정의 인증 학교를 바꾸는 일은 사용자가 서버에서 직접 하기로 함(결과 미확인, 방법은 deploy.md S20 9번 SQL과 같은 모양).
 - 포트폴리오 이미지: 저장소 루트 `portfolio-shots/`(커밋 안 함, 표지 + 화면 7장 + 원본 + 사진 출처). 다시 찍는 법: e2e mockApi로 임시 spec(412x915, deviceScaleFactor 3) → 찍고 지우기. 찍다 발견: 390폭에서 비자 통계 표 오른쪽(평균 처리일) 잘림(나중 후보).
 - 후보(사용자 정하기): backlog S26 "나중"(320폭 20자 닉네임이면 위 막대 3줄, 목록 페이지 나눔(서버 API 필요) — 웹은 줄마다 숨은 `<a>` 플랫폼 뷰가 생겨 목록 수백 개면 성능 확인), S29 "나중"(안 쓰이는 웹 열기 코드 `external_link_web.dart`·`externalLinkWindowFeatures`·그 테스트 정리). 그 밖 backlog 보류·나중(S25 로그인 평범한 코드, S19 챗봇 일반 답변, 욕설·스팸 검사, 챗봇 뜻 검색, S24 "나중").
