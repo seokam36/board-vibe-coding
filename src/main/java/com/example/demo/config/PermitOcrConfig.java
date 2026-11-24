@@ -72,16 +72,16 @@ public class PermitOcrConfig {
         if (v.maxImageSize() == null || v.maxImageSize().toBytes() < 1) {
             throw new IllegalStateException("app.permit.ocr.vision.max-image-size는 0보다 커야 합니다.");
         }
-        checkBaseUrl(v.baseUrl());
+        checkBaseUrl(v.baseUrl(), "app.permit.ocr.vision.base-url");
     }
 
     // 키를 헤더에 실어 보내는 주소다. 엉뚱한 곳으로 보내면 키가 샌다: 구글 호스트(https, 기본 포트)와 내 컴퓨터(가짜 서버)만 허용한다.
-    private static void checkBaseUrl(String baseUrl) {
+    public static void checkBaseUrl(String baseUrl, String settingName) {
         URI uri;
         try {
             uri = URI.create(baseUrl == null ? "" : baseUrl);
         } catch (IllegalArgumentException e) {
-            throw new IllegalStateException("app.permit.ocr.vision.base-url이 올바른 주소가 아닙니다.");
+            throw new IllegalStateException(settingName + "이 올바른 주소가 아닙니다.");
         }
         String scheme = uri.getScheme();
         String host = uri.getHost();
@@ -92,7 +92,7 @@ public class PermitOcrConfig {
         boolean local = httpOrHttps && host != null && LOCAL_HOSTS.contains(host);
         // 사용자 정보(abc@호스트)가 낀 주소는 위장에 쓰일 수 있어 거절한다
         if (uri.getUserInfo() != null || !(google || local)) {
-            throw new IllegalStateException("app.permit.ocr.vision.base-url은 https://vision.googleapis.com 이거나 내 컴퓨터(localhost) 주소여야 합니다.");
+            throw new IllegalStateException(settingName + "은 https://vision.googleapis.com 이거나 내 컴퓨터(localhost) 주소여야 합니다.");
         }
     }
 
