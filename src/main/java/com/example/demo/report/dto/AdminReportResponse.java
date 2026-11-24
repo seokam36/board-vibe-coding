@@ -10,9 +10,9 @@ import com.example.demo.report.domain.Report;
 import com.example.demo.user.domain.User;
 import com.example.demo.user.dto.AuthorResponse;
 
-// 관리자 신고 목록·기각 응답. 관리자가 "무엇이 왜 신고됐는지" 바로 볼 수 있게 대상 미리보기와 작성자를 담는다.
+// 관리자 신고 목록·기각 응답. source = USER(회원 신고)/AUTO(사진 자동 검사, 이때 reporter는 null). 관리자가 "무엇이 왜 신고됐는지" 바로 볼 수 있게 대상 미리보기와 작성자를 담는다.
 public record AdminReportResponse(Long id, Target target, AuthorResponse reporter, ReportResponse.ReasonInfo reason,
-        String detail, String status, Instant createdAt) {
+        String detail, String status, String source, Instant createdAt) {
 
     // 댓글 미리보기 최대 글자 수
     static final int PREVIEW_MAX = 100;
@@ -47,7 +47,7 @@ public record AdminReportResponse(Long id, Target target, AuthorResponse reporte
         }
         return new AdminReportResponse(report.getId(), target, author(report.getReporter()),
                 new ReportResponse.ReasonInfo(report.getReason().name(), report.getReason().getLabel()),
-                report.getDetail(), report.getStatus().name(), report.getCreatedAt());
+                report.getDetail(), report.getStatus().name(), report.getSource().name(), report.getCreatedAt());
     }
 
     // 대화방에서 신고자가 아닌 참가자. 탈퇴한 칸은 null이라 상대가 탈퇴했으면 null.

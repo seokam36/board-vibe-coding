@@ -72,7 +72,7 @@ class MarketSafeSearchDailyLimiterTests {
 
     private static MarketSafeSearchProperties props(int perDay) {
         MarketSafeSearchProperties.Rules off = new MarketSafeSearchProperties.Rules("OFF", "OFF");
-        return new MarketSafeSearchProperties("vision", "k", "http://127.0.0.1:1", Duration.ofSeconds(5), 2, DataSize.ofMegabytes(7),
+        return new MarketSafeSearchProperties("vision", "k", "http://127.0.0.1:1", Duration.ofSeconds(5), 2, Duration.ofSeconds(2), DataSize.ofMegabytes(7),
                 perDay, off, off, off);
     }
 

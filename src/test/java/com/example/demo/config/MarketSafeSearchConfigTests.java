@@ -116,6 +116,20 @@ class MarketSafeSearchConfigTests {
         runner.withPropertyValues("app.market.safesearch.per-day=30").run(ctx -> assertThat(ctx).hasNotFailed());
     }
 
+    // S30-b 리뷰 반영: 자리 대기 시간(slot-wait)이 음수면 시작 실패, 0·양수는 정상
+    @Test
+    void 자리_대기_slot_wait가_음수면_시작이_실패하고_0과_양수는_정상이다() {
+        vision("app.market.safesearch.slot-wait=-1s").run(ctx -> {
+            assertThat(ctx).hasFailed();
+            assertThat(allMessages(ctx.getStartupFailure())).contains("slot-wait").doesNotContain(KEY);
+        });
+        vision("app.market.safesearch.slot-wait=-1").run(ctx -> assertThat(ctx).hasFailed()); // 단위 없는 -1(초)도 같다
+        // 참고: off 모드에서는 timeout·max-concurrent처럼 slot-wait도 검사하지 않는다(쓰지 않는 값이라 설계대로)
+        vision("app.market.safesearch.slot-wait=0").run(ctx -> assertThat(ctx).hasNotFailed());
+        vision("app.market.safesearch.slot-wait=0s").run(ctx -> assertThat(ctx).hasNotFailed());
+        vision("app.market.safesearch.slot-wait=3s").run(ctx -> assertThat(ctx).hasNotFailed());
+    }
+
     @Test
     void 허용되지_않는_주소면_시작이_실패하고_키는_메시지에_없다() {
         vision("app.market.safesearch.base-url=http://evil.example.com").run(ctx -> {

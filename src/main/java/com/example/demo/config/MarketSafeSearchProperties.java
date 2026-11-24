@@ -20,8 +20,10 @@ public record MarketSafeSearchProperties(
         @DefaultValue("https://vision.googleapis.com") String baseUrl,
         // 사진 한 장 검사의 전체 상한. 단위 없는 숫자는 초
         @DefaultValue("5s") @DurationUnit(ChronoUnit.SECONDS) Duration timeout,
-        // 구글을 동시에 부르는 최대 수. 가득 차면 기다리지 않고 바로 UNCHECKED
+        // 구글을 동시에 부르는 최대 수. 가득 차면 slotWait만큼만 기다렸다가 UNCHECKED
         @DefaultValue("2") int maxConcurrent,
+        // 동시 자리가 가득 찼을 때 자리가 나길 기다리는 최대 시간(S30-b). 0이면 기다리지 않고 바로 UNCHECKED, 음수면 시작 실패
+        @DefaultValue("2s") @DurationUnit(ChronoUnit.SECONDS) Duration slotWait,
         // 이보다 큰 사진은 구글을 부르지 않는다
         @DefaultValue("7MB") DataSize maxImageSize,
         // 서버 전체 하루 구글 호출 상한(서울 날짜). 0이면 상한 끔, 음수면 시작 실패

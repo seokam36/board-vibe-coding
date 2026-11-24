@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.demo.report.domain.Report;
+import com.example.demo.report.domain.ReportSource;
 import com.example.demo.report.domain.ReportStatus;
 
 // 신고 DB 접근 담당
@@ -24,6 +25,13 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
 
     // 이 회원이 이 중고 글을 이미 신고했는지
     boolean existsByMarketItemIdAndReporterId(Long marketItemId, Long reporterId);
+
+    // 이 중고 글에 대기 중인 자동 신고가 이미 있는지 (S30-b). 글 행을 잠근 트랜잭션 안에서 부른다. 부분 UNIQUE(uk_reports_market_item_auto_pending)가 마지막 방어선.
+    boolean existsByMarketItemIdAndSourceAndStatus(Long marketItemId, ReportSource source, ReportStatus status);
+
+    // 이 중고 글의 대기 중 자동 신고 한 건 (S30-b, 사진 흔적 덧붙이기용). 부분 UNIQUE라 최대 1건이다.
+    Optional<Report> findFirstByMarketItemIdAndSourceAndStatus(Long marketItemId, ReportSource source,
+            ReportStatus status);
 
     // 이 회원이 이 쪽지 대화방을 이미 신고했는지
     boolean existsByConversationIdAndReporterId(Long conversationId, Long reporterId);

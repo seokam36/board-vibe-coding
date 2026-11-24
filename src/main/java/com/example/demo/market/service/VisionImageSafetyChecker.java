@@ -60,6 +60,7 @@ public class VisionImageSafetyChecker implements ImageSafetyChecker, AutoCloseab
     private final String apiKey;
     private final Duration timeout;
     private final int maxCallThreads;
+    private final Duration slotWait;
     private final long maxImageBytes;
     private final ImageSafetyJudge judge;
     // 하루 상한 확인(true면 구글을 불러도 됨). 동시 자리를 잡은 뒤, 구글을 부르기 직전에만 센다.
@@ -69,7 +70,14 @@ public class VisionImageSafetyChecker implements ImageSafetyChecker, AutoCloseab
     // 호출 전용 스레드 풀. 동시 수는 slots가 막으므로 풀 자체는 상한을 두지 않고, 줄 세우는 칸도 없다(SynchronousQueue).
     private final ThreadPoolExecutor executor;
 
+    // 자리 대기 없이(0) 만드는 짧은 생성자: 자리가 없으면 바로 UNCHECKED (S30-a 동작)
     public VisionImageSafetyChecker(String baseUrl, String apiKey, Duration timeout, int maxCallThreads,
+            long maxImageBytes, ImageSafetyJudge judge, BooleanSupplier dailyLimit) {
+        this(baseUrl, apiKey, timeout, maxCallThreads, Duration.ZERO, maxImageBytes, judge, dailyLimit);
+    }
+
+    // slotWait: 동시 자리가 가득 찼을 때 자리가 나길 기다리는 최대 시간 (S30-b)
+    public VisionImageSafetyChecker(String baseUrl, String apiKey, Duration timeout, int maxCallThreads, Duration slotWait,
             long maxImageBytes, ImageSafetyJudge judge, BooleanSupplier dailyLimit) {
         // 오류 메시지에는 어떤 값도 싣지 않는다(키가 새지 않게)
         if (baseUrl == null || baseUrl.isBlank() || baseUrl.contains("?") || baseUrl.contains("#")) {
@@ -87,6 +95,7 @@ public class VisionImageSafetyChecker implements ImageSafetyChecker, AutoCloseab
         this.apiKey = apiKey;
         this.timeout = timeout;
         this.maxCallThreads = maxCallThreads;
+        this.slotWait = slotWait == null || slotWait.isNegative() ? Duration.ZERO : slotWait;
         this.slots = new Semaphore(maxCallThreads);
         this.maxImageBytes = maxImageBytes;
         this.judge = judge;
@@ -142,9 +151,19 @@ public class VisionImageSafetyChecker implements ImageSafetyChecker, AutoCloseab
             log.warn("사진 검사 건너뜀: 사진이 상한 {}바이트보다 큼", maxImageBytes);
             return ImageSafetyResult.unchecked();
         }
-        // 1) 동시 자리 먼저: 기다리지 않고 바로 잡고, 못 잡으면 상한을 건드리지 않고 UNCHECKED
-        if (!slots.tryAcquire()) {
-            log.warn("사진 검사 호출 자리 가득 참(상한 {}) -> UNCHECKED", maxCallThreads);
+        // 1) 동시 자리 먼저: slotWait(기본 2초)만큼만 짧게 기다리고, 그래도 못 잡으면 하루 상한을 건드리지 않고 UNCHECKED.
+        // 기다리는 이유: 3명이 동시에 올릴 때 한 명이 검사 없이 통과하는 일을 줄이려고.
+        // 시간 계산(업로드 요청 전체는 nginx 150초 안): 이미지 처리 자리 대기 5초 + 자리 대기 2초 + 구글 호출 5초 + 창고 저장.
+        boolean gotSlot;
+        try {
+            gotSlot = slotWait.isZero() ? slots.tryAcquire() : slots.tryAcquire(slotWait.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // 중단 신호를 되살려 둔다
+            log.warn("사진 검사 자리 대기 중 중단됨 -> UNCHECKED");
+            return ImageSafetyResult.unchecked();
+        }
+        if (!gotSlot) {
+            log.warn("사진 검사 호출 자리 가득 참(상한 {}, 대기 {}ms) -> UNCHECKED", maxCallThreads, slotWait.toMillis());
             return ImageSafetyResult.unchecked();
         }
         // 자리는 작업 스레드가 끝날 때 돌려준다. 어느 길로든 딱 한 번만 돌려주도록 한 번짜리 반납기로 감싼다.

@@ -54,6 +54,9 @@ public class MarketSafeSearchConfig {
         if (props.timeout() == null || props.timeout().isZero() || props.timeout().isNegative()) {
             throw new IllegalStateException("MARKET_SAFESEARCH_TIMEOUT은 0보다 커야 합니다.");
         }
+        if (props.slotWait() == null || props.slotWait().isNegative()) {
+            throw new IllegalStateException("app.market.safesearch.slot-wait는 0 이상이어야 합니다.");
+        }
         if (props.maxConcurrent() < 1) {
             throw new IllegalStateException("app.market.safesearch.max-concurrent는 1 이상이어야 합니다.");
         }
@@ -112,7 +115,7 @@ public class MarketSafeSearchConfig {
     @ConditionalOnProperty(name = "app.market.safesearch.mode", havingValue = "vision")
     VisionImageSafetyChecker visionImageSafetyChecker(MarketSafeSearchProperties props, ImageSafetyJudge judge,
             MarketSafeSearchDailyLimiter limiter) {
-        return new VisionImageSafetyChecker(props.baseUrl(), props.apiKey(), props.timeout(), props.maxConcurrent(),
+        return new VisionImageSafetyChecker(props.baseUrl(), props.apiKey(), props.timeout(), props.maxConcurrent(), props.slotWait(),
                 props.maxImageSize().toBytes(), judge, limiter::tryAcquire);
     }
 }

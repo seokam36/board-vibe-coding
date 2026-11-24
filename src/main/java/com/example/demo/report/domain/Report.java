@@ -75,11 +75,16 @@ public class Report {
     @Column(nullable = false, length = 20)
     private ReportStatus status;
 
+    // 신고 출처. USER = 회원 신고(기본), AUTO = 사진 자동 검사 신고(reporter 없음). DB의 CHECK가 AUTO의 모양을 보장한다.
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20, updatable = false)
+    private ReportSource source;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     private Report(Post post, Comment comment, MarketItem marketItem, Conversation conversation, User reporter,
-            ReportReason reason, String detail) {
+            ReportReason reason, String detail, ReportSource source) {
         this.post = post;
         this.comment = comment;
         this.marketItem = marketItem;
@@ -87,27 +92,52 @@ public class Report {
         this.reporter = reporter;
         this.reason = reason;
         this.detail = detail;
+        this.source = source;
         this.status = ReportStatus.PENDING; // 새 신고는 항상 대기 상태
     }
 
     // 글 신고 만들기
     public static Report ofPost(Post post, User reporter, ReportReason reason, String detail) {
-        return new Report(post, null, null, null, reporter, reason, detail);
+        return new Report(post, null, null, null, reporter, reason, detail, ReportSource.USER);
     }
 
     // 댓글 신고 만들기
     public static Report ofComment(Comment comment, User reporter, ReportReason reason, String detail) {
-        return new Report(null, comment, null, null, reporter, reason, detail);
+        return new Report(null, comment, null, null, reporter, reason, detail, ReportSource.USER);
     }
 
     // 중고 글 신고 만들기
     public static Report ofMarketItem(MarketItem marketItem, User reporter, ReportReason reason, String detail) {
-        return new Report(null, null, marketItem, null, reporter, reason, detail);
+        return new Report(null, null, marketItem, null, reporter, reason, detail, ReportSource.USER);
+    }
+
+    // 사진 자동 검사가 만드는 중고 글 신고 (S30-b). 신고자 없음(reporter null), 출처 AUTO.
+    public static Report ofMarketItemAuto(MarketItem marketItem, ReportReason reason, String detail) {
+        return new Report(null, null, marketItem, null, null, reason, detail, ReportSource.AUTO);
+    }
+
+    // 자동 신고의 설명에 사진 정보를 덧붙인다 (AUTO만 허용). 글 행을 잠근 트랜잭션 안에서만 부른다.
+    // 총 길이가 maxLength(DB 제한 300)를 넘을 것 같으면 더 붙이지 않고 끝에 " 외"만 표시한다.
+    // (붙이기를 받아들이는 기준에 " 외" 두 글자를 미리 빼 두므로, 나중에 " 외"를 붙일 자리는 항상 남는다)
+    public void appendAutoDetail(String entry, int maxLength) {
+        if (source != ReportSource.AUTO) {
+            throw new IllegalStateException("자동 신고에만 설명을 덧붙일 수 있습니다.");
+        }
+        String current = detail == null ? "" : detail;
+        if (current.endsWith(" 외")) {
+            return; // 이미 넘쳐서 줄임 표시를 한 상태
+        }
+        String next = current + " / " + entry;
+        if (next.length() + 2 <= maxLength) {
+            this.detail = next;
+        } else if (current.length() + 2 <= maxLength) {
+            this.detail = current + " 외";
+        }
     }
 
     // 쪽지 대화방 신고 만들기
     public static Report ofConversation(Conversation conversation, User reporter, ReportReason reason, String detail) {
-        return new Report(null, null, null, conversation, reporter, reason, detail);
+        return new Report(null, null, null, conversation, reporter, reason, detail, ReportSource.USER);
     }
 
     // 저장 직전에 신고 시각 기록 (DB 정밀도인 마이크로초로 맞춘다)

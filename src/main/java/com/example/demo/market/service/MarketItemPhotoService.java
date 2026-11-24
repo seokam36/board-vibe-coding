@@ -15,9 +15,11 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.auth.dto.LoginUser;
 import com.example.demo.common.ApiErrors;
+import com.example.demo.market.domain.ImageSafetyResult;
 import com.example.demo.market.domain.ItemStatus;
 import com.example.demo.market.domain.MarketItem;
 import com.example.demo.market.domain.MarketItemPhoto;
+import com.example.demo.market.domain.SafetyVerdict;
 import com.example.demo.market.dto.MarketItemPhotoContent;
 import com.example.demo.market.dto.MarketItemPhotoResponse;
 import com.example.demo.market.repository.MarketItemPhotoRepository;
@@ -28,6 +30,7 @@ import com.example.demo.photo.service.ImageProcessor;
 import com.example.demo.photo.service.InvalidImageException;
 import com.example.demo.photo.service.PhotoDeleteQueue;
 import com.example.demo.photo.service.ProcessedImage;
+import com.example.demo.report.service.AutoReportService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 // 중고 글 사진 올리기 (S13-g2). 흐름(트랜잭션은 맨 마지막 짧은 구간에만 건다):
 //   1) 싼 확인: 글 있음 404 -> 본인 403 -> 거래완료 409 -> 이미 10장 409   (무거운 처리 전에 거절. 잠금 없이 세는 미리보기)
 //   2) 이미지 처리(검사·축소·재인코딩): 동시에 2장까지만, 기다리다 시간이 지나면 503. 파일 바이트도 자리를 얻은 뒤에야 읽는다
+//   2-2) (S30-b) 자동 사진 검사: BLOCK이면 422로 끝(창고·대기 표·DB 0). FLAG면 4)의 트랜잭션 안에서 자동 신고도 같이 넣는다
 //   3) 창고에 본 사진·썸네일 저장
 //   4) 짧은 트랜잭션: 글 행을 FOR UPDATE로 잠그고 1)을 다시 확인 + 10장 검사 + 사진 행 INSERT
 //   3)~4)가 실패하면 창고에 넣은 파일 2개를 지운다.
@@ -54,6 +58,8 @@ public class MarketItemPhotoService {
     private final PhotoStorage photoStorage;
     private final PlatformTransactionManager txManager;
     private final PhotoDeleteQueue photoDeleteQueue; // 지울 파일 대기 표 (S13-g4)
+    private final ImageSafetyChecker imageSafetyChecker; // 사진 자동 검사기 (S30-b). off면 항상 통과
+    private final AutoReportService autoReportService; // 자동 신고 (S30-b). 글 행 잠금 안에서만 부른다
 
     // 이미지 처리 동시 2장 제한. 사진 하나를 처리하는 동안 메모리를 많이 쓰므로(디코딩된 픽셀) 작은 서버가 버티게 한다.
     // 대기는 최대 5초: 처리 한 장이 보통 1초 안쪽이라 몇 장 밀려도 기다릴 만하고, 그보다 길게 붙잡으면 요청 스레드만 쌓인다.
@@ -82,6 +88,15 @@ public class MarketItemPhotoService {
         // 2) 이미지 처리 (트랜잭션 밖, 동시 2장). 파일 바이트는 자리를 얻은 뒤 그 안에서 읽는다.
         ProcessedImage image = processLimited(file);
 
+        // 2-2) 사진 자동 검사 (S30-b). 서버가 다시 만든 본 사진을 보낸다. 트랜잭션 밖(DB 연결을 쥐지 않음)이고,
+        // 검사기는 예외를 던지지 않는다(못 하면 UNCHECKED = 통과). BLOCK이면 창고·대기 표·DB에 아무것도 남기지 않고 여기서 끝낸다.
+        ImageSafetyResult safety = imageSafetyChecker.check(image.main().data());
+        if (safety.verdict() == SafetyVerdict.BLOCK) {
+            // 로그에는 글 번호와 판정 항목만(사진 key·바이트·구글 응답 본문 금지)
+            log.info("중고 사진 검사로 거절: itemId={}, {}", itemId, safety.describe());
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "올릴 수 없는 사진입니다.");
+        }
+
         // 3)~4) 창고 저장 + DB 기록. 어디서 실패하든 창고에 넣은 파일을 치운다.
         String ext = "JPEG".equals(image.main().format()) ? "jpg" : "png";
         String base = "market/" + itemId + "/" + UUID.randomUUID(); // 키는 UUID 기반이라 추측·충돌이 없다
@@ -95,7 +110,7 @@ public class MarketItemPhotoService {
             photoStorage.put(key, image.main().data(), image.main().contentType());
             photoStorage.put(thumbKey, image.thumbnail().data(), image.thumbnail().contentType());
             MarketItemPhoto saved = new TransactionTemplate(txManager)
-                    .execute(status -> insertLocked(itemId, loginUser, key, thumbKey, image));
+                    .execute(status -> insertLocked(itemId, loginUser, key, thumbKey, image, safety));
             return MarketItemPhotoResponse.from(saved);
         } catch (RuntimeException | Error e) {
             // 파일을 바로 지워 보고, 지운 키는 표에서 뺀다. 못 지우면 표에 남아 청소부가 처리한다.
@@ -163,7 +178,7 @@ public class MarketItemPhotoService {
     // 잠그는 이유: 9장 상태에서 두 요청이 동시에 와도, 한 요청이 끝날 때까지 다른 요청은 여기서 기다렸다가 10장을 보고 409가 된다.
     // 같은 이유로 그 사이 거래완료 전환·글 삭제와도 줄이 선다.
     private MarketItemPhoto insertLocked(Long itemId, LoginUser loginUser, String key, String thumbKey,
-            ProcessedImage image) {
+            ProcessedImage image, ImageSafetyResult safety) {
         MarketItem item = marketItemRepository.findByIdForUpdate(itemId).orElseThrow(ApiErrors::marketItemNotFound);
         checkUploadable(item, loginUser); // 1)과 처리 사이에 바뀌었을 수 있어 다시 본다
         if (photoRepository.countByMarketItemId(itemId) >= MAX_PHOTOS_PER_ITEM) {
@@ -179,8 +194,13 @@ public class MarketItemPhotoService {
         }
         // 쪽지 떼기와 사진 행 INSERT는 같은 트랜잭션이라 함께 커밋되거나 함께 롤백된다
         // (커밋되면 "이 파일은 쓰는 중"이라 지우지 않고, 롤백되면 쪽지가 남아 파일이 청소 대상이 된다)
-        return photoRepository.save(new MarketItemPhoto(itemId, key, thumbKey, image.main().contentType(),
-                image.main().width(), image.main().height(), image.thumbnail().width(), image.thumbnail().height()));
+        MarketItemPhoto saved = photoRepository.save(new MarketItemPhoto(itemId, key, thumbKey,
+                image.main().contentType(), image.main().width(), image.main().height(), image.thumbnail().width(),
+                image.thumbnail().height()));
+        // 애매한 사진(FLAG)이면 같은 트랜잭션(글 행 잠금 안)에서 자동 신고를 올리거나 기존 자동 신고에 덧붙인다 (S30-b).
+        // 사진 id는 위 INSERT 뒤에야 생기므로 그 뒤에 부른다. 사유·문장·중복 규칙은 AutoReportService가 안다.
+        autoReportService.reportMarketItemPhoto(item, saved.getId(), safety);
+        return saved;
     }
 
     // 본인 글인지(403), 거래완료가 아닌지(409) 확인한다 (관리자도 예외 없음)
