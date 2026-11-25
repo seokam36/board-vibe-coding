@@ -62,9 +62,11 @@ class AdminReport {
     required this.detail,
     required this.status,
     required this.createdAt,
+    this.source = 'USER',
   });
 
   final int id;
+  final String source; // USER(회원 신고) | AUTO(사진 자동 탐지). 없거나 모르는 값이면 USER
   final AdminReportTarget target;
   final AdminUser? reporter; // 탈퇴했으면 null
   final AdminReportReason reason;
@@ -80,7 +82,10 @@ class AdminReport {
     detail: json['detail'] as String?,
     status: json['status'] as String,
     createdAt: json['createdAt'] as String,
+    source: json['source'] == 'AUTO' ? 'AUTO' : 'USER',
   );
+
+  bool get isAuto => source == 'AUTO';
 }
 
 // 관리자가 보는 신고된 대화 속 쪽지 한 통

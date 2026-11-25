@@ -13,6 +13,10 @@ import '../widgets/section_parts.dart';
 import '../widgets/small_button_style.dart';
 import 'photo_upload.dart';
 
+// 사진 고르는 칸 아래 안내 (자동 검사에 구글 Vision을 쓴다)
+// 운영(검사 켬) 기준 문구 — 로컬·검사 off에서는 실제로 구글로 안 간다
+const marketPhotoPrivacyNotice = '올린 사진은 자동 검사를 위해 구글로 전송돼요.';
+
 // 사진 한 칸에 보여 줄 것 (src는 썸네일 주소: 수정 화면은 서버 썸네일, 글쓰기 화면은 미리보기 blob 주소)
 class PhotoTile {
   const PhotoTile({required this.key, required this.src, this.bytes});
@@ -118,6 +122,11 @@ class _MarketPhotoPickerState extends State<MarketPhotoPicker> {
                 if (full) const FieldHint(ErrorMessages.marketPhotoMaxCount),
               ],
             ),
+          ),
+          // 사진이 자동 검사를 위해 구글로 넘어간다는 안내 (챗봇 안내와 같은 작은 muted 글씨)
+          const Padding(
+            padding: EdgeInsets.only(bottom: AppSizes.space3),
+            child: Text(marketPhotoPrivacyNotice, style: TextStyle(fontSize: AppSizes.fsSmall, color: AppColors.muted, height: 1.5)),
           ),
           if (widget.progress != null) Notice(kind: NoticeKind.info, message: widget.progress),
           if (_checkMessage != null) Notice(kind: NoticeKind.error, message: _checkMessage),

@@ -11,6 +11,7 @@ import '../market/market_format.dart';
 import '../market/market_photo_gallery.dart';
 import '../market/market_status_badge.dart';
 import '../market/models.dart';
+import '../market/photo_upload.dart' show PhotoFailure;
 import '../messages/seller_message_box.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_badge.dart';
@@ -46,13 +47,13 @@ enum _Busy { status, delete }
 
 // 중고·나눔 상세 "/market/:id" (React의 MarketDetailPage).
 // 판매자 본인은 상태 바꾸기·수정·삭제, 관리자는 남의 글 삭제만, 같은 학교 인증 회원은 신고를 쓸 수 있다.
-// photoFailed: 글쓰기에서 넘어온 "못 올린 사진 수". 라우터가 go_router의 extra(int)로 넘긴다.
-//   글쓰기(S16-k1)는 `context.go('/market/{id}', extra: 못 올린 장수)` 형식으로 부른다. extra가 없으면 null.
+// photoFailed: 글쓰기에서 넘어온 "못 올린 사진 수(전체·자동 검사 거절분)". 라우터가 go_router의 extra(PhotoFailure)로 넘긴다.
+//   글쓰기는 `context.go('/market/{id}', extra: PhotoFailure(못 올린 장수, 그중 거절 장수))` 형식으로 부른다. extra가 없으면 null.
 class MarketDetailPage extends StatefulWidget {
   const MarketDetailPage({super.key, required this.id, this.photoFailed});
 
   final String id; // 주소의 :id (이미 풀린 글자). 요청에 넣을 때 다시 인코딩한다
-  final int? photoFailed;
+  final PhotoFailure? photoFailed;
 
   @override
   State<MarketDetailPage> createState() => _MarketDetailPageState();
@@ -68,7 +69,7 @@ class _MarketDetailPageState extends State<MarketDetailPage> {
   bool _needLogin = false; // 요청 중 401(재발급까지 실패): 로그인 안내
   int _selectedPhoto = 0; // 큰 사진으로 보고 있는 번호(0부터)
   // 글쓰기에서 넘어온 못 올린 사진 수. extra는 기록에 남을 수 있어서 처음 한 번만 지역 상태로 옮기고 주소에서는 지운다
-  int _photoFailed = 0;
+  PhotoFailure? _photoFailed;
 
   // id를 경로에 넣기 전에 인코딩한다: '?' 같은 글자가 섞여 목록 API로 바뀌는 것을 막는다
   String get _safeId => Uri.encodeComponent(widget.id);
@@ -220,8 +221,8 @@ class _MarketDetailPageState extends State<MarketDetailPage> {
           if (_loading) const Loading(),
           if (_error != null) Notice(kind: NoticeKind.error, message: _error!),
           // 글쓰기 직후 사진 일부를 못 올렸을 때의 안내 (처음 한 번만 보이고, 새로고침·뒤로 가기 뒤에는 사라진다)
-          if (_photoFailed > 0)
-            Notice(kind: NoticeKind.error, message: '사진 $_photoFailed장을 올리지 못했습니다. 수정에서 다시 올려 주세요'),
+          // 거절(422)은 "다시 올려 주세요"가 없는 문장으로 따로 보인다 (PhotoFailure.message)
+          if (_photoFailed != null && _photoFailed!.failed > 0) Notice(kind: NoticeKind.error, message: _photoFailed!.message),
           if (item != null) _buildArticle(item),
           // 버튼 표시 규칙(숨기는 건 편의일 뿐, 진짜 보호는 서버의 403):
           // 판매자 본인 = 상태 버튼(갈 수 있는 것만) + 수정(거래완료 아닐 때) + 삭제 / 관리자(남의 글) = 삭제만

@@ -368,6 +368,8 @@ class _ReportRow extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               AppBadge(text: _badgeLabel[t.type] ?? t.type, ink: ink, bg: bg),
+              // 사진 자동 검사가 올린 신고 표시 (잡담 배지와 같은 색 토큰)
+              if (report.isAuto) const AppBadge(text: '자동 탐지', ink: AppColors.muted, bg: AppColors.badgeChatBg),
               if (linkTo != null) AppLink(label: linkLabel, tall: true, path: linkTo), // 눌림 높이 48 이상
             ],
           ),
@@ -387,7 +389,7 @@ class _ReportRow extends StatelessWidget {
                 ),
                 ReportMetaRow(label: '사유', value: report.reason.name),
                 ReportMetaRow(label: '상세', value: (detail == null || detail.isEmpty) ? '-' : detail),
-                ReportMetaRow(label: '신고자', value: report.reporter?.nickname ?? '탈퇴한 회원'),
+                ReportMetaRow(label: '신고자', value: report.isAuto ? '자동 탐지' : (report.reporter?.nickname ?? '탈퇴한 회원')),
                 ReportMetaRow(label: '날짜', value: formatDate(report.createdAt)),
               ],
             ),

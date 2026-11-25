@@ -21,6 +21,7 @@ const photoUploadErrors = <int, String>{
   404: ErrorMessages.postNotFound,
   409: ErrorMessages.marketPhotoConflict,
   413: ErrorMessages.marketPhotoTooLarge,
+  422: ErrorMessages.marketPhotoRejected, // 자동 검사 거절 (그 사진만의 문제라 나머지는 계속 올린다)
   503: ErrorMessages.marketPhotoBusy,
 };
 
@@ -80,14 +81,36 @@ Future<MarketPhoto> uploadOne(Dio dio, int itemId, PickedPhoto photo) async {
 }
 
 class UploadResult {
-  const UploadResult(this.failed, this.firstError);
+  const UploadResult(this.failed, this.firstError, {this.rejected = 0, this.firstOtherError});
   final int failed; // 올리지 못한 장수 (중간에 멈췄으면 남은 것도 포함)
   final Object? firstError; // 처음 난 에러 (없으면 null). 문구는 uploadFailureText로 만든다
+  // 자동 검사가 거절(422)한 장수. failed에 포함된다. 다시 올려도 또 거절이라 "다시 올리세요" 안내와 따로 센다
+  final int rejected;
+  // 거절(422)이 아닌 실패 중 처음 난 에러. 거절과 다른 이유가 섞였을 때 두 이유를 다 보여 주려고 따로 둔다
+  final Object? firstOtherError;
+}
+
+// 글쓰기 → 상세로 넘기는 "못 올린 사진" 묶음 (go_router extra). 장수 하나만 넘기면 거절(422)과 그 밖의 실패를 못 가른다
+class PhotoFailure {
+  const PhotoFailure(this.failed, this.rejected);
+  final int failed; // 못 올린 전체 장수
+  final int rejected; // 그중 자동 검사가 거절한 장수
+
+  int get others => failed - rejected; // 거절이 아닌 실패 (수정에서 다시 올리면 될 수도 있는 것)
+
+  // 상세 화면 안내 문구. 거절은 다시 올려도 또 거절이라 "다시 올려 주세요"를 붙이지 않는다
+  String get message {
+    final parts = <String>[
+      if (others > 0) '사진 $others장을 올리지 못했습니다. 수정에서 다시 올려 주세요',
+      if (rejected > 0) '자동 검사에서 올릴 수 없는 사진으로 판단된 사진이 $rejected장 있습니다',
+    ];
+    return parts.join('. ');
+  }
 }
 
 // 사진을 한 장씩 차례로(동시에 아님) 올린다. 서버 이미지 처리 자리가 2개뿐이라 한꺼번에 보내지 않는다.
 // 401(로그인 풀림)·403(권한/보안 토큰)·404(글 없음)·409(10장 초과/거래완료)·응답 없는 오류(서버 꺼짐·시간 초과)는
-// 다음 장도 똑같이 실패하니 남은 것은 시도하지 않고 실패로 센다. 400·413·503은 그 사진만의 문제라 계속한다.
+// 다음 장도 똑같이 실패하니 남은 것은 시도하지 않고 실패로 센다. 400·413·422·503은 그 사진만의 문제라 계속한다.
 // isCancelled: 화면을 떠났을 때 true를 돌려주면 남은 것은 보내지 않는다
 Future<UploadResult> uploadPhotosInOrder(
   Dio dio,
@@ -98,7 +121,9 @@ Future<UploadResult> uploadPhotosInOrder(
   bool Function()? isCancelled,
 ]) async {
   var failed = 0;
+  var rejected = 0; // 422(자동 검사 거절) 장수
   Object? firstError;
+  Object? firstOtherError; // 422가 아닌 첫 에러
   for (var i = 0; i < files.length; i++) {
     if (isCancelled?.call() ?? false) {
       failed += files.length - i;
@@ -111,23 +136,41 @@ Future<UploadResult> uploadPhotosInOrder(
       failed++;
       firstError ??= e;
       final status = getStatus(e);
+      if (status == 422) {
+        rejected++; // 거절은 그 사진만의 문제: 세고 다음 장으로
+      } else {
+        firstOtherError ??= e;
+      }
       if (status == 401 || status == 403 || status == 404 || status == 409 || isNetworkError(e)) {
         failed += files.length - i - 1;
         break;
       }
     }
   }
-  return UploadResult(failed, firstError);
+  return UploadResult(failed, firstError, rejected: rejected, firstOtherError: firstOtherError);
 }
 
-// 실패 안내 문구: 첫 에러 문구 뒤에, 2장 이상 실패했으면 장수를 붙인다 (1장이면 문구 그대로)
-ErrorInfo uploadFailureText(UploadResult result) {
-  final error = result.firstError;
+// 에러 하나를 문구로: 2장 이상(count)이면 장수를 붙인다 (1장이면 문구 그대로)
+ErrorInfo _reasonText(Object? error, int count) {
   final info = error == null
       ? const ErrorMessage(ErrorMessages.marketPhotoUploadFailed, null)
       : describeError(error, photoUploadErrors, ErrorMessages.marketPhotoUploadFailed);
   if (info is! ErrorMessage) return info; // 로그인 풀림
   // 시간 초과는 "연결 불가"가 아니라 따로 안내한다 (서버가 이미 저장했을 수 있어서)
   final base = isTimeoutError(error) ? photoUploadTimeoutMessage : info.message;
-  return ErrorMessage(result.failed > 1 ? '$base (${result.failed}장 실패)' : base, info.status);
+  return ErrorMessage(count > 1 ? '$base ($count장 실패)' : base, info.status);
+}
+
+// 실패 안내 문구. 거절(422)이 섞이면 거절 이유와 그 밖의 이유를 따로 보여 준다 (예: 거절 1장 + 서버 바쁨 1장 → 두 문장)
+ErrorInfo uploadFailureText(UploadResult result) {
+  if (result.rejected <= 0) return _reasonText(result.firstError, result.failed);
+  final rejectedInfo = ErrorMessage(
+    result.rejected > 1 ? '${ErrorMessages.marketPhotoRejected} (${result.rejected}장 실패)' : ErrorMessages.marketPhotoRejected,
+    422,
+  );
+  final others = result.failed - result.rejected;
+  if (others <= 0) return rejectedInfo;
+  final otherInfo = _reasonText(result.firstOtherError, others);
+  if (otherInfo is! ErrorMessage) return otherInfo; // 로그인 풀림이 우선
+  return ErrorMessage('${otherInfo.message}. ${rejectedInfo.message}', otherInfo.status);
 }

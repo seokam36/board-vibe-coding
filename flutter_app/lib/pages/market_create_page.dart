@@ -72,6 +72,7 @@ class _MarketCreatePageState extends State<MarketCreatePage> {
     final id = res.data!['id'] as int;
     // 글은 만들어졌으니 사진을 차례로 올린다. 일부가 실패해도 상세로 가서 안내한다
     var failed = 0;
+    var rejected = 0; // 그중 자동 검사 거절(422) 장수
     if (_picked.isNotEmpty) {
       final result = await uploadPhotosInOrder(
         dio,
@@ -84,12 +85,13 @@ class _MarketCreatePageState extends State<MarketCreatePage> {
         () => !mounted, // 화면을 떠났으면 남은 사진은 보내지 않는다
       );
       failed = result.failed;
+      rejected = result.rejected;
     }
     // 화면을 떠났으면 이동하지 않는다. 기록이 남는 go (React의 navigate)
     if (!mounted) return;
-    // 못 올린 장수는 extra(int)로 상세 화면에 넘긴다. 0장이면 extra 없이 간다
+    // 못 올린 장수(전체·거절분)는 extra(PhotoFailure)로 상세 화면에 넘긴다. 0장이면 extra 없이 간다
     if (failed > 0) {
-      router.go('/market/$id', extra: failed);
+      router.go('/market/$id', extra: PhotoFailure(failed, rejected));
     } else {
       router.go('/market/$id');
     }

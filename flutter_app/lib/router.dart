@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart' show ValueKey, Widget;
 
 import 'auth/auth_state.dart';
+import 'market/photo_upload.dart' show PhotoFailure;
 import 'pages/admin_conversation_page.dart';
 import 'pages/admin_permits_page.dart';
 import 'pages/admin_reports_page.dart';
@@ -241,7 +242,7 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
             pageBuilder: (context, state) => _page(state, const MarketCreatePage()),
           ),
           // S16-j2: 중고·나눔 상세는 진짜 화면. id가 바뀌면 상태를 새로 만들도록 key를 id로 준다.
-          // extra(int)는 글쓰기에서 넘어온 "못 올린 사진 수" (그 밖의 모양은 없는 것으로 본다)
+          // extra(PhotoFailure)는 글쓰기에서 넘어온 "못 올린 사진 수(전체·거절분)" (그 밖의 모양은 없는 것으로 본다)
           GoRoute(
             path: '/market/:id',
             caseSensitive: false,
@@ -250,7 +251,7 @@ GoRouter createRouter({required AuthState authState, String initialLocation = '/
               final extra = state.extra;
               return _page(
                 state,
-                MarketDetailPage(key: ValueKey(id), id: id, photoFailed: extra is int ? extra : null),
+                MarketDetailPage(key: ValueKey(id), id: id, photoFailed: extra is PhotoFailure ? extra : null),
               );
             },
           ),

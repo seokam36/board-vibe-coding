@@ -96,6 +96,8 @@ abstract final class ErrorMessages {
   static const marketPhotoTooLarge = '사진 한 장은 10MB 이하여야 합니다';
   // 503: 서버의 이미지 처리 자리가 5초 안에 나지 않음
   static const marketPhotoBusy = '서버가 바쁩니다. 잠시 뒤 다시 시도해 주세요';
+  // 422: 자동 검사(구글 Vision)가 올릴 수 없는 사진으로 판단
+  static const marketPhotoRejected = '자동 검사에서 올릴 수 없는 사진으로 판단되었습니다. 다른 사진을 골라 주세요';
   // 사진 올리기 실패 기본 문구
   static const marketPhotoUploadFailed = '사진을 올리지 못했습니다';
   // 사진 지우기 409: 거래가 완료된 글

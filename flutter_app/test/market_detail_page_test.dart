@@ -9,6 +9,7 @@ import 'dart:ui' show Tristate;
 import 'package:board_web/common/format_date.dart';
 import 'package:board_web/market/market_photo_gallery.dart';
 import 'package:board_web/market/models.dart';
+import 'package:board_web/market/photo_upload.dart' show PhotoFailure;
 import 'package:board_web/theme/app_colors.dart';
 import 'package:board_web/widgets/notice.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
@@ -808,7 +809,7 @@ void main() {
     });
   });
 
-  // 글쓰기(S16-k1)는 사진을 못 올렸으면 `context.go('/market/{id}', extra: 못 올린 장수)`로 넘어온다
+  // 글쓰기(S16-k1)는 사진을 못 올렸으면 `context.go('/market/{id}', extra: PhotoFailure(못 올린 장수, 그중 거절 장수))`로 넘어온다
   group('글쓰기에서 넘어온 사진 실패 안내', () {
     const message2 = '사진 2장을 올리지 못했습니다. 수정에서 다시 올려 주세요';
 
@@ -822,7 +823,7 @@ void main() {
     }
 
     _test('안내 "사진 2장을 올리지 못했습니다. 수정에서 다시 올려 주세요"(error)가 보이고, 주소는 extra 없는 같은 주소로 "교체"된다', (tester) async {
-      final (app, nav) = await arrive(tester, _adapter(), 2);
+      final (app, nav) = await arrive(tester, _adapter(), const PhotoFailure(2, 0));
       expect(_notice(message2), findsOneWidget);
       expect(_kind(tester, message2), NoticeKind.error);
       expect(find.text('전공 서적 팝니다'), findsOneWidget);
@@ -835,13 +836,13 @@ void main() {
     });
 
     _test('1장이면 "사진 1장을 올리지 못했습니다. 수정에서 다시 올려 주세요"', (tester) async {
-      await arrive(tester, _adapter(), 1);
+      await arrive(tester, _adapter(), const PhotoFailure(1, 0));
       expect(find.text('사진 1장을 올리지 못했습니다. 수정에서 다시 올려 주세요'), findsOneWidget);
     });
 
     _test('한 번만 보인다: 다른 화면에 갔다가 같은 글로 돌아오면(extra 없음) 안내가 없다', (tester) async {
       final adapter = _adapter()..on('GET', '/market-items/7', FakeReply(200, marketDetailJson()));
-      final (app, _) = await arrive(tester, adapter, 2);
+      final (app, _) = await arrive(tester, adapter, const PhotoFailure(2, 0));
       expect(_notice(message2), findsOneWidget);
       app.router.go('/admin/reports');
       await tester.pumpAndSettle();
@@ -853,7 +854,7 @@ void main() {
 
     _test('다른 글(/market/8)로 옮기면 안내는 0으로 사라진다', (tester) async {
       final adapter = _adapter()..on('GET', '/market-items/8', FakeReply(200, marketDetailJson(id: 8, title: '다른 글')));
-      final (app, _) = await arrive(tester, adapter, 2);
+      final (app, _) = await arrive(tester, adapter, const PhotoFailure(2, 0));
       app.router.go('/market/8');
       await tester.pumpAndSettle();
       expect(find.text('다른 글'), findsOneWidget);
@@ -861,7 +862,7 @@ void main() {
     });
 
     _test('0이면 안내는 없지만 기록은 교체된다 (실패한 사진이 없을 때도 extra는 지운다)', (tester) async {
-      final (app, nav) = await arrive(tester, _adapter(), 0);
+      final (app, nav) = await arrive(tester, _adapter(), const PhotoFailure(0, 0));
       expect(find.textContaining('올리지 못했습니다'), findsNothing);
       expect(nav.last.replace, isTrue);
       expect(app.router.routerDelegate.currentConfiguration.extra, isNull);
@@ -883,7 +884,7 @@ void main() {
     });
 
     _test('글을 못 불러와도(404) 안내는 보이고, 글이 있을 때처럼 [목록으로]도 있다', (tester) async {
-      await arrive(tester, _adapter(item: FakeReply(404)), 2);
+      await arrive(tester, _adapter(item: FakeReply(404)), const PhotoFailure(2, 0));
       expect(_notice(message2), findsOneWidget);
       expect(find.text('글을 찾을 수 없습니다'), findsOneWidget);
       expect(_toList, findsOneWidget);
