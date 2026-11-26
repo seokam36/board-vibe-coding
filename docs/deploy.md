@@ -759,6 +759,72 @@ S24(비자 만료 전 휴대폰 알림)를 운영에 올립니다. 서버가 구
 - **주의**: 위 "(a) 이전 이미지로 되돌리기"의 주의 박스와 같습니다. 이미지를 SHA로 고정해 두면 **다음 Deploy도 옛 이미지를 받습니다.** 고친 새 `latest`가 올라온 뒤(Actions 초록) `cp docker-compose.yml.bak-s24-new docker-compose.yml` 로 되돌리고 `grep 'image: seokam36' docker-compose.yml` 로 두 줄이 `:latest`인지 확인한 다음 Deploy를 누릅니다.
 - **앱(APK)**: 서버와 따로입니다. 푸시를 끄면 앱은 알림만 안 올 뿐 그대로 씁니다. 앱의 [알림 켜기]는 서버가 되돌아가 있어도 "알림이 켜져 있어요"로 보입니다(폰 권한 기준이고, 옛 서버에 없는 등록 API 실패는 조용히 넘어감). 알림만 안 옵니다.
 
+## S30 사진 자동 검사 배포 (중고 사진 SafeSearch)
+S30(중고 글 사진을 올릴 때 구글이 자동으로 검사)을 운영에 올립니다. **확실히 부적절하면 422로 거절**, **애매하면 사진은 저장하고 관리자 신고 목록에 자동 신고**합니다. 검사가 실패하거나 꺼져 있거나 하루 상한을 넘으면 검사 없이 그냥 통과합니다(글쓰기를 막지 않기 위해서). 이번에는 **compose가 바뀝니다**(위 "자동 배포"의 규칙: compose를 바꾼 배포는 Deploy 버튼만으로 안 되고 백업·scp를 먼저 합니다). S20처럼 **두 번에 나눠 켭니다**: 먼저 꺼진 채로 올려 보고, 괜찮으면 켭니다. 왜: 새 코드와 DB 변경이 문제없이 뜨는지와 구글 검사가 되는지를 한 번에 겹쳐 보면 원인을 찾기 어렵습니다.
+
+메모:
+- 바뀌는 것: (1) 사진 검사 코드, (2) DB V18(`reports.source` 열: 신고가 사람이 한 것 `USER`인지 자동 `AUTO`인지 구분), (3) compose에 `MARKET_SAFESEARCH_MODE`·`MARKET_SAFESEARCH_PER_DAY`·`MARKET_SAFESEARCH_TIMEOUT` 3줄. V18은 Deploy가 Flyway로 자동 적용하고, 배포 직전에 DB를 자동 백업합니다.
+- **키는 새로 만들지 않습니다.** 허가서 판독과 같은 `VISION_API_KEY`를 씁니다(운영 `.env`에 이미 있고 compose가 이미 앱에 넘깁니다). Google Cloud에서 이 키의 "API 제한"이 Cloud Vision API로 돼 있으면 SafeSearch도 같은 API라서 **키 설정을 바꿀 필요가 없습니다.**
+- 서버 설정: `.env`에는 **`MARKET_SAFESEARCH_MODE=vision` 한 줄만** 넣으면 됩니다(`off` 기본). `MARKET_SAFESEARCH_PER_DAY`(기본 30)·`MARKET_SAFESEARCH_TIMEOUT`(기본 5초)는 기본값 그대로 쓰므로 `.env`에 안 적습니다. 대기 시간(`MARKET_SAFESEARCH_SLOT_WAIT`, 기본 2초)은 compose에 넣지 않았습니다(앱 기본값으로 충분하고, nginx의 150초 대기 계산에 이미 들어 있습니다).
+- 비용: 구글 무료는 **기능별로 월 1,000건**이라 허가서 판독(글자 읽기)과 따로 셉니다. 사진 검사는 **하루 30건 상한**(30 x 31 = 930건, 월 1,000 안)이고 허가서 하루 상한과도 따로 셉니다. 상한을 넘으면 그날은 검사 없이 통과합니다.
+- **사진이 구글로 전송됩니다.** 중고 글쓰기 화면에 그 안내 문구가 이미 들어 있습니다. 로그에는 사진·키·응답 본문을 남기지 않고 결과(`사진 검사: PASS` 등)만 남깁니다.
+- web(화면) 이미지도 새 커밋이라 같이 배포됩니다(거절 안내·관리자 "자동 탐지" 표시가 바뀜).
+- 직전(S28·S29) 이미지: `seokam36/demo:bdf93c7ea5f62b4efee529ada302418774eb15e5`, `seokam36/demo-web:bdf93c7ea5f62b4efee529ada302418774eb15e5` — 되돌리기는 아래 "S30 되돌리기".
+
+준비 (Deploy 버튼 누르기 전). **IP는 EC2를 켠 뒤 AWS 콘솔에서 보는 값입니다. 아래 `ssh`·`scp` 명령은 메인 대화가 IP(와 키 파일 이름)를 받아서 완성해 줍니다**(이 문서에는 자리표시를 두지 않고 명령의 모양만 적습니다). 사용자 PowerShell은 `C:\Windows\System32`에서 열려 있을 수 있어서 **파일은 항상 전체 경로**로 씁니다. ssh·scp는 `& "C:\Windows\System32\OpenSSH\ssh.exe" -i "$HOME\.ssh\board-ec2" ec2-user@...` 형식입니다. **노트북은 사용자 폴더 이름이 한글이라 `$HOME` 대신 `$env:USERPROFILE`을 쓰는 게 안전합니다**(`-i "$env:USERPROFILE\.ssh\board-ec2"`).
+1. **[PC]** 이번 커밋의 CI 세 작업(backend, flutter, images)이 모두 초록인지 GitHub Actions 탭에서 봅니다(images가 초록이어야 새 이미지가 올라가 있습니다). 그리고 서버를 켜고 1~5분 DNS를 기다립니다.
+2. **[PC → 서버]** 서버의 현재 compose를 백업합니다. 왜: 되돌리기용. 명령 모양: `ssh ... 'cp ~/board/docker-compose.yml ~/board/docker-compose.yml.bak-s30'` (이미 `.bak-s30`이 있으면 덮어쓰지 말고 다른 이름으로).
+3. **[PC → 서버]** 새 compose를 서버로 복사합니다. 왜: Deploy 버튼은 서버의 compose를 바꾸지 않아서, 안 올리면 `MARKET_SAFESEARCH_*`가 앱에 전달되지 않습니다. 명령 모양(저장소의 파일을 전체 경로로): 이 노트북은 `C:\Users\주석암\OneDrive\Desktop\board-vibe-coding\docker-compose.yml`, 집 PC는 `C:\Users\seoka\IdeaProjects\board-vibe-coding\docker-compose.yml` 입니다. `& "C:\Windows\System32\OpenSSH\scp.exe" -i "$env:USERPROFILE\.ssh\board-ec2" "(위 전체 경로)" ec2-user@(IP):~/board/docker-compose.yml`
+4. **[브라우저]** Actions 탭 -> Deploy -> Run workflow (위 "자동 배포"와 같음). 새 이미지를 받고 Flyway가 V18을 적용합니다. 아직 `.env`에 `MARKET_SAFESEARCH_MODE`가 없어 **`off`로 뜹니다**(DB만 바뀌고 동작은 예전과 같음). DB 백업·헬스체크가 모두 초록이어야 합니다. (버튼을 못 쓰면 **[서버]** `cd ~/board && docker compose --profile prod pull && docker compose --profile prod up -d`.)
+5. **[확인, 꺼진 상태]** 아래를 모두 봅니다.
+   - **[브라우저]** `https://<사이트주소>/actuator/health` 가 `UP`.
+   - **[서버]** `docker logs board-app 2>&1 | grep -c '사진 검사: 꺼짐'` 이 `1` 이상.
+   - **[서버]** `docker exec board-postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT version, success FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 3;"'` 에서 `18 | t` 가 보이는지(`f`가 있으면 아래 "Flyway(표 변경) 문제와 되돌리기"로).
+   - **[브라우저]** 관리자로 신고 목록이 열리는지(V18 뒤에도 기존 신고가 보여야 합니다).
+6. **[서버]** 이제 켭니다. `.env`에 한 줄을 넣습니다. **`cat .env`나 `echo ... >> .env`는 쓰지 않고 편집기로 고칩니다**(`.env`에는 다른 비밀 값이 많습니다).
+   - `nano ~/board/.env` 를 열고 **nano 화면이 뜬 것을 확인한 뒤** 맨 아래에 `MARKET_SAFESEARCH_MODE=vision` 한 줄을 적습니다(이미 같은 이름의 줄이 있으면 새로 만들지 말고 고칩니다). `=` 앞뒤에 띄어쓰기·따옴표를 넣지 않습니다. 저장은 `Ctrl+O` 엔터 -> `Ctrl+X`.
+   - 확인: `grep -c '^MARKET_SAFESEARCH_MODE=vision$' ~/board/.env` 가 `1`, `grep -c '^VISION_API_KEY=' ~/board/.env` 가 `1`(키 줄이 있는지만 세고 값은 보지 않습니다).
+   - **허가서 해시 비밀이 안 바뀌었는지 확인**(앱을 다시 띄우기 전에 항상): `grep -cxF "PERMIT_HASH_SECRET=$(docker exec board-app printenv PERMIT_HASH_SECRET)" ~/board/.env` 가 `1`(0이면 **멈추고** `.env`를 다시 봅니다. 이 값은 절대 바꾸지 않습니다). `ls -l ~/board/.env` 가 `-rw-------` 인지도 봅니다.
+   - 앱을 새 환경변수로 다시 만듭니다: `cd ~/board && docker compose --profile prod up -d app` (단순 `restart`는 `.env`를 다시 읽지 않습니다. 몇 초 끊김).
+7. **[확인, 켠 상태]**
+   - `docker exec board-app printenv MARKET_SAFESEARCH_MODE` 가 `vision` (키는 `printenv`로 보지 않습니다).
+   - `docker logs board-app 2>&1 | grep -c '사진 검사: vision 켜짐'` 이 `1` 이상(로그 "사진 검사: vision 켜짐, 시간 상한 5초, 하루 상한 30건").
+   - `docker stats --no-stream board-app` 의 메모리가 `512MiB` 미만이고, `docker ps` 에서 `board-app`이 `Restarting`이 아니고 `Up` 시간이 늘어나는지 봅니다.
+   - **[브라우저]** 기존 기능 3가지(글 목록, 중고 글 상세, 새로고침해도 로그인 유지)를 봅니다.
+
+문제 해결
+- 앱이 시작 때 실패하고 로그에 `MARKET_SAFESEARCH_MODE는 off, vision 중 하나여야 합니다`: `.env`의 값 철자·공백을 봅니다(`grep -c '^MARKET_SAFESEARCH_MODE=vision$' ~/board/.env`). 빈 값(`MARKET_SAFESEARCH_MODE=`)도 compose가 `off`로 채워 주지만 다른 철자(`on`, `Vision` 등)는 시작 실패입니다. 급하면 아래 "검사 끄기".
+- 시작 실패 `MARKET_SAFESEARCH_MODE=vision인데 VISION_API_KEY가 비어 있습니다`: `.env`에 `VISION_API_KEY=` 줄이 있고 값이 비지 않았는지 `grep -c '^VISION_API_KEY=.' ~/board/.env` (`1`이어야 함)로 봅니다. 값은 화면에 띄우지 않습니다.
+- 로그 `사진 검사 하루 상한(30건)에 도달했습니다` 경고: 그날 30건을 다 썼다는 뜻입니다. 정상 동작이고 그날 남은 사진은 검사 없이 통과합니다. 서울 날짜가 바뀌면 다시 셉니다. 자주 뜨면 사진이 그만큼 많다는 뜻이니 `MARKET_SAFESEARCH_PER_DAY`를 올리기 전에 월 무료 1,000건을 먼저 따져 봅니다.
+- 로그 `사진 검사 호출 실패: HTTP 403`: 구글이 거절한 것입니다. Google Cloud 콘솔에서 (1) 키의 "API 제한"에 Cloud Vision API가 들어 있는지, (2) 프로젝트 결제(청구) 계정이 연결돼 있는지 봅니다. 이 경우에도 사진 올리기는 막히지 않고 검사만 건너뜁니다.
+- 로그 `HTTP 429`: 구글이 "너무 자주 부른다/무료 한도 초과"라고 한 것입니다. 잠시 뒤 다시 되는지 보고, 계속되면 월 사용량을 콘솔에서 봅니다. 사진 올리기는 막히지 않습니다.
+
+**검사 끄기** (이미지를 되돌릴 필요가 없습니다)
+1. **[서버]** `nano ~/board/.env` 에서 `MARKET_SAFESEARCH_MODE=vision` 을 `MARKET_SAFESEARCH_MODE=off` 로 바꿉니다(줄을 지워도 같습니다).
+2. **[서버]** 앞의 `PERMIT_HASH_SECRET` 확인 명령을 치고(`1`이어야 함), `cd ~/board && docker compose --profile prod up -d app` — 환경변수가 바뀌어 app이 새로 만들어집니다.
+3. 확인: `docker logs board-app 2>&1 | grep -c '사진 검사: 꺼짐'` 이 `1` 이상.
+
+### 운영 시험 (테스트 계정으로 1회)
+운영 테스트 계정(`wntjrdka`)으로 확인합니다.
+1. **[브라우저]** 중고 글쓰기에서 **평범한 사진 1장**(풍경·물건처럼 개인정보 없는 것)만 올려 글이 정상으로 등록되는지 봅니다.
+2. **[서버]** `docker logs --since 10m board-app 2>&1 | grep '사진 검사'` 에 `사진 검사: PASS` 줄이 있는지 봅니다.
+3. **[서버]** 로그에 키가 없는지: `docker logs board-app 2>&1 | grep -c 'x-goog-api-key'` 가 `0`.
+4. **[브라우저]** 시험 글은 끝나면 지웁니다.
+- **막히는 사진·선정적인 사진으로 운영 시험을 하지 않습니다.** 막기(422)와 자동 신고는 자동 테스트로 이미 확인했고, 운영에서 그런 사진을 구글에 보내거나 서버에 남길 이유가 없습니다.
+
+### S30 되돌리기 (문제가 있을 때만)
+- **먼저 검사만 끄면 되는 문제인지** 봅니다(위 "검사 끄기"). 사진 검사 문제는 대부분 이걸로 충분하고 이미지·compose를 되돌릴 필요가 없습니다.
+- 이미지·compose까지 되돌릴 때: 직전 이미지는 app `seokam36/demo:bdf93c7ea5f62b4efee529ada302418774eb15e5`, web `seokam36/demo-web:bdf93c7ea5f62b4efee529ada302418774eb15e5`.
+  1. **[서버]** `cd ~/board && cp docker-compose.yml docker-compose.yml.bak-s30-new` — 지금 compose 보관(이미 있으면 다른 이름).
+  2. **[서버]** `cp docker-compose.yml.bak-s30 docker-compose.yml` — `MARKET_SAFESEARCH_*`가 없던 옛 compose로 복귀. (`.env`의 `MARKET_SAFESEARCH_MODE=vision` 줄은 옛 compose가 앱에 안 넘기므로 무해합니다. 지워도 됩니다.)
+  3. **[서버]** `sed -i 's#image: seokam36/demo:latest#image: seokam36/demo:bdf93c7ea5f62b4efee529ada302418774eb15e5#; s#image: seokam36/demo-web:latest#image: seokam36/demo-web:bdf93c7ea5f62b4efee529ada302418774eb15e5#' docker-compose.yml` 그리고 `grep 'image: seokam36' docker-compose.yml` 로 두 줄이 `bdf93c7...` 인지 확인합니다.
+  4. **[서버]** `.env` 확인(앱을 다시 띄우기 전에): `grep -cxF "PERMIT_HASH_SECRET=$(docker exec board-app printenv PERMIT_HASH_SECRET)" ~/board/.env` 가 `1`.
+  5. **[서버]** `docker compose --profile prod pull app web && docker compose --profile prod up -d app web` 후 `https://<사이트주소>/actuator/health` 가 UP이고 글 목록이 뜨는지 봅니다.
+- **DB(V18)는 되돌리지 않습니다.** 옛 앱의 Report 엔티티에는 `source`가 없지만, 표 구조 검사(`ddl-auto: validate`)는 엔티티에 없는 **남는 열**을 문제 삼지 않습니다. 옛 앱이 새 신고를 넣으면 열 기본값 `'USER'`가 채워져 CHECK 규칙도 통과합니다. 단 이미 `AUTO` 신고 행이 있으면 옛 관리자 화면에서 그 신고의 신고자가 "탈퇴한 회원"처럼 보입니다(자동 신고는 신고자가 없어서이고, 무해합니다).
+- **주의**: 위 "(a) 이전 이미지로 되돌리기"의 주의 박스와 같습니다. 이미지를 SHA로 고정해 두면 **다음 Deploy도 옛 이미지를 받습니다.** 고친 새 `latest`가 올라온 뒤(Actions 초록) `cp docker-compose.yml.bak-s30-new docker-compose.yml` 로 되돌리고 `grep 'image: seokam36' docker-compose.yml` 로 두 줄이 `:latest`인지 확인한 다음 Deploy를 누릅니다.
+
+**키가 보이는 명령 주의**: `cat ~/board/.env`, `docker compose config`, `printenv`(이름 없이 전체 출력), `docker inspect board-app` 은 `VISION_API_KEY` 같은 비밀이 화면에 나오니 쓰지 않습니다. 값을 봐야 하면 위처럼 `grep -c`(개수만)나 이름을 지정한 `printenv MARKET_SAFESEARCH_MODE`처럼 비밀이 아닌 값만 봅니다. 혹시 화면·대화에 키가 나왔다면 Google Cloud 콘솔에서 그 키를 새로 만들고 `.env`를 고칩니다.
+
 ## 웹 화면: Flutter로 교체 (S16-n2)
 운영 `web` 이미지가 React에서 **Flutter 웹**(`flutter_app/`)으로 바뀌었습니다. `/v2` 같은 별도 주소 없이 통째로 교체합니다.
 - 이미지 이름은 그대로 `seokam36/demo-web`(`:latest`, `:<커밋 SHA>`)이라 **EC2의 `docker-compose.yml`을 바꿀 필요가 없습니다**(포트 80, 볼륨 없음, healthcheck 없음 - Flutter 이미지와 그대로 맞음. Deploy 워크플로의 헬스체크는 `/actuator/health`를 nginx 경유로 부르는데 Flutter nginx.conf에도 같은 블록이 있습니다).

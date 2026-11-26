@@ -123,6 +123,13 @@ services:
       # 빈 값이면 숫자 읽기에 실패하므로 :-로 30을 채운다. 0이면 상한 끔, 음수면 앱이 시작 실패.
       # 월 무료 1,000건 안에 들도록 30 x 31 = 930. 넘으면 구글을 안 부르고 관리자 대기로 남긴다
       VISION_GLOBAL_PER_DAY: ${VISION_GLOBAL_PER_DAY:-30}
+      # 중고 사진 자동 검사(S30, 구글 SafeSearch): off(기본, 검사 안 함) | vision(켬). 서버 .env에 안 적으면 off.
+      # 빈 값이면 앱이 시작 실패하므로 :-로 off를 채운다. 키는 위 허가서 판독과 같은 VISION_API_KEY를 쓰므로 새로 넘기지 않는다.
+      MARKET_SAFESEARCH_MODE: ${MARKET_SAFESEARCH_MODE:-off}
+      # 사진 검사 하루 상한(허가서 상한과 따로 셈). 월 무료 1,000건 안에 들도록 30 x 31 = 930. 넘으면 검사 없이 통과
+      MARKET_SAFESEARCH_PER_DAY: ${MARKET_SAFESEARCH_PER_DAY:-30}
+      # 사진 검사 구글 호출 시간 상한. 넘으면 검사 실패로 보고 그냥 통과
+      MARKET_SAFESEARCH_TIMEOUT: ${MARKET_SAFESEARCH_TIMEOUT:-5s}
       # 비자 일정 푸시 알림(S24): off(기본, 알림을 안 보냄) | fcm(구글 FCM으로 보냄). 서버 .env에 안 적으면 off.
       # 빈 값이면 앱이 시작 실패하므로 :-로 off를 채운다. 켜려면 서버 .env에 PUSH_MODE=fcm (키 파일이 읽혀야 함, 아래 volumes)
       PUSH_MODE: ${PUSH_MODE:-off}
